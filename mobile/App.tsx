@@ -1,10 +1,7 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,112 +9,182 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { postChat } from "./services/api";
-
-type Role = "user" | "assistant" | "error";
-type Message = { id: string; role: Role; text: string };
+import {
+  checkAnswer,
+  getExercise,
+  type CheckResult,
+  type Exercise,
+} from "./services/api";
 
 export default function App() {
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [exercise, setExercise] = useState<Exercise | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [result, setResult] = useState<CheckResult | null>(null);
+  const [loading, setLoading] = useState(false); // fetching a new exercise
+  const [checking, setChecking] = useState(false); // checking the answer
+  const [error, setError] = useState<string | null>(null);
 
-  async function onSend() {
-    const text = input.trim();
-    if (!text || loading) return;
-
-    setMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: "user", text }]);
-    setInput("");
+  const loadExercise = useCallback(async () => {
     setLoading(true);
+    setError(null);
+    setResult(null);
+    setAnswer("");
+    setExercise(null);
     try {
-      const reply = await postChat(text);
-      setMessages((prev) => [...prev, { id: `${Date.now()}-a`, role: "assistant", text: reply }]);
+      setExercise(await getExercise());
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Request failed";
-      setMessages((prev) => [...prev, { id: `${Date.now()}-e`, role: "error", text: msg }]);
+      setError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    loadExercise();
+  }, [loadExercise]);
+
+  async function onCheck() {
+    if (!exercise || !answer.trim() || checking) return;
+    setChecking(true);
+    setError(null);
+    try {
+      setResult(await checkAnswer(exercise, answer.trim()));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to check answer");
+    } finally {
+      setChecking(false);
+    }
   }
 
+  const isChoice = (exercise?.options?.length ?? 0) > 0;
+
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Grammar Dojo — Chat</Text>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Grammar Dojo</Text>
 
-      <FlatList
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-        data={messages}
-        keyExtractor={(m) => m.id}
-        renderItem={({ item }) => (
-          <View style={[styles.bubble, BUBBLE[item.role]]}>
-            <Text style={item.role === "error" ? styles.errorText : styles.bubbleText}>
-              {item.text}
-            </Text>
-          </View>
-        )}
-        ListEmptyComponent={<Text style={styles.hint}>Ask the model something…</Text>}
-      />
+      {loading && <ActivityIndicator style={{ marginTop: 40 }} />}
 
-      {loading && (
-        <View style={styles.thinking}>
-          <ActivityIndicator />
-          <Text style={styles.hint}>  model is thinking…</Text>
+      {error && !loading && (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={loadExercise}>
+            <Text style={styles.secondaryText}>Try again</Text>
+          </TouchableOpacity>
         </View>
       )}
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.input}
-            placeholder="Type a message"
-            value={input}
-            onChangeText={setInput}
-            editable={!loading}
-            onSubmitEditing={onSend}
-          />
-          <TouchableOpacity
-            style={[styles.sendBtn, (loading || !input.trim()) && styles.sendBtnDisabled]}
-            onPress={onSend}
-            disabled={loading || !input.trim()}
-          >
-            <Text style={styles.sendText}>Send</Text>
-          </TouchableOpacity>
+      {exercise && !loading && (
+        <View style={styles.card}>
+          <Text style={styles.topic}>{exercise.topic}</Text>
+          <Text style={styles.exerciseText}>{exercise.text}</Text>
+
+          {/* Answer input: options for choose-the-word, free text otherwise */}
+          {isChoice ? (
+            <View style={styles.options}>
+              {exercise.options.map((opt) => (
+                <TouchableOpacity
+                  key={opt}
+                  style={[styles.option, answer === opt && styles.optionSelected]}
+                  onPress={() => !result && setAnswer(opt)}
+                  disabled={!!result}
+                >
+                  <Text style={[styles.optionText, answer === opt && styles.optionTextSelected]}>
+                    {opt}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <TextInput
+              style={styles.input}
+              placeholder="Your answer"
+              value={answer}
+              onChangeText={setAnswer}
+              editable={!result}
+              autoCapitalize="none"
+            />
+          )}
+
+          {/* Check button (hidden once we have a result) */}
+          {!result && (
+            <TouchableOpacity
+              style={[styles.primaryBtn, (!answer.trim() || checking) && styles.btnDisabled]}
+              onPress={onCheck}
+              disabled={!answer.trim() || checking}
+            >
+              {checking ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Check</Text>}
+            </TouchableOpacity>
+          )}
+
+          {/* Result */}
+          {result && (
+            <View style={styles.result}>
+              <Text style={[styles.verdict, result.correct ? styles.ok : styles.bad]}>
+                {result.correct ? "✓ Correct" : "✗ Not quite"}
+              </Text>
+              {!result.correct && (
+                <Text style={styles.answerLine}>Answer: {result.correct_answer}</Text>
+              )}
+              <Text style={styles.explanation}>{result.explanation}</Text>
+              {!!result.tip && <Text style={styles.tip}>💡 {result.tip}</Text>}
+              <TouchableOpacity style={styles.primaryBtn} onPress={loadExercise}>
+                <Text style={styles.primaryText}>Next exercise</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
-      </KeyboardAvoidingView>
+      )}
 
       <StatusBar style="auto" />
-    </SafeAreaView>
+    </ScrollView>
   );
 }
 
-const BUBBLE: Record<Role, object> = {
-  user: { alignSelf: "flex-end", backgroundColor: "#0a7d28" },
-  assistant: { alignSelf: "flex-start", backgroundColor: "#eee" },
-  error: { alignSelf: "flex-start", backgroundColor: "#fdecea" },
-};
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 16 },
-  title: { fontSize: 20, fontWeight: "600", marginBottom: 8, textAlign: "center" },
-  list: { flex: 1 },
-  listContent: { gap: 8, paddingVertical: 8 },
-  bubble: { maxWidth: "85%", borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 },
-  bubbleText: { fontSize: 16, color: "#111" },
-  errorText: { fontSize: 15, color: "#c0392b" },
-  hint: { color: "#888", textAlign: "center", marginTop: 16 },
-  thinking: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 6 },
-  inputRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 8 },
+  screen: { flex: 1, backgroundColor: "#fff" },
+  content: { padding: 20, paddingTop: 60, gap: 16 },
+  title: { fontSize: 24, fontWeight: "700", textAlign: "center" },
+  card: { gap: 14 },
+  topic: {
+    alignSelf: "flex-start",
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0a7d28",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  exerciseText: { fontSize: 19, lineHeight: 26, color: "#111" },
   input: {
-    flex: 1,
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     fontSize: 16,
   },
-  sendBtn: { backgroundColor: "#0a7d28", borderRadius: 10, paddingHorizontal: 18, paddingVertical: 11 },
-  sendBtnDisabled: { backgroundColor: "#9bbfa5" },
-  sendText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  options: { gap: 10 },
+  option: { borderWidth: 1, borderColor: "#ccc", borderRadius: 10, padding: 14 },
+  optionSelected: { borderColor: "#0a7d28", backgroundColor: "#eaf7ee" },
+  optionText: { fontSize: 16, color: "#111" },
+  optionTextSelected: { color: "#0a7d28", fontWeight: "600" },
+  primaryBtn: {
+    backgroundColor: "#0a7d28",
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  primaryText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  btnDisabled: { backgroundColor: "#9bbfa5" },
+  secondaryBtn: { paddingVertical: 10, alignItems: "center" },
+  secondaryText: { color: "#0a7d28", fontWeight: "600", fontSize: 16 },
+  result: { gap: 8, marginTop: 4 },
+  verdict: { fontSize: 18, fontWeight: "700" },
+  ok: { color: "#0a7d28" },
+  bad: { color: "#c0392b" },
+  answerLine: { fontSize: 16, fontWeight: "600", color: "#111" },
+  explanation: { fontSize: 16, lineHeight: 22, color: "#333" },
+  tip: { fontSize: 15, color: "#555", fontStyle: "italic" },
+  errorBox: { gap: 8, marginTop: 20 },
+  errorText: { fontSize: 15, color: "#c0392b", textAlign: "center" },
 });

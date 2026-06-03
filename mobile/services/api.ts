@@ -28,23 +28,54 @@ function resolveBaseUrl(): string {
 
 export const BASE_URL = resolveBaseUrl();
 
-export async function postChat(message: string): Promise<string> {
-  const res = await fetch(`${BASE_URL}/chat`, {
+async function request<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     // Backend returns {detail: "..."} for errors (e.g. 503 when Ollama is down).
     let detail = `Backend error ${res.status}`;
     try {
-      const body = (await res.json()) as { detail?: string };
-      if (body?.detail) detail = body.detail;
+      const data = (await res.json()) as { detail?: string };
+      if (data?.detail) detail = data.detail;
     } catch {
       // non-JSON error body — keep the generic message
     }
     throw new Error(detail);
   }
-  const data = (await res.json()) as { reply: string };
+  return (await res.json()) as T;
+}
+
+export type Exercise = {
+  type: string;
+  text: string;
+  options: string[];
+  topic: string;
+};
+
+export type CheckResult = {
+  correct: boolean;
+  correct_answer: string;
+  explanation: string;
+  tip: string;
+};
+
+export async function postChat(message: string): Promise<string> {
+  const data = await request<{ reply: string }>("/chat", { message });
   return data.reply;
+}
+
+export function getExercise(): Promise<Exercise> {
+  return request<Exercise>("/exercise", {});
+}
+
+export function checkAnswer(exercise: Exercise, userAnswer: string): Promise<CheckResult> {
+  return request<CheckResult>("/check-answer", {
+    type: exercise.type,
+    text: exercise.text,
+    options: exercise.options,
+    user_answer: userAnswer,
+  });
 }
