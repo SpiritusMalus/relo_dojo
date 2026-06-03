@@ -1,11 +1,11 @@
-"""Pydantic request/response schemas — validation on the boundary (handoff standard §5)."""
+"""Pydantic request/response schemas — validation on the boundary (handoff standard)."""
 
 from pydantic import BaseModel
 
 
-class EchoIn(BaseModel):
-    text: str
+class ChatIn(BaseModel):
+    message: str
 
 
-class EchoOut(BaseModel):
-    text: str
+class ChatOut(BaseModel):
+    reply: str
