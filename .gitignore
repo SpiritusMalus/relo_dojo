@@ -1,0 +1,29 @@
+# === Claude / agent files (never commit) ===
+CLAUDE.md
+.claude/
+
+# === Python (backend) ===
+backend/.venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# === Node / Expo (mobile) ===
+node_modules/
+mobile/node_modules/
+.expo/
+mobile/.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# === Secrets / env ===
+.env
+*.env
+!*.env.example
+
+# === OS / editor ===
+.DS_Store
+*.log
