@@ -46,13 +46,8 @@ async def exercise() -> ExerciseOut:
         data = await grammar.generate_exercise()
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    # The answer stays server-side; only show what the learner needs.
-    return ExerciseOut(
-        type=data["type"],
-        text=data["text"],
-        options=data.get("options", []),
-        topic=data["topic"],
-    )
+    # grammar guarantees keys; the correct answer stays server-side (not in ExerciseOut).
+    return ExerciseOut(**data)
 
 
 @app.post("/check-answer", response_model=CheckOut)
@@ -63,9 +58,4 @@ async def check_answer(payload: CheckIn) -> CheckOut:
         )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return CheckOut(
-        correct=bool(data["correct"]),
-        correct_answer=str(data["correct_answer"]),
-        explanation=str(data["explanation"]),
-        tip=str(data["tip"]),
-    )
+    return CheckOut(**data)
