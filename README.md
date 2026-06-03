@@ -13,22 +13,34 @@ backend/   FastAPI service (Python)
 mobile/    Expo app (React Native + TypeScript)
 ```
 
-## Phase 0 — skeleton & connectivity
+## Status
 
-Goal: prove the phone and backend can talk. Backend exposes `GET /health` and a mock
-`POST /echo`; the app sends text and shows the echoed reply.
+- **Phase 0 — done:** skeleton + phone↔backend connectivity (mock `/echo`, now removed).
+- **Phase 1 — current:** real chat backed by a self-hosted LLM (Ollama). Backend exposes
+  `GET /health` and `POST /chat`; the app is a simple chat screen.
+
+### Ollama (one-time)
+
+```bash
+brew install ollama           # or download from ollama.ai
+ollama serve                  # start the server (keep running)
+ollama pull gemma3:4b         # download a model (set the same name in backend/.env)
+```
+
+Model name is read from `OLLAMA_MODEL` in `backend/.env` (default `gemma3:4b`). See `.env.example`.
 
 ### Run the backend
 
 ```bash
 cd backend
-python3 -m venv .venv
+python3 -m venv .venv          # first time only
 source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Health check: `curl http://localhost:8000/health` → `{"status":"ok"}`
+Chat check: `curl -X POST localhost:8000/chat -H 'Content-Type: application/json' -d '{"message":"hi"}'`
 
 ### Run the mobile app
 
@@ -45,4 +57,5 @@ Open **Expo Go** on a phone connected to the **same Wi-Fi** and scan the QR code
 
 ### Done when
 
-Type `hello` in the app → see `hello` returned from the backend.
+With Ollama running and a model pulled: type a question in the app → get a sensible answer from
+the model. (If Ollama is down, the app shows a clear error instead of crashing.)
