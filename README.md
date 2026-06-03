@@ -24,10 +24,10 @@ mobile/    Expo app (React Native + TypeScript)
 ```bash
 brew install ollama           # or download from ollama.ai
 ollama serve                  # start the server (keep running)
-ollama pull llama3.2          # download a model (set the same name in backend/.env)
+ollama pull gemma3:4b         # download a model (set the same name in backend/.env)
 ```
 
-Model name is read from `OLLAMA_MODEL` in `backend/.env` (default `llama3.2`). See `.env.example`.
+Model name is read from `OLLAMA_MODEL` in `backend/.env` (default `gemma3:4b`). See `.env.example`.
 
 ### Run the backend
 
