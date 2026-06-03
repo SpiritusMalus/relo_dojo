@@ -18,16 +18,21 @@ class OllamaError(Exception):
     """Raised for user-actionable Ollama problems (not running, model missing, bad output)."""
 
 
-async def generate(prompt: str, *, fmt: dict[str, Any] | str | None = None) -> str:
+async def generate(
+    prompt: str, *, fmt: dict[str, Any] | str | None = None, temperature: float | None = None
+) -> str:
     """Send a prompt to Ollama and return the model's reply text.
 
     `fmt` may be a JSON schema dict (or the string "json") to force structured output —
     essential for small models to return parseable JSON reliably.
+    `temperature` (when set) controls randomness: lower = more deterministic.
     """
     url = f"{OLLAMA_URL}/api/generate"
     payload: dict[str, Any] = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
     if fmt is not None:
         payload["format"] = fmt
+    if temperature is not None:
+        payload["options"] = {"temperature": temperature}
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(url, json=payload)
@@ -48,9 +53,11 @@ async def generate(prompt: str, *, fmt: dict[str, Any] | str | None = None) -> s
     return str(data.get("response", "")).strip()
 
 
-async def generate_json(prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
+async def generate_json(
+    prompt: str, schema: dict[str, Any], *, temperature: float | None = None
+) -> dict[str, Any]:
     """Generate JSON constrained to `schema` and parse it. Raises OllamaError on bad JSON."""
-    raw = await generate(prompt, fmt=schema)
+    raw = await generate(prompt, fmt=schema, temperature=temperature)
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:

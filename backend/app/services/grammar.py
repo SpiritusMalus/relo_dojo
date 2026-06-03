@@ -10,6 +10,7 @@ from __future__ import annotations
 import random
 from typing import Any
 
+from ..core.config import CHECK_TEMPERATURE, EXERCISE_TEMPERATURE
 from .ollama_client import OllamaError, generate_json
 
 # Prepended to prompts that embed user input: reduces prompt-injection influence on output.
@@ -88,7 +89,9 @@ async def generate_exercise() -> dict[str, Any]:
     """Generate a new exercise. Returns the full dict including 'answer'."""
     topic = pick_topic()
     ex_type = random.choice(EXERCISE_TYPES)
-    data = await generate_json(_exercise_prompt(topic, ex_type), EXERCISE_SCHEMA)
+    data = await generate_json(
+        _exercise_prompt(topic, ex_type), EXERCISE_SCHEMA, temperature=EXERCISE_TEMPERATURE
+    )
 
     text = str(data.get("text") or "").strip()
     if not text:
@@ -116,7 +119,11 @@ async def check_answer(
 
     Output keys are guaranteed (defaults if the model omits any), so callers never KeyError.
     """
-    data = await generate_json(_check_prompt(ex_type, text, options, user_answer), CHECK_SCHEMA)
+    data = await generate_json(
+        _check_prompt(ex_type, text, options, user_answer),
+        CHECK_SCHEMA,
+        temperature=CHECK_TEMPERATURE,
+    )
     return {
         "correct": bool(data.get("correct", False)),
         "correct_answer": str(data.get("correct_answer") or ""),
