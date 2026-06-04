@@ -11,8 +11,29 @@ export const GOALS: { id: string; label: string }[] = [
   { id: "conferences", label: "Conferences & talks" },
 ];
 
-export const DOMAINS = ["backend", "frontend", "data", "devops", "other"];
-export const DAILY_MINUTES = [5, 10, 15];
+export const DOMAINS = [
+  "backend",
+  "frontend",
+  "fullstack",
+  "mobile",
+  "data / ML",
+  "devops",
+  "game dev",
+  "QA / testing",
+  "security",
+  "embedded",
+  "other",
+];
+export const DAILY_MINUTES = [5, 10, 15, 30, 60];
+
+// Short phrases used to flavor generated examples toward the learner's goal.
+export const GOAL_PHRASES: Record<string, string> = {
+  docs: "reading documentation",
+  writing: "writing PRs and issues",
+  interviews: "tech interviews",
+  team: "talking with an international team",
+  conferences: "conference talks",
+};
 
 export const SELF_LEVELS: { id: string; label: string }[] = [
   { id: "beginner", label: "Beginner — I rely on a dictionary" },
@@ -53,4 +74,25 @@ export function seedSkillFromProfile(profile: Profile): Record<string, number> {
     skill[topic] = Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, lvl));
   }
   return skill;
+}
+
+// --- functional effects of the profile ---
+
+/** A hint string for example generation: the learner's domains/interests + goals (no "other"). */
+export function buildContext(profile: Profile | null): string {
+  if (!profile) return "";
+  const domains = (profile.domains ?? []).filter((d) => d && d !== "other");
+  const goals = (profile.goals ?? []).map((g) => GOAL_PHRASES[g] ?? g).filter(Boolean);
+  const parts: string[] = [];
+  if (domains.length) parts.push(domains.join(", "));
+  if (goals.length) parts.push(`goals: ${goals.join(", ")}`);
+  return parts.join("; ");
+}
+
+export const EXERCISES_PER_MINUTE = 1.5; // soft pace estimate (tunable)
+
+/** Daily exercise target derived from the chosen minutes-per-day. */
+export function minutesToGoal(minutes: number): number {
+  if (!minutes || minutes <= 0) return 0;
+  return Math.max(1, Math.round(minutes * EXERCISES_PER_MINUTE));
 }

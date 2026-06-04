@@ -20,6 +20,7 @@ import {
 import ExerciseCard from "../../components/ExerciseCard";
 import { useProgress } from "../../store/progress";
 import { levelToCefr, selectNext, skillFor, updateSkill } from "../../store/adaptive";
+import { buildContext } from "../../store/onboarding";
 
 type Result = { correct: boolean; correct_answer: string; explanation?: string; tip?: string };
 
@@ -50,9 +51,11 @@ export default function PracticeScreen() {
     setLevelUp(null);
     setExercise(null);
     try {
-      // Adaptive: pick topic, difficulty (CEFR) and type from the learner model.
+      // Adaptive: pick topic, difficulty (CEFR) and type from the learner model;
+      // flavor examples with the learner's domain/goals.
       const { topic, cefr, type } = selectNext(progressRef.current);
-      setExercise(await getExercise({ topic, level: cefr, type }));
+      const context = buildContext(progressRef.current.profile);
+      setExercise(await getExercise({ topic, level: cefr, type, context }));
       setRound((r) => r + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load exercise");

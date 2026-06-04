@@ -11,6 +11,7 @@ import {
 } from "../../store/progress";
 import { useAuth } from "../../store/auth";
 import { levelToCefr, skillFor } from "../../store/adaptive";
+import { minutesToGoal } from "../../store/onboarding";
 
 // Known topics in priority order (matches backend grammar.py TOPICS). Unknown topics, if any
 // ever appear, are appended so nothing is silently dropped.
@@ -53,6 +54,12 @@ export default function ProgressScreen() {
   const weakest = weakestTopic(progress);
   const hasData = totalAttempts(progress) > 0;
 
+  // Daily goal (from the onboarding minutes choice).
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const dailyTarget = minutesToGoal(progress.profile?.dailyMinutes ?? 0);
+  const dailyDone = progress.todayDate === todayStr ? progress.todayCount : 0;
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Your Progress</Text>
@@ -76,6 +83,29 @@ export default function ProgressScreen() {
               {inLevel} / {XP_PER_LEVEL} XP to level {level + 1}
             </Text>
           </View>
+
+          {/* Daily goal (from onboarding minutes) */}
+          {dailyTarget > 0 && (
+            <View style={styles.section}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.sectionTitle}>Daily goal</Text>
+                <Text style={styles.xpTotal}>
+                  {Math.min(dailyDone, dailyTarget)} / {dailyTarget}
+                </Text>
+              </View>
+              <View style={styles.barTrack}>
+                <View
+                  style={[
+                    styles.barFill,
+                    { width: `${Math.min(100, (dailyDone / dailyTarget) * 100)}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.barLabel}>
+                {dailyDone >= dailyTarget ? "Done for today 🎉" : `${dailyTarget - dailyDone} to go today`}
+              </Text>
+            </View>
+          )}
 
           {/* Streaks */}
           <View style={styles.streakRow}>

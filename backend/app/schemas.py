@@ -156,6 +156,8 @@ class ProgressData(BaseModel):
     skill: dict[str, float] = {}  # per-topic adaptive level (0..5)
     onboarded: bool = False
     profile: Optional[Profile] = None
+    todayDate: str = ""
+    todayCount: int = 0
 
 
 # --- onboarding free-text analysis (Phase: onboarding) ---

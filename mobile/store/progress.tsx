@@ -45,6 +45,8 @@ export type Progress = {
   skill: Record<string, number>; // per-topic adaptive level (0..5), see store/adaptive.ts
   onboarded: boolean;
   profile: Profile | null;
+  todayDate: string; // local YYYY-MM-DD of the current day's counter
+  todayCount: number; // answers given today (for the daily goal)
 };
 
 export const DEFAULT_PROGRESS: Progress = {
@@ -58,6 +60,8 @@ export const DEFAULT_PROGRESS: Progress = {
   skill: {},
   onboarded: false,
   profile: null,
+  todayDate: "",
+  todayCount: 0,
 };
 
 // --- Derived helpers ---------------------------------------------------------
@@ -150,6 +154,9 @@ export function recordAnswer(
     lastActiveDate: today,
     // Adaptive level update uses prior attempts (prev), so compute before the increment is "seen".
     skill: updateSkill(prev, topic, correct),
+    // Daily-goal counter: reset on a new local day, otherwise increment.
+    todayDate: today,
+    todayCount: prev.todayDate === today ? prev.todayCount + 1 : 1,
   };
 
   // Recompute unlocked achievements (idempotent union — never un-unlocks).
@@ -197,6 +204,14 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     skill,
     onboarded: a.onboarded || b.onboarded,
     profile: b.profile ?? a.profile,
+    // Daily counter: keep the later day; if the same day, the higher count.
+    todayDate: a.todayDate >= b.todayDate ? a.todayDate : b.todayDate,
+    todayCount:
+      a.todayDate === b.todayDate
+        ? Math.max(a.todayCount, b.todayCount)
+        : a.todayDate > b.todayDate
+        ? a.todayCount
+        : b.todayCount,
   };
 }
 

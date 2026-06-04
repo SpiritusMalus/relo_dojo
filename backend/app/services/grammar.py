@@ -141,7 +141,7 @@ def _context_clause(context: str | None) -> str:
     c = (context or "").strip()
     if not c or c.lower() == "other":
         return ""
-    return f"When giving examples, prefer the learner's domain: {c} development.\n"
+    return f"Tailor examples to the learner's context: {c}.\n"
 
 
 def _tutor_intro(extra: str = "", level: str | None = None, context: str | None = None) -> str:
