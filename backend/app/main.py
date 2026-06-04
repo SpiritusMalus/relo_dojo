@@ -22,6 +22,8 @@ from .core.config import settings
 from .routers import auth as auth_router
 from .routers import progress as progress_router
 from .schemas import (
+    AnalyzeIn,
+    AnalyzeOut,
     ChatIn,
     ChatOut,
     CheckIn,
@@ -69,7 +71,7 @@ async def exercise(payload: ExerciseIn = ExerciseIn()) -> ExerciseOut:
     """Optionally steered by the client (topic/level/type) for adaptive difficulty; public."""
     try:
         data = await grammar.generate_exercise(
-            topic=payload.topic, level=payload.level, ex_type=payload.type
+            topic=payload.topic, level=payload.level, ex_type=payload.type, context=payload.context
         )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -104,3 +106,13 @@ async def explain(payload: ExplainIn) -> ExplainOut:
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return ExplainOut(**data)
+
+
+@app.post("/profile/analyze", response_model=AnalyzeOut)
+async def analyze(payload: AnalyzeIn) -> AnalyzeOut:
+    """Onboarding: map a free-text 'what's hard for me' to canonical grammar topics. Public."""
+    try:
+        topics = await grammar.analyze_pain(payload.text)
+    except OllamaError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return AnalyzeOut(topics=topics)

@@ -120,8 +120,14 @@ export function getExercise(params?: {
   topic?: string;
   level?: string;
   type?: string;
+  context?: string;
 }): Promise<Exercise> {
   return request<Exercise>("/exercise", params ?? {});
+}
+
+// Onboarding: map a free-text "what's hard for me" to canonical grammar topics.
+export function analyzePain(text: string): Promise<{ topics: string[] }> {
+  return request<{ topics: string[] }>("/profile/analyze", { text });
 }
 
 // Deterministic, instant grade for interactive exercises (no LLM).

@@ -33,6 +33,7 @@ class ExerciseIn(BaseModel):
     topic: Optional[str] = Field(default=None, max_length=60)
     level: Optional[str] = Field(default=None, max_length=4)  # CEFR: A1..C1
     type: Optional[str] = Field(default=None, max_length=40)
+    context: Optional[str] = Field(default=None, max_length=40)  # domain hint, e.g. "backend"
 
 
 class MatchItem(BaseModel):
@@ -135,6 +136,15 @@ class TopicStat(BaseModel):
     correct: int = 0
 
 
+class Profile(BaseModel):
+    goal: str = ""
+    focusTopics: list[str] = []
+    selfLevel: str = ""  # beginner | intermediate | advanced
+    dailyMinutes: int = 0
+    domain: str = ""
+    painText: str = ""
+
+
 class ProgressData(BaseModel):
     xp: int = 0
     dailyStreak: int = 0
@@ -144,3 +154,14 @@ class ProgressData(BaseModel):
     topics: dict[str, TopicStat] = {}
     achievements: list[str] = []
     skill: dict[str, float] = {}  # per-topic adaptive level (0..5)
+    onboarded: bool = False
+    profile: Optional[Profile] = None
+
+
+# --- onboarding free-text analysis (Phase: onboarding) ---
+class AnalyzeIn(BaseModel):
+    text: str = Field(min_length=1, max_length=MAX_TEXT)
+
+
+class AnalyzeOut(BaseModel):
+    topics: list[str] = []  # subset of the canonical grammar topics
