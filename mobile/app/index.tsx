@@ -4,34 +4,48 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
-  checkAnswer,
+  checkFreeText,
+  checkInteractive,
+  explain,
   getExercise,
-  type CheckResult,
   type Exercise,
-} from "./services/api";
+  type ExplainResult,
+  type ResponseValue,
+} from "../services/api";
+import ExerciseCard from "../components/ExerciseCard";
+import { useProgress } from "../store/progress";
 
-export default function App() {
+type Result = { correct: boolean; correct_answer: string; explanation?: string; tip?: string };
+
+export default function PracticeScreen() {
+  const { recordAnswer } = useProgress();
   const [exercise, setExercise] = useState<Exercise | null>(null);
-  const [answer, setAnswer] = useState("");
-  const [result, setResult] = useState<CheckResult | null>(null);
-  const [loading, setLoading] = useState(false); // fetching a new exercise
-  const [checking, setChecking] = useState(false); // checking the answer
+  const [round, setRound] = useState(0); // bumps to remount ExerciseCard on each new exercise
+  const [response, setResponse] = useState<ResponseValue | null>(null);
+  const [responseDisplay, setResponseDisplay] = useState("");
+  const [result, setResult] = useState<Result | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [explainLoading, setExplainLoading] = useState(false);
+  const [explained, setExplained] = useState<ExplainResult | null>(null);
 
   const loadExercise = useCallback(async () => {
     setLoading(true);
     setError(null);
     setResult(null);
-    setAnswer("");
+    setResponse(null);
+    setResponseDisplay("");
+    setExplained(null);
     setExercise(null);
     try {
       setExercise(await getExercise());
+      setRound((r) => r + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
@@ -43,12 +57,24 @@ export default function App() {
     loadExercise();
   }, [loadExercise]);
 
+  function onChange(value: ResponseValue | null, display: string) {
+    setResponse(value);
+    setResponseDisplay(display);
+  }
+
   async function onCheck() {
-    if (!exercise || !answer.trim() || checking) return;
+    if (!exercise || response === null || checking) return;
     setChecking(true);
     setError(null);
     try {
-      setResult(await checkAnswer(exercise, answer.trim()));
+      let res: Result;
+      if (exercise.token) {
+        res = await checkInteractive(exercise.token, response);
+      } else {
+        res = await checkFreeText(exercise.text, String(response));
+      }
+      setResult(res);
+      recordAnswer(exercise.topic, res.correct); // gamification: once per answer
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to check answer");
     } finally {
@@ -56,7 +82,22 @@ export default function App() {
     }
   }
 
-  const isChoice = (exercise?.options?.length ?? 0) > 0;
+  async function onExplain() {
+    if (!exercise || !result || explainLoading) return;
+    setExplainLoading(true);
+    try {
+      setExplained(await explain(exercise.text, result.correct_answer, responseDisplay));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to explain");
+    } finally {
+      setExplainLoading(false);
+    }
+  }
+
+  const canSubmit = response !== null && !checking;
+  // Show an Explain button only for interactive misses without an explanation already.
+  const canExplain =
+    !!result && !result.correct && !result.explanation && !explained && !!exercise?.token;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -76,47 +117,24 @@ export default function App() {
       {exercise && !loading && (
         <View style={styles.card}>
           <Text style={styles.topic}>{exercise.topic}</Text>
-          <Text style={styles.exerciseText}>{exercise.text}</Text>
 
-          {/* Answer input: options for choose-the-word, free text otherwise */}
-          {isChoice ? (
-            <View style={styles.options}>
-              {exercise.options.map((opt) => (
-                <TouchableOpacity
-                  key={opt}
-                  style={[styles.option, answer === opt && styles.optionSelected]}
-                  onPress={() => !result && setAnswer(opt)}
-                  disabled={!!result}
-                >
-                  <Text style={[styles.optionText, answer === opt && styles.optionTextSelected]}>
-                    {opt}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : (
-            <TextInput
-              style={styles.input}
-              placeholder="Your answer"
-              value={answer}
-              onChangeText={setAnswer}
-              editable={!result}
-              autoCapitalize="none"
-            />
-          )}
+          <ExerciseCard
+            key={round}
+            exercise={exercise}
+            locked={!!result}
+            onChange={onChange}
+          />
 
-          {/* Check button (hidden once we have a result) */}
           {!result && (
             <TouchableOpacity
-              style={[styles.primaryBtn, (!answer.trim() || checking) && styles.btnDisabled]}
+              style={[styles.primaryBtn, !canSubmit && styles.btnDisabled]}
               onPress={onCheck}
-              disabled={!answer.trim() || checking}
+              disabled={!canSubmit}
             >
               {checking ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Check</Text>}
             </TouchableOpacity>
           )}
 
-          {/* Result */}
           {result && (
             <View style={styles.result}>
               <Text style={[styles.verdict, result.correct ? styles.ok : styles.bad]}>
@@ -125,8 +143,28 @@ export default function App() {
               {!result.correct && (
                 <Text style={styles.answerLine}>Answer: {result.correct_answer}</Text>
               )}
-              <Text style={styles.explanation}>{result.explanation}</Text>
+
+              {/* Free-text comes with an explanation already. */}
+              {!!result.explanation && <Text style={styles.explanation}>{result.explanation}</Text>}
               {!!result.tip && <Text style={styles.tip}>💡 {result.tip}</Text>}
+
+              {/* Interactive miss: explanation on demand. */}
+              {canExplain && (
+                <TouchableOpacity style={styles.secondaryBtn} onPress={onExplain} disabled={explainLoading}>
+                  {explainLoading ? (
+                    <ActivityIndicator />
+                  ) : (
+                    <Text style={styles.secondaryText}>Explain</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+              {explained && (
+                <>
+                  <Text style={styles.explanation}>{explained.explanation}</Text>
+                  {!!explained.tip && <Text style={styles.tip}>💡 {explained.tip}</Text>}
+                </>
+              )}
+
               <TouchableOpacity style={styles.primaryBtn} onPress={loadExercise}>
                 <Text style={styles.primaryText}>Next exercise</Text>
               </TouchableOpacity>
@@ -153,20 +191,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  exerciseText: { fontSize: 19, lineHeight: 26, color: "#111" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  options: { gap: 10 },
-  option: { borderWidth: 1, borderColor: "#ccc", borderRadius: 10, padding: 14 },
-  optionSelected: { borderColor: "#0a7d28", backgroundColor: "#eaf7ee" },
-  optionText: { fontSize: 16, color: "#111" },
-  optionTextSelected: { color: "#0a7d28", fontWeight: "600" },
   primaryBtn: {
     backgroundColor: "#0a7d28",
     borderRadius: 10,
