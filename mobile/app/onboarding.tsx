@@ -98,8 +98,9 @@ function Calibration({
     setCorrect(null);
     setExercise(null);
     try {
+      const context = (profile.domains || []).filter((d) => d !== "other").join(", ");
       const { topic, cefr, type } = selectNext(draft.current);
-      const ex = await getExercise({ topic, level: cefr, type, context: profile.domain });
+      const ex = await getExercise({ topic, level: cefr, type, context });
       setExercise(ex);
       setRound((r) => r + 1);
     } catch {
@@ -108,7 +109,7 @@ function Calibration({
     } finally {
       setLoading(false);
     }
-  }, [profile.domain, onDone]);
+  }, [profile.domains, onDone]);
 
   useEffect(() => {
     load();
@@ -212,13 +213,13 @@ export default function OnboardingScreen() {
   const [painText, setPainText] = useState("");
   const [selfLevel, setSelfLevel] = useState("");
   const [dailyMinutes, setDailyMinutes] = useState(0);
-  const [domain, setDomain] = useState("");
+  const [domains, setDomains] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [calibratedSkill, setCalibratedSkill] = useState<Record<string, number>>({});
 
   const buildProfile = useCallback(
-    (): Profile => ({ goals, focusTopics, selfLevel, dailyMinutes, domain, painText }),
-    [goals, focusTopics, selfLevel, dailyMinutes, domain, painText]
+    (): Profile => ({ goals, focusTopics, selfLevel, dailyMinutes, domains, painText }),
+    [goals, focusTopics, selfLevel, dailyMinutes, domains, painText]
   );
 
   const finish = useCallback(
@@ -234,6 +235,10 @@ export default function OnboardingScreen() {
 
   function toggleGoal(id: string) {
     setGoals((p) => (p.includes(id) ? p.filter((g) => g !== id) : [...p, id]));
+  }
+
+  function toggleDomain(id: string) {
+    setDomains((p) => (p.includes(id) ? p.filter((d) => d !== id) : [...p, id]));
   }
 
   async function submitPain() {
@@ -319,13 +324,13 @@ export default function OnboardingScreen() {
       )}
 
       {step === 6 && (
-        <Step title="What's your area?" subtitle="So examples feel familiar.">
+        <Step title="What's your area?" subtitle="Pick any that apply — so examples feel familiar.">
           <View style={styles.rowWrap}>
             {DOMAINS.map((d) => (
-              <Chip key={d} label={d} active={domain === d} onPress={() => setDomain(d)} />
+              <Chip key={d} label={d} active={domains.includes(d)} onPress={() => toggleDomain(d)} />
             ))}
           </View>
-          <Primary label="Next" onPress={next} disabled={!domain} />
+          <Primary label="Next" onPress={next} disabled={domains.length === 0} />
         </Step>
       )}
 

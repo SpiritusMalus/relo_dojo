@@ -30,7 +30,7 @@ export type Profile = {
   focusTopics: string[];
   selfLevel: string; // beginner | intermediate | advanced
   dailyMinutes: number;
-  domain: string;
+  domains: string[];
   painText: string;
 };
 
