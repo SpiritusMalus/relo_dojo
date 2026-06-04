@@ -90,6 +90,9 @@ export type ExerciseType =
   | "build-the-sentence"
   | "match-pairs"
   | "tap-the-error"
+  | "odd-one-out"
+  | "multiple-blanks"
+  | "order-the-dialog"
   | "free-text";
 
 export type Exercise = {
@@ -102,14 +105,16 @@ export type Exercise = {
   tokens: string[];
   left: MatchItem[];
   right: MatchItem[];
+  blankOptions: string[][]; // multiple-blanks: choices per blank, left-to-right
   token: string | null; // sealed answer for interactive types; null for free-text
 };
 
 // The user's answer, shape depends on the exercise type:
-//  - multiple-choice / build-the-sentence / free-text: string
+//  - multiple-choice / build-the-sentence / odd-one-out / free-text: string
 //  - tap-the-error: number (tapped index)
 //  - match-pairs: { [leftId]: rightId }
-export type ResponseValue = string | number | Record<string, number>;
+//  - multiple-blanks: string[] (pick per blank); order-the-dialog: string[] (lines in chosen order)
+export type ResponseValue = string | number | Record<string, number> | string[];
 
 export type CheckResult = { correct: boolean; correct_answer: string };
 export type ExplainResult = { explanation: string; tip: string };

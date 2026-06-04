@@ -65,29 +65,40 @@ export function updateSkill(
 }
 
 // Exercise-type mix by level — recognition first, production later. free-text stays disabled.
+// odd-one-out is recognition (fine early); multiple-blanks is mid; order-the-dialog needs cohesion
+// (later). Anything at weight 0 is filtered out before the weighted pick.
 function typeWeightsForLevel(level: number): Array<[ExerciseType, number]> {
   const cefr = levelToCefr(level);
   if (cefr === "A1" || cefr === "A2") {
     return [
-      ["multiple-choice", 55],
-      ["match-pairs", 30],
-      ["build-the-sentence", 15],
+      ["multiple-choice", 45],
+      ["match-pairs", 25],
+      ["build-the-sentence", 12],
+      ["odd-one-out", 18],
       ["tap-the-error", 0],
+      ["multiple-blanks", 0],
+      ["order-the-dialog", 0],
     ];
   }
   if (cefr === "B1") {
     return [
-      ["multiple-choice", 30],
-      ["match-pairs", 20],
-      ["build-the-sentence", 30],
-      ["tap-the-error", 20],
+      ["multiple-choice", 22],
+      ["match-pairs", 15],
+      ["build-the-sentence", 22],
+      ["tap-the-error", 15],
+      ["odd-one-out", 12],
+      ["multiple-blanks", 10],
+      ["order-the-dialog", 4],
     ];
   }
   return [
-    ["multiple-choice", 10],
-    ["match-pairs", 15],
-    ["build-the-sentence", 35],
-    ["tap-the-error", 40],
+    ["multiple-choice", 8],
+    ["match-pairs", 10],
+    ["build-the-sentence", 26],
+    ["tap-the-error", 28],
+    ["odd-one-out", 8],
+    ["multiple-blanks", 12],
+    ["order-the-dialog", 8],
   ];
 }
 

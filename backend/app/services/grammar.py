@@ -43,11 +43,15 @@ TOPICS: list[tuple[str, int]] = [
 
 # (exercise type, weight) — all tap-based. free-text is disabled (weight 0): with no options and
 # no hint the learner can't know the expected word. Code is kept for a future "advanced" mode.
+# Used only when the client doesn't steer `type`; the adaptive client picks per level (adaptive.ts).
 EXERCISE_TYPES: list[tuple[str, int]] = [
-    ("multiple-choice", 35),
-    ("build-the-sentence", 30),
-    ("match-pairs", 20),
-    ("tap-the-error", 15),
+    ("multiple-choice", 30),
+    ("build-the-sentence", 25),
+    ("match-pairs", 15),
+    ("tap-the-error", 12),
+    ("odd-one-out", 8),
+    ("multiple-blanks", 6),
+    ("order-the-dialog", 4),
     ("free-text", 0),
 ]
 
@@ -96,6 +100,38 @@ FREETEXT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {"text": {"type": "string"}},
     "required": ["text"],
+}
+ODD_ONE_OUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "items": {"type": "array", "items": {"type": "string"}},
+        "odd": {"type": "string"},
+        "reason": {"type": "string"},
+    },
+    "required": ["items", "odd", "reason"],
+}
+MULTI_BLANK_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "text": {"type": "string"},
+        "blanks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "options": {"type": "array", "items": {"type": "string"}},
+                    "answer": {"type": "string"},
+                },
+                "required": ["options", "answer"],
+            },
+        },
+    },
+    "required": ["text", "blanks"],
+}
+ORDER_DIALOG_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {"lines": {"type": "array", "items": {"type": "string"}}},
+    "required": ["lines"],
 }
 
 # Schema for an on-demand explanation.
@@ -350,11 +386,114 @@ async def _gen_free_text(topic: str, level: str | None = None, context: str | No
     return {"type": "free-text", "topic": topic, "text": text, "token": None}
 
 
+async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
+    prompt = _tutor_intro(
+        f"Create ONE 'odd one out' exercise to practice: {topic}.\n"
+        "'items' is 4 short words or phrases; exactly ONE does not belong with the others (by grammar "
+        "category, collocation, or meaning relevant to the topic). 'odd' is exactly that item (it MUST "
+        "appear verbatim in 'items'). 'reason' is a brief why. Keep items under 4 words each. "
+        "Use a developer-world flavor when natural. Reply ONLY as JSON matching the schema.",
+        level,
+        context,
+        scenario=True,
+    )
+    data = await generate_json(prompt, ODD_ONE_OUT_SCHEMA, temperature=EXERCISE_TEMPERATURE)
+    items = [str(o).strip() for o in (data.get("items") or []) if str(o).strip()]
+    odd = str(data.get("odd") or "").strip()
+    # Need a real set with the odd item present and the rest as plausible distractors.
+    if len(items) < 3 or not odd or _norm(odd) not in {_norm(i) for i in items}:
+        return None
+    items = items[:6]
+    random.shuffle(items)
+    return {
+        "type": "odd-one-out",
+        "topic": topic,
+        "text": "Tap the one that doesn't belong.",
+        "options": items,
+        "token": tokens.seal({"t": "odd-one-out", "answer": odd}),
+    }
+
+
+async def _gen_multiple_blanks(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
+    prompt = _tutor_intro(
+        f"Create ONE fill-the-gaps exercise with 2 or 3 blanks to practice: {topic}.\n"
+        "'text' is a single sentence; show each blank as '___' (use the literal three underscores). "
+        "'blanks' has one entry PER blank, in left-to-right order: 'options' is 2-3 short choices and "
+        "'answer' is the correct one (it MUST be one of the options). The number of '___' in 'text' "
+        "MUST equal the number of blanks. Use a developer-world example when natural. Reply ONLY as JSON.",
+        level,
+        context,
+        scenario=True,
+    )
+    data = await generate_json(prompt, MULTI_BLANK_SCHEMA, temperature=EXERCISE_TEMPERATURE)
+    text = str(data.get("text") or "").strip()
+    raw = data.get("blanks") or []
+    blank_options: list[list[str]] = []
+    answers: list[str] = []
+    for b in raw:
+        if not isinstance(b, dict):
+            continue
+        opts = [str(o).strip() for o in (b.get("options") or []) if str(o).strip()]
+        ans = str(b.get("answer") or "").strip()
+        if len(opts) < 2 or not ans:
+            continue
+        if _norm(ans) not in {_norm(o) for o in opts}:
+            opts.append(ans)  # ensure the answer is selectable
+        random.shuffle(opts)
+        blank_options.append(opts[:4])
+        answers.append(ans)
+    # Need 2-3 blanks and the '___' count in the sentence to match exactly (so the UI lines up).
+    if not (2 <= len(answers) <= 3) or text.count("___") != len(answers):
+        return None
+    if len(text.split()) > _max_words(level) + len(answers):
+        return None
+    return {
+        "type": "multiple-blanks",
+        "topic": topic,
+        "text": text,
+        "blankOptions": blank_options,
+        "token": tokens.seal({"t": "multiple-blanks", "answers": answers}),
+    }
+
+
+async def _gen_order_the_dialog(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
+    prompt = _tutor_intro(
+        f"Create ONE short dialog of 3 to 5 lines that, in the correct order, forms a coherent "
+        f"conversation and naturally practices: {topic}.\n"
+        "'lines' is the dialog IN THE CORRECT ORDER (each line a single short turn, under 12 words). "
+        "Lines must only make sense in one order (use cohesion: questions before answers, references "
+        "like 'it'/'that' after their antecedent). Set it in a developer's day when natural. Reply ONLY as JSON.",
+        level,
+        context,
+        scenario=True,
+    )
+    data = await generate_json(prompt, ORDER_DIALOG_SCHEMA, temperature=EXERCISE_TEMPERATURE)
+    lines = [str(line).strip() for line in (data.get("lines") or []) if str(line).strip()]
+    # Need 3-5 distinct lines for an unambiguous ordering task.
+    if not (3 <= len(lines) <= 5) or len({_norm(line) for line in lines}) != len(lines):
+        return None
+    tiles = lines[:]
+    for _ in range(8):
+        random.shuffle(tiles)
+        if tiles != lines:
+            break
+    return {
+        "type": "order-the-dialog",
+        "topic": topic,
+        "text": "Put the conversation in the right order.",
+        "tiles": tiles,
+        "token": tokens.seal({"t": "order-the-dialog", "order": lines}),
+    }
+
+
 _GENERATORS = {
     "multiple-choice": _gen_multiple_choice,
     "build-the-sentence": _gen_build_the_sentence,
     "match-pairs": _gen_match_pairs,
     "tap-the-error": _gen_tap_the_error,
+    "odd-one-out": _gen_odd_one_out,
+    "multiple-blanks": _gen_multiple_blanks,
+    "order-the-dialog": _gen_order_the_dialog,
     "free-text": _gen_free_text,
 }
 
@@ -402,9 +541,25 @@ def grade(sealed: dict[str, Any], response: Any) -> dict[str, Any]:
     """Grade an interactive answer against the unsealed token. Returns {correct, correct_answer}."""
     kind = sealed.get("t")
 
-    if kind == "multiple-choice":
+    if kind in ("multiple-choice", "odd-one-out"):
         answer = str(sealed.get("answer") or "")
         return {"correct": _norm(response) == _norm(answer), "correct_answer": answer}
+
+    if kind == "multiple-blanks":
+        answers = [str(a) for a in (sealed.get("answers") or [])]
+        picks = response if isinstance(response, list) else []
+        correct = len(picks) == len(answers) and all(
+            _norm(p) == _norm(a) for p, a in zip(picks, answers)
+        )
+        return {"correct": correct, "correct_answer": ", ".join(answers)}
+
+    if kind == "order-the-dialog":
+        order = [str(line) for line in (sealed.get("order") or [])]
+        picks = response if isinstance(response, list) else []
+        correct = len(picks) == len(order) and all(
+            _norm(p) == _norm(o) for p, o in zip(picks, order)
+        )
+        return {"correct": correct, "correct_answer": " → ".join(order)}
 
     if kind == "build-the-sentence":
         sentence = str(sealed.get("sentence") or "")

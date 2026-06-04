@@ -48,6 +48,9 @@ class ExerciseOut(BaseModel):
     - build-the-sentence: tiles (shuffled words)
     - match-pairs: left + right (right shuffled)
     - tap-the-error: tokens (tappable words)
+    - odd-one-out: options (one doesn't belong; tap it)
+    - multiple-blanks: text (with several '___') + blankOptions (choices per blank, in order)
+    - order-the-dialog: tiles (shuffled dialog lines to reorder)
     - free-text: text (typed answer, LLM-graded)
 
     `token` seals the answer for interactive types (graded server-side); it is None for free-text.
@@ -63,16 +66,18 @@ class ExerciseOut(BaseModel):
     tokens: list[str] = []
     left: list[MatchItem] = []
     right: list[MatchItem] = []
+    blankOptions: list[list[str]] = []  # multiple-blanks: choices per blank, left-to-right
     token: Optional[str] = None
 
 
 # --- deterministic interactive check (Phase 2.5) ---
 class CheckIn(BaseModel):
     """`response` shape depends on the type: chosen option / assembled sentence (str),
-    tapped index (int), or left-id -> right-id map (dict)."""
+    tapped index (int), left-id -> right-id map (dict), or an ordered list of strings
+    (multiple-blanks: picks per blank; order-the-dialog: lines in chosen order)."""
 
     token: str = Field(min_length=1, max_length=MAX_TOKEN)
-    response: Union[str, int, dict[str, int]]
+    response: Union[str, int, dict[str, int], list[str]]
 
 
 class CheckOut(BaseModel):
@@ -134,6 +139,7 @@ class UserOut(BaseModel):
 class TopicStat(BaseModel):
     attempts: int = 0
     correct: int = 0
+    lastSeen: str = ""  # local YYYY-MM-DD of last practice; drives spaced repetition (adaptive.ts)
 
 
 class Profile(BaseModel):
