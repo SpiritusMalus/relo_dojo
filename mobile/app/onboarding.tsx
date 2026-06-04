@@ -43,6 +43,7 @@ function itemToExercise(item: CalItem): Exercise {
     tokens: [],
     left: [],
     right: [],
+    blankOptions: [],
     token: null,
   };
 }
