@@ -10,6 +10,7 @@ import {
   type Progress,
 } from "../../store/progress";
 import { useAuth } from "../../store/auth";
+import { levelToCefr, skillFor } from "../../store/adaptive";
 
 // Known topics in priority order (matches backend grammar.py TOPICS). Unknown topics, if any
 // ever appear, are appended so nothing is silently dropped.
@@ -102,7 +103,7 @@ export default function ProgressScreen() {
                     {isWeak ? "  · focus here" : ""}
                   </Text>
                   <Text style={styles.topicStat}>
-                    {acc}% · {stat.correct}/{stat.attempts}
+                    {levelToCefr(skillFor(progress, topic))} · {acc}% · {stat.correct}/{stat.attempts}
                   </Text>
                 </View>
               );

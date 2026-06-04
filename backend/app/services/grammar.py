@@ -119,9 +119,28 @@ def _strip_word(w: str) -> str:
     return w.strip(".,!?;:'\"()").lower()
 
 
-def _tutor_intro(extra: str = "") -> str:
+# CEFR difficulty guidance injected into generation prompts (adaptive difficulty).
+CEFR_GUIDE: dict[str, str] = {
+    "A1": "Use very simple, high-frequency words and short simple sentences.",
+    "A2": "Use simple everyday vocabulary and short sentences.",
+    "B1": "Use intermediate vocabulary and moderately complex sentences.",
+    "B2": "Use upper-intermediate vocabulary and complex sentences with subordinate clauses.",
+    "C1": "Use advanced vocabulary, idioms, and complex multi-clause sentences.",
+}
+
+
+def _level_clause(level: str | None) -> str:
+    cefr = (level or "B1").upper()  # default mid-level when unspecified
+    guide = CEFR_GUIDE.get(cefr)
+    if not guide:
+        return ""
+    return f"Target CEFR level: {cefr}. {guide}\n"
+
+
+def _tutor_intro(extra: str = "", level: str | None = None) -> str:
     return (
-        "You are an English grammar tutor for a Pre-Intermediate learner who is a Python developer.\n"
+        "You are an English grammar tutor for a Python developer learning English.\n"
+        + _level_clause(level)
         + extra
     )
 
@@ -130,13 +149,15 @@ def _tutor_intro(extra: str = "") -> str:
 # Each returns the client payload (no answer) plus a sealed `token` carrying the answer.
 
 
-async def _gen_multiple_choice(topic: str) -> dict[str, Any] | None:
+async def _gen_multiple_choice(topic: str, level: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE short multiple-choice exercise focused on: {topic}.\n"
-        "'text' is a sentence with a single blank shown as '___'. 'options' is 3-4 short choices. "
+        "'text' is a sentence with a single blank shown as '___'. 'options' is 3-4 short choices "
+        "(make the distractors plausible and close in meaning at higher CEFR levels). "
         "'answer' is exactly one of the options (the correct one). "
         "When natural, use an example from the developer's world (code, docs, error messages). "
-        "Reply ONLY as JSON matching the schema."
+        "Reply ONLY as JSON matching the schema.",
+        level,
     )
     data = await generate_json(prompt, MC_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     text = str(data.get("text") or "").strip()
@@ -157,15 +178,16 @@ async def _gen_multiple_choice(topic: str) -> dict[str, Any] | None:
     }
 
 
-async def _gen_build_the_sentence(topic: str) -> dict[str, Any] | None:
+async def _gen_build_the_sentence(topic: str, level: str | None = None) -> dict[str, Any] | None:
     # Translation exercise: show the Russian source, learner builds the English from word tiles.
     prompt = _tutor_intro(
-        f"Write ONE correct English sentence (6 to 12 words) that illustrates: {topic}, "
-        "then give its natural Russian translation.\n"
+        f"Write ONE correct English sentence (6 to 12 words; longer and more complex at higher CEFR "
+        f"levels) that illustrates: {topic}, then give its natural Russian translation.\n"
         "'sentence_en' is the English sentence (plain words, at most one comma, end with a period). "
         "'sentence_ru' is its Russian translation. "
         "Use an example from the developer's world (code, docs, error messages) when natural. "
-        "Reply ONLY as JSON."
+        "Reply ONLY as JSON.",
+        level,
     )
     data = await generate_json(prompt, BUILD_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     sentence = str(data.get("sentence_en") or "").strip()
@@ -189,12 +211,13 @@ async def _gen_build_the_sentence(topic: str) -> dict[str, Any] | None:
     }
 
 
-async def _gen_match_pairs(topic: str) -> dict[str, Any] | None:
+async def _gen_match_pairs(topic: str, level: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create 3 or 4 matching pairs to practice: {topic}.\n"
         "Each pair has a short 'left' (e.g. a sentence with a '___' blank, or a word) and a short "
         "'right' (the matching answer, e.g. the missing preposition or a brief meaning). "
-        "Keep each side under 6 words. Pairs must be unambiguous. Reply ONLY as JSON."
+        "Keep each side under 6 words. Pairs must be unambiguous. Reply ONLY as JSON.",
+        level,
     )
     data = await generate_json(prompt, MATCH_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     raw = data.get("pairs") or []
@@ -226,12 +249,13 @@ async def _gen_match_pairs(topic: str) -> dict[str, Any] | None:
     }
 
 
-async def _gen_tap_the_error(topic: str) -> dict[str, Any] | None:
+async def _gen_tap_the_error(topic: str, level: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Write ONE English sentence (6 to 12 words) containing exactly ONE grammatically wrong "
         f"word, related to: {topic}.\n"
         "'sentence' is that sentence. 'wrong_word' is the single incorrect word as it appears in the "
-        "sentence. 'correction' is the word that should replace it. Reply ONLY as JSON."
+        "sentence. 'correction' is the word that should replace it. Reply ONLY as JSON.",
+        level,
     )
     data = await generate_json(prompt, ERROR_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     sentence = str(data.get("sentence") or "").strip()
@@ -260,11 +284,12 @@ async def _gen_tap_the_error(topic: str) -> dict[str, Any] | None:
     }
 
 
-async def _gen_free_text(topic: str) -> dict[str, Any] | None:
+async def _gen_free_text(topic: str, level: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE short 'fill the gap' exercise focused on: {topic}.\n"
         "'text' is a single sentence with a blank shown as '___' that the learner types the missing "
-        "word(s) into. Use a developer-world example when natural. Reply ONLY as JSON."
+        "word(s) into. Use a developer-world example when natural. Reply ONLY as JSON.",
+        level,
     )
     data = await generate_json(prompt, FREETEXT_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     text = str(data.get("text") or "").strip()
@@ -283,18 +308,27 @@ _GENERATORS = {
 }
 
 
-async def generate_exercise() -> dict[str, Any]:
-    """Generate a new exercise of a weighted-random type.
+_TOPIC_NAMES = {t for t, _ in TOPICS}
+_ENABLED_TYPES = {t for t, w in EXERCISE_TYPES if w > 0}
+
+
+async def generate_exercise(
+    topic: str | None = None, level: str | None = None, ex_type: str | None = None
+) -> dict[str, Any]:
+    """Generate a new exercise. The client may steer topic/level/type (adaptive difficulty);
+    anything invalid or omitted falls back to the weighted defaults.
 
     If a type's model output is unusable, fall back to multiple-choice; if even that fails, raise
     OllamaError (503) — never ship a broken card.
     """
-    topic = pick_topic()
-    ex_type = _weighted(EXERCISE_TYPES)
+    if topic not in _TOPIC_NAMES:
+        topic = pick_topic()
+    if ex_type not in _ENABLED_TYPES:
+        ex_type = _weighted(EXERCISE_TYPES)
 
-    result = await _GENERATORS[ex_type](topic)
+    result = await _GENERATORS[ex_type](topic, level)
     if result is None and ex_type != "multiple-choice":
-        result = await _gen_multiple_choice(topic)
+        result = await _gen_multiple_choice(topic, level)
     if result is None:
         raise OllamaError("The model produced an unusable exercise. Try again.")
     return result

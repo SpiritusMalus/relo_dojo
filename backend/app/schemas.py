@@ -26,6 +26,15 @@ class ChatOut(BaseModel):
 
 
 # --- learning core (Phase 2 / 2.5) ---
+class ExerciseIn(BaseModel):
+    """Optional difficulty steering from the client (adaptive difficulty). All fields optional;
+    anything invalid/omitted falls back to the backend's weighted defaults."""
+
+    topic: Optional[str] = Field(default=None, max_length=60)
+    level: Optional[str] = Field(default=None, max_length=4)  # CEFR: A1..C1
+    type: Optional[str] = Field(default=None, max_length=40)
+
+
 class MatchItem(BaseModel):
     id: int
     text: str
@@ -134,3 +143,4 @@ class ProgressData(BaseModel):
     bestCorrectRun: int = 0
     topics: dict[str, TopicStat] = {}
     achievements: list[str] = []
+    skill: dict[str, float] = {}  # per-topic adaptive level (0..5)

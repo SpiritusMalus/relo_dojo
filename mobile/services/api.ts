@@ -97,8 +97,13 @@ export async function postChat(message: string): Promise<string> {
   return data.reply;
 }
 
-export function getExercise(): Promise<Exercise> {
-  return request<Exercise>("/exercise", {});
+// Optional adaptive steering: topic / CEFR level / exercise type (all optional; backend falls back).
+export function getExercise(params?: {
+  topic?: string;
+  level?: string;
+  type?: string;
+}): Promise<Exercise> {
+  return request<Exercise>("/exercise", params ?? {});
 }
 
 // Deterministic, instant grade for interactive exercises (no LLM).
