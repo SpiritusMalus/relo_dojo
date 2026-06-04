@@ -13,11 +13,11 @@ import {
   checkFreeText,
   checkInteractive,
   explain,
-  getExercise,
   type Exercise,
   type ExplainResult,
   type ResponseValue,
 } from "../services/api";
+import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ExerciseCard from "../components/ExerciseCard";
 import { useProgress } from "../store/progress";
 import { levelToCefr, selectNext, skillFor, updateSkill } from "../store/adaptive";
@@ -29,9 +29,23 @@ export default function PracticeScreen() {
   const { progress, recordAnswer } = useProgress();
   const params = useLocalSearchParams<{ topic?: string }>();
   const forcedTopic = typeof params.topic === "string" ? params.topic : undefined;
-  // Latest progress for selecting/grading without stale closures.
+  // Latest progress/topic for selecting/grading without stale closures.
   const progressRef = useRef(progress);
   progressRef.current = progress;
+  const forcedTopicRef = useRef(forcedTopic);
+  forcedTopicRef.current = forcedTopic;
+
+  // Pre-generation buffer: while the learner solves a card, the next ones are fetched in the
+  // background so "Next" is instant. Params are resolved from the freshest learner model per fetch.
+  const queueRef = useRef<ExerciseQueue | null>(null);
+  if (queueRef.current === null) {
+    queueRef.current = createExerciseQueue({
+      selectParams: () => {
+        const { topic, cefr, type } = selectNext(progressRef.current, forcedTopicRef.current);
+        return { topic, level: cefr, type, context: buildContext(progressRef.current.profile) };
+      },
+    });
+  }
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const [levelUp, setLevelUp] = useState<string | null>(null);
   const [round, setRound] = useState(0); // bumps to remount ExerciseCard on each new exercise
@@ -54,22 +68,23 @@ export default function PracticeScreen() {
     setLevelUp(null);
     setExercise(null);
     try {
-      // Adaptive: pick topic, difficulty (CEFR) and type from the learner model;
-      // flavor examples with the learner's domain/goals.
-      const { topic, cefr, type } = selectNext(progressRef.current, forcedTopic);
-      const context = buildContext(progressRef.current.profile);
-      setExercise(await getExercise({ topic, level: cefr, type, context }));
+      // Pull from the buffer (instant if prefetched); the queue handles adaptive selection and
+      // refills itself in the background.
+      setExercise(await queueRef.current!.next());
       setRound((r) => r + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
       setLoading(false);
     }
-  }, [forcedTopic]);
+  }, []);
 
   useEffect(() => {
+    // On mount, or when the drilled topic changes, drop any buffered cards (they may be off-topic)
+    // and load fresh. clear() on an empty queue is a no-op.
+    queueRef.current!.clear();
     loadExercise();
-  }, [loadExercise]);
+  }, [forcedTopic, loadExercise]);
 
   function onChange(value: ResponseValue | null, display: string) {
     setResponse(value);
