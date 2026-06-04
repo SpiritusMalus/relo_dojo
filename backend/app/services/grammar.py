@@ -56,8 +56,11 @@ MC_SCHEMA: dict[str, Any] = {
 }
 BUILD_SCHEMA: dict[str, Any] = {
     "type": "object",
-    "properties": {"sentence": {"type": "string"}},
-    "required": ["sentence"],
+    "properties": {
+        "sentence_en": {"type": "string"},
+        "sentence_ru": {"type": "string"},
+    },
+    "required": ["sentence_en", "sentence_ru"],
 }
 MATCH_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -155,15 +158,20 @@ async def _gen_multiple_choice(topic: str) -> dict[str, Any] | None:
 
 
 async def _gen_build_the_sentence(topic: str) -> dict[str, Any] | None:
+    # Translation exercise: show the Russian source, learner builds the English from word tiles.
     prompt = _tutor_intro(
-        f"Write ONE correct English sentence (6 to 12 words) that illustrates: {topic}.\n"
+        f"Write ONE correct English sentence (6 to 12 words) that illustrates: {topic}, "
+        "then give its natural Russian translation.\n"
+        "'sentence_en' is the English sentence (plain words, at most one comma, end with a period). "
+        "'sentence_ru' is its Russian translation. "
         "Use an example from the developer's world (code, docs, error messages) when natural. "
-        "Plain words only, at most one comma, end with a period. Reply ONLY as JSON."
+        "Reply ONLY as JSON."
     )
     data = await generate_json(prompt, BUILD_SCHEMA, temperature=EXERCISE_TEMPERATURE)
-    sentence = str(data.get("sentence") or "").strip()
+    sentence = str(data.get("sentence_en") or "").strip()
+    sentence_ru = str(data.get("sentence_ru") or "").strip()
     words = sentence.split()
-    if len(words) < 3 or len(words) > 16:
+    if len(words) < 3 or len(words) > 16 or not sentence_ru:
         return None
     tiles = words[:]
     # Shuffle until the order actually changes (so it isn't already solved).
@@ -174,7 +182,8 @@ async def _gen_build_the_sentence(topic: str) -> dict[str, Any] | None:
     return {
         "type": "build-the-sentence",
         "topic": topic,
-        "text": "Put the words in the correct order.",
+        "text": "Translate into English:",
+        "prompt": sentence_ru,
         "tiles": tiles,
         "token": tokens.seal({"t": "build-the-sentence", "sentence": sentence}),
     }

@@ -32,7 +32,8 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.prompt}>{exercise.text}</Text>
+      <Text style={styles.instruction}>{exercise.text}</Text>
+      {!!exercise.prompt && <Text style={styles.source}>{exercise.prompt}</Text>}
 
       {/* Answer row */}
       <View style={styles.answerRow}>
@@ -61,7 +62,8 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
 
 const styles = StyleSheet.create({
   wrap: { gap: 14 },
-  prompt: { fontSize: 16, color: "#555" },
+  instruction: { fontSize: 14, color: "#0a7d28", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
+  source: { fontSize: 20, lineHeight: 27, color: "#111", fontWeight: "600" },
   answerRow: {
     flexDirection: "row",
     flexWrap: "wrap",
