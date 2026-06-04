@@ -103,20 +103,60 @@ function weightedPick<T>(items: T[], weights: number[]): T {
 
 export const FOCUS_BOOST = 1.5; // extra weight for topics the user flagged as hard in onboarding
 
-/** Topic urgency weight: prior × deficit-to-target × focus boost (under-practiced topics use a 0.5
- *  accuracy prior; topics the user flagged in onboarding get an extra multiplier). */
-export function topicWeight(p: Progress, topic: string): number {
+// Spaced repetition: a topic gains review urgency the longer it goes unseen. The boost ramps with
+// days idle and saturates, so well-practiced topics resurface for review instead of being forgotten.
+export const REVIEW_GRACE_DAYS = 2; // no boost for the first couple of days
+export const REVIEW_HALFLIFE_DAYS = 7; // days of idleness for half the max boost
+export const REVIEW_MAX_BOOST = 1.5; // cap (e.g. 1.5 = up to +50% weight)
+
+/** Local calendar date as YYYY-MM-DD. */
+export function isoDay(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function daysBetween(fromIso: string, toIso: string): number {
+  const a = Date.parse(`${fromIso}T00:00:00`);
+  const b = Date.parse(`${toIso}T00:00:00`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return 0;
+  return Math.max(0, Math.round((b - a) / 86_400_000));
+}
+
+/** Review-urgency multiplier for a topic given today's date. Topics never practiced (no lastSeen)
+ *  get no boost — they're already surfaced via the low-attempts accuracy prior. */
+export function reviewBoost(p: Progress, topic: string, today: string): number {
+  const last = p.topics[topic]?.lastSeen;
+  if (!last) return 1;
+  const idle = daysBetween(last, today) - REVIEW_GRACE_DAYS;
+  if (idle <= 0) return 1;
+  // Saturating ramp: idle / (idle + halflife) ∈ [0,1).
+  const ramp = idle / (idle + REVIEW_HALFLIFE_DAYS);
+  return 1 + ramp * (REVIEW_MAX_BOOST - 1);
+}
+
+/** Topic urgency weight: prior × deficit-to-target × focus boost × review boost (under-practiced
+ *  topics use a 0.5 accuracy prior; topics the user flagged in onboarding get an extra multiplier;
+ *  long-unseen topics gain spaced-repetition urgency). */
+export function topicWeight(p: Progress, topic: string, today: string = isoDay(new Date())): number {
   const st = p.topics[topic];
   const acc = st && st.attempts >= 3 ? st.correct / st.attempts : 0.5;
   const focus = p.profile?.focusTopics?.includes(topic) ? FOCUS_BOOST : 1;
-  return TOPIC_PRIORS[topic] * (1 + Math.max(0, TARGET_SUCCESS - acc) * 2) * focus;
+  return (
+    TOPIC_PRIORS[topic] *
+    (1 + Math.max(0, TARGET_SUCCESS - acc) * 2) *
+    focus *
+    reviewBoost(p, topic, today)
+  );
 }
 
 /** Pick the next exercise's topic, difficulty (CEFR) and type from the learner model.
  *  Pass `forcedTopic` to drill a chosen topic (difficulty/type still adapt to its level). */
 export function selectNext(
   p: Progress,
-  forcedTopic?: string
+  forcedTopic?: string,
+  today: string = isoDay(new Date())
 ): { topic: string; cefr: Cefr; type: ExerciseType } {
   const topics = Object.keys(TOPIC_PRIORS);
   const topic =
@@ -124,7 +164,7 @@ export function selectNext(
       ? forcedTopic
       : weightedPick(
           topics,
-          topics.map((t) => topicWeight(p, t))
+          topics.map((t) => topicWeight(p, t, today))
         );
   const level = skillFor(p, topic);
   const tw = typeWeightsForLevel(level).filter(([, w]) => w > 0);

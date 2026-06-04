@@ -23,7 +23,7 @@ const STORAGE_KEY = "grammar-dojo/progress/v1";
 export const XP_PER_CORRECT = 10;
 export const XP_PER_LEVEL = 100;
 
-export type TopicStat = { attempts: number; correct: number };
+export type TopicStat = { attempts: number; correct: number; lastSeen?: string }; // lastSeen: local YYYY-MM-DD
 
 export type Profile = {
   goals: string[];
@@ -129,6 +129,7 @@ export function recordAnswer(
     [topic]: {
       attempts: existing.attempts + 1,
       correct: existing.correct + (correct ? 1 : 0),
+      lastSeen: today, // drives spaced-repetition review urgency (store/adaptive.ts)
     },
   };
 
@@ -180,7 +181,12 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     const tb = b.topics[key];
     if (!ta) topics[key] = tb;
     else if (!tb) topics[key] = ta;
-    else topics[key] = tb.attempts > ta.attempts ? tb : ta;
+    else {
+      const chosen = tb.attempts > ta.attempts ? tb : ta;
+      // Keep the most recent practice date so spaced-repetition timing isn't reset by a sync.
+      const lastSeen = [ta.lastSeen, tb.lastSeen].filter(Boolean).sort().pop();
+      topics[key] = lastSeen ? { ...chosen, lastSeen } : chosen;
+    }
   }
   // Per-topic skill: keep the value from the side with more attempts (more evidence).
   const skill: Record<string, number> = {};
