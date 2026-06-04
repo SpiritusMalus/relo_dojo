@@ -47,6 +47,7 @@ class ExerciseOut(BaseModel):
     type: str
     topic: str
     text: str = ""
+    prompt: str = ""  # source line for translation exercises (e.g. the Russian sentence)
     options: list[str] = []
     tiles: list[str] = []
     tokens: list[str] = []

@@ -61,6 +61,7 @@ export type Exercise = {
   type: ExerciseType;
   topic: string;
   text: string;
+  prompt: string; // source line for translation exercises (e.g. the Russian sentence)
   options: string[];
   tiles: string[];
   tokens: string[];
