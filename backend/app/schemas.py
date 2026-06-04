@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 MAX_TEXT = 2000  # chars for free-form fields sent to the model
 MAX_ANSWER = 1000
@@ -93,3 +93,44 @@ class ExplainIn(BaseModel):
 class ExplainOut(BaseModel):
     explanation: str
     tip: str
+
+
+# --- accounts (Phase 4) ---
+MIN_PASSWORD = 8
+MAX_PASSWORD = 128
+
+
+class RegisterIn(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=MIN_PASSWORD, max_length=MAX_PASSWORD)
+
+
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=MAX_PASSWORD)
+
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class UserOut(BaseModel):
+    id: str
+    email: EmailStr
+
+
+# --- progress sync (Phase 4): typed mirror of the client snapshot ---
+class TopicStat(BaseModel):
+    attempts: int = 0
+    correct: int = 0
+
+
+class ProgressData(BaseModel):
+    xp: int = 0
+    dailyStreak: int = 0
+    lastActiveDate: str = ""
+    currentCorrectRun: int = 0
+    bestCorrectRun: int = 0
+    topics: dict[str, TopicStat] = {}
+    achievements: list[str] = []

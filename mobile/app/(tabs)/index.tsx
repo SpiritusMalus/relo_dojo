@@ -16,9 +16,9 @@ import {
   type Exercise,
   type ExplainResult,
   type ResponseValue,
-} from "../services/api";
-import ExerciseCard from "../components/ExerciseCard";
-import { useProgress } from "../store/progress";
+} from "../../services/api";
+import ExerciseCard from "../../components/ExerciseCard";
+import { useProgress } from "../../store/progress";
 
 type Result = { correct: boolean; correct_answer: string; explanation?: string; tip?: string };
 

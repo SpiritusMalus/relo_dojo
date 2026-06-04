@@ -1,8 +1,8 @@
-// Local progress & gamification store (Phase 3).
+// Progress & gamification store (Phase 3 local; Phase 4 backend sync).
 //
-// Client-only this phase: everything lives in AsyncStorage. Backend sync + accounts come in Phase 4.
-// The update logic is kept as a pure function (`recordAnswer`) so it's easy to reason about and test;
-// the React Context just loads on mount, persists on change, and shares state across the two tabs.
+// AsyncStorage is the working cache (offline-safe). When logged in, the store also syncs with the
+// server: on login it pulls the server snapshot, merges by max with local, and pushes the result;
+// later changes are pushed (debounced). The update logic stays a pure function (`recordAnswer`).
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createContext,
@@ -14,6 +14,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { getProgress, putProgress } from "../services/api";
+import { useAuth } from "./auth";
 
 const STORAGE_KEY = "grammar-dojo/progress/v1";
 
@@ -142,6 +144,30 @@ export function recordAnswer(
   return next;
 }
 
+// --- Merge (sync) ------------------------------------------------------------
+
+/** Combine two snapshots taking the "best" of each — used to reconcile local vs server on login.
+ *  Scalars: max. lastActiveDate: later. Per-topic: the side with more attempts. Achievements: union. */
+export function mergeProgress(a: Progress, b: Progress): Progress {
+  const topics: Record<string, TopicStat> = {};
+  for (const key of new Set([...Object.keys(a.topics), ...Object.keys(b.topics)])) {
+    const ta = a.topics[key];
+    const tb = b.topics[key];
+    if (!ta) topics[key] = tb;
+    else if (!tb) topics[key] = ta;
+    else topics[key] = tb.attempts > ta.attempts ? tb : ta;
+  }
+  return {
+    xp: Math.max(a.xp, b.xp),
+    dailyStreak: Math.max(a.dailyStreak, b.dailyStreak),
+    lastActiveDate: a.lastActiveDate > b.lastActiveDate ? a.lastActiveDate : b.lastActiveDate,
+    currentCorrectRun: Math.max(a.currentCorrectRun, b.currentCorrectRun),
+    bestCorrectRun: Math.max(a.bestCorrectRun, b.bestCorrectRun),
+    topics,
+    achievements: Array.from(new Set([...a.achievements, ...b.achievements])),
+  };
+}
+
 // --- Persistence -------------------------------------------------------------
 
 async function load(): Promise<Progress> {
@@ -175,25 +201,69 @@ type ProgressContextValue = {
 const ProgressContext = createContext<ProgressContextValue | null>(null);
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
+  const { token, ready: authReady } = useAuth();
   const [progress, setProgress] = useState<Progress>(DEFAULT_PROGRESS);
   const [ready, setReady] = useState(false);
-  const loaded = useRef(false);
+  const progressRef = useRef(progress);
+  progressRef.current = progress;
+  const syncedToken = useRef<string | null>(null);
+  const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Load the local cache once on mount.
   useEffect(() => {
     load().then((p) => {
       setProgress(p);
-      loaded.current = true;
       setReady(true);
     });
   }, []);
 
-  const record = useCallback((topic: string, correct: boolean) => {
-    setProgress((prev) => {
-      const next = recordAnswer(prev, topic, correct);
-      void save(next);
-      return next;
-    });
-  }, []);
+  // Debounced push of the latest snapshot to the server (only when authed).
+  const schedulePush = useCallback(
+    (p: Progress) => {
+      if (!token) return;
+      if (pushTimer.current) clearTimeout(pushTimer.current);
+      pushTimer.current = setTimeout(() => {
+        void putProgress(p).catch(() => {}); // best-effort; AsyncStorage already has it
+      }, 1200);
+    },
+    [token]
+  );
+
+  // React to login/logout: merge-on-login (server canonical), clear-on-logout (avoid mixing accounts).
+  useEffect(() => {
+    if (!ready || !authReady) return;
+    if (token === syncedToken.current) return;
+    if (!token) {
+      syncedToken.current = null;
+      setProgress(DEFAULT_PROGRESS);
+      void save(DEFAULT_PROGRESS);
+      return;
+    }
+    syncedToken.current = token;
+    (async () => {
+      try {
+        const server = await getProgress();
+        const merged = mergeProgress(progressRef.current, server);
+        setProgress(merged);
+        await save(merged);
+        await putProgress(merged);
+      } catch {
+        // offline / server down — keep local; a later change or re-login will sync
+      }
+    })();
+  }, [ready, authReady, token]);
+
+  const record = useCallback(
+    (topic: string, correct: boolean) => {
+      setProgress((prev) => {
+        const next = recordAnswer(prev, topic, correct);
+        void save(next);
+        schedulePush(next);
+        return next;
+      });
+    },
+    [schedulePush]
+  );
 
   const value = useMemo<ProgressContextValue>(
     () => ({ progress, ready, recordAnswer: record }),

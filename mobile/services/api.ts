@@ -7,6 +7,7 @@
 // Fallback IP is used if the host can't be detected (e.g. tunnel mode or a production build) —
 // update it, or set EXPO_PUBLIC_API_URL, when needed.
 import Constants from "expo-constants";
+import type { Progress } from "../store/progress";
 
 const FALLBACK_HOST = "192.168.1.9";
 const PORT = 8000;
@@ -28,11 +29,22 @@ function resolveBaseUrl(): string {
 
 export const BASE_URL = resolveBaseUrl();
 
-async function request<T>(path: string, body: unknown): Promise<T> {
+// Bearer token for authenticated calls. Held in a module var and set by the auth store.
+let authToken: string | null = null;
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
+type Method = "GET" | "POST" | "PUT";
+
+async function request<T>(path: string, body?: unknown, method: Method = "POST"): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
   const res = await fetch(`${BASE_URL}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
     // Backend returns {detail: "..."} for errors (e.g. 503 when Ollama is down, 400 expired token).
@@ -110,4 +122,28 @@ export function explain(
     correct_answer: correctAnswer,
     user_response: userResponse,
   });
+}
+
+// --- accounts & progress sync (Phase 4) ---
+export type AuthUser = { id: string; email: string };
+type TokenResp = { access_token: string; token_type: string };
+
+export function register(email: string, password: string): Promise<TokenResp> {
+  return request<TokenResp>("/auth/register", { email, password });
+}
+
+export function login(email: string, password: string): Promise<TokenResp> {
+  return request<TokenResp>("/auth/login", { email, password });
+}
+
+export function getMe(): Promise<AuthUser> {
+  return request<AuthUser>("/auth/me", undefined, "GET");
+}
+
+export function getProgress(): Promise<Progress> {
+  return request<Progress>("/progress", undefined, "GET");
+}
+
+export function putProgress(p: Progress): Promise<Progress> {
+  return request<Progress>("/progress", p, "PUT");
 }
