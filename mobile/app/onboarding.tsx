@@ -214,6 +214,8 @@ export default function OnboardingScreen() {
   const [selfLevel, setSelfLevel] = useState("");
   const [dailyMinutes, setDailyMinutes] = useState(0);
   const [domains, setDomains] = useState<string[]>([]);
+  const [goalOther, setGoalOther] = useState("");
+  const [domainOther, setDomainOther] = useState("");
   const [busy, setBusy] = useState(false);
   const [calibratedSkill, setCalibratedSkill] = useState<Record<string, number>>({});
 
@@ -239,6 +241,18 @@ export default function OnboardingScreen() {
 
   function toggleDomain(id: string) {
     setDomains((p) => (p.includes(id) ? p.filter((d) => d !== id) : [...p, id]));
+  }
+
+  // Fold a free-text "Other" entry into the chosen list, then advance.
+  function nextWithOther(
+    other: string,
+    setter: (fn: (p: string[]) => string[]) => void,
+    clear: () => void
+  ) {
+    const extra = other.trim();
+    if (extra) setter((p) => Array.from(new Set([...p, extra])));
+    clear();
+    next();
   }
 
   async function submitPain() {
@@ -277,7 +291,17 @@ export default function OnboardingScreen() {
           {GOALS.map((g) => (
             <Chip key={g.id} label={g.label} active={goals.includes(g.id)} onPress={() => toggleGoal(g.id)} />
           ))}
-          <Primary label="Next" onPress={next} disabled={goals.length === 0} />
+          <TextInput
+            style={styles.otherInput}
+            placeholder="Other reason (your own)…"
+            value={goalOther}
+            onChangeText={setGoalOther}
+          />
+          <Primary
+            label="Next"
+            onPress={() => nextWithOther(goalOther, setGoals, () => setGoalOther(""))}
+            disabled={goals.length === 0 && !goalOther.trim()}
+          />
         </Step>
       )}
 
@@ -324,13 +348,23 @@ export default function OnboardingScreen() {
       )}
 
       {step === 6 && (
-        <Step title="What's your area?" subtitle="Pick any that apply — so examples feel familiar.">
+        <Step title="What's your area?" subtitle="Pick any — or add your own stack, hobbies, interests.">
           <View style={styles.rowWrap}>
             {DOMAINS.map((d) => (
               <Chip key={d} label={d} active={domains.includes(d)} onPress={() => toggleDomain(d)} />
             ))}
           </View>
-          <Primary label="Next" onPress={next} disabled={domains.length === 0} />
+          <TextInput
+            style={styles.otherInput}
+            placeholder="Other (e.g. game dev, ML, music, gaming)…"
+            value={domainOther}
+            onChangeText={setDomainOther}
+          />
+          <Primary
+            label="Next"
+            onPress={() => nextWithOther(domainOther, setDomains, () => setDomainOther(""))}
+            disabled={domains.length === 0 && !domainOther.trim()}
+          />
         </Step>
       )}
 
@@ -375,6 +409,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 90,
     textAlignVertical: "top",
+  },
+  otherInput: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 15,
   },
   primaryBtn: { backgroundColor: "#0a7d28", borderRadius: 10, paddingVertical: 15, alignItems: "center", marginTop: 8 },
   primaryText: { color: "#fff", fontWeight: "600", fontSize: 16 },
