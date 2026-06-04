@@ -164,6 +164,9 @@ export default function PracticeScreen() {
               <Text style={[styles.verdict, result.correct ? styles.ok : styles.bad]}>
                 {result.correct ? "✓ Correct" : "✗ Not quite"}
               </Text>
+              {result.correct && progress.currentCorrectRun >= 3 && (
+                <Text style={styles.combo}>🔥 {progress.currentCorrectRun} in a row!</Text>
+              )}
               {!result.correct && (
                 <Text style={styles.answerLine}>Answer: {result.correct_answer}</Text>
               )}
@@ -233,6 +236,7 @@ const styles = StyleSheet.create({
   ok: { color: "#0a7d28" },
   bad: { color: "#c0392b" },
   answerLine: { fontSize: 16, fontWeight: "600", color: "#111" },
+  combo: { fontSize: 16, fontWeight: "700", color: "#e67e22" },
   levelUp: { fontSize: 15, fontWeight: "700", color: "#0a7d28" },
   explanation: { fontSize: 16, lineHeight: 22, color: "#333" },
   tip: { fontSize: 15, color: "#555", fontStyle: "italic" },
