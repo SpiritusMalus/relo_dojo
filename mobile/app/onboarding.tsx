@@ -25,8 +25,12 @@ import {
   GOALS,
   SELF_LEVELS,
   TOPIC_LABELS,
+  buildContext,
+  minutesToGoal,
   seedSkillFromProfile,
 } from "../store/onboarding";
+
+const GOAL_LABELS: Record<string, string> = Object.fromEntries(GOALS.map((g) => [g.id, g.label]));
 
 const CALIBRATION_ITEMS = 6;
 
@@ -88,17 +92,17 @@ function Calibration({
   const [round, setRound] = useState(0);
   const [count, setCount] = useState(0);
   const [response, setResponse] = useState<ResponseValue | null>(null);
-  const [correct, setCorrect] = useState<boolean | null>(null);
+  const [result, setResult] = useState<{ correct: boolean; correct_answer: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setResponse(null);
-    setCorrect(null);
+    setResult(null);
     setExercise(null);
     try {
-      const context = (profile.domains || []).filter((d) => d !== "other").join(", ");
+      const context = buildContext(profile);
       const { topic, cefr, type } = selectNext(draft.current);
       const ex = await getExercise({ topic, level: cefr, type, context });
       setExercise(ex);
@@ -109,7 +113,7 @@ function Calibration({
     } finally {
       setLoading(false);
     }
-  }, [profile.domains, onDone]);
+  }, [profile, onDone]);
 
   useEffect(() => {
     load();
@@ -131,9 +135,9 @@ function Calibration({
           [topic]: { attempts: prev.attempts + 1, correct: prev.correct + (res.correct ? 1 : 0) },
         },
       };
-      setCorrect(res.correct);
+      setResult(res);
     } catch {
-      setCorrect(false);
+      setResult({ correct: false, correct_answer: "" });
     } finally {
       setChecking(false);
     }
@@ -163,10 +167,10 @@ function Calibration({
           <ExerciseCard
             key={round}
             exercise={exercise}
-            locked={correct !== null}
+            locked={result !== null}
             onChange={(v) => setResponse(v)}
           />
-          {correct === null ? (
+          {result === null ? (
             <Primary
               label="Check"
               onPress={check}
@@ -175,9 +179,12 @@ function Calibration({
             />
           ) : (
             <>
-              <Text style={[styles.verdict, correct ? styles.ok : styles.bad]}>
-                {correct ? "✓ Nice" : "✗ Noted"}
+              <Text style={[styles.verdict, result.correct ? styles.ok : styles.bad]}>
+                {result.correct ? "✓ Correct" : "✗ Not quite"}
               </Text>
+              {!result.correct && !!result.correct_answer && (
+                <Text style={styles.answerLine}>Answer: {result.correct_answer}</Text>
+              )}
               <Primary label={count + 1 >= CALIBRATION_ITEMS ? "See result" : "Next"} onPress={advance} />
             </>
           )}
@@ -187,11 +194,26 @@ function Calibration({
   );
 }
 
-function Summary({ skill, onStart }: { skill: Record<string, number>; onStart: () => void }) {
+function Summary({
+  profile,
+  skill,
+  onStart,
+}: {
+  profile: Profile;
+  skill: Record<string, number>;
+  onStart: () => void;
+}) {
+  const goalText = profile.goals.map((g) => GOAL_LABELS[g] ?? g).join(", ") || "—";
+  const focusText = profile.focusTopics.map((t) => TOPIC_LABELS[t] ?? t).join(", ") || "none";
+  const domainText = profile.domains.filter((d) => d !== "other").join(", ") || "—";
+  const dailyGoal = minutesToGoal(profile.dailyMinutes);
+
   return (
     <View style={styles.step}>
       <Text style={styles.title}>You're all set</Text>
-      <Text style={styles.subtitle}>Starting levels — they'll keep adjusting as you practice.</Text>
+      <Text style={styles.subtitle}>Here's your starting point — it keeps adjusting as you practice.</Text>
+
+      {/* Starting levels */}
       <View style={styles.stepBody}>
         {Object.keys(TOPIC_LABELS).map((t) => (
           <View key={t} style={styles.summaryRow}>
@@ -199,8 +221,33 @@ function Summary({ skill, onStart }: { skill: Record<string, number>; onStart: (
             <Text style={styles.summaryCefr}>{levelToCefr(skill[t] ?? 1.5)}</Text>
           </View>
         ))}
-        <Primary label="Start practicing" onPress={onStart} />
       </View>
+
+      {/* Your answers */}
+      <Text style={styles.sectionTitle}>Your answers</Text>
+      <Recap label="Goals" value={goalText} />
+      <Recap label="Hard topics" value={focusText} />
+      <Recap label="Level" value={profile.selfLevel || "—"} />
+      <Recap label="Daily goal" value={dailyGoal ? `${profile.dailyMinutes} min (~${dailyGoal})` : "—"} />
+      <Recap label="Area" value={domainText} />
+
+      {/* What this changed */}
+      <Text style={styles.sectionTitle}>What this changed</Text>
+      <Text style={styles.explain}>• Starting difficulty set from your level.</Text>
+      <Text style={styles.explain}>• Hard topics come up more often and start a bit easier.</Text>
+      {!!buildContext(profile) && <Text style={styles.explain}>• Examples are drawn from your area & goals.</Text>}
+      {dailyGoal > 0 && <Text style={styles.explain}>• Daily goal ≈ {dailyGoal} exercises (tracked on Progress).</Text>}
+
+      <Primary label="Start practicing" onPress={onStart} />
+    </View>
+  );
+}
+
+function Recap({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.recapRow}>
+      <Text style={styles.recapLabel}>{label}</Text>
+      <Text style={styles.recapValue}>{value}</Text>
     </View>
   );
 }
@@ -272,7 +319,13 @@ export default function OnboardingScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <View style={styles.headerRow}>
-        <Text style={styles.brand}>Grammar Dojo</Text>
+        {step >= 1 && step <= 7 ? (
+          <TouchableOpacity onPress={() => setStep((s) => s - 1)}>
+            <Text style={styles.skip}>← Back</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.brand}>Grammar Dojo</Text>
+        )}
         {step < 7 && (
           <TouchableOpacity onPress={skip}>
             <Text style={styles.skip}>Skip</Text>
@@ -378,7 +431,9 @@ export default function OnboardingScreen() {
         />
       )}
 
-      {step === 8 && <Summary skill={calibratedSkill} onStart={() => finish(calibratedSkill)} />}
+      {step === 8 && (
+        <Summary profile={buildProfile()} skill={calibratedSkill} onStart={() => finish(calibratedSkill)} />
+      )}
 
       <StatusBar style="auto" />
     </ScrollView>
@@ -427,4 +482,10 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8, borderBottomWidth: 1, borderColor: "#eee" },
   summaryTopic: { fontSize: 15, color: "#111" },
   summaryCefr: { fontSize: 16, fontWeight: "700", color: "#0a7d28" },
+  sectionTitle: { fontSize: 13, fontWeight: "700", color: "#0a7d28", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 14 },
+  answerLine: { fontSize: 16, fontWeight: "600", color: "#111", marginTop: 4 },
+  explain: { fontSize: 15, lineHeight: 21, color: "#444" },
+  recapRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  recapLabel: { fontSize: 15, color: "#777" },
+  recapValue: { flex: 1, fontSize: 15, color: "#111", textAlign: "right" },
 });
