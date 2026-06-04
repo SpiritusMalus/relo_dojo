@@ -25,6 +25,15 @@ export const XP_PER_LEVEL = 100;
 
 export type TopicStat = { attempts: number; correct: number };
 
+export type Profile = {
+  goal: string;
+  focusTopics: string[];
+  selfLevel: string; // beginner | intermediate | advanced
+  dailyMinutes: number;
+  domain: string;
+  painText: string;
+};
+
 export type Progress = {
   xp: number;
   dailyStreak: number;
@@ -34,9 +43,11 @@ export type Progress = {
   topics: Record<string, TopicStat>;
   achievements: string[]; // unlocked ids
   skill: Record<string, number>; // per-topic adaptive level (0..5), see store/adaptive.ts
+  onboarded: boolean;
+  profile: Profile | null;
 };
 
-const DEFAULT_PROGRESS: Progress = {
+export const DEFAULT_PROGRESS: Progress = {
   xp: 0,
   dailyStreak: 0,
   lastActiveDate: "",
@@ -45,6 +56,8 @@ const DEFAULT_PROGRESS: Progress = {
   topics: {},
   achievements: [],
   skill: {},
+  onboarded: false,
+  profile: null,
 };
 
 // --- Derived helpers ---------------------------------------------------------
@@ -182,6 +195,8 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     topics,
     achievements: Array.from(new Set([...a.achievements, ...b.achievements])),
     skill,
+    onboarded: a.onboarded || b.onboarded,
+    profile: b.profile ?? a.profile,
   };
 }
 
@@ -193,7 +208,13 @@ async function load(): Promise<Progress> {
     if (!raw) return DEFAULT_PROGRESS;
     const stored = JSON.parse(raw) as Partial<Progress>;
     // Merge over defaults so a future shape change doesn't crash on old data.
-    return { ...DEFAULT_PROGRESS, ...stored, topics: stored.topics ?? {}, skill: stored.skill ?? {} };
+    return {
+      ...DEFAULT_PROGRESS,
+      ...stored,
+      topics: stored.topics ?? {},
+      skill: stored.skill ?? {},
+      profile: stored.profile ?? null,
+    };
   } catch {
     return DEFAULT_PROGRESS;
   }
@@ -213,6 +234,8 @@ type ProgressContextValue = {
   progress: Progress;
   ready: boolean; // false until the first load completes
   recordAnswer: (topic: string, correct: boolean) => void;
+  completeOnboarding: (profile: Profile, skill: Record<string, number>) => void;
+  resetOnboarding: () => void;
 };
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
@@ -282,9 +305,30 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [schedulePush]
   );
 
+  const completeOnboarding = useCallback(
+    (profile: Profile, skill: Record<string, number>) => {
+      setProgress((prev) => {
+        const next: Progress = { ...prev, profile, skill, onboarded: true };
+        void save(next);
+        schedulePush(next);
+        return next;
+      });
+    },
+    [schedulePush]
+  );
+
+  const resetOnboarding = useCallback(() => {
+    setProgress((prev) => {
+      const next: Progress = { ...prev, onboarded: false };
+      void save(next);
+      schedulePush(next);
+      return next;
+    });
+  }, [schedulePush]);
+
   const value = useMemo<ProgressContextValue>(
-    () => ({ progress, ready, recordAnswer: record }),
-    [progress, ready, record]
+    () => ({ progress, ready, recordAnswer: record, completeOnboarding, resetOnboarding }),
+    [progress, ready, record, completeOnboarding, resetOnboarding]
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

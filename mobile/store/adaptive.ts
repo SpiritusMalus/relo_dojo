@@ -94,11 +94,15 @@ function weightedPick<T>(items: T[], weights: number[]): T {
   return items[items.length - 1];
 }
 
-/** Topic urgency weight: prior × deficit-to-target (under-practiced topics use a 0.5 accuracy prior). */
+export const FOCUS_BOOST = 1.5; // extra weight for topics the user flagged as hard in onboarding
+
+/** Topic urgency weight: prior × deficit-to-target × focus boost (under-practiced topics use a 0.5
+ *  accuracy prior; topics the user flagged in onboarding get an extra multiplier). */
 export function topicWeight(p: Progress, topic: string): number {
   const st = p.topics[topic];
   const acc = st && st.attempts >= 3 ? st.correct / st.attempts : 0.5;
-  return TOPIC_PRIORS[topic] * (1 + Math.max(0, TARGET_SUCCESS - acc) * 2);
+  const focus = p.profile?.focusTopics?.includes(topic) ? FOCUS_BOOST : 1;
+  return TOPIC_PRIORS[topic] * (1 + Math.max(0, TARGET_SUCCESS - acc) * 2) * focus;
 }
 
 /** Pick the next exercise's topic, difficulty (CEFR) and type from the learner model. */

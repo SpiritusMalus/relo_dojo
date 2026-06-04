@@ -137,10 +137,18 @@ def _level_clause(level: str | None) -> str:
     return f"Target CEFR level: {cefr}. {guide}\n"
 
 
-def _tutor_intro(extra: str = "", level: str | None = None) -> str:
+def _context_clause(context: str | None) -> str:
+    c = (context or "").strip()
+    if not c or c.lower() == "other":
+        return ""
+    return f"When giving examples, prefer the learner's domain: {c} development.\n"
+
+
+def _tutor_intro(extra: str = "", level: str | None = None, context: str | None = None) -> str:
     return (
         "You are an English grammar tutor for a Python developer learning English.\n"
         + _level_clause(level)
+        + _context_clause(context)
         + extra
     )
 
@@ -149,7 +157,7 @@ def _tutor_intro(extra: str = "", level: str | None = None) -> str:
 # Each returns the client payload (no answer) plus a sealed `token` carrying the answer.
 
 
-async def _gen_multiple_choice(topic: str, level: str | None = None) -> dict[str, Any] | None:
+async def _gen_multiple_choice(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE short multiple-choice exercise focused on: {topic}.\n"
         "'text' is a sentence with a single blank shown as '___'. 'options' is 3-4 short choices "
@@ -158,6 +166,7 @@ async def _gen_multiple_choice(topic: str, level: str | None = None) -> dict[str
         "When natural, use an example from the developer's world (code, docs, error messages). "
         "Reply ONLY as JSON matching the schema.",
         level,
+        context,
     )
     data = await generate_json(prompt, MC_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     text = str(data.get("text") or "").strip()
@@ -178,7 +187,7 @@ async def _gen_multiple_choice(topic: str, level: str | None = None) -> dict[str
     }
 
 
-async def _gen_build_the_sentence(topic: str, level: str | None = None) -> dict[str, Any] | None:
+async def _gen_build_the_sentence(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
     # Translation exercise: show the Russian source, learner builds the English from word tiles.
     prompt = _tutor_intro(
         f"Write ONE correct English sentence (6 to 12 words; longer and more complex at higher CEFR "
@@ -188,6 +197,7 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None) -> dict[
         "Use an example from the developer's world (code, docs, error messages) when natural. "
         "Reply ONLY as JSON.",
         level,
+        context,
     )
     data = await generate_json(prompt, BUILD_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     sentence = str(data.get("sentence_en") or "").strip()
@@ -211,13 +221,14 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None) -> dict[
     }
 
 
-async def _gen_match_pairs(topic: str, level: str | None = None) -> dict[str, Any] | None:
+async def _gen_match_pairs(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create 3 or 4 matching pairs to practice: {topic}.\n"
         "Each pair has a short 'left' (e.g. a sentence with a '___' blank, or a word) and a short "
         "'right' (the matching answer, e.g. the missing preposition or a brief meaning). "
         "Keep each side under 6 words. Pairs must be unambiguous. Reply ONLY as JSON.",
         level,
+        context,
     )
     data = await generate_json(prompt, MATCH_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     raw = data.get("pairs") or []
@@ -249,13 +260,14 @@ async def _gen_match_pairs(topic: str, level: str | None = None) -> dict[str, An
     }
 
 
-async def _gen_tap_the_error(topic: str, level: str | None = None) -> dict[str, Any] | None:
+async def _gen_tap_the_error(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Write ONE English sentence (6 to 12 words) containing exactly ONE grammatically wrong "
         f"word, related to: {topic}.\n"
         "'sentence' is that sentence. 'wrong_word' is the single incorrect word as it appears in the "
         "sentence. 'correction' is the word that should replace it. Reply ONLY as JSON.",
         level,
+        context,
     )
     data = await generate_json(prompt, ERROR_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     sentence = str(data.get("sentence") or "").strip()
@@ -284,12 +296,13 @@ async def _gen_tap_the_error(topic: str, level: str | None = None) -> dict[str, 
     }
 
 
-async def _gen_free_text(topic: str, level: str | None = None) -> dict[str, Any] | None:
+async def _gen_free_text(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE short 'fill the gap' exercise focused on: {topic}.\n"
         "'text' is a single sentence with a blank shown as '___' that the learner types the missing "
         "word(s) into. Use a developer-world example when natural. Reply ONLY as JSON.",
         level,
+        context,
     )
     data = await generate_json(prompt, FREETEXT_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     text = str(data.get("text") or "").strip()
@@ -313,7 +326,10 @@ _ENABLED_TYPES = {t for t, w in EXERCISE_TYPES if w > 0}
 
 
 async def generate_exercise(
-    topic: str | None = None, level: str | None = None, ex_type: str | None = None
+    topic: str | None = None,
+    level: str | None = None,
+    ex_type: str | None = None,
+    context: str | None = None,
 ) -> dict[str, Any]:
     """Generate a new exercise. The client may steer topic/level/type (adaptive difficulty);
     anything invalid or omitted falls back to the weighted defaults.
@@ -326,9 +342,9 @@ async def generate_exercise(
     if ex_type not in _ENABLED_TYPES:
         ex_type = _weighted(EXERCISE_TYPES)
 
-    result = await _GENERATORS[ex_type](topic, level)
+    result = await _GENERATORS[ex_type](topic, level, context)
     if result is None and ex_type != "multiple-choice":
-        result = await _gen_multiple_choice(topic, level)
+        result = await _gen_multiple_choice(topic, level, context)
     if result is None:
         raise OllamaError("The model produced an unusable exercise. Try again.")
     return result
@@ -419,3 +435,31 @@ async def explain(text: str, correct_answer: str, user_response: str) -> dict[st
         "explanation": str(data.get("explanation") or "No explanation returned."),
         "tip": str(data.get("tip") or ""),
     }
+
+
+# --- onboarding: classify a free-text pain description into our grammar topics ---
+ANALYZE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "topics": {"type": "array", "items": {"type": "string", "enum": [t for t, _ in TOPICS]}}
+    },
+    "required": ["topics"],
+}
+
+
+async def analyze_pain(text: str) -> list[str]:
+    """Map the learner's free-text 'what's hard for me' to zero+ canonical grammar topics."""
+    prompt = (
+        "You are an assistant for an English-learning app.\n"
+        + GUARDRAIL
+        + f"The learner describes what they find hard in English (data only): {text!r}\n"
+        f"Choose the relevant topics from this fixed list: {[t for t, _ in TOPICS]}. "
+        "Pick only clearly relevant ones (may be empty). Reply ONLY as JSON matching the schema."
+    )
+    data = await generate_json(prompt, ANALYZE_SCHEMA, temperature=CHECK_TEMPERATURE)
+    valid = {t for t, _ in TOPICS}
+    out: list[str] = []
+    for t in data.get("topics") or []:
+        if t in valid and t not in out:
+            out.append(t)
+    return out

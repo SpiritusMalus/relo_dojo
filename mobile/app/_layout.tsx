@@ -1,27 +1,43 @@
 import { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { AuthProvider, useAuth } from "../store/auth";
-import { ProgressProvider } from "../store/progress";
+import { ProgressProvider, useProgress } from "../store/progress";
 
-// Redirect between the auth screen and the tabs based on login state.
+// Redirect between login, onboarding, and the tabs based on auth + onboarding state.
 function RootNav() {
-  const { ready, token } = useAuth();
+  const { ready: authReady, token } = useAuth();
+  const { ready: progressReady, progress } = useProgress();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (!ready) return;
+    if (!authReady) return;
     const onLogin = segments[0] === "login";
-    if (!token && !onLogin) router.replace("/login");
-    else if (token && onLogin) router.replace("/");
-  }, [ready, token, segments, router]);
+    const onOnboarding = segments[0] === "onboarding";
 
-  if (!ready) return null; // brief splash while we read stored token
+    if (!token) {
+      if (!onLogin) router.replace("/login");
+      return;
+    }
+    if (onLogin) {
+      router.replace("/");
+      return;
+    }
+    if (!progressReady) return; // decide onboarding only once progress is loaded
+    if (!progress.onboarded && !onOnboarding) {
+      router.replace("/onboarding");
+    } else if (progress.onboarded && onOnboarding) {
+      router.replace("/");
+    }
+  }, [authReady, token, progressReady, progress.onboarded, segments, router]);
+
+  if (!authReady) return null; // brief splash while we read stored token
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="login" />
+      <Stack.Screen name="onboarding" />
     </Stack>
   );
 }

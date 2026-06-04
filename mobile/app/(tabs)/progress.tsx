@@ -43,7 +43,7 @@ function weakestTopic(p: Progress): string | null {
 }
 
 export default function ProgressScreen() {
-  const { progress, ready } = useProgress();
+  const { progress, ready, resetOnboarding } = useProgress();
   const { user, logout } = useAuth();
 
   const level = levelFor(progress.xp);
@@ -129,6 +129,9 @@ export default function ProgressScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         {!!user && <Text style={styles.accountEmail}>{user.email}</Text>}
+        <TouchableOpacity style={styles.secondaryBtn} onPress={resetOnboarding}>
+          <Text style={styles.secondaryText}>Redo onboarding</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
           <Text style={styles.logoutText}>Log out</Text>
         </TouchableOpacity>
@@ -178,6 +181,8 @@ const styles = StyleSheet.create({
   achievementLocked: { color: "#aaa" },
 
   accountEmail: { fontSize: 15, color: "#333" },
+  secondaryBtn: { borderWidth: 1, borderColor: "#0a7d28", borderRadius: 10, paddingVertical: 12, alignItems: "center" },
+  secondaryText: { color: "#0a7d28", fontWeight: "600", fontSize: 16 },
   logoutBtn: { borderWidth: 1, borderColor: "#c0392b", borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 2 },
   logoutText: { color: "#c0392b", fontWeight: "600", fontSize: 16 },
 });
