@@ -207,7 +207,7 @@ function Summary({ skill, onStart }: { skill: Record<string, number>; onStart: (
 export default function OnboardingScreen() {
   const { completeOnboarding } = useProgress();
   const [step, setStep] = useState(0);
-  const [goal, setGoal] = useState("");
+  const [goals, setGoals] = useState<string[]>([]);
   const [focusTopics, setFocusTopics] = useState<string[]>([]);
   const [painText, setPainText] = useState("");
   const [selfLevel, setSelfLevel] = useState("");
@@ -217,8 +217,8 @@ export default function OnboardingScreen() {
   const [calibratedSkill, setCalibratedSkill] = useState<Record<string, number>>({});
 
   const buildProfile = useCallback(
-    (): Profile => ({ goal, focusTopics, selfLevel, dailyMinutes, domain, painText }),
-    [goal, focusTopics, selfLevel, dailyMinutes, domain, painText]
+    (): Profile => ({ goals, focusTopics, selfLevel, dailyMinutes, domain, painText }),
+    [goals, focusTopics, selfLevel, dailyMinutes, domain, painText]
   );
 
   const finish = useCallback(
@@ -230,6 +230,10 @@ export default function OnboardingScreen() {
 
   function toggleFocus(topic: string) {
     setFocusTopics((p) => (p.includes(topic) ? p.filter((t) => t !== topic) : [...p, topic]));
+  }
+
+  function toggleGoal(id: string) {
+    setGoals((p) => (p.includes(id) ? p.filter((g) => g !== id) : [...p, id]));
   }
 
   async function submitPain() {
@@ -264,11 +268,11 @@ export default function OnboardingScreen() {
       )}
 
       {step === 1 && (
-        <Step title="Why are you learning English?">
+        <Step title="Why are you learning English?" subtitle="Pick any that apply.">
           {GOALS.map((g) => (
-            <Chip key={g.id} label={g.label} active={goal === g.id} onPress={() => setGoal(g.id)} />
+            <Chip key={g.id} label={g.label} active={goals.includes(g.id)} onPress={() => toggleGoal(g.id)} />
           ))}
-          <Primary label="Next" onPress={next} disabled={!goal} />
+          <Primary label="Next" onPress={next} disabled={goals.length === 0} />
         </Step>
       )}
 

@@ -137,7 +137,7 @@ class TopicStat(BaseModel):
 
 
 class Profile(BaseModel):
-    goal: str = ""
+    goals: list[str] = []
     focusTopics: list[str] = []
     selfLevel: str = ""  # beginner | intermediate | advanced
     dailyMinutes: int = 0

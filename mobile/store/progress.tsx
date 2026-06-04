@@ -26,7 +26,7 @@ export const XP_PER_LEVEL = 100;
 export type TopicStat = { attempts: number; correct: number };
 
 export type Profile = {
-  goal: string;
+  goals: string[];
   focusTopics: string[];
   selfLevel: string; // beginner | intermediate | advanced
   dailyMinutes: number;
