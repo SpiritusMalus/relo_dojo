@@ -9,16 +9,10 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import {
-  analyzePain,
-  checkInteractive,
-  getExercise,
-  type Exercise,
-  type ResponseValue,
-} from "../services/api";
+import { analyzePain, type Exercise, type ResponseValue } from "../services/api";
 import ExerciseCard from "../components/ExerciseCard";
-import { DEFAULT_PROGRESS, useProgress, type Profile, type Progress } from "../store/progress";
-import { levelToCefr, selectNext, updateSkill } from "../store/adaptive";
+import { useProgress, type Profile } from "../store/progress";
+import { levelToCefr } from "../store/adaptive";
 import {
   DAILY_MINUTES,
   DOMAINS,
@@ -27,12 +21,31 @@ import {
   TOPIC_LABELS,
   buildContext,
   minutesToGoal,
+  seedSkillFromLevel,
   seedSkillFromProfile,
+  selfLevelToLevel,
 } from "../store/onboarding";
+import { pickItem, type CalItem } from "../store/calibrationBank";
 
 const GOAL_LABELS: Record<string, string> = Object.fromEntries(GOALS.map((g) => [g.id, g.label]));
 
-const CALIBRATION_ITEMS = 6;
+const CALIBRATION_ITEMS = 10;
+
+// Item -> a multiple-choice Exercise object the existing ExerciseCard can render.
+function itemToExercise(item: CalItem): Exercise {
+  return {
+    type: "multiple-choice",
+    topic: item.topic,
+    text: item.text,
+    prompt: "",
+    options: item.options,
+    tiles: [],
+    tokens: [],
+    left: [],
+    right: [],
+    token: null,
+  };
+}
 
 // --- small reusable pieces ---
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
@@ -75,114 +88,85 @@ function Step({ title, subtitle, children }: { title: string; subtitle?: string;
   );
 }
 
-// --- soft calibration: a few warm-up exercises seeded from the survey ---
+// --- placement test: a short adaptive staircase over a vetted local item bank ---
 function Calibration({
   profile,
   onDone,
 }: {
   profile: Profile;
-  onDone: (skill: Record<string, number>) => void;
+  onDone: (skill: Record<string, number>, level: number) => void;
 }) {
-  const draft = useRef<Progress>({
-    ...DEFAULT_PROGRESS,
-    profile,
-    skill: seedSkillFromProfile(profile),
-  });
-  const [exercise, setExercise] = useState<Exercise | null>(null);
-  const [round, setRound] = useState(0);
+  // Estimated level (moves up/down with answers), and which bank items we've used.
+  const levelRef = useRef<number>(selfLevelToLevel(profile.selfLevel));
+  const usedRef = useRef<Set<string>>(new Set());
+  const [item, setItem] = useState<CalItem | null>(null);
   const [count, setCount] = useState(0);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [result, setResult] = useState<{ correct: boolean; correct_answer: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [checking, setChecking] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const finish = useCallback(
+    () => onDone(seedSkillFromLevel(levelRef.current, profile.focusTopics ?? []), levelRef.current),
+    [onDone, profile.focusTopics]
+  );
+
+  const load = useCallback(() => {
     setResponse(null);
     setResult(null);
-    setExercise(null);
-    try {
-      const context = buildContext(profile);
-      const { topic, cefr, type } = selectNext(draft.current);
-      const ex = await getExercise({ topic, level: cefr, type, context });
-      setExercise(ex);
-      setRound((r) => r + 1);
-    } catch {
-      // network/model issue → don't block onboarding, finish with what we have
-      onDone(draft.current.skill);
-    } finally {
-      setLoading(false);
+    const next = pickItem(levelRef.current, usedRef.current);
+    if (!next) {
+      finish(); // bank exhausted
+      return;
     }
-  }, [profile, onDone]);
+    usedRef.current.add(next.id);
+    setItem(next);
+  }, [finish]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  async function check() {
-    if (!exercise || response === null || checking || !exercise.token) return;
-    setChecking(true);
-    try {
-      const res = await checkInteractive(exercise.token, response);
-      // Update the draft skill (no XP/streak — this is setup, not real practice).
-      const topic = exercise.topic;
-      const prev = draft.current.topics[topic] ?? { attempts: 0, correct: 0 };
-      draft.current = {
-        ...draft.current,
-        skill: updateSkill(draft.current, topic, res.correct),
-        topics: {
-          ...draft.current.topics,
-          [topic]: { attempts: prev.attempts + 1, correct: prev.correct + (res.correct ? 1 : 0) },
-        },
-      };
-      setResult(res);
-    } catch {
-      setResult({ correct: false, correct_answer: "" });
-    } finally {
-      setChecking(false);
-    }
+  function check() {
+    if (!item || response === null || result) return;
+    const correct = response === item.answer;
+    // Staircase: step shrinks as the estimate settles.
+    const step = count < 4 ? 0.8 : count < 7 ? 0.6 : 0.4;
+    levelRef.current = Math.min(5, Math.max(0, levelRef.current + (correct ? step : -step)));
+    setResult({ correct, correct_answer: item.answer });
   }
 
   function advance() {
     const done = count + 1;
     setCount(done);
-    if (done >= CALIBRATION_ITEMS) onDone(draft.current.skill);
+    if (done >= CALIBRATION_ITEMS) finish();
     else load();
   }
 
   return (
     <View style={styles.step}>
-      <Text style={styles.title}>Quick warm-up</Text>
+      <Text style={styles.title}>Quick level check</Text>
       <Text style={styles.subtitle}>
-        {count + 1} of {CALIBRATION_ITEMS} · just to tune your level
+        {Math.min(count + 1, CALIBRATION_ITEMS)} of {CALIBRATION_ITEMS} · finding your level
       </Text>
-      <TouchableOpacity onPress={() => onDone(draft.current.skill)}>
-        <Text style={styles.skipInline}>Skip warm-up</Text>
+      <TouchableOpacity onPress={finish}>
+        <Text style={styles.skipInline}>Skip the check</Text>
       </TouchableOpacity>
 
-      {loading && <ActivityIndicator style={{ marginTop: 30 }} />}
-
-      {exercise && !loading && (
+      {item && (
         <View style={styles.stepBody}>
           <ExerciseCard
-            key={round}
-            exercise={exercise}
+            key={item.id}
+            exercise={itemToExercise(item)}
             locked={result !== null}
             onChange={(v) => setResponse(v)}
           />
           {result === null ? (
-            <Primary
-              label="Check"
-              onPress={check}
-              disabled={response === null}
-              loading={checking}
-            />
+            <Primary label="Check" onPress={check} disabled={response === null} />
           ) : (
             <>
               <Text style={[styles.verdict, result.correct ? styles.ok : styles.bad]}>
                 {result.correct ? "✓ Correct" : "✗ Not quite"}
               </Text>
-              {!result.correct && !!result.correct_answer && (
+              {!result.correct && (
                 <Text style={styles.answerLine}>Answer: {result.correct_answer}</Text>
               )}
               <Primary label={count + 1 >= CALIBRATION_ITEMS ? "See result" : "Next"} onPress={advance} />
@@ -197,10 +181,12 @@ function Calibration({
 function Summary({
   profile,
   skill,
+  estimatedLevel,
   onStart,
 }: {
   profile: Profile;
   skill: Record<string, number>;
+  estimatedLevel: number;
   onStart: () => void;
 }) {
   const goalText = profile.goals.map((g) => GOAL_LABELS[g] ?? g).join(", ") || "—";
@@ -212,6 +198,12 @@ function Summary({
     <View style={styles.step}>
       <Text style={styles.title}>You're all set</Text>
       <Text style={styles.subtitle}>Here's your starting point — it keeps adjusting as you practice.</Text>
+
+      {/* Estimated overall level */}
+      <View style={styles.estimateBox}>
+        <Text style={styles.estimateLabel}>Estimated level</Text>
+        <Text style={styles.estimateCefr}>{levelToCefr(estimatedLevel)}</Text>
+      </View>
 
       {/* Starting levels */}
       <View style={styles.stepBody}>
@@ -265,6 +257,7 @@ export default function OnboardingScreen() {
   const [domainOther, setDomainOther] = useState("");
   const [busy, setBusy] = useState(false);
   const [calibratedSkill, setCalibratedSkill] = useState<Record<string, number>>({});
+  const [estimatedLevel, setEstimatedLevel] = useState(1.5);
 
   const buildProfile = useCallback(
     (): Profile => ({ goals, focusTopics, selfLevel, dailyMinutes, domains, painText }),
@@ -424,15 +417,21 @@ export default function OnboardingScreen() {
       {step === 7 && (
         <Calibration
           profile={buildProfile()}
-          onDone={(skill) => {
+          onDone={(skill, level) => {
             setCalibratedSkill(skill);
+            setEstimatedLevel(level);
             next();
           }}
         />
       )}
 
       {step === 8 && (
-        <Summary profile={buildProfile()} skill={calibratedSkill} onStart={() => finish(calibratedSkill)} />
+        <Summary
+          profile={buildProfile()}
+          skill={calibratedSkill}
+          estimatedLevel={estimatedLevel}
+          onStart={() => finish(calibratedSkill)}
+        />
       )}
 
       <StatusBar style="auto" />
@@ -482,6 +481,9 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8, borderBottomWidth: 1, borderColor: "#eee" },
   summaryTopic: { fontSize: 15, color: "#111" },
   summaryCefr: { fontSize: 16, fontWeight: "700", color: "#0a7d28" },
+  estimateBox: { backgroundColor: "#eaf7ee", borderRadius: 12, padding: 16, alignItems: "center", gap: 2 },
+  estimateLabel: { fontSize: 13, color: "#0a7d28", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
+  estimateCefr: { fontSize: 30, fontWeight: "800", color: "#0a7d28" },
   sectionTitle: { fontSize: 13, fontWeight: "700", color: "#0a7d28", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 14 },
   answerLine: { fontSize: 16, fontWeight: "600", color: "#111", marginTop: 4 },
   explain: { fontSize: 15, lineHeight: 21, color: "#444" },
