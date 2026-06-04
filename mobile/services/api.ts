@@ -65,11 +65,16 @@ async function request<T>(path: string, body?: unknown, method: Method = "POST")
   }
 
   if (!res.ok) {
-    // Backend returns {detail: "..."} for errors (e.g. 503 when Ollama is down, 400 expired token).
+    // Errors carry {detail: "..."} (string) or, for 422 validation, {detail: [{msg, ...}]}.
     let detail = `Backend error ${res.status}`;
     try {
-      const data = (await res.json()) as { detail?: string };
-      if (data?.detail) detail = data.detail;
+      const data = (await res.json()) as { detail?: unknown };
+      const d = data?.detail;
+      if (typeof d === "string") {
+        detail = d;
+      } else if (Array.isArray(d)) {
+        detail = d.map((e) => (e && typeof e === "object" && "msg" in e ? (e as any).msg : String(e))).join("; ");
+      }
     } catch {
       // non-JSON error body — keep the generic message
     }

@@ -33,7 +33,7 @@ class ExerciseIn(BaseModel):
     topic: Optional[str] = Field(default=None, max_length=60)
     level: Optional[str] = Field(default=None, max_length=4)  # CEFR: A1..C1
     type: Optional[str] = Field(default=None, max_length=40)
-    context: Optional[str] = Field(default=None, max_length=40)  # domain hint, e.g. "backend"
+    context: Optional[str] = Field(default=None, max_length=300)  # domain/goal hint string
 
 
 class MatchItem(BaseModel):
