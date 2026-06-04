@@ -13,12 +13,19 @@ export const TARGET_SUCCESS = 0.75;
 export const LEVEL_MIN = 0;
 export const LEVEL_MAX = 5;
 
-// Prior topic mix (the user's weak spots) — also mirrored on the backend.
+// Prior topic mix (the user's weak spots) — mirrors backend grammar.py TOPICS.
 export const TOPIC_PRIORS: Record<string, number> = {
-  prepositions: 40,
-  conditionals: 30,
-  "verb sequence (tense agreement)": 20,
+  prepositions: 16,
+  conditionals: 12,
+  "verb sequence (tense agreement)": 12,
   vocabulary: 10,
+  articles: 10,
+  "modal verbs": 9,
+  "phrasal verbs": 9,
+  "gerunds & infinitives": 7,
+  "comparatives & superlatives": 6,
+  "word order": 5,
+  punctuation: 4,
 };
 
 export type Cefr = "A1" | "A2" | "B1" | "B2" | "C1";
@@ -105,13 +112,20 @@ export function topicWeight(p: Progress, topic: string): number {
   return TOPIC_PRIORS[topic] * (1 + Math.max(0, TARGET_SUCCESS - acc) * 2) * focus;
 }
 
-/** Pick the next exercise's topic, difficulty (CEFR) and type from the learner model. */
-export function selectNext(p: Progress): { topic: string; cefr: Cefr; type: ExerciseType } {
+/** Pick the next exercise's topic, difficulty (CEFR) and type from the learner model.
+ *  Pass `forcedTopic` to drill a chosen topic (difficulty/type still adapt to its level). */
+export function selectNext(
+  p: Progress,
+  forcedTopic?: string
+): { topic: string; cefr: Cefr; type: ExerciseType } {
   const topics = Object.keys(TOPIC_PRIORS);
-  const topic = weightedPick(
-    topics,
-    topics.map((t) => topicWeight(p, t))
-  );
+  const topic =
+    forcedTopic && topics.includes(forcedTopic)
+      ? forcedTopic
+      : weightedPick(
+          topics,
+          topics.map((t) => topicWeight(p, t))
+        );
   const level = skillFor(p, topic);
   const tw = typeWeightsForLevel(level).filter(([, w]) => w > 0);
   const type = weightedPick(
