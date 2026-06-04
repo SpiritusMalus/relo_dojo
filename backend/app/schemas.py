@@ -141,7 +141,7 @@ class Profile(BaseModel):
     focusTopics: list[str] = []
     selfLevel: str = ""  # beginner | intermediate | advanced
     dailyMinutes: int = 0
-    domain: str = ""
+    domains: list[str] = []
     painText: str = ""
 
 
