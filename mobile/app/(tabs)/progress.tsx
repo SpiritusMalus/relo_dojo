@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
   ACHIEVEMENTS,
@@ -8,7 +8,8 @@ import {
   XP_PER_LEVEL,
   xpInLevel,
   type Progress,
-} from "../store/progress";
+} from "../../store/progress";
+import { useAuth } from "../../store/auth";
 
 // Known topics in priority order (matches backend grammar.py TOPICS). Unknown topics, if any
 // ever appear, are appended so nothing is silently dropped.
@@ -42,6 +43,7 @@ function weakestTopic(p: Progress): string | null {
 
 export default function ProgressScreen() {
   const { progress, ready } = useProgress();
+  const { user, logout } = useAuth();
 
   const level = levelFor(progress.xp);
   const inLevel = xpInLevel(progress.xp);
@@ -122,6 +124,15 @@ export default function ProgressScreen() {
         </>
       )}
 
+      {/* Account */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Account</Text>
+        {!!user && <Text style={styles.accountEmail}>{user.email}</Text>}
+        <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+          <Text style={styles.logoutText}>Log out</Text>
+        </TouchableOpacity>
+      </View>
+
       <StatusBar style="auto" />
     </ScrollView>
   );
@@ -164,4 +175,8 @@ const styles = StyleSheet.create({
 
   achievement: { fontSize: 15, color: "#111" },
   achievementLocked: { color: "#aaa" },
+
+  accountEmail: { fontSize: 15, color: "#333" },
+  logoutBtn: { borderWidth: 1, borderColor: "#c0392b", borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 2 },
+  logoutText: { color: "#c0392b", fontWeight: "600", fontSize: 16 },
 });

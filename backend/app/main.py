@@ -1,5 +1,6 @@
-"""Grammar Dojo backend — Phase 2.5.
+"""Grammar Dojo backend — Phase 4.
 
+Public (no auth):
 - GET  /health       -> {"status": "ok"}
 - POST /chat         -> free chat with the model (Phase 1)
 - POST /exercise     -> generate an exercise (interactive or free-text)
@@ -7,12 +8,19 @@
 - POST /check-answer -> LLM grade of a free-text answer + explanation
 - POST /explain      -> on-demand LLM teaching note for an interactive miss
 
+Accounts (Phase 4):
+- POST /auth/register, /auth/login ; GET /auth/me
+- GET/PUT /progress  (require a Bearer token)
+
 The LLM is self-hosted Ollama; the model is set via OLLAMA_MODEL in .env.
 """
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from .core.config import settings
+from .routers import auth as auth_router
+from .routers import progress as progress_router
 from .schemas import (
     ChatIn,
     ChatOut,
@@ -27,15 +35,18 @@ from .schemas import (
 from .services import grammar, tokens
 from .services.ollama_client import OllamaError, generate
 
-app = FastAPI(title="Grammar Dojo API", version="0.3.0")
+app = FastAPI(title="Grammar Dojo API", version="0.4.0")
 
-# Expo dev client calls from a different origin; allow all during development.
+# CORS origins are explicit (configured via ALLOWED_ORIGINS) — no wildcard in production.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins_list,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router.router)
+app.include_router(progress_router.router)
 
 
 @app.get("/health")

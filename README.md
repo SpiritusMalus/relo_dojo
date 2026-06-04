@@ -47,6 +47,26 @@ Model name is read from `OLLAMA_MODEL` in `backend/.env` (default `gemma3:4b`). 
 `CHECK_SECRET` (optional) is a Fernet key that seals exercise tokens across restarts; if unset an
 ephemeral key is generated per run (fine for dev).
 
+### Accounts DB (Phase 4 — required env)
+
+The backend now needs PostgreSQL and a JWT secret. Required vars in `backend/.env` (no defaults —
+the server refuses to start without them):
+
+```bash
+DATABASE_URL=postgresql+asyncpg://USER:PASSWORD@localhost/grammar_dojo
+JWT_SECRET=<random string>          # e.g. python -c "import secrets; print(secrets.token_urlsafe(48))"
+ALLOWED_ORIGINS=http://localhost:8081   # comma-separated CORS origins (no wildcard)
+# JWT_EXPIRE_MIN=10080               # optional, default 7 days
+```
+
+One-time setup, then apply migrations:
+
+```bash
+createdb grammar_dojo               # provision Postgres + the database
+cd backend && source .venv/bin/activate
+alembic upgrade head                # creates the users + progress tables
+```
+
 ### Run the backend
 
 ```bash
