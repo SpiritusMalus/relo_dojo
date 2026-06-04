@@ -126,22 +126,35 @@ def _strip_word(w: str) -> str:
     return w.strip(".,!?;:'\"()").lower()
 
 
-# CEFR difficulty guidance injected into generation prompts (adaptive difficulty).
-CEFR_GUIDE: dict[str, str] = {
-    "A1": "Use very simple, high-frequency words and short simple sentences.",
-    "A2": "Use simple everyday vocabulary and short sentences.",
-    "B1": "Use intermediate vocabulary and moderately complex sentences.",
-    "B2": "Use upper-intermediate vocabulary and complex sentences with subordinate clauses.",
-    "C1": "Use advanced vocabulary, idioms, and complex multi-clause sentences.",
+# CEFR difficulty guidance: (word cap, vocab/structure note, concrete few-shot example).
+# Small models honor a concrete example far better than an abstract instruction.
+CEFR_GUIDE: dict[str, tuple[int, str, str]] = {
+    "A1": (7, "Use very simple, high-frequency words and short simple sentences.", "I fixed the bug today."),
+    "A2": (9, "Use simple everyday vocabulary and short sentences.", "I fixed the bug in the login form."),
+    "B1": (12, "Use intermediate vocabulary and moderately complex sentences.", "If the test fails, the pipeline stops the deploy."),
+    "B2": (16, "Use upper-intermediate vocabulary and sentences with subordinate clauses.", "Although the cache was stale, the service kept returning old data for a while."),
+    "C1": (22, "Use advanced vocabulary, idioms, and complex multi-clause sentences.", "Had we monitored the queue more closely, we would have caught the backlog before it cascaded."),
 }
 
 
+def _cefr(level: str | None) -> str:
+    return (level or "B1").upper()
+
+
+def _max_words(level: str | None) -> int:
+    return CEFR_GUIDE.get(_cefr(level), CEFR_GUIDE["B1"])[0]
+
+
 def _level_clause(level: str | None) -> str:
-    cefr = (level or "B1").upper()  # default mid-level when unspecified
-    guide = CEFR_GUIDE.get(cefr)
-    if not guide:
+    cefr = _cefr(level)
+    entry = CEFR_GUIDE.get(cefr)
+    if not entry:
         return ""
-    return f"Target CEFR level: {cefr}. {guide}\n"
+    cap, guide, example = entry
+    return (
+        f"Target CEFR level: {cefr}. {guide} "
+        f"Keep any sentence to at most {cap} words. Example at this level: \"{example}\"\n"
+    )
 
 
 def _context_clause(context: str | None) -> str:
@@ -151,11 +164,24 @@ def _context_clause(context: str | None) -> str:
     return f"Tailor examples to the learner's context: {c}.\n"
 
 
-def _tutor_intro(extra: str = "", level: str | None = None, context: str | None = None) -> str:
+# Shared flavor: make items feel like a real developer's day, not a dry textbook.
+SCENARIO = (
+    "Frame it as a vivid, real developer moment (a bug, a code review, a flaky deploy, a Slack "
+    "message, an error log) and add light humor when it fits naturally.\n"
+)
+
+
+def _tutor_intro(
+    extra: str = "",
+    level: str | None = None,
+    context: str | None = None,
+    scenario: bool = False,
+) -> str:
     return (
         "You are an English grammar tutor for a Python developer learning English.\n"
         + _level_clause(level)
         + _context_clause(context)
+        + (SCENARIO if scenario else "")
         + extra
     )
 
@@ -174,13 +200,14 @@ async def _gen_multiple_choice(topic: str, level: str | None = None, context: st
         "Reply ONLY as JSON matching the schema.",
         level,
         context,
+        scenario=True,
     )
     data = await generate_json(prompt, MC_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     text = str(data.get("text") or "").strip()
     options = [str(o).strip() for o in (data.get("options") or []) if str(o).strip()]
     answer = str(data.get("answer") or "").strip()
-    # Need a real choice set with the answer present.
-    if not text or len(options) < 2 or not answer:
+    # Need a real choice set with the answer present, and a sentence within the level's word cap.
+    if not text or len(options) < 2 or not answer or len(text.split()) > _max_words(level):
         return None
     if _norm(answer) not in {_norm(o) for o in options}:
         options.append(answer)  # model forgot to include the answer — add it
@@ -205,12 +232,13 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
         "Reply ONLY as JSON.",
         level,
         context,
+        scenario=True,
     )
     data = await generate_json(prompt, BUILD_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     sentence = str(data.get("sentence_en") or "").strip()
     sentence_ru = str(data.get("sentence_ru") or "").strip()
     words = sentence.split()
-    if len(words) < 3 or len(words) > 16 or not sentence_ru:
+    if len(words) < 3 or len(words) > _max_words(level) or not sentence_ru:
         return None
     tiles = words[:]
     # Shuffle until the order actually changes (so it isn't already solved).
@@ -236,6 +264,7 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
         "sentence). Keep each side under 6 words. Pairs must be unambiguous. Reply ONLY as JSON.",
         level,
         context,
+        scenario=True,
     )
     data = await generate_json(prompt, MATCH_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     raw = data.get("pairs") or []
@@ -275,13 +304,14 @@ async def _gen_tap_the_error(topic: str, level: str | None = None, context: str 
         "sentence. 'correction' is the word that should replace it. Reply ONLY as JSON.",
         level,
         context,
+        scenario=True,
     )
     data = await generate_json(prompt, ERROR_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     sentence = str(data.get("sentence") or "").strip()
     wrong_word = str(data.get("wrong_word") or "").strip()
     correction = str(data.get("correction") or "").strip()
     words = sentence.split()
-    if len(words) < 3 or not wrong_word or not correction:
+    if len(words) < 3 or len(words) > _max_words(level) or not wrong_word or not correction:
         return None
     # Locate the wrong word among the tokens (punctuation-insensitive, first match).
     target = _strip_word(wrong_word)
@@ -310,6 +340,7 @@ async def _gen_free_text(topic: str, level: str | None = None, context: str | No
         "word(s) into. Use a developer-world example when natural. Reply ONLY as JSON.",
         level,
         context,
+        scenario=True,
     )
     data = await generate_json(prompt, FREETEXT_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     text = str(data.get("text") or "").strip()
@@ -349,9 +380,18 @@ async def generate_exercise(
     if ex_type not in _ENABLED_TYPES:
         ex_type = _weighted(EXERCISE_TYPES)
 
-    result = await _GENERATORS[ex_type](topic, level, context)
+    # Retry the chosen generator a few times (output may fail validation, e.g. too long for the
+    # level), then fall back to multiple-choice — never ship a broken or over-hard item.
+    result = None
+    for _ in range(3):
+        result = await _GENERATORS[ex_type](topic, level, context)
+        if result is not None:
+            break
     if result is None and ex_type != "multiple-choice":
-        result = await _gen_multiple_choice(topic, level, context)
+        for _ in range(2):
+            result = await _gen_multiple_choice(topic, level, context)
+            if result is not None:
+                break
     if result is None:
         raise OllamaError("The model produced an unusable exercise. Try again.")
     return result
