@@ -10,17 +10,12 @@ import {
   type Progress,
 } from "../../store/progress";
 import { useAuth } from "../../store/auth";
-import { levelToCefr, skillFor } from "../../store/adaptive";
+import { levelToCefr, skillFor, TOPIC_PRIORS } from "../../store/adaptive";
 import { minutesToGoal } from "../../store/onboarding";
 
-// Known topics in priority order (matches backend grammar.py TOPICS). Unknown topics, if any
-// ever appear, are appended so nothing is silently dropped.
-const TOPIC_ORDER = [
-  "prepositions",
-  "conditionals",
-  "verb sequence (tense agreement)",
-  "vocabulary",
-];
+// Topics in priority order (single source of truth = TOPIC_PRIORS). Unknown topics, if any ever
+// appear, are appended so nothing is silently dropped.
+const TOPIC_ORDER = Object.keys(TOPIC_PRIORS);
 
 function orderedTopics(p: Progress): string[] {
   const known = TOPIC_ORDER.filter((t) => p.topics[t]);

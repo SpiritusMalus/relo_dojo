@@ -38,6 +38,8 @@ function RootNav() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="login" />
       <Stack.Screen name="onboarding" />
+      <Stack.Screen name="practice" options={{ headerShown: true, title: "Practice" }} />
+      <Stack.Screen name="topics" options={{ headerShown: true, title: "Choose a topic" }} />
     </Stack>
   );
 }

@@ -28,10 +28,17 @@ GUARDRAIL = (
 
 # (topic, weight) — weighted toward the user's weak spots.
 TOPICS: list[tuple[str, int]] = [
-    ("prepositions", 40),
-    ("conditionals", 30),
-    ("verb sequence (tense agreement)", 20),
+    ("prepositions", 16),
+    ("conditionals", 12),
+    ("verb sequence (tense agreement)", 12),
     ("vocabulary", 10),
+    ("articles", 10),
+    ("modal verbs", 9),
+    ("phrasal verbs", 9),
+    ("gerunds & infinitives", 7),
+    ("comparatives & superlatives", 6),
+    ("word order", 5),
+    ("punctuation", 4),
 ]
 
 # (exercise type, weight) — all tap-based. free-text is disabled (weight 0): with no options and

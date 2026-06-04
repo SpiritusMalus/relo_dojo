@@ -22,7 +22,6 @@ export const DOMAINS = [
   "QA / testing",
   "security",
   "embedded",
-  "other",
 ];
 export const DAILY_MINUTES = [5, 10, 15, 30, 60];
 
@@ -46,6 +45,13 @@ export const TOPIC_LABELS: Record<string, string> = {
   conditionals: "Conditionals (if …)",
   "verb sequence (tense agreement)": "Verb tenses & agreement",
   vocabulary: "Vocabulary",
+  articles: "Articles (a / an / the)",
+  "modal verbs": "Modal verbs (can / must …)",
+  "phrasal verbs": "Phrasal verbs",
+  "gerunds & infinitives": "Gerunds & infinitives",
+  "comparatives & superlatives": "Comparatives & superlatives",
+  "word order": "Word order",
+  punctuation: "Punctuation",
 };
 
 // --- seeding ---
