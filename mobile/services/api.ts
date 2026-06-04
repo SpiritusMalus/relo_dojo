@@ -37,15 +37,33 @@ export function setAuthToken(token: string | null): void {
 
 type Method = "GET" | "POST" | "PUT";
 
+// LLM calls (/explain) can be slow on a cold model, but never hang forever — fail clearly instead.
+const REQUEST_TIMEOUT_MS = 90000;
+
 async function request<T>(path: string, body?: unknown, method: Method = "POST"): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error("The server took too long to respond. Is the backend running?");
+    }
+    throw new Error("Can't reach the backend. Check it's running and on the same network.");
+  } finally {
+    clearTimeout(timer);
+  }
+
   if (!res.ok) {
     // Backend returns {detail: "..."} for errors (e.g. 503 when Ollama is down, 400 expired token).
     let detail = `Backend error ${res.status}`;
