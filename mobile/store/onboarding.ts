@@ -70,16 +70,20 @@ export function selfLevelToLevel(self: string): number {
   }
 }
 
-/** Initial per-topic skill from the survey: base from self-level, flagged topics start lower. */
-export function seedSkillFromProfile(profile: Profile): Record<string, number> {
-  const base = selfLevelToLevel(profile.selfLevel);
-  const focus = new Set(profile.focusTopics ?? []);
+/** Per-topic skill from a base level: every topic starts at `level`, flagged topics a bit lower. */
+export function seedSkillFromLevel(level: number, focusTopics: string[]): Record<string, number> {
+  const focus = new Set(focusTopics ?? []);
   const skill: Record<string, number> = {};
   for (const topic of Object.keys(TOPIC_PRIORS)) {
-    const lvl = focus.has(topic) ? base - FOCUS_PENALTY : base;
+    const lvl = focus.has(topic) ? level - FOCUS_PENALTY : level;
     skill[topic] = Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, lvl));
   }
   return skill;
+}
+
+/** Initial per-topic skill from the survey self-assessment (fallback when the test is skipped). */
+export function seedSkillFromProfile(profile: Profile): Record<string, number> {
+  return seedSkillFromLevel(selfLevelToLevel(profile.selfLevel), profile.focusTopics ?? []);
 }
 
 // --- functional effects of the profile ---

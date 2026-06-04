@@ -231,9 +231,9 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
 async def _gen_match_pairs(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create 3 or 4 matching pairs to practice: {topic}.\n"
-        "Each pair has a short 'left' (e.g. a sentence with a '___' blank, or a word) and a short "
-        "'right' (the matching answer, e.g. the missing preposition or a brief meaning). "
-        "Keep each side under 6 words. Pairs must be unambiguous. Reply ONLY as JSON.",
+        "Each 'left' MUST be a short sentence containing exactly one blank shown as '___'. "
+        "Each 'right' is the single word/phrase that fills that blank (it must actually complete the "
+        "sentence). Keep each side under 6 words. Pairs must be unambiguous. Reply ONLY as JSON.",
         level,
         context,
     )
@@ -245,7 +245,7 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
             continue
         left = str(p.get("left") or "").strip()
         right = str(p.get("right") or "").strip()
-        if left and right:
+        if left and right and "___" in left:  # left must have a blank to fill
             pairs.append({"left": left, "right": right})
     # Need at least 3 distinct, non-duplicate pairs for a real matching exercise.
     if len(pairs) < 3:
