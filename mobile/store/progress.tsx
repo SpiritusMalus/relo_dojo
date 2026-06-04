@@ -16,6 +16,7 @@ import {
 } from "react";
 import { getProgress, putProgress } from "../services/api";
 import { useAuth } from "./auth";
+import { updateSkill } from "./adaptive";
 
 const STORAGE_KEY = "grammar-dojo/progress/v1";
 
@@ -32,6 +33,7 @@ export type Progress = {
   bestCorrectRun: number;
   topics: Record<string, TopicStat>;
   achievements: string[]; // unlocked ids
+  skill: Record<string, number>; // per-topic adaptive level (0..5), see store/adaptive.ts
 };
 
 const DEFAULT_PROGRESS: Progress = {
@@ -42,6 +44,7 @@ const DEFAULT_PROGRESS: Progress = {
   bestCorrectRun: 0,
   topics: {},
   achievements: [],
+  skill: {},
 };
 
 // --- Derived helpers ---------------------------------------------------------
@@ -132,6 +135,8 @@ export function recordAnswer(
     bestCorrectRun,
     dailyStreak,
     lastActiveDate: today,
+    // Adaptive level update uses prior attempts (prev), so compute before the increment is "seen".
+    skill: updateSkill(prev, topic, correct),
   };
 
   // Recompute unlocked achievements (idempotent union — never un-unlocks).
@@ -157,6 +162,17 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     else if (!tb) topics[key] = ta;
     else topics[key] = tb.attempts > ta.attempts ? tb : ta;
   }
+  // Per-topic skill: keep the value from the side with more attempts (more evidence).
+  const skill: Record<string, number> = {};
+  const aSkill = a.skill ?? {};
+  const bSkill = b.skill ?? {};
+  for (const key of new Set([...Object.keys(aSkill), ...Object.keys(bSkill)])) {
+    const sa = aSkill[key];
+    const sb = bSkill[key];
+    if (sa === undefined) skill[key] = sb;
+    else if (sb === undefined) skill[key] = sa;
+    else skill[key] = (b.topics[key]?.attempts ?? 0) > (a.topics[key]?.attempts ?? 0) ? sb : sa;
+  }
   return {
     xp: Math.max(a.xp, b.xp),
     dailyStreak: Math.max(a.dailyStreak, b.dailyStreak),
@@ -165,6 +181,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     bestCorrectRun: Math.max(a.bestCorrectRun, b.bestCorrectRun),
     topics,
     achievements: Array.from(new Set([...a.achievements, ...b.achievements])),
+    skill,
   };
 }
 
@@ -176,7 +193,7 @@ async function load(): Promise<Progress> {
     if (!raw) return DEFAULT_PROGRESS;
     const stored = JSON.parse(raw) as Partial<Progress>;
     // Merge over defaults so a future shape change doesn't crash on old data.
-    return { ...DEFAULT_PROGRESS, ...stored, topics: stored.topics ?? {} };
+    return { ...DEFAULT_PROGRESS, ...stored, topics: stored.topics ?? {}, skill: stored.skill ?? {} };
   } catch {
     return DEFAULT_PROGRESS;
   }

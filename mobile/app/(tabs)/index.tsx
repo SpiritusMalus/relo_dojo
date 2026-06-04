@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -19,12 +19,17 @@ import {
 } from "../../services/api";
 import ExerciseCard from "../../components/ExerciseCard";
 import { useProgress } from "../../store/progress";
+import { levelToCefr, selectNext, skillFor, updateSkill } from "../../store/adaptive";
 
 type Result = { correct: boolean; correct_answer: string; explanation?: string; tip?: string };
 
 export default function PracticeScreen() {
-  const { recordAnswer } = useProgress();
+  const { progress, recordAnswer } = useProgress();
+  // Latest progress for selecting/grading without stale closures.
+  const progressRef = useRef(progress);
+  progressRef.current = progress;
   const [exercise, setExercise] = useState<Exercise | null>(null);
+  const [levelUp, setLevelUp] = useState<string | null>(null);
   const [round, setRound] = useState(0); // bumps to remount ExerciseCard on each new exercise
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [responseDisplay, setResponseDisplay] = useState("");
@@ -42,9 +47,12 @@ export default function PracticeScreen() {
     setResponse(null);
     setResponseDisplay("");
     setExplained(null);
+    setLevelUp(null);
     setExercise(null);
     try {
-      setExercise(await getExercise());
+      // Adaptive: pick topic, difficulty (CEFR) and type from the learner model.
+      const { topic, cefr, type } = selectNext(progressRef.current);
+      setExercise(await getExercise({ topic, level: cefr, type }));
       setRound((r) => r + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load exercise");
@@ -74,7 +82,13 @@ export default function PracticeScreen() {
         res = await checkFreeText(exercise.text, String(response));
       }
       setResult(res);
-      recordAnswer(exercise.topic, res.correct); // gamification: once per answer
+      // Detect a CEFR level-up for this topic (compute the would-be new level before state updates).
+      const before = skillFor(progressRef.current, exercise.topic);
+      const after = updateSkill(progressRef.current, exercise.topic, res.correct)[exercise.topic];
+      recordAnswer(exercise.topic, res.correct); // gamification + skill: once per answer
+      if (after > before && levelToCefr(after) !== levelToCefr(before)) {
+        setLevelUp(`${exercise.topic} is now ${levelToCefr(after)}`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to check answer");
     } finally {
@@ -116,7 +130,9 @@ export default function PracticeScreen() {
 
       {exercise && !loading && (
         <View style={styles.card}>
-          <Text style={styles.topic}>{exercise.topic}</Text>
+          <Text style={styles.topic}>
+            {exercise.topic} · {levelToCefr(skillFor(progress, exercise.topic))}
+          </Text>
 
           <ExerciseCard
             key={round}
@@ -143,6 +159,8 @@ export default function PracticeScreen() {
               {!result.correct && (
                 <Text style={styles.answerLine}>Answer: {result.correct_answer}</Text>
               )}
+
+              {!!levelUp && <Text style={styles.levelUp}>⬆ {levelUp}</Text>}
 
               {/* Free-text comes with an explanation already. */}
               {!!result.explanation && <Text style={styles.explanation}>{result.explanation}</Text>}
@@ -207,6 +225,7 @@ const styles = StyleSheet.create({
   ok: { color: "#0a7d28" },
   bad: { color: "#c0392b" },
   answerLine: { fontSize: 16, fontWeight: "600", color: "#111" },
+  levelUp: { fontSize: 15, fontWeight: "700", color: "#0a7d28" },
   explanation: { fontSize: 16, lineHeight: 22, color: "#333" },
   tip: { fontSize: 15, color: "#555", fontStyle: "italic" },
   errorBox: { gap: 8, marginTop: 20 },

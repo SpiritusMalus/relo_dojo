@@ -28,6 +28,7 @@ from .schemas import (
     CheckOut,
     CheckTextIn,
     CheckTextOut,
+    ExerciseIn,
     ExerciseOut,
     ExplainIn,
     ExplainOut,
@@ -64,9 +65,12 @@ async def chat(payload: ChatIn) -> ChatOut:
 
 
 @app.post("/exercise", response_model=ExerciseOut)
-async def exercise() -> ExerciseOut:
+async def exercise(payload: ExerciseIn = ExerciseIn()) -> ExerciseOut:
+    """Optionally steered by the client (topic/level/type) for adaptive difficulty; public."""
     try:
-        data = await grammar.generate_exercise()
+        data = await grammar.generate_exercise(
+            topic=payload.topic, level=payload.level, ex_type=payload.type
+        )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     # grammar guarantees keys; the answer stays sealed in `token`, never in plaintext here.
