@@ -110,7 +110,10 @@ export const light: Colors = {
 export const dark: Colors = {
   accent: "#0E8A30",
   accentPress: "#0B6E26",
-  accentInk: "#06140B",
+  // Text/icons sit on the solid accent green (same in both themes) → must stay white. The README's
+  // dark-overrides table lists #06140B, but reference/theme.css (the authoritative spec) does NOT
+  // override --accent-ink in dark, so it inherits white. Black-on-green was a misread of the table.
+  accentInk: "#FFFFFF",
   accentSoft: "#0D2B16",
   accentSoft2: "#0D3E1B",
   fire: "#F0801F",
