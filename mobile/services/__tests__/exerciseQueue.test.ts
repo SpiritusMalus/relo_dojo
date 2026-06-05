@@ -7,6 +7,7 @@ function fakeExercise(id: number): Exercise {
   return {
     type: "multiple-choice",
     topic: "articles",
+    level: "B1",
     text: `q${id}`,
     prompt: "",
     options: [],

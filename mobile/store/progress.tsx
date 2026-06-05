@@ -114,12 +114,17 @@ function isYesterday(prev: string, today: Date): boolean {
 
 // --- Pure update -------------------------------------------------------------
 
+/** Optional grading signal for a difficulty-aware skill update (store/adaptive.ts). `score` is the
+ *  partial credit (0..1); `difficulty` is the served item's difficulty on the 0..5 scale. */
+export type GradeSignal = { score?: number; difficulty?: number };
+
 /** Apply one answer to progress, returning a new immutable Progress. `now` is injectable for tests. */
 export function recordAnswer(
   prev: Progress,
   topic: string,
   correct: boolean,
-  now: Date = new Date()
+  now: Date = new Date(),
+  grade?: GradeSignal
 ): Progress {
   const today = localDate(now);
 
@@ -154,7 +159,9 @@ export function recordAnswer(
     dailyStreak,
     lastActiveDate: today,
     // Adaptive level update uses prior attempts (prev), so compute before the increment is "seen".
-    skill: updateSkill(prev, topic, correct),
+    // Prefer the partial score + served difficulty when available (difficulty-aware update);
+    // otherwise fall back to the boolean correctness.
+    skill: updateSkill(prev, topic, grade?.score ?? correct, grade?.difficulty),
     // Daily-goal counter: reset on a new local day, otherwise increment.
     todayDate: today,
     todayCount: prev.todayDate === today ? prev.todayCount + 1 : 1,
@@ -254,7 +261,7 @@ async function save(p: Progress): Promise<void> {
 type ProgressContextValue = {
   progress: Progress;
   ready: boolean; // false until the first load completes
-  recordAnswer: (topic: string, correct: boolean) => void;
+  recordAnswer: (topic: string, correct: boolean, grade?: GradeSignal) => void;
   completeOnboarding: (profile: Profile, skill: Record<string, number>) => void;
   resetOnboarding: () => void;
 };
@@ -315,9 +322,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, [ready, authReady, token]);
 
   const record = useCallback(
-    (topic: string, correct: boolean) => {
+    (topic: string, correct: boolean, grade?: GradeSignal) => {
       setProgress((prev) => {
-        const next = recordAnswer(prev, topic, correct);
+        const next = recordAnswer(prev, topic, correct, new Date(), grade);
         void save(next);
         schedulePush(next);
         return next;

@@ -1,5 +1,8 @@
 import {
+  cefrMidpoint,
+  expectedOutcome,
   FOCUS_BOOST,
+  isCefr,
   isoDay,
   levelToCefr,
   reviewBoost,
@@ -65,6 +68,64 @@ describe("updateSkill", () => {
     const lo = progressWith({ skill: { articles: 0 } });
     expect(updateSkill(hi, "articles", true).articles).toBeLessThanOrEqual(5);
     expect(updateSkill(lo, "articles", false).articles).toBeGreaterThanOrEqual(0);
+  });
+
+  it("accepts a partial score (0..1), not just a boolean", () => {
+    const p = progressWith({ skill: { articles: 2 } });
+    const partial = updateSkill(p, "articles", 0.5).articles;
+    const full = updateSkill(p, "articles", 1).articles;
+    const none = updateSkill(p, "articles", 0).articles;
+    expect(partial).toBeGreaterThan(none);
+    expect(partial).toBeLessThan(full);
+  });
+
+  it("is backward-compatible: no difficulty → boolean path matches the plain controller", () => {
+    const p = progressWith({ skill: { articles: 2 }, topics: { articles: { attempts: 0, correct: 0 } } });
+    const k = 0.5; // attempts 0
+    const expected = 2 + k * (1 - TARGET_SUCCESS);
+    expect(updateSkill(p, "articles", true).articles).toBeCloseTo(expected, 6);
+  });
+});
+
+describe("expectedOutcome (difficulty-aware)", () => {
+  it("equals TARGET_SUCCESS when difficulty matches skill", () => {
+    expect(expectedOutcome(2.5, 2.5)).toBeCloseTo(TARGET_SUCCESS, 6);
+  });
+  it("is higher for an easier item, lower for a harder one", () => {
+    expect(expectedOutcome(3, 1)).toBeGreaterThan(TARGET_SUCCESS); // easy → expect more
+    expect(expectedOutcome(1, 3)).toBeLessThan(TARGET_SUCCESS); // hard → expect less
+  });
+  it("stays within [0.05, 0.95]", () => {
+    expect(expectedOutcome(5, 0)).toBeLessThanOrEqual(0.95);
+    expect(expectedOutcome(0, 5)).toBeGreaterThanOrEqual(0.05);
+  });
+});
+
+describe("updateSkill — difficulty awareness", () => {
+  it("rewards a correct answer on a hard item more than on an easy one", () => {
+    const p = progressWith({ skill: { articles: 2.5 } });
+    const hardWin = updateSkill(p, "articles", 1, 4.5).articles - 2.5; // C1 item
+    const easyWin = updateSkill(p, "articles", 1, 0.5).articles - 2.5; // A1 item
+    expect(hardWin).toBeGreaterThan(easyWin);
+  });
+  it("penalizes a miss on an easy item more than on a hard one", () => {
+    const p = progressWith({ skill: { articles: 2.5 } });
+    const easyMiss = 2.5 - updateSkill(p, "articles", 0, 0.5).articles; // should-have-known
+    const hardMiss = 2.5 - updateSkill(p, "articles", 0, 4.5).articles; // forgivable
+    expect(easyMiss).toBeGreaterThan(hardMiss);
+  });
+});
+
+describe("cefrMidpoint / isCefr", () => {
+  it("maps CEFR bands to their 0..5 midpoints", () => {
+    expect(cefrMidpoint("A1")).toBe(0.5);
+    expect(cefrMidpoint("B1")).toBe(2.5);
+    expect(cefrMidpoint("C1")).toBe(4.5);
+  });
+  it("guards CEFR strings", () => {
+    expect(isCefr("B2")).toBe(true);
+    expect(isCefr("")).toBe(false);
+    expect(isCefr("Z9")).toBe(false);
   });
 });
 

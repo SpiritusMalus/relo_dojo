@@ -36,6 +36,7 @@ function itemToExercise(item: CalItem): Exercise {
   return {
     type: "multiple-choice",
     topic: item.topic,
+    level: "", // placement is graded locally; no difficulty-aware skill update here
     text: item.text,
     prompt: "",
     options: item.options,

@@ -20,7 +20,7 @@ import {
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ExerciseCard from "../components/ExerciseCard";
 import { useProgress } from "../store/progress";
-import { levelToCefr, selectNext, skillFor, updateSkill } from "../store/adaptive";
+import { cefrMidpoint, isCefr, levelToCefr, selectNext, skillFor, updateSkill } from "../store/adaptive";
 import { buildContext, TOPIC_LABELS } from "../store/onboarding";
 
 type Result = {
@@ -110,10 +110,20 @@ export default function PracticeScreen() {
         res = await checkFreeText(exercise.text, String(response));
       }
       setResult(res);
+      // Difficulty-aware skill signal: partial score + the difficulty of the served item.
+      const outcome = res.score ?? (res.correct ? 1 : 0);
+      const difficulty = cefrMidpoint(levelToCefr(skillFor(progressRef.current, exercise.topic)));
+      const servedDifficulty = isCefr(exercise.level) ? cefrMidpoint(exercise.level) : difficulty;
       // Detect a CEFR level-up for this topic (compute the would-be new level before state updates).
       const before = skillFor(progressRef.current, exercise.topic);
-      const after = updateSkill(progressRef.current, exercise.topic, res.correct)[exercise.topic];
-      recordAnswer(exercise.topic, res.correct); // gamification + skill: once per answer
+      const after = updateSkill(
+        progressRef.current,
+        exercise.topic,
+        outcome,
+        servedDifficulty
+      )[exercise.topic];
+      // gamification + difficulty-aware skill: once per answer.
+      recordAnswer(exercise.topic, res.correct, { score: res.score, difficulty: servedDifficulty });
       if (after > before && levelToCefr(after) !== levelToCefr(before)) {
         setLevelUp(`${exercise.topic} is now ${levelToCefr(after)}`);
       }

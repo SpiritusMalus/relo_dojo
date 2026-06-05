@@ -533,6 +533,8 @@ async def generate_exercise(
                 break
     if result is None:
         raise OllamaError("The model produced an unusable exercise. Try again.")
+    # Stamp the effective CEFR so the client can score the answer difficulty-aware (adaptive.ts).
+    result["level"] = _cefr(level)
     return result
 
 
