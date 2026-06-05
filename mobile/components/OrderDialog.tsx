@@ -1,60 +1,74 @@
 import { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import type { ExerciseProps } from "./types";
+import { useTheme } from "../theme/theme";
+import Txt from "./ui/Txt";
 
-// Reorder shuffled dialog lines into a coherent conversation. Tap a bank line to append it to the
-// answer (numbered), tap a placed line to send it back. Submittable once every line is placed.
-// Response is the lines in the chosen order (string[]).
+// Reorder shuffled dialog lines. Tap a bank line to append (numbered); tap a placed line to remove.
 export default function OrderDialog({ exercise, locked, onChange }: ExerciseProps) {
+  const t = useTheme();
   const tiles = exercise.tiles;
-  const [order, setOrder] = useState<number[]>([]); // tile indices in chosen order
+  const [order, setOrder] = useState<number[]>([]);
 
   function report(next: number[]) {
     const complete = next.length === tiles.length;
     const lines = next.map((i) => tiles[i]);
     onChange(complete ? lines : null, lines.join(" → "));
   }
-
   function place(i: number) {
     if (locked || order.includes(i)) return;
     const next = [...order, i];
     setOrder(next);
     report(next);
   }
-
   function remove(i: number) {
     if (locked) return;
     const next = order.filter((x) => x !== i);
     setOrder(next);
     report(next);
   }
-
   const available = tiles.map((_, i) => i).filter((i) => !order.includes(i));
 
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.instruction}>{exercise.text}</Text>
+    <View style={{ gap: 14 }}>
+      <Txt variant="label">{exercise.text}</Txt>
 
-      {/* Answer list (ordered) */}
-      <View style={styles.answer}>
+      <View style={{ gap: 8, minHeight: 52 }}>
         {order.length === 0 ? (
-          <Text style={styles.placeholder}>Tap lines below in order…</Text>
+          <Txt variant="body" color={t.c.ink3} style={{ fontStyle: "italic" }}>
+            Tap lines below in order…
+          </Txt>
         ) : (
           order.map((i, pos) => (
-            <TouchableOpacity key={i} style={styles.placedLine} onPress={() => remove(i)} disabled={locked}>
-              <Text style={styles.num}>{pos + 1}</Text>
-              <Text style={styles.placedText}>{tiles[i]}</Text>
-            </TouchableOpacity>
+            <Pressable
+              key={i}
+              onPress={() => remove(i)}
+              disabled={locked}
+              style={[styles.placed, { backgroundColor: t.c.accentSoft, borderColor: t.c.accent }]}
+            >
+              <View style={[styles.num, { backgroundColor: t.c.accent }]}>
+                <Txt variant="caption" color={t.c.accentInk}>
+                  {pos + 1}
+                </Txt>
+              </View>
+              <Txt variant="bodyStrong" color={t.c.accent} style={{ flex: 1 }}>
+                {tiles[i]}
+              </Txt>
+            </Pressable>
           ))
         )}
       </View>
 
-      {/* Shuffled bank */}
-      <View style={styles.bank}>
+      <View style={{ gap: 8 }}>
         {available.map((i) => (
-          <TouchableOpacity key={i} style={styles.bankLine} onPress={() => place(i)} disabled={locked}>
-            <Text style={styles.bankText}>{tiles[i]}</Text>
-          </TouchableOpacity>
+          <Pressable
+            key={i}
+            onPress={() => place(i)}
+            disabled={locked}
+            style={[styles.bank, { backgroundColor: t.c.surface, borderColor: t.c.line2 }]}
+          >
+            <Txt variant="body">{tiles[i]}</Txt>
+          </Pressable>
         ))}
       </View>
     </View>
@@ -62,34 +76,7 @@ export default function OrderDialog({ exercise, locked, onChange }: ExerciseProp
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 14 },
-  instruction: { fontSize: 14, color: "#0a7d28", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
-  answer: { gap: 8, minHeight: 52 },
-  placeholder: { fontSize: 15, color: "#aaa", fontStyle: "italic" },
-  placedLine: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#eaf7ee",
-    borderWidth: 1,
-    borderColor: "#0a7d28",
-    borderRadius: 8,
-    padding: 12,
-  },
-  num: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#fff",
-    backgroundColor: "#0a7d28",
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    textAlign: "center",
-    lineHeight: 24,
-    overflow: "hidden",
-  },
-  placedText: { flex: 1, fontSize: 16, color: "#0a7d28", fontWeight: "600" },
-  bank: { gap: 8 },
-  bankLine: { backgroundColor: "#f3f3f3", borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12 },
-  bankText: { fontSize: 16, color: "#111" },
+  placed: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: 10, padding: 12, minHeight: 44 },
+  num: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  bank: { borderWidth: 1, borderRadius: 10, padding: 12, minHeight: 44, justifyContent: "center" },
 });

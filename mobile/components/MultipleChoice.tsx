@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import type { ExerciseProps } from "./types";
+import { useTheme } from "../theme/theme";
+import Txt from "./ui/Txt";
 
-// Sentence with a blank + tap one option. (Evolves the Phase-2 choose-the-word UI.)
+// Sentence with a blank + tap one option (also used for odd-one-out).
 export default function MultipleChoice({ exercise, locked, onChange }: ExerciseProps) {
+  const t = useTheme();
   const [selected, setSelected] = useState<string | null>(null);
 
   function pick(opt: string) {
@@ -14,31 +17,36 @@ export default function MultipleChoice({ exercise, locked, onChange }: ExerciseP
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.sentence}>{exercise.text}</Text>
-      <View style={styles.options}>
-        {exercise.options.map((opt) => (
-          <TouchableOpacity
-            key={opt}
-            style={[styles.option, selected === opt && styles.optionSelected]}
-            onPress={() => pick(opt)}
-            disabled={locked}
-          >
-            <Text style={[styles.optionText, selected === opt && styles.optionTextSelected]}>
-              {opt}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <Txt variant="cardTitle" style={{ fontSize: 19, lineHeight: 26 }}>
+        {exercise.text}
+      </Txt>
+      <View style={{ gap: 10 }}>
+        {exercise.options.map((opt) => {
+          const on = selected === opt;
+          return (
+            <Pressable
+              key={opt}
+              onPress={() => pick(opt)}
+              disabled={locked}
+              style={{
+                borderWidth: on ? 2 : 1,
+                borderColor: on ? t.c.accent : t.c.line2,
+                backgroundColor: on ? t.c.accentSoft : t.c.surface,
+                borderRadius: t.spacing.radiusSm,
+                padding: 14,
+                minHeight: 48,
+                justifyContent: "center",
+              }}
+            >
+              <Txt variant="bodyStrong" color={on ? t.c.accent : t.c.ink}>
+                {opt}
+              </Txt>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { gap: 14 },
-  sentence: { fontSize: 19, lineHeight: 26, color: "#111" },
-  options: { gap: 10 },
-  option: { borderWidth: 1, borderColor: "#ccc", borderRadius: 10, padding: 14 },
-  optionSelected: { borderColor: "#0a7d28", backgroundColor: "#eaf7ee" },
-  optionText: { fontSize: 16, color: "#111" },
-  optionTextSelected: { color: "#0a7d28", fontWeight: "600" },
-});
+const styles = StyleSheet.create({ wrap: { gap: 14 } });

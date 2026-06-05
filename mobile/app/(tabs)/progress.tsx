@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, Switch, View } from "react-native";
 import { ACHIEVEMENTS, levelFor, useProgress, XP_PER_LEVEL, xpInLevel } from "../../store/progress";
 import { useAuth } from "../../store/auth";
 import { beltProgress, topicRows } from "../../store/dojo";
@@ -163,6 +163,15 @@ export default function ProgressScreen() {
             {user.email}
           </Txt>
         )}
+        <View style={styles.toggleRow}>
+          <Txt variant="bodyStrong">Dark mode</Txt>
+          <Switch
+            value={t.name === "dark"}
+            onValueChange={t.toggle}
+            trackColor={{ true: t.c.accent, false: t.c.line2 }}
+            thumbColor={t.c.surface}
+          />
+        </View>
         <Button label="Redo onboarding" variant="ghost" uppercase={false} onPress={resetOnboarding} style={{ marginBottom: 10 }} />
         <Pressable onPress={logout} style={{ minHeight: 44, justifyContent: "center", alignItems: "center" }}>
           <Txt variant="bodyStrong" color={t.c.bad}>
@@ -184,4 +193,5 @@ const styles = StyleSheet.create({
   topicRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   achGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   ach: { width: "47.5%", borderWidth: 1, borderRadius: 14, padding: 12, gap: 2 },
+  toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44, marginBottom: 6 },
 });
