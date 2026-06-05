@@ -1,213 +1,187 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import {
-  ACHIEVEMENTS,
-  levelFor,
-  totalAttempts,
-  useProgress,
-  XP_PER_LEVEL,
-  xpInLevel,
-  type Progress,
-} from "../../store/progress";
+import { Pressable, StyleSheet, View } from "react-native";
+import { ACHIEVEMENTS, levelFor, useProgress, XP_PER_LEVEL, xpInLevel } from "../../store/progress";
 import { useAuth } from "../../store/auth";
-import { levelToCefr, skillFor, TOPIC_PRIORS } from "../../store/adaptive";
-import { minutesToGoal } from "../../store/onboarding";
+import { beltProgress, topicRows } from "../../store/dojo";
+import { belts, useTheme } from "../../theme/theme";
+import Screen from "../../components/ui/Screen";
+import TopBar from "../../components/ui/TopBar";
+import Card from "../../components/ui/Card";
+import Sensei from "../../components/ui/Sensei";
+import ProgressBar from "../../components/ui/ProgressBar";
+import Button from "../../components/ui/Button";
+import Txt from "../../components/ui/Txt";
 
-// Topics in priority order (single source of truth = TOPIC_PRIORS). Unknown topics, if any ever
-// appear, are appended so nothing is silently dropped.
-const TOPIC_ORDER = Object.keys(TOPIC_PRIORS);
-
-function orderedTopics(p: Progress): string[] {
-  const known = TOPIC_ORDER.filter((t) => p.topics[t]);
-  const extra = Object.keys(p.topics).filter((t) => !TOPIC_ORDER.includes(t));
-  return [...known, ...extra];
-}
-
-/** Topic with the lowest accuracy among those with enough attempts to be meaningful. */
-function weakestTopic(p: Progress): string | null {
-  let worst: string | null = null;
-  let worstAcc = Infinity;
-  for (const [topic, stat] of Object.entries(p.topics)) {
-    if (stat.attempts < 3) continue;
-    const acc = stat.correct / stat.attempts;
-    if (acc < worstAcc) {
-      worstAcc = acc;
-      worst = topic;
-    }
-  }
-  return worst;
-}
+// Emoji glyph + one-line sub per stored achievement id (presentational only).
+const ACH_META: Record<string, { glyph: string; sub: string }> = {
+  "first-correct": { glyph: "🥋", sub: "First correct answer" },
+  "ten-correct": { glyph: "⚡", sub: "10 correct answers" },
+  "fifty-correct": { glyph: "💯", sub: "50 correct answers" },
+  "streak-3": { glyph: "🔥", sub: "3-day streak" },
+  "streak-7": { glyph: "📅", sub: "7-day streak" },
+  "run-5": { glyph: "🏆", sub: "5 in a row" },
+  "level-5": { glyph: "🟢", sub: "Reached level 5" },
+};
 
 export default function ProgressScreen() {
-  const { progress, ready, resetOnboarding } = useProgress();
+  const t = useTheme();
+  const { progress, resetOnboarding } = useProgress();
   const { user, logout } = useAuth();
 
+  const bp = beltProgress(progress);
+  const rows = topicRows(progress);
   const level = levelFor(progress.xp);
   const inLevel = xpInLevel(progress.xp);
-  const barPct = Math.min(100, (inLevel / XP_PER_LEVEL) * 100);
-  const topics = orderedTopics(progress);
-  const weakest = weakestTopic(progress);
-  const hasData = totalAttempts(progress) > 0;
-
-  // Daily goal (from the onboarding minutes choice).
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const dailyTarget = minutesToGoal(progress.profile?.dailyMinutes ?? 0);
-  const dailyDone = progress.todayDate === todayStr ? progress.todayCount : 0;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Your Progress</Text>
+    <Screen>
+      <TopBar belt={bp.belt} streak={progress.dailyStreak} xp={progress.xp} />
 
-      {!ready ? null : !hasData ? (
-        <Text style={styles.empty}>
-          No exercises yet. Head to the Practice tab and answer a few — your stats will show up here.
-        </Text>
-      ) : (
-        <>
-          {/* Level + XP */}
-          <View style={styles.section}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.level}>Level {level}</Text>
-              <Text style={styles.xpTotal}>{progress.xp} XP</Text>
-            </View>
-            <View style={styles.barTrack}>
-              <View style={[styles.barFill, { width: `${barPct}%` }]} />
-            </View>
-            <Text style={styles.barLabel}>
-              {inLevel} / {XP_PER_LEVEL} XP to level {level + 1}
-            </Text>
+      {/* Belt showcase */}
+      <Card>
+        <View style={styles.showcase}>
+          <Sensei belt={bp.belt} size={72} mood="happy" bob />
+          <View style={{ flex: 1 }}>
+            <Txt variant="screenTitle">{bp.belt.name}</Txt>
+            <Txt variant="secondary" color={t.c.ink3}>{`Overall level · CEFR ${bp.cefr}`}</Txt>
           </View>
-
-          {/* Daily goal (from onboarding minutes) */}
-          {dailyTarget > 0 && (
-            <View style={styles.section}>
-              <View style={styles.rowBetween}>
-                <Text style={styles.sectionTitle}>Daily goal</Text>
-                <Text style={styles.xpTotal}>
-                  {Math.min(dailyDone, dailyTarget)} / {dailyTarget}
-                </Text>
-              </View>
-              <View style={styles.barTrack}>
+        </View>
+        {/* belt rack */}
+        <View style={styles.rack}>
+          {belts.map((b) => {
+            const earned = b.idx <= bp.belt.idx;
+            const current = b.idx === bp.belt.idx;
+            return (
+              <View key={b.id} style={styles.rackCol}>
                 <View
-                  style={[
-                    styles.barFill,
-                    { width: `${Math.min(100, (dailyDone / dailyTarget) * 100)}%` },
-                  ]}
+                  style={{
+                    width: "100%",
+                    height: current ? 46 : 34,
+                    borderRadius: 6,
+                    backgroundColor: earned ? b.color : t.c.surface3,
+                    borderWidth: current ? 2 : 1,
+                    borderColor: earned ? b.edge : t.c.line2,
+                    borderBottomWidth: current ? 5 : 1,
+                  }}
                 />
+                <Txt variant="caption" color={current ? t.c.ink : t.c.ink3} style={{ marginTop: 5 }}>
+                  {b.cefr}
+                </Txt>
               </View>
-              <Text style={styles.barLabel}>
-                {dailyDone >= dailyTarget ? "Done for today 🎉" : `${dailyTarget - dailyDone} to go today`}
-              </Text>
-            </View>
-          )}
+            );
+          })}
+        </View>
+      </Card>
 
-          {/* Streaks */}
-          <View style={styles.streakRow}>
-            <View style={styles.streakCard}>
-              <Text style={styles.streakValue}>🔥 {progress.dailyStreak}</Text>
-              <Text style={styles.streakLabel}>day streak</Text>
-            </View>
-            <View style={styles.streakCard}>
-              <Text style={styles.streakValue}>⚡ {progress.bestCorrectRun}</Text>
-              <Text style={styles.streakLabel}>best run</Text>
-            </View>
-          </View>
+      {/* Level + XP */}
+      <Card>
+        <View style={styles.rowBetween}>
+          <Txt variant="cardTitle">{`Level ${level}`}</Txt>
+          <Txt variant="bodyStrong" color={t.c.gold}>{`✦ ${progress.xp} XP`}</Txt>
+        </View>
+        <ProgressBar pct={(inLevel / XP_PER_LEVEL) * 100} color={t.c.gold} style={{ marginTop: 10 }} />
+        <Txt variant="secondary" color={t.c.ink3} style={{ marginTop: 8 }}>
+          {`${XP_PER_LEVEL - inLevel} XP to level ${level + 1}`}
+        </Txt>
+      </Card>
 
-          {/* Per-topic stats */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>By topic</Text>
-            {topics.map((topic) => {
-              const stat = progress.topics[topic];
-              const acc = stat.attempts ? Math.round((stat.correct / stat.attempts) * 100) : 0;
-              const isWeak = topic === weakest;
-              return (
-                <View key={topic} style={styles.topicRow}>
-                  <Text style={[styles.topicName, isWeak && styles.topicWeak]} numberOfLines={1}>
-                    {topic}
-                    {isWeak ? "  · focus here" : ""}
-                  </Text>
-                  <Text style={styles.topicStat}>
-                    {levelToCefr(skillFor(progress, topic))} · {acc}% · {stat.correct}/{stat.attempts}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-
-          {/* Achievements */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Achievements</Text>
-            {ACHIEVEMENTS.map((a) => {
-              const unlocked = progress.achievements.includes(a.id);
-              return (
-                <Text key={a.id} style={[styles.achievement, !unlocked && styles.achievementLocked]}>
-                  {unlocked ? "🏅" : "🔒"} {a.label}
-                </Text>
-              );
-            })}
-          </View>
-        </>
-      )}
-
-      {/* Account */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
-        {!!user && <Text style={styles.accountEmail}>{user.email}</Text>}
-        <TouchableOpacity style={styles.secondaryBtn} onPress={resetOnboarding}>
-          <Text style={styles.secondaryText}>Redo onboarding</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-          <Text style={styles.logoutText}>Log out</Text>
-        </TouchableOpacity>
+      {/* Stat tiles */}
+      <View style={styles.tiles}>
+        <Card style={styles.tile}>
+          <Txt variant="screenTitle">{`🔥 ${progress.dailyStreak}`}</Txt>
+          <Txt variant="secondary" color={t.c.ink3}>day streak</Txt>
+        </Card>
+        <Card style={styles.tile}>
+          <Txt variant="screenTitle">{`⚡ ${progress.bestCorrectRun}`}</Txt>
+          <Txt variant="secondary" color={t.c.ink3}>best run</Txt>
+        </Card>
       </View>
 
-      <StatusBar style="auto" />
-    </ScrollView>
+      {/* Belts by topic */}
+      <Card>
+        <Txt variant="label" style={{ marginBottom: 12 }}>
+          Belts by topic
+        </Txt>
+        <View style={{ gap: 14 }}>
+          {rows.map((r) => (
+            <View key={r.id} style={styles.topicRow}>
+              <View style={{ width: 16, height: 16, borderRadius: 5, backgroundColor: r.belt.color, borderWidth: 1.5, borderColor: r.belt.edge }} />
+              <View style={{ flex: 1 }}>
+                <Txt variant="bodyStrong" color={r.weak ? t.c.bad : t.c.ink}>
+                  {r.label}
+                  {r.weak ? "  · focus" : ""}
+                </Txt>
+                <ProgressBar pct={r.acc} height={6} color={r.weak ? t.c.bad : t.c.accent} style={{ marginTop: 6 }} />
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Txt variant="caption" color={t.c.ink3}>{r.cefr}</Txt>
+                <Txt variant="bodyStrong">{`${r.acc}%`}</Txt>
+              </View>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      {/* Achievements */}
+      <Card>
+        <Txt variant="label" style={{ marginBottom: 12 }}>
+          Achievements
+        </Txt>
+        <View style={styles.achGrid}>
+          {ACHIEVEMENTS.map((a) => {
+            const got = progress.achievements.includes(a.id);
+            const meta = ACH_META[a.id] ?? { glyph: "🏅", sub: "" };
+            return (
+              <View
+                key={a.id}
+                style={[
+                  styles.ach,
+                  { backgroundColor: got ? t.c.accentSoft : t.c.surface2, borderColor: t.c.line, opacity: got ? 1 : 0.6 },
+                ]}
+              >
+                <Txt variant="screenTitle" style={{ fontSize: 26 }}>
+                  {got ? meta.glyph : "🔒"}
+                </Txt>
+                <Txt variant="bodyStrong" color={got ? t.c.ink : t.c.ink3} numberOfLines={1}>
+                  {a.label}
+                </Txt>
+                <Txt variant="secondary" color={t.c.ink3} numberOfLines={1}>
+                  {meta.sub}
+                </Txt>
+              </View>
+            );
+          })}
+        </View>
+      </Card>
+
+      {/* Account */}
+      <Card>
+        <Txt variant="label" style={{ marginBottom: 10 }}>
+          Account
+        </Txt>
+        {!!user && (
+          <Txt variant="body" color={t.c.ink3} style={{ marginBottom: 12 }}>
+            {user.email}
+          </Txt>
+        )}
+        <Button label="Redo onboarding" variant="ghost" uppercase={false} onPress={resetOnboarding} style={{ marginBottom: 10 }} />
+        <Pressable onPress={logout} style={{ minHeight: 44, justifyContent: "center", alignItems: "center" }}>
+          <Txt variant="bodyStrong" color={t.c.bad}>
+            Log out
+          </Txt>
+        </Pressable>
+      </Card>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#fff" },
-  content: { padding: 20, paddingTop: 60, gap: 20 },
-  title: { fontSize: 24, fontWeight: "700", textAlign: "center" },
-  empty: { fontSize: 16, lineHeight: 23, color: "#555", textAlign: "center", marginTop: 24 },
-
-  section: { gap: 10 },
-  sectionTitle: { fontSize: 13, fontWeight: "700", color: "#0a7d28", textTransform: "uppercase", letterSpacing: 0.5 },
+  showcase: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 16 },
+  rack: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+  rackCol: { flex: 1, alignItems: "center" },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
-
-  level: { fontSize: 22, fontWeight: "700", color: "#111" },
-  xpTotal: { fontSize: 16, fontWeight: "600", color: "#0a7d28" },
-  barTrack: { height: 12, borderRadius: 6, backgroundColor: "#eaf7ee", overflow: "hidden" },
-  barFill: { height: 12, borderRadius: 6, backgroundColor: "#0a7d28" },
-  barLabel: { fontSize: 13, color: "#555" },
-
-  streakRow: { flexDirection: "row", gap: 12 },
-  streakCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#eaf7ee",
-    backgroundColor: "#f5fbf7",
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: "center",
-    gap: 4,
-  },
-  streakValue: { fontSize: 22, fontWeight: "700", color: "#111" },
-  streakLabel: { fontSize: 13, color: "#555" },
-
-  topicRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
-  topicName: { flex: 1, fontSize: 15, color: "#111" },
-  topicWeak: { color: "#c0392b", fontWeight: "600" },
-  topicStat: { fontSize: 15, fontWeight: "600", color: "#333" },
-
-  achievement: { fontSize: 15, color: "#111" },
-  achievementLocked: { color: "#aaa" },
-
-  accountEmail: { fontSize: 15, color: "#333" },
-  secondaryBtn: { borderWidth: 1, borderColor: "#0a7d28", borderRadius: 10, paddingVertical: 12, alignItems: "center" },
-  secondaryText: { color: "#0a7d28", fontWeight: "600", fontSize: 16 },
-  logoutBtn: { borderWidth: 1, borderColor: "#c0392b", borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 2 },
-  logoutText: { color: "#c0392b", fontWeight: "600", fontSize: 16 },
+  tiles: { flexDirection: "row", gap: 14 },
+  tile: { flex: 1, alignItems: "center", gap: 2 },
+  topicRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  achGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  ach: { width: "47.5%", borderWidth: 1, borderRadius: 14, padding: 12, gap: 2 },
 });
