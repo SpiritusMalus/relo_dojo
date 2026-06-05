@@ -8,7 +8,7 @@ import { ThemeProvider, fontMap } from "../theme/theme";
 // Redirect between login, onboarding, and the tabs based on auth + onboarding state.
 function RootNav() {
   const { ready: authReady, token } = useAuth();
-  const { ready: progressReady, progress } = useProgress();
+  const { ready: progressReady, synced, progress } = useProgress();
   const segments = useSegments();
   const router = useRouter();
 
@@ -25,13 +25,15 @@ function RootNav() {
       router.replace("/");
       return;
     }
-    if (!progressReady) return; // decide onboarding only once progress is loaded
+    // Decide onboarding only once progress is loaded AND the post-login server snapshot has merged
+    // in — otherwise an existing account briefly shows onboarding on the reset local default.
+    if (!progressReady || !synced) return;
     if (!progress.onboarded && !onOnboarding) {
       router.replace("/onboarding");
     } else if (progress.onboarded && onOnboarding) {
       router.replace("/");
     }
-  }, [authReady, token, progressReady, progress.onboarded, segments, router]);
+  }, [authReady, token, progressReady, synced, progress.onboarded, segments, router]);
 
   if (!authReady) return null; // brief splash while we read stored token
 

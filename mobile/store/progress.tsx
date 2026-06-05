@@ -260,7 +260,8 @@ async function save(p: Progress): Promise<void> {
 
 type ProgressContextValue = {
   progress: Progress;
-  ready: boolean; // false until the first load completes
+  ready: boolean; // false until the first local load completes
+  synced: boolean; // false until the post-login server reconciliation settles (success or offline)
   recordAnswer: (topic: string, correct: boolean, grade?: GradeSignal) => void;
   completeOnboarding: (profile: Profile, skill: Record<string, number>) => void;
   resetOnboarding: () => void;
@@ -272,6 +273,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const { token, ready: authReady } = useAuth();
   const [progress, setProgress] = useState<Progress>(DEFAULT_PROGRESS);
   const [ready, setReady] = useState(false);
+  // Gates onboarding routing: stays false from a token change until the server snapshot is merged
+  // in (or the attempt fails offline), so we never flash onboarding using the reset local default.
+  const [synced, setSynced] = useState(false);
   const progressRef = useRef(progress);
   progressRef.current = progress;
   const syncedToken = useRef<string | null>(null);
@@ -303,11 +307,13 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     if (token === syncedToken.current) return;
     if (!token) {
       syncedToken.current = null;
+      setSynced(true); // logged-out state is settled (gate falls through to /login)
       setProgress(DEFAULT_PROGRESS);
       void save(DEFAULT_PROGRESS);
       return;
     }
     syncedToken.current = token;
+    setSynced(false); // new token → hold onboarding routing until the server snapshot lands
     (async () => {
       try {
         const server = await getProgress();
@@ -317,6 +323,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         await putProgress(merged);
       } catch {
         // offline / server down — keep local; a later change or re-login will sync
+      } finally {
+        setSynced(true);
       }
     })();
   }, [ready, authReady, token]);
@@ -355,8 +363,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, [schedulePush]);
 
   const value = useMemo<ProgressContextValue>(
-    () => ({ progress, ready, recordAnswer: record, completeOnboarding, resetOnboarding }),
-    [progress, ready, record, completeOnboarding, resetOnboarding]
+    () => ({ progress, ready, synced, recordAnswer: record, completeOnboarding, resetOnboarding }),
+    [progress, ready, synced, record, completeOnboarding, resetOnboarding]
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;
