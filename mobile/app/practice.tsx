@@ -1,14 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   checkFreeText,
   checkInteractive,
@@ -19,9 +13,16 @@ import {
 } from "../services/api";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ExerciseCard from "../components/ExerciseCard";
-import { useProgress } from "../store/progress";
+import { useProgress, XP_PER_CORRECT } from "../store/progress";
 import { cefrMidpoint, isCefr, levelToCefr, selectNext, skillFor, updateSkill } from "../store/adaptive";
 import { buildContext, TOPIC_LABELS } from "../store/onboarding";
+import { useTheme } from "../theme/theme";
+import Button from "../components/ui/Button";
+import Icon from "../components/ui/Icon";
+import Txt from "../components/ui/Txt";
+import Sensei from "../components/ui/Sensei";
+import ProgressBar from "../components/ui/ProgressBar";
+import Confetti from "../components/ui/Confetti";
 
 type Result = {
   correct: boolean;
@@ -32,7 +33,12 @@ type Result = {
   tip?: string;
 };
 
+const SESSION_LEN = 10;
+
 export default function PracticeScreen() {
+  const t = useTheme();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { progress, recordAnswer } = useProgress();
   const params = useLocalSearchParams<{ topic?: string }>();
   const forcedTopic = typeof params.topic === "string" ? params.topic : undefined;
@@ -64,6 +70,9 @@ export default function PracticeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [explainLoading, setExplainLoading] = useState(false);
   const [explained, setExplained] = useState<ExplainResult | null>(null);
+  const [solved, setSolved] = useState(0);
+
+  const shake = useRef(new Animated.Value(0)).current;
 
   const loadExercise = useCallback(async () => {
     setLoading(true);
@@ -98,6 +107,18 @@ export default function PracticeScreen() {
     setResponseDisplay(display);
   }
 
+  function runShake() {
+    if (t.reduceMotion) return;
+    shake.setValue(0);
+    Animated.sequence([
+      Animated.timing(shake, { toValue: -7, duration: 60, useNativeDriver: true }),
+      Animated.timing(shake, { toValue: 6, duration: 60, useNativeDriver: true }),
+      Animated.timing(shake, { toValue: -4, duration: 60, useNativeDriver: true }),
+      Animated.timing(shake, { toValue: 3, duration: 60, useNativeDriver: true }),
+      Animated.timing(shake, { toValue: 0, duration: 60, useNativeDriver: true }),
+    ]).start();
+  }
+
   async function onCheck() {
     if (!exercise || response === null || checking) return;
     setChecking(true);
@@ -110,6 +131,8 @@ export default function PracticeScreen() {
         res = await checkFreeText(exercise.text, String(response));
       }
       setResult(res);
+      setSolved((s) => s + 1);
+      if (!res.correct) runShake();
       // Difficulty-aware skill signal: partial score + the difficulty of the served item.
       const outcome = res.score ?? (res.correct ? 1 : 0);
       const difficulty = cefrMidpoint(levelToCefr(skillFor(progressRef.current, exercise.topic)));
@@ -147,136 +170,120 @@ export default function PracticeScreen() {
   }
 
   const canSubmit = response !== null && !checking;
-  // Show an Explain button only for interactive misses without an explanation already.
-  const canExplain =
-    !!result && !result.correct && !result.explanation && !explained && !!exercise?.token;
+  const canExplain = !!result && !result.correct && !result.explanation && !explained && !!exercise?.token;
+  const topicLabel = forcedTopic ? TOPIC_LABELS[forcedTopic] ?? forcedTopic : "Daily mix";
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>
-        {forcedTopic ? TOPIC_LABELS[forcedTopic] ?? forcedTopic : "Daily practice"}
-      </Text>
+    <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
+      <StatusBar style={t.name === "dark" ? "light" : "dark"} />
 
-      {loading && <ActivityIndicator style={{ marginTop: 40 }} />}
-
-      {error && !loading && (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.secondaryBtn} onPress={loadExercise}>
-            <Text style={styles.secondaryText}>Try again</Text>
-          </TouchableOpacity>
+      {/* Header: close, session progress, streak */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.closeBtn} accessibilityLabel="Close">
+          <Icon name="x" size={24} color={t.c.ink2} />
+        </Pressable>
+        <View style={{ flex: 1, marginHorizontal: 14 }}>
+          <ProgressBar pct={(Math.min(solved, SESSION_LEN) / SESSION_LEN) * 100} height={10} />
         </View>
-      )}
+        <Txt variant="caption" color={t.c.fire}>{`🔥 ${progress.dailyStreak}`}</Txt>
+      </View>
 
-      {exercise && !loading && (
-        <View style={styles.card}>
-          <Text style={styles.topic}>
-            {exercise.topic} · {levelToCefr(skillFor(progress, exercise.topic))}
-          </Text>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
+        <Txt variant="label" style={{ marginBottom: 2 }}>
+          {topicLabel}
+          {exercise ? `  ·  ${levelToCefr(skillFor(progress, exercise.topic))}` : ""}
+        </Txt>
 
-          <ExerciseCard
-            key={round}
-            exercise={exercise}
-            locked={!!result}
-            onChange={onChange}
-          />
+        {loading && <ActivityIndicator style={{ marginTop: 40 }} color={t.c.accent} />}
 
-          {!result && (
-            <TouchableOpacity
-              style={[styles.primaryBtn, !canSubmit && styles.btnDisabled]}
-              onPress={onCheck}
-              disabled={!canSubmit}
-            >
-              {checking ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Check</Text>}
-            </TouchableOpacity>
-          )}
+        {error && !loading && (
+          <View style={{ gap: 12, marginTop: 20 }}>
+            <Txt variant="body" color={t.c.bad} style={{ textAlign: "center" }}>
+              {error}
+            </Txt>
+            <Button label="Try again" variant="ghost" onPress={loadExercise} />
+          </View>
+        )}
 
-          {result && (
-            <View style={styles.result}>
-              <Text style={[styles.verdict, result.correct ? styles.ok : styles.bad]}>
-                {result.correct ? "✓ Correct" : "✗ Not quite"}
-              </Text>
-              {result.correct && progress.currentCorrectRun >= 3 && (
-                <Text style={styles.combo}>🔥 {progress.currentCorrectRun} in a row!</Text>
-              )}
-              {/* Partial credit: encourage when the learner got some (but not all) elements right. */}
-              {!result.correct && !!result.detail && (result.score ?? 0) > 0 && (
-                <Text style={styles.partial}>Almost — {result.detail} right</Text>
-              )}
-              {!result.correct && (
-                <Text style={styles.answerLine}>Answer: {result.correct_answer}</Text>
-              )}
+        {exercise && !loading && (
+          <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
+            <ExerciseCard key={round} exercise={exercise} locked={!!result} onChange={onChange} />
+          </Animated.View>
+        )}
 
-              {!!levelUp && <Text style={styles.levelUp}>⬆ {levelUp}</Text>}
-
-              {/* Free-text comes with an explanation already. */}
-              {!!result.explanation && <Text style={styles.explanation}>{result.explanation}</Text>}
-              {!!result.tip && <Text style={styles.tip}>💡 {result.tip}</Text>}
-
-              {/* Interactive miss: explanation on demand. */}
-              {canExplain && (
-                <TouchableOpacity style={styles.secondaryBtn} onPress={onExplain} disabled={explainLoading}>
-                  {explainLoading ? (
-                    <ActivityIndicator />
-                  ) : (
-                    <Text style={styles.secondaryText}>Explain</Text>
-                  )}
-                </TouchableOpacity>
-              )}
-              {explained && (
-                <>
-                  <Text style={styles.explanation}>{explained.explanation}</Text>
-                  {!!explained.tip && <Text style={styles.tip}>💡 {explained.tip}</Text>}
-                </>
-              )}
-
-              <TouchableOpacity style={styles.primaryBtn} onPress={loadExercise}>
-                <Text style={styles.primaryText}>Next exercise</Text>
-              </TouchableOpacity>
+        {result && (
+          <View
+            style={[
+              styles.panel,
+              {
+                backgroundColor: result.correct ? t.c.accentSoft : t.c.badSoft,
+                borderColor: result.correct ? t.c.accent : t.c.bad,
+                borderRadius: t.spacing.radius,
+              },
+            ]}
+          >
+            <View style={styles.panelHead}>
+              <Sensei size={44} mood={result.correct ? "cheer" : "think"} />
+              <View style={{ flex: 1 }}>
+                <Txt variant="cardTitle" color={result.correct ? t.c.accent : t.c.bad}>
+                  {result.correct ? "Clean strike!" : "Not quite"}
+                </Txt>
+                {result.correct ? (
+                  <Txt variant="bodyStrong" color={t.c.gold}>{`+${XP_PER_CORRECT} XP`}</Txt>
+                ) : (result.score ?? 0) > 0 && !!result.detail ? (
+                  <Txt variant="bodyStrong" color={t.c.fire}>{`Almost — ${result.detail} right`}</Txt>
+                ) : null}
+              </View>
             </View>
+
+            {!result.correct && (
+              <Txt variant="mono" color={t.c.ink} style={{ marginTop: 4 }}>
+                {result.correct_answer}
+              </Txt>
+            )}
+            {result.correct && progress.currentCorrectRun >= 3 && (
+              <Txt variant="bodyStrong" color={t.c.fire}>{`🔥 ${progress.currentCorrectRun} correct in a row!`}</Txt>
+            )}
+            {!!levelUp && <Txt variant="bodyStrong" color={t.c.accent}>{`⬆ ${levelUp}`}</Txt>}
+            {!!result.explanation && <Txt variant="body" color={t.c.ink2}>{`💡 ${result.explanation}`}</Txt>}
+            {!!result.tip && <Txt variant="secondary" color={t.c.ink2}>{result.tip}</Txt>}
+
+            {canExplain && (
+              <Pressable onPress={onExplain} disabled={explainLoading} style={{ paddingVertical: 6 }}>
+                {explainLoading ? <ActivityIndicator color={t.c.accent} /> : <Txt variant="bodyStrong" color={t.c.accent}>Explain</Txt>}
+              </Pressable>
+            )}
+            {explained && (
+              <>
+                <Txt variant="body" color={t.c.ink2}>{`💡 ${explained.explanation}`}</Txt>
+                {!!explained.tip && <Txt variant="secondary" color={t.c.ink2}>{explained.tip}</Txt>}
+              </>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {result?.correct && <Confetti />}
+
+      {/* Sticky bottom action */}
+      {exercise && !loading && (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
+          {result ? (
+            <Button label="Next exercise" onPress={loadExercise} />
+          ) : (
+            <Button label={checking ? "Checking…" : "Check"} onPress={onCheck} disabled={!canSubmit} />
           )}
         </View>
       )}
-
-      <StatusBar style="auto" />
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#fff" },
-  content: { padding: 20, paddingTop: 60, gap: 16 },
-  title: { fontSize: 24, fontWeight: "700", textAlign: "center" },
-  card: { gap: 14 },
-  topic: {
-    alignSelf: "flex-start",
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#0a7d28",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  primaryBtn: {
-    backgroundColor: "#0a7d28",
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  primaryText: { color: "#fff", fontWeight: "600", fontSize: 16 },
-  btnDisabled: { backgroundColor: "#9bbfa5" },
-  secondaryBtn: { paddingVertical: 10, alignItems: "center" },
-  secondaryText: { color: "#0a7d28", fontWeight: "600", fontSize: 16 },
-  result: { gap: 8, marginTop: 4 },
-  verdict: { fontSize: 18, fontWeight: "700" },
-  ok: { color: "#0a7d28" },
-  bad: { color: "#c0392b" },
-  answerLine: { fontSize: 16, fontWeight: "600", color: "#111" },
-  partial: { fontSize: 15, fontWeight: "600", color: "#e67e22" },
-  combo: { fontSize: 16, fontWeight: "700", color: "#e67e22" },
-  levelUp: { fontSize: 15, fontWeight: "700", color: "#0a7d28" },
-  explanation: { fontSize: 16, lineHeight: 22, color: "#333" },
-  tip: { fontSize: 15, color: "#555", fontStyle: "italic" },
-  errorBox: { gap: 8, marginTop: 20 },
-  errorText: { fontSize: 15, color: "#c0392b", textAlign: "center" },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10 },
+  closeBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  content: { paddingHorizontal: 20, paddingTop: 8, gap: 14 },
+  panel: { borderWidth: 2, padding: 16, gap: 8 },
+  panelHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  footer: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1 },
 });
