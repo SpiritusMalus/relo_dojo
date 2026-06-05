@@ -46,11 +46,13 @@ export default function Button({
           borderRadius: t.spacing.radiusSm,
           borderBottomWidth: primary ? (pressed ? 1 : 4) : 2,
           borderColor: edgeColor,
-          borderWidth: primary ? undefined : 2,
+          borderWidth: primary ? 0 : 2,
           borderBottomColor: edgeColor,
           paddingVertical: primary ? 15 : 13,
-          transform: primary && pressed ? [{ translateY: 3 }] : undefined,
         },
+        // Only add the (array-valued) transform when pressed — never pass `transform: undefined`,
+        // which crashes the New Architecture ("Cannot read property 'forEach' of null").
+        primary && pressed ? { transform: [{ translateY: 3 }] } : null,
         style,
       ]}
     >
