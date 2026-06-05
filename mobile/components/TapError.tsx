@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import type { ExerciseProps } from "./types";
+import { useTheme } from "../theme/theme";
+import Txt from "./ui/Txt";
 
 // Tap the single wrong word in the sentence. Response is the tapped token index.
 export default function TapError({ exercise, locked, onChange }: ExerciseProps) {
+  const t = useTheme();
   const [selected, setSelected] = useState<number | null>(null);
 
   function tap(i: number) {
@@ -14,18 +17,34 @@ export default function TapError({ exercise, locked, onChange }: ExerciseProps) 
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.prompt}>{exercise.text}</Text>
+      <Txt variant="body" color={t.c.ink2}>
+        {exercise.text}
+      </Txt>
       <View style={styles.sentence}>
-        {exercise.tokens.map((word, i) => (
-          <TouchableOpacity
-            key={`${i}-${word}`}
-            style={[styles.chip, selected === i && styles.chipSelected]}
-            onPress={() => tap(i)}
-            disabled={locked}
-          >
-            <Text style={[styles.chipText, selected === i && styles.chipTextSelected]}>{word}</Text>
-          </TouchableOpacity>
-        ))}
+        {exercise.tokens.map((word, i) => {
+          const on = selected === i;
+          return (
+            <Pressable
+              key={`${i}-${word}`}
+              onPress={() => tap(i)}
+              disabled={locked}
+              style={{
+                borderWidth: on ? 2 : 1,
+                borderColor: on ? t.c.bad : t.c.line2,
+                backgroundColor: on ? t.c.badSoft : t.c.surface,
+                borderRadius: 8,
+                paddingVertical: 8,
+                paddingHorizontal: 11,
+                minHeight: 44,
+                justifyContent: "center",
+              }}
+            >
+              <Txt variant="mono" color={on ? t.c.bad : t.c.ink}>
+                {word}
+              </Txt>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -33,10 +52,5 @@ export default function TapError({ exercise, locked, onChange }: ExerciseProps) 
 
 const styles = StyleSheet.create({
   wrap: { gap: 14 },
-  prompt: { fontSize: 16, color: "#555" },
   sentence: { flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" },
-  chip: { borderWidth: 1, borderColor: "#ddd", borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10 },
-  chipSelected: { borderColor: "#c0392b", backgroundColor: "#fdecea" },
-  chipText: { fontSize: 18, color: "#111" },
-  chipTextSelected: { color: "#c0392b", fontWeight: "700" },
 });
