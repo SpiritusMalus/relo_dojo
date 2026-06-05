@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { analyzePain, type Exercise, type ResponseValue } from "../services/api";
 import ExerciseCard from "../components/ExerciseCard";
 import { useProgress, type Profile } from "../store/progress";
@@ -26,17 +27,27 @@ import {
   selfLevelToLevel,
 } from "../store/onboarding";
 import { pickItem, type CalItem } from "../store/calibrationBank";
+import { beltByCefr, useTheme } from "../theme/theme";
+import Screen from "../components/ui/Screen";
+import Card from "../components/ui/Card";
+import Chip from "../components/ui/Chip";
+import Button from "../components/ui/Button";
+import Sensei from "../components/ui/Sensei";
+import BeltKnot from "../components/ui/BeltKnot";
+import Icon from "../components/ui/Icon";
+import ProgressBar from "../components/ui/ProgressBar";
+import Confetti from "../components/ui/Confetti";
+import Txt from "../components/ui/Txt";
 
 const GOAL_LABELS: Record<string, string> = Object.fromEntries(GOALS.map((g) => [g.id, g.label]));
-
 const CALIBRATION_ITEMS = 10;
+const LAST_STEP = 8;
 
-// Item -> a multiple-choice Exercise object the existing ExerciseCard can render.
 function itemToExercise(item: CalItem): Exercise {
   return {
     type: "multiple-choice",
     topic: item.topic,
-    level: "", // placement is graded locally; no difficulty-aware skill update here
+    level: "",
     text: item.text,
     prompt: "",
     options: item.options,
@@ -49,43 +60,56 @@ function itemToExercise(item: CalItem): Exercise {
   };
 }
 
-// --- small reusable pieces ---
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={[styles.chip, active && styles.chipActive]} onPress={onPress}>
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function Primary({
-  label,
-  onPress,
-  disabled,
-  loading,
+// --- themed text input with focus accent ---
+function Input({
+  value,
+  onChangeText,
+  placeholder,
+  multiline,
 }: {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  loading?: boolean;
+  value: string;
+  onChangeText: (s: string) => void;
+  placeholder: string;
+  multiline?: boolean;
 }) {
+  const t = useTheme();
+  const [focused, setFocused] = useState(false);
   return (
-    <TouchableOpacity
-      style={[styles.primaryBtn, (disabled || loading) && styles.btnDisabled]}
-      onPress={onPress}
-      disabled={disabled || loading}
-    >
-      {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>{label}</Text>}
-    </TouchableOpacity>
+    <TextInput
+      style={{
+        backgroundColor: t.c.surface,
+        borderWidth: 2,
+        borderColor: focused ? t.c.accent : t.c.line2,
+        borderRadius: t.spacing.radiusSm,
+        padding: 14,
+        fontFamily: t.fonts.ui500,
+        fontSize: 15,
+        color: t.c.ink,
+        minHeight: multiline ? 90 : 48,
+        textAlignVertical: multiline ? "top" : "center",
+      }}
+      placeholder={placeholder}
+      placeholderTextColor={t.c.ink3}
+      value={value}
+      onChangeText={onChangeText}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      multiline={multiline}
+    />
   );
 }
 
-function Step({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+function StepView({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+  const t = useTheme();
   return (
-    <View style={styles.step}>
-      <Text style={styles.title}>{title}</Text>
-      {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
-      <View style={styles.stepBody}>{children}</View>
+    <View style={{ gap: 14 }}>
+      <Txt variant="screenTitle">{title}</Txt>
+      {!!subtitle && (
+        <Txt variant="body" color={t.c.ink2}>
+          {subtitle}
+        </Txt>
+      )}
+      <View style={{ gap: 10, marginTop: 4 }}>{children}</View>
     </View>
   );
 }
@@ -98,7 +122,7 @@ function Calibration({
   profile: Profile;
   onDone: (skill: Record<string, number>, level: number) => void;
 }) {
-  // Estimated level (moves up/down with answers), and which bank items we've used.
+  const t = useTheme();
   const levelRef = useRef<number>(selfLevelToLevel(profile.selfLevel));
   const usedRef = useRef<Set<string>>(new Set());
   const [item, setItem] = useState<CalItem | null>(null);
@@ -116,7 +140,7 @@ function Calibration({
     setResult(null);
     const next = pickItem(levelRef.current, usedRef.current);
     if (!next) {
-      finish(); // bank exhausted
+      finish();
       return;
     }
     usedRef.current.add(next.id);
@@ -130,7 +154,6 @@ function Calibration({
   function check() {
     if (!item || response === null || result) return;
     const correct = response === item.answer;
-    // Staircase: step shrinks as the estimate settles.
     const step = count < 4 ? 0.8 : count < 7 ? 0.6 : 0.4;
     levelRef.current = Math.min(5, Math.max(0, levelRef.current + (correct ? step : -step)));
     setResult({ correct, correct_answer: item.answer });
@@ -144,34 +167,29 @@ function Calibration({
   }
 
   return (
-    <View style={styles.step}>
-      <Text style={styles.title}>Quick level check</Text>
-      <Text style={styles.subtitle}>
-        {Math.min(count + 1, CALIBRATION_ITEMS)} of {CALIBRATION_ITEMS} · finding your level
-      </Text>
-      <TouchableOpacity onPress={finish}>
-        <Text style={styles.skipInline}>Skip the check</Text>
-      </TouchableOpacity>
+    <View style={{ gap: 14 }}>
+      <Txt variant="screenTitle">Quick level check</Txt>
+      <Txt variant="body" color={t.c.ink2}>
+        {`${Math.min(count + 1, CALIBRATION_ITEMS)} of ${CALIBRATION_ITEMS} · finding your level`}
+      </Txt>
+      <Pressable onPress={finish} hitSlop={8}>
+        <Txt variant="secondary" color={t.c.ink3}>
+          Skip the check
+        </Txt>
+      </Pressable>
 
       {item && (
-        <View style={styles.stepBody}>
-          <ExerciseCard
-            key={item.id}
-            exercise={itemToExercise(item)}
-            locked={result !== null}
-            onChange={(v) => setResponse(v)}
-          />
+        <View style={{ gap: 14, marginTop: 4 }}>
+          <ExerciseCard key={item.id} exercise={itemToExercise(item)} locked={result !== null} onChange={(v) => setResponse(v)} />
           {result === null ? (
-            <Primary label="Check" onPress={check} disabled={response === null} />
+            <Button label="Check" onPress={check} disabled={response === null} />
           ) : (
             <>
-              <Text style={[styles.verdict, result.correct ? styles.ok : styles.bad]}>
+              <Txt variant="cardTitle" color={result.correct ? t.c.accent : t.c.bad}>
                 {result.correct ? "✓ Correct" : "✗ Not quite"}
-              </Text>
-              {!result.correct && (
-                <Text style={styles.answerLine}>Answer: {result.correct_answer}</Text>
-              )}
-              <Primary label={count + 1 >= CALIBRATION_ITEMS ? "See result" : "Next"} onPress={advance} />
+              </Txt>
+              {!result.correct && <Txt variant="mono">{result.correct_answer}</Txt>}
+              <Button label={count + 1 >= CALIBRATION_ITEMS ? "See result" : "Next"} onPress={advance} />
             </>
           )}
         </View>
@@ -180,73 +198,67 @@ function Calibration({
   );
 }
 
-function Summary({
+// --- belt reveal summary ---
+function Reveal({
   profile,
-  skill,
   estimatedLevel,
   onStart,
 }: {
   profile: Profile;
-  skill: Record<string, number>;
   estimatedLevel: number;
   onStart: () => void;
 }) {
+  const t = useTheme();
+  const belt = beltByCefr(levelToCefr(estimatedLevel));
+  const scale = useRef(new Animated.Value(t.reduceMotion ? 1 : 0.6)).current;
+  useEffect(() => {
+    if (t.reduceMotion) return;
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4, tension: 120 }).start();
+  }, [scale, t.reduceMotion]);
+
   const goalText = profile.goals.map((g) => GOAL_LABELS[g] ?? g).join(", ") || "—";
-  const focusText = profile.focusTopics.map((t) => TOPIC_LABELS[t] ?? t).join(", ") || "none";
-  const domainText = profile.domains.filter((d) => d !== "other").join(", ") || "—";
+  const focusText = profile.focusTopics.map((x) => TOPIC_LABELS[x] ?? x).join(", ") || "none";
   const dailyGoal = minutesToGoal(profile.dailyMinutes);
 
   return (
-    <View style={styles.step}>
-      <Text style={styles.title}>You're all set</Text>
-      <Text style={styles.subtitle}>Here's your starting point — it keeps adjusting as you practice.</Text>
-
-      {/* Estimated overall level */}
-      <View style={styles.estimateBox}>
-        <Text style={styles.estimateLabel}>Estimated level</Text>
-        <Text style={styles.estimateCefr}>{levelToCefr(estimatedLevel)}</Text>
+    <View style={{ gap: 16, alignItems: "stretch" }}>
+      <View style={{ alignItems: "center", gap: 6 }}>
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <BeltKnot belt={belt} size={120} />
+        </Animated.View>
+        <Txt variant="hero">{belt.name}</Txt>
+        <Txt variant="body" color={t.c.ink2}>{`CEFR ${levelToCefr(estimatedLevel)} · keeps adjusting`}</Txt>
       </View>
 
-      {/* Starting levels */}
-      <View style={styles.stepBody}>
-        {Object.keys(TOPIC_LABELS).map((t) => (
-          <View key={t} style={styles.summaryRow}>
-            <Text style={styles.summaryTopic}>{TOPIC_LABELS[t]}</Text>
-            <Text style={styles.summaryCefr}>{levelToCefr(skill[t] ?? 1.5)}</Text>
-          </View>
-        ))}
-      </View>
+      <Card>
+        <Recap label="Difficulty" value={profile.selfLevel || levelToCefr(estimatedLevel)} />
+        <Recap label="Hard topics" value={focusText} />
+        <Recap label="Daily goal" value={dailyGoal ? `${profile.dailyMinutes} min (~${dailyGoal})` : "—"} />
+        <Recap label="Goals" value={goalText} last />
+      </Card>
 
-      {/* Your answers */}
-      <Text style={styles.sectionTitle}>Your answers</Text>
-      <Recap label="Goals" value={goalText} />
-      <Recap label="Hard topics" value={focusText} />
-      <Recap label="Level" value={profile.selfLevel || "—"} />
-      <Recap label="Daily goal" value={dailyGoal ? `${profile.dailyMinutes} min (~${dailyGoal})` : "—"} />
-      <Recap label="Area" value={domainText} />
-
-      {/* What this changed */}
-      <Text style={styles.sectionTitle}>What this changed</Text>
-      <Text style={styles.explain}>• Starting difficulty set from your level.</Text>
-      <Text style={styles.explain}>• Hard topics come up more often and start a bit easier.</Text>
-      {!!buildContext(profile) && <Text style={styles.explain}>• Examples are drawn from your area & goals.</Text>}
-      {dailyGoal > 0 && <Text style={styles.explain}>• Daily goal ≈ {dailyGoal} exercises (tracked on Progress).</Text>}
-
-      <Primary label="Start practicing" onPress={onStart} />
+      <Button label="Start practicing" onPress={onStart} />
     </View>
   );
 }
 
-function Recap({ label, value }: { label: string; value: string }) {
+function Recap({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  const t = useTheme();
   return (
-    <View style={styles.recapRow}>
-      <Text style={styles.recapLabel}>{label}</Text>
-      <Text style={styles.recapValue}>{value}</Text>
+    <View style={[styles.recap, !last && { borderBottomWidth: 1, borderColor: t.c.line }]}>
+      <Txt variant="secondary" color={t.c.ink3}>
+        {label}
+      </Txt>
+      <Txt variant="bodyStrong" style={{ flex: 1, textAlign: "right" }}>
+        {value}
+      </Txt>
     </View>
   );
 }
 
 export default function OnboardingScreen() {
+  const t = useTheme();
+  const insets = useSafeAreaInsets();
   const { completeOnboarding } = useProgress();
   const [step, setStep] = useState(0);
   const [goals, setGoals] = useState<string[]>([]);
@@ -274,29 +286,20 @@ export default function OnboardingScreen() {
   const next = () => setStep((s) => s + 1);
 
   function toggleFocus(topic: string) {
-    setFocusTopics((p) => (p.includes(topic) ? p.filter((t) => t !== topic) : [...p, topic]));
+    setFocusTopics((p) => (p.includes(topic) ? p.filter((x) => x !== topic) : [...p, topic]));
   }
-
   function toggleGoal(id: string) {
     setGoals((p) => (p.includes(id) ? p.filter((g) => g !== id) : [...p, id]));
   }
-
   function toggleDomain(id: string) {
     setDomains((p) => (p.includes(id) ? p.filter((d) => d !== id) : [...p, id]));
   }
-
-  // Fold a free-text "Other" entry into the chosen list, then advance.
-  function nextWithOther(
-    other: string,
-    setter: (fn: (p: string[]) => string[]) => void,
-    clear: () => void
-  ) {
+  function nextWithOther(other: string, setter: (fn: (p: string[]) => string[]) => void, clear: () => void) {
     const extra = other.trim();
     if (extra) setter((p) => Array.from(new Set([...p, extra])));
     clear();
     next();
   }
-
   async function submitPain() {
     if (!painText.trim()) return next();
     setBusy(true);
@@ -312,184 +315,121 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.headerRow}>
-        {step >= 1 && step <= 7 ? (
-          <TouchableOpacity onPress={() => setStep((s) => s - 1)}>
-            <Text style={styles.skip}>← Back</Text>
-          </TouchableOpacity>
-        ) : (
-          <Text style={styles.brand}>Grammar Dojo</Text>
-        )}
-        {step < 7 && (
-          <TouchableOpacity onPress={skip}>
-            <Text style={styles.skip}>Skip</Text>
-          </TouchableOpacity>
-        )}
+    <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top + 8 }}>
+      <StatusBar style={t.name === "dark" ? "light" : "dark"} />
+
+      {/* Header: back + progress + skip */}
+      <View style={styles.header}>
+        <Pressable onPress={() => setStep((s) => Math.max(0, s - 1))} hitSlop={8} style={styles.hBtn} disabled={step === 0}>
+          {step > 0 && <Icon name="back" size={24} color={t.c.ink2} />}
+        </Pressable>
+        <View style={{ flex: 1, marginHorizontal: 12 }}>
+          <ProgressBar pct={(step / LAST_STEP) * 100} height={8} />
+        </View>
+        <Pressable onPress={skip} hitSlop={8} style={styles.hBtn} disabled={step >= LAST_STEP}>
+          {step < LAST_STEP && (
+            <Txt variant="bodyStrong" color={t.c.ink3}>
+              Skip
+            </Txt>
+          )}
+        </Pressable>
       </View>
 
-      {step === 0 && (
-        <Step title="Let's tune the app to you" subtitle="A few quick questions, then a short warm-up.">
-          <Primary label="Get started" onPress={next} />
-        </Step>
-      )}
-
-      {step === 1 && (
-        <Step title="Why are you learning English?" subtitle="Pick any that apply.">
-          {GOALS.map((g) => (
-            <Chip key={g.id} label={g.label} active={goals.includes(g.id)} onPress={() => toggleGoal(g.id)} />
-          ))}
-          <TextInput
-            style={styles.otherInput}
-            placeholder="Other reason (your own)…"
-            value={goalOther}
-            onChangeText={setGoalOther}
-          />
-          <Primary
-            label="Next"
-            onPress={() => nextWithOther(goalOther, setGoals, () => setGoalOther(""))}
-            disabled={goals.length === 0 && !goalOther.trim()}
-          />
-        </Step>
-      )}
-
-      {step === 2 && (
-        <Step title="What feels hard right now?" subtitle="Pick any that apply.">
-          {Object.keys(TOPIC_LABELS).map((t) => (
-            <Chip key={t} label={TOPIC_LABELS[t]} active={focusTopics.includes(t)} onPress={() => toggleFocus(t)} />
-          ))}
-          <Primary label="Next" onPress={next} />
-        </Step>
-      )}
-
-      {step === 3 && (
-        <Step title="Tell me in your own words" subtitle="What trips you up? (optional)">
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. I mix up in/on/at and if-sentences"
-            value={painText}
-            onChangeText={setPainText}
-            multiline
-          />
-          <Primary label="Next" onPress={submitPain} loading={busy} />
-        </Step>
-      )}
-
-      {step === 4 && (
-        <Step title="How would you rate your English?">
-          {SELF_LEVELS.map((l) => (
-            <Chip key={l.id} label={l.label} active={selfLevel === l.id} onPress={() => setSelfLevel(l.id)} />
-          ))}
-          <Primary label="Next" onPress={next} disabled={!selfLevel} />
-        </Step>
-      )}
-
-      {step === 5 && (
-        <Step title="How much time per day?">
-          <View style={styles.rowWrap}>
-            {DAILY_MINUTES.map((m) => (
-              <Chip key={m} label={`${m} min`} active={dailyMinutes === m} onPress={() => setDailyMinutes(m)} />
-            ))}
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]} showsVerticalScrollIndicator={false}>
+        {step === 0 && (
+          <View style={{ alignItems: "center", gap: 14, paddingTop: 24 }}>
+            <Sensei size={110} mood="happy" bob />
+            <Txt variant="hero" style={{ textAlign: "center" }}>
+              Let's tune your dojo
+            </Txt>
+            <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
+              A few quick questions, then a short warm-up to find your belt.
+            </Txt>
+            <Button label="Get started" onPress={next} style={{ marginTop: 8, alignSelf: "stretch" }} />
           </View>
-          <Primary label="Next" onPress={next} disabled={!dailyMinutes} />
-        </Step>
-      )}
+        )}
 
-      {step === 6 && (
-        <Step title="What's your area?" subtitle="Pick any — or add your own stack, hobbies, interests.">
-          <View style={styles.rowWrap}>
-            {DOMAINS.map((d) => (
-              <Chip key={d} label={d} active={domains.includes(d)} onPress={() => toggleDomain(d)} />
+        {step === 1 && (
+          <StepView title="Why are you learning English?" subtitle="Pick any that apply.">
+            {GOALS.map((g) => (
+              <Chip key={g.id} label={g.label} selected={goals.includes(g.id)} onPress={() => toggleGoal(g.id)} />
             ))}
-          </View>
-          <TextInput
-            style={styles.otherInput}
-            placeholder="Other (e.g. game dev, ML, music, gaming)…"
-            value={domainOther}
-            onChangeText={setDomainOther}
+            <Input value={goalOther} onChangeText={setGoalOther} placeholder="Other reason (your own)…" />
+            <Button label="Next" onPress={() => nextWithOther(goalOther, setGoals, () => setGoalOther(""))} disabled={goals.length === 0 && !goalOther.trim()} />
+          </StepView>
+        )}
+
+        {step === 2 && (
+          <StepView title="What feels hard right now?" subtitle="Pick any that apply.">
+            {Object.keys(TOPIC_LABELS).map((x) => (
+              <Chip key={x} label={TOPIC_LABELS[x]} selected={focusTopics.includes(x)} onPress={() => toggleFocus(x)} />
+            ))}
+            <Button label="Next" onPress={next} />
+          </StepView>
+        )}
+
+        {step === 3 && (
+          <StepView title="Tell me in your own words" subtitle="What trips you up? (optional)">
+            <Input value={painText} onChangeText={setPainText} placeholder="e.g. I mix up in/on/at and if-sentences" multiline />
+            <Button label={busy ? "Analyzing…" : "Next"} onPress={submitPain} disabled={busy} />
+          </StepView>
+        )}
+
+        {step === 4 && (
+          <StepView title="How would you rate your English?">
+            {SELF_LEVELS.map((l) => (
+              <Chip key={l.id} label={l.label} selected={selfLevel === l.id} onPress={() => setSelfLevel(l.id)} />
+            ))}
+            <Button label="Next" onPress={next} disabled={!selfLevel} />
+          </StepView>
+        )}
+
+        {step === 5 && (
+          <StepView title="How much time per day?">
+            <View style={styles.wrap}>
+              {DAILY_MINUTES.map((m) => (
+                <Chip key={m} label={`${m} min`} selected={dailyMinutes === m} onPress={() => setDailyMinutes(m)} />
+              ))}
+            </View>
+            <Button label="Next" onPress={next} disabled={!dailyMinutes} />
+          </StepView>
+        )}
+
+        {step === 6 && (
+          <StepView title="What's your area?" subtitle="Pick any — or add your own stack or interests.">
+            <View style={styles.wrap}>
+              {DOMAINS.map((d) => (
+                <Chip key={d} label={d} selected={domains.includes(d)} onPress={() => toggleDomain(d)} />
+              ))}
+            </View>
+            <Input value={domainOther} onChangeText={setDomainOther} placeholder="Other (e.g. game dev, ML, music)…" />
+            <Button label="Next" onPress={() => nextWithOther(domainOther, setDomains, () => setDomainOther(""))} disabled={domains.length === 0 && !domainOther.trim()} />
+          </StepView>
+        )}
+
+        {step === 7 && (
+          <Calibration
+            profile={buildProfile()}
+            onDone={(skill, level) => {
+              setCalibratedSkill(skill);
+              setEstimatedLevel(level);
+              next();
+            }}
           />
-          <Primary
-            label="Next"
-            onPress={() => nextWithOther(domainOther, setDomains, () => setDomainOther(""))}
-            disabled={domains.length === 0 && !domainOther.trim()}
-          />
-        </Step>
-      )}
+        )}
 
-      {step === 7 && (
-        <Calibration
-          profile={buildProfile()}
-          onDone={(skill, level) => {
-            setCalibratedSkill(skill);
-            setEstimatedLevel(level);
-            next();
-          }}
-        />
-      )}
+        {step === 8 && <Reveal profile={buildProfile()} estimatedLevel={estimatedLevel} onStart={() => finish(calibratedSkill)} />}
+      </ScrollView>
 
-      {step === 8 && (
-        <Summary
-          profile={buildProfile()}
-          skill={calibratedSkill}
-          estimatedLevel={estimatedLevel}
-          onStart={() => finish(calibratedSkill)}
-        />
-      )}
-
-      <StatusBar style="auto" />
-    </ScrollView>
+      {step === 8 && <Confetti />}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#fff" },
-  content: { padding: 20, paddingTop: 60, gap: 16 },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  brand: { fontSize: 18, fontWeight: "700", color: "#0a7d28" },
-  skip: { fontSize: 15, color: "#888" },
-  skipInline: { fontSize: 14, color: "#888", marginTop: 4 },
-  step: { gap: 12 },
-  stepBody: { gap: 10, marginTop: 6 },
-  title: { fontSize: 23, fontWeight: "700", color: "#111" },
-  subtitle: { fontSize: 15, color: "#555" },
-  rowWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  chip: { borderWidth: 1, borderColor: "#ccc", borderRadius: 10, paddingVertical: 13, paddingHorizontal: 14 },
-  chipActive: { borderColor: "#0a7d28", backgroundColor: "#eaf7ee" },
-  chipText: { fontSize: 15, color: "#111" },
-  chipTextActive: { color: "#0a7d28", fontWeight: "600" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 90,
-    textAlignVertical: "top",
-  },
-  otherInput: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 15,
-  },
-  primaryBtn: { backgroundColor: "#0a7d28", borderRadius: 10, paddingVertical: 15, alignItems: "center", marginTop: 8 },
-  primaryText: { color: "#fff", fontWeight: "600", fontSize: 16 },
-  btnDisabled: { backgroundColor: "#9bbfa5" },
-  verdict: { fontSize: 18, fontWeight: "700", marginTop: 6 },
-  ok: { color: "#0a7d28" },
-  bad: { color: "#c0392b" },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8, borderBottomWidth: 1, borderColor: "#eee" },
-  summaryTopic: { fontSize: 15, color: "#111" },
-  summaryCefr: { fontSize: 16, fontWeight: "700", color: "#0a7d28" },
-  estimateBox: { backgroundColor: "#eaf7ee", borderRadius: 12, padding: 16, alignItems: "center", gap: 2 },
-  estimateLabel: { fontSize: 13, color: "#0a7d28", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
-  estimateCefr: { fontSize: 30, fontWeight: "800", color: "#0a7d28" },
-  sectionTitle: { fontSize: 13, fontWeight: "700", color: "#0a7d28", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 14 },
-  answerLine: { fontSize: 16, fontWeight: "600", color: "#111", marginTop: 4 },
-  explain: { fontSize: 15, lineHeight: 21, color: "#444" },
-  recapRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  recapLabel: { fontSize: 15, color: "#777" },
-  recapValue: { flex: 1, fontSize: 15, color: "#111", textAlign: "right" },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, minHeight: 44 },
+  hBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  content: { paddingHorizontal: 20, paddingTop: 16, gap: 16 },
+  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  recap: { flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 10 },
 });
