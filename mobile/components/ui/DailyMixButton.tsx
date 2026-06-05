@@ -18,8 +18,9 @@ export default function DailyMixButton({ onPress }: { onPress: () => void }) {
           borderRadius: t.spacing.radius,
           borderBottomWidth: pressed ? 1 : 4,
           borderBottomColor: t.c.accentPress,
-          transform: pressed ? [{ translateY: 3 }] : undefined,
         },
+        // Avoid `transform: undefined` (crashes New Arch); add it only while pressed.
+        pressed ? { transform: [{ translateY: 3 }] } : null,
       ]}
     >
       <View style={[styles.tile, { backgroundColor: "rgba(255,255,255,0.18)" }]}>
