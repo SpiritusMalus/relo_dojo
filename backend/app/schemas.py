@@ -83,6 +83,8 @@ class CheckIn(BaseModel):
 class CheckOut(BaseModel):
     correct: bool
     correct_answer: str
+    score: float = 1.0  # fraction right (0..1); partial credit for multi-element types
+    detail: str = ""  # e.g. "2/3" for multi-element answers; "" for single-answer types
 
 
 # --- free-text check (LLM) ---
