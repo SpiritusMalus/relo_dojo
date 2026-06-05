@@ -98,6 +98,7 @@ export type ExerciseType =
 export type Exercise = {
   type: ExerciseType;
   topic: string;
+  level: string; // effective CEFR served (A1..C1); drives difficulty-aware scoring
   text: string;
   prompt: string; // source line for translation exercises (e.g. the Russian sentence)
   options: string[];

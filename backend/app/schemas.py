@@ -59,6 +59,7 @@ class ExerciseOut(BaseModel):
 
     type: str
     topic: str
+    level: str = ""  # effective CEFR served (A1..C1); lets the client score difficulty-aware
     text: str = ""
     prompt: str = ""  # source line for translation exercises (e.g. the Russian sentence)
     options: list[str] = []

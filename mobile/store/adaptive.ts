@@ -42,25 +42,49 @@ export function levelToCefr(level: number): Cefr {
   return "C1";
 }
 
+// Midpoint of each CEFR band on the 0..5 skill scale — used as the served item's difficulty.
+const CEFR_MIDPOINT: Record<Cefr, number> = { A1: 0.5, A2: 1.5, B1: 2.5, B2: 3.5, C1: 4.5 };
+export function cefrMidpoint(cefr: Cefr): number {
+  return CEFR_MIDPOINT[cefr];
+}
+export function isCefr(s: string): s is Cefr {
+  return s in CEFR_MIDPOINT;
+}
+
 export function skillFor(p: Progress, topic: string): number {
   const v = p.skill?.[topic];
   return typeof v === "number" ? v : START_LEVEL;
 }
 
+// How strongly the served difficulty bends the expected outcome (per skill-level of gap). At 0 this
+// reduces to the plain target-success controller (expected outcome = TARGET_SUCCESS always).
+export const DIFFICULTY_SENSITIVITY = 0.15;
+
+/** Expected outcome (0..1) for a learner of `skill` facing an item of `difficulty` (both on 0..5).
+ *  Anchored at TARGET_SUCCESS when difficulty == skill; easier items raise it, harder items lower it. */
+export function expectedOutcome(skill: number, difficulty: number): number {
+  return clamp(TARGET_SUCCESS + DIFFICULTY_SENSITIVITY * (skill - difficulty), 0.05, 0.95);
+}
+
 /** New skill map after one answer. `p` is the snapshot BEFORE this answer (so attempts = prior count
- *  → the step shrinks as the topic accumulates evidence). */
+ *  → the step shrinks as the topic accumulates evidence).
+ *
+ *  Difficulty-aware (Elo/IRT-lite): the level moves by `outcome − expectedOutcome(skill, difficulty)`,
+ *  so nailing a hard item raises skill more than nailing an easy one, and fluffing an easy item costs
+ *  more. `outcome` accepts the partial score (0..1) or a boolean. When `difficulty` is omitted it
+ *  defaults to the current skill → expected == TARGET_SUCCESS, i.e. the original controller. */
 export function updateSkill(
   p: Progress,
   topic: string,
-  correct: boolean
+  outcome: number | boolean,
+  difficulty?: number
 ): Record<string, number> {
+  const o = typeof outcome === "boolean" ? (outcome ? 1 : 0) : clamp(outcome, 0, 1);
   const attempts = p.topics[topic]?.attempts ?? 0;
   const k = Math.max(0.15, 0.5 / (1 + attempts / 20));
-  const next = clamp(
-    skillFor(p, topic) + k * ((correct ? 1 : 0) - TARGET_SUCCESS),
-    LEVEL_MIN,
-    LEVEL_MAX
-  );
+  const skill = skillFor(p, topic);
+  const expected = expectedOutcome(skill, difficulty ?? skill);
+  const next = clamp(skill + k * (o - expected), LEVEL_MIN, LEVEL_MAX);
   return { ...p.skill, [topic]: next };
 }
 
