@@ -116,7 +116,12 @@ export type Exercise = {
 //  - multiple-blanks: string[] (pick per blank); order-the-dialog: string[] (lines in chosen order)
 export type ResponseValue = string | number | Record<string, number> | string[];
 
-export type CheckResult = { correct: boolean; correct_answer: string };
+export type CheckResult = {
+  correct: boolean;
+  correct_answer: string;
+  score?: number; // fraction right (0..1); partial credit for multi-element types
+  detail?: string; // e.g. "2/3" for multi-element answers; "" otherwise
+};
 export type ExplainResult = { explanation: string; tip: string };
 export type TextCheckResult = CheckResult & ExplainResult;
 
