@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import { Stack, useRouter, useSegments } from "expo-router";
+import { useFonts } from "expo-font";
 import { AuthProvider, useAuth } from "../store/auth";
 import { ProgressProvider, useProgress } from "../store/progress";
+import { ThemeProvider, fontMap } from "../theme/theme";
 
 // Redirect between login, onboarding, and the tabs based on auth + onboarding state.
 function RootNav() {
@@ -45,12 +47,19 @@ function RootNav() {
 }
 
 export default function RootLayout() {
+  // Load the three brand/UI/mono families before rendering UI that uses them.
+  const [fontsLoaded, fontError] = useFonts(fontMap);
+  if (!fontsLoaded && !fontError) return null; // brief splash while fonts load
+
+  // ThemeProvider (light/dark + reduce-motion) wraps everything so any screen can useTheme().
   // AuthProvider wraps ProgressProvider so progress sync can read the auth token.
   return (
-    <AuthProvider>
-      <ProgressProvider>
-        <RootNav />
-      </ProgressProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ProgressProvider>
+          <RootNav />
+        </ProgressProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
