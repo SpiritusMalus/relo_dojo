@@ -27,6 +27,8 @@ import {
   selfLevelToLevel,
 } from "../store/onboarding";
 import { pickItem, type CalItem } from "../store/calibrationBank";
+import { useI18n } from "../store/i18n";
+import { RU_GOAL_LABELS, RU_SELF_LABELS, RU_TOPIC_LABELS } from "../i18n/strings";
 import { beltByCefr, useTheme } from "../theme/theme";
 import Screen from "../components/ui/Screen";
 import Card from "../components/ui/Card";
@@ -123,6 +125,7 @@ function Calibration({
   onDone: (skill: Record<string, number>, level: number) => void;
 }) {
   const t = useTheme();
+  const { t: tr } = useI18n();
   const levelRef = useRef<number>(selfLevelToLevel(profile.selfLevel));
   const usedRef = useRef<Set<string>>(new Set());
   const [item, setItem] = useState<CalItem | null>(null);
@@ -168,13 +171,13 @@ function Calibration({
 
   return (
     <View style={{ gap: 14 }}>
-      <Txt variant="screenTitle">Quick level check</Txt>
+      <Txt variant="screenTitle">{tr("ob.calTitle")}</Txt>
       <Txt variant="body" color={t.c.ink2}>
-        {`${Math.min(count + 1, CALIBRATION_ITEMS)} of ${CALIBRATION_ITEMS} · finding your level`}
+        {tr("ob.calProgress", { n: Math.min(count + 1, CALIBRATION_ITEMS), total: CALIBRATION_ITEMS })}
       </Txt>
       <Pressable onPress={finish} hitSlop={8}>
         <Txt variant="secondary" color={t.c.ink3}>
-          Skip the check
+          {tr("ob.calSkip")}
         </Txt>
       </Pressable>
 
@@ -182,14 +185,14 @@ function Calibration({
         <View style={{ gap: 14, marginTop: 4 }}>
           <ExerciseCard key={item.id} exercise={itemToExercise(item)} locked={result !== null} onChange={(v) => setResponse(v)} />
           {result === null ? (
-            <Button label="Check" onPress={check} disabled={response === null} />
+            <Button label={tr("action.check")} onPress={check} disabled={response === null} />
           ) : (
             <>
               <Txt variant="cardTitle" color={result.correct ? t.c.accent : t.c.bad}>
-                {result.correct ? "✓ Correct" : "✗ Not quite"}
+                {result.correct ? tr("ob.correct") : tr("ob.notQuite")}
               </Txt>
               {!result.correct && <Txt variant="mono">{result.correct_answer}</Txt>}
-              <Button label={count + 1 >= CALIBRATION_ITEMS ? "See result" : "Next"} onPress={advance} />
+              <Button label={count + 1 >= CALIBRATION_ITEMS ? tr("ob.seeResult") : tr("ob.next")} onPress={advance} />
             </>
           )}
         </View>
@@ -209,6 +212,7 @@ function Reveal({
   onStart: () => void;
 }) {
   const t = useTheme();
+  const { t: tr, lang } = useI18n();
   const belt = beltByCefr(levelToCefr(estimatedLevel));
   const scale = useRef(new Animated.Value(t.reduceMotion ? 1 : 0.6)).current;
   useEffect(() => {
@@ -216,8 +220,10 @@ function Reveal({
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4, tension: 120 }).start();
   }, [scale, t.reduceMotion]);
 
-  const goalText = profile.goals.map((g) => GOAL_LABELS[g] ?? g).join(", ") || "—";
-  const focusText = profile.focusTopics.map((x) => TOPIC_LABELS[x] ?? x).join(", ") || "none";
+  const goalLabel = (g: string) => (lang === "ru" ? RU_GOAL_LABELS[g] ?? GOAL_LABELS[g] ?? g : GOAL_LABELS[g] ?? g);
+  const topicLabel = (x: string) => (lang === "ru" ? RU_TOPIC_LABELS[x] ?? TOPIC_LABELS[x] ?? x : TOPIC_LABELS[x] ?? x);
+  const goalText = profile.goals.map(goalLabel).join(", ") || "—";
+  const focusText = profile.focusTopics.map(topicLabel).join(", ") || tr("ob.none");
   const dailyGoal = minutesToGoal(profile.dailyMinutes);
 
   return (
@@ -227,17 +233,17 @@ function Reveal({
           <BeltKnot belt={belt} size={120} />
         </Animated.View>
         <Txt variant="hero">{belt.name}</Txt>
-        <Txt variant="body" color={t.c.ink2}>{`CEFR ${levelToCefr(estimatedLevel)} · keeps adjusting`}</Txt>
+        <Txt variant="body" color={t.c.ink2}>{tr("ob.keepsAdjusting", { cefr: levelToCefr(estimatedLevel) })}</Txt>
       </View>
 
       <Card>
-        <Recap label="Difficulty" value={profile.selfLevel || levelToCefr(estimatedLevel)} />
-        <Recap label="Hard topics" value={focusText} />
-        <Recap label="Daily goal" value={dailyGoal ? `${profile.dailyMinutes} min (~${dailyGoal})` : "—"} />
-        <Recap label="Goals" value={goalText} last />
+        <Recap label={tr("ob.recapDifficulty")} value={profile.selfLevel || levelToCefr(estimatedLevel)} />
+        <Recap label={tr("ob.recapHardTopics")} value={focusText} />
+        <Recap label={tr("ob.recapDailyGoal")} value={dailyGoal ? tr("ob.minutes", { n: profile.dailyMinutes }) + ` (~${dailyGoal})` : "—"} />
+        <Recap label={tr("ob.recapGoals")} value={goalText} last />
       </Card>
 
-      <Button label="Start practicing" onPress={onStart} />
+      <Button label={tr("ob.startPracticing")} onPress={onStart} />
     </View>
   );
 }
@@ -258,6 +264,7 @@ function Recap({ label, value, last }: { label: string; value: string; last?: bo
 
 export default function OnboardingScreen() {
   const t = useTheme();
+  const { t: tr, lang } = useI18n();
   const insets = useSafeAreaInsets();
   const { completeOnboarding } = useProgress();
   const [step, setStep] = useState(0);
@@ -329,7 +336,7 @@ export default function OnboardingScreen() {
         <Pressable onPress={skip} hitSlop={8} style={styles.hBtn} disabled={step >= LAST_STEP}>
           {step < LAST_STEP && (
             <Txt variant="bodyStrong" color={t.c.ink3}>
-              Skip
+              {tr("ob.skip")}
             </Txt>
           )}
         </Pressable>
@@ -340,70 +347,70 @@ export default function OnboardingScreen() {
           <View style={{ alignItems: "center", gap: 14, paddingTop: 24 }}>
             <Sensei size={110} mood="happy" bob />
             <Txt variant="hero" style={{ textAlign: "center" }}>
-              Let's tune your dojo
+              {tr("ob.welcomeTitle")}
             </Txt>
             <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
-              A few quick questions, then a short warm-up to find your belt.
+              {tr("ob.welcomeSub")}
             </Txt>
-            <Button label="Get started" onPress={next} style={{ marginTop: 8, alignSelf: "stretch" }} />
+            <Button label={tr("ob.getStarted")} onPress={next} style={{ marginTop: 8, alignSelf: "stretch" }} />
           </View>
         )}
 
         {step === 1 && (
-          <StepView title="Why are you learning English?" subtitle="Pick any that apply.">
+          <StepView title={tr("ob.goalsTitle")} subtitle={tr("ob.pickAny")}>
             {GOALS.map((g) => (
-              <Chip key={g.id} label={g.label} selected={goals.includes(g.id)} onPress={() => toggleGoal(g.id)} />
+              <Chip key={g.id} label={lang === "ru" ? RU_GOAL_LABELS[g.id] ?? g.label : g.label} selected={goals.includes(g.id)} onPress={() => toggleGoal(g.id)} />
             ))}
-            <Input value={goalOther} onChangeText={setGoalOther} placeholder="Other reason (your own)…" />
-            <Button label="Next" onPress={() => nextWithOther(goalOther, setGoals, () => setGoalOther(""))} disabled={goals.length === 0 && !goalOther.trim()} />
+            <Input value={goalOther} onChangeText={setGoalOther} placeholder={tr("ob.goalOther")} />
+            <Button label={tr("ob.next")} onPress={() => nextWithOther(goalOther, setGoals, () => setGoalOther(""))} disabled={goals.length === 0 && !goalOther.trim()} />
           </StepView>
         )}
 
         {step === 2 && (
-          <StepView title="What feels hard right now?" subtitle="Pick any that apply.">
+          <StepView title={tr("ob.hardTitle")} subtitle={tr("ob.pickAny")}>
             {Object.keys(TOPIC_LABELS).map((x) => (
-              <Chip key={x} label={TOPIC_LABELS[x]} selected={focusTopics.includes(x)} onPress={() => toggleFocus(x)} />
+              <Chip key={x} label={lang === "ru" ? RU_TOPIC_LABELS[x] ?? TOPIC_LABELS[x] : TOPIC_LABELS[x]} selected={focusTopics.includes(x)} onPress={() => toggleFocus(x)} />
             ))}
-            <Button label="Next" onPress={next} />
+            <Button label={tr("ob.next")} onPress={next} />
           </StepView>
         )}
 
         {step === 3 && (
-          <StepView title="Tell me in your own words" subtitle="What trips you up? (optional)">
-            <Input value={painText} onChangeText={setPainText} placeholder="e.g. I mix up in/on/at and if-sentences" multiline />
-            <Button label={busy ? "Analyzing…" : "Next"} onPress={submitPain} disabled={busy} />
+          <StepView title={tr("ob.ownWordsTitle")} subtitle={tr("ob.ownWordsSub")}>
+            <Input value={painText} onChangeText={setPainText} placeholder={tr("ob.painPlaceholder")} multiline />
+            <Button label={busy ? tr("ob.analyzing") : tr("ob.next")} onPress={submitPain} disabled={busy} />
           </StepView>
         )}
 
         {step === 4 && (
-          <StepView title="How would you rate your English?">
+          <StepView title={tr("ob.rateTitle")}>
             {SELF_LEVELS.map((l) => (
-              <Chip key={l.id} label={l.label} selected={selfLevel === l.id} onPress={() => setSelfLevel(l.id)} />
+              <Chip key={l.id} label={lang === "ru" ? RU_SELF_LABELS[l.id] ?? l.label : l.label} selected={selfLevel === l.id} onPress={() => setSelfLevel(l.id)} />
             ))}
-            <Button label="Next" onPress={next} disabled={!selfLevel} />
+            <Button label={tr("ob.next")} onPress={next} disabled={!selfLevel} />
           </StepView>
         )}
 
         {step === 5 && (
-          <StepView title="How much time per day?">
+          <StepView title={tr("ob.timeTitle")}>
             <View style={styles.wrap}>
               {DAILY_MINUTES.map((m) => (
-                <Chip key={m} label={`${m} min`} selected={dailyMinutes === m} onPress={() => setDailyMinutes(m)} />
+                <Chip key={m} label={tr("ob.minutes", { n: m })} selected={dailyMinutes === m} onPress={() => setDailyMinutes(m)} />
               ))}
             </View>
-            <Button label="Next" onPress={next} disabled={!dailyMinutes} />
+            <Button label={tr("ob.next")} onPress={next} disabled={!dailyMinutes} />
           </StepView>
         )}
 
         {step === 6 && (
-          <StepView title="What's your area?" subtitle="Pick any — or add your own stack or interests.">
+          <StepView title={tr("ob.areaTitle")} subtitle={tr("ob.areaSub")}>
             <View style={styles.wrap}>
               {DOMAINS.map((d) => (
                 <Chip key={d} label={d} selected={domains.includes(d)} onPress={() => toggleDomain(d)} />
               ))}
             </View>
-            <Input value={domainOther} onChangeText={setDomainOther} placeholder="Other (e.g. game dev, ML, music)…" />
-            <Button label="Next" onPress={() => nextWithOther(domainOther, setDomains, () => setDomainOther(""))} disabled={domains.length === 0 && !domainOther.trim()} />
+            <Input value={domainOther} onChangeText={setDomainOther} placeholder={tr("ob.domainOther")} />
+            <Button label={tr("ob.next")} onPress={() => nextWithOther(domainOther, setDomains, () => setDomainOther(""))} disabled={domains.length === 0 && !domainOther.trim()} />
           </StepView>
         )}
 

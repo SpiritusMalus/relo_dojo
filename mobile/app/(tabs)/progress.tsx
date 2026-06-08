@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Switch, View } from "react-native";
 import { ACHIEVEMENTS, levelFor, useProgress, XP_PER_LEVEL, xpInLevel } from "../../store/progress";
 import { useAuth } from "../../store/auth";
 import { useI18n } from "../../store/i18n";
+import { RU_ACH, RU_TOPIC_LABELS } from "../../i18n/strings";
 import { beltProgress, topicRows } from "../../store/dojo";
 import { belts, useTheme } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
@@ -44,7 +45,7 @@ export default function ProgressScreen() {
           <Sensei belt={bp.belt} size={72} mood="happy" bob />
           <View style={{ flex: 1 }}>
             <Txt variant="screenTitle">{bp.belt.name}</Txt>
-            <Txt variant="secondary" color={t.c.ink3}>{`Overall level · CEFR ${bp.cefr}`}</Txt>
+            <Txt variant="secondary" color={t.c.ink3}>{tr("prog.overall", { cefr: bp.cefr })}</Txt>
           </View>
         </View>
         {/* belt rack */}
@@ -77,12 +78,12 @@ export default function ProgressScreen() {
       {/* Level + XP */}
       <Card>
         <View style={styles.rowBetween}>
-          <Txt variant="cardTitle">{`Level ${level}`}</Txt>
-          <Txt variant="bodyStrong" color={t.c.gold}>{`✦ ${progress.xp} XP`}</Txt>
+          <Txt variant="cardTitle">{tr("prog.level", { n: level })}</Txt>
+          <Txt variant="bodyStrong" color={t.c.gold}>{tr("prog.xp", { n: progress.xp })}</Txt>
         </View>
         <ProgressBar pct={(inLevel / XP_PER_LEVEL) * 100} color={t.c.gold} style={{ marginTop: 10 }} />
         <Txt variant="secondary" color={t.c.ink3} style={{ marginTop: 8 }}>
-          {`${XP_PER_LEVEL - inLevel} XP to level ${level + 1}`}
+          {tr("prog.xpToNext", { n: XP_PER_LEVEL - inLevel, next: level + 1 })}
         </Txt>
       </Card>
 
@@ -90,18 +91,18 @@ export default function ProgressScreen() {
       <View style={styles.tiles}>
         <Card style={styles.tile}>
           <Txt variant="screenTitle">{`🔥 ${progress.dailyStreak}`}</Txt>
-          <Txt variant="secondary" color={t.c.ink3}>day streak</Txt>
+          <Txt variant="secondary" color={t.c.ink3}>{tr("prog.dayStreak")}</Txt>
         </Card>
         <Card style={styles.tile}>
           <Txt variant="screenTitle">{`⚡ ${progress.bestCorrectRun}`}</Txt>
-          <Txt variant="secondary" color={t.c.ink3}>best run</Txt>
+          <Txt variant="secondary" color={t.c.ink3}>{tr("prog.bestRun")}</Txt>
         </Card>
       </View>
 
       {/* Belts by topic */}
       <Card>
         <Txt variant="label" style={{ marginBottom: 12 }}>
-          Belts by topic
+          {tr("prog.beltsByTopic")}
         </Txt>
         <View style={{ gap: 14 }}>
           {rows.map((r) => (
@@ -109,8 +110,8 @@ export default function ProgressScreen() {
               <View style={{ width: 16, height: 16, borderRadius: 5, backgroundColor: r.belt.color, borderWidth: 1.5, borderColor: r.belt.edge }} />
               <View style={{ flex: 1 }}>
                 <Txt variant="bodyStrong" color={r.weak ? t.c.bad : t.c.ink}>
-                  {r.label}
-                  {r.weak ? "  · focus" : ""}
+                  {lang === "ru" ? RU_TOPIC_LABELS[r.id] ?? r.label : r.label}
+                  {r.weak ? `  · ${tr("prog.focus")}` : ""}
                 </Txt>
                 <ProgressBar pct={r.acc} height={6} color={r.weak ? t.c.bad : t.c.accent} style={{ marginTop: 6 }} />
               </View>
@@ -126,7 +127,7 @@ export default function ProgressScreen() {
       {/* Achievements */}
       <Card>
         <Txt variant="label" style={{ marginBottom: 12 }}>
-          Achievements
+          {tr("prog.achievements")}
         </Txt>
         <View style={styles.achGrid}>
           {ACHIEVEMENTS.map((a) => {
@@ -144,10 +145,10 @@ export default function ProgressScreen() {
                   {got ? meta.glyph : "🔒"}
                 </Txt>
                 <Txt variant="bodyStrong" color={got ? t.c.ink : t.c.ink3} numberOfLines={1}>
-                  {a.label}
+                  {lang === "ru" ? RU_ACH[a.id]?.label ?? a.label : a.label}
                 </Txt>
                 <Txt variant="secondary" color={t.c.ink3} numberOfLines={1}>
-                  {meta.sub}
+                  {lang === "ru" ? RU_ACH[a.id]?.sub ?? meta.sub : meta.sub}
                 </Txt>
               </View>
             );

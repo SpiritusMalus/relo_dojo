@@ -1,5 +1,6 @@
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useProgress } from "../../store/progress";
 import { useI18n } from "../../store/i18n";
@@ -10,6 +11,8 @@ import TopBar from "../../components/ui/TopBar";
 import DailyMixButton from "../../components/ui/DailyMixButton";
 import StoryButton from "../../components/ui/StoryButton";
 import ChallengeButton from "../../components/ui/ChallengeButton";
+import ReviewButton from "../../components/ui/ReviewButton";
+import { mistakeCount } from "../../store/mistakes";
 import Sensei from "../../components/ui/Sensei";
 import BeltKnot from "../../components/ui/BeltKnot";
 import Icon from "../../components/ui/Icon";
@@ -25,6 +28,18 @@ export default function HomeScreen() {
 
   const bp = beltProgress(progress);
   const { nodes, doneCount, total } = buildPath(progress, 6);
+
+  // Refresh the mistake count whenever Home regains focus (e.g. returning from Review/Practice).
+  const [mistakes, setMistakes] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      mistakeCount().then((n) => active && setMistakes(n));
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   const goPractice = (topic?: string) =>
     router.push(topic ? { pathname: "/practice", params: { topic } } : "/practice");
@@ -60,6 +75,7 @@ export default function HomeScreen() {
       <DailyMixButton onPress={() => goPractice()} />
       <StoryButton onPress={() => router.push("/story")} />
       <ChallengeButton onPress={() => router.push("/challenge")} />
+      {mistakes > 0 && <ReviewButton count={mistakes} onPress={() => router.push("/review")} />}
 
       {/* Today's path */}
       <View style={styles.pathHeader}>

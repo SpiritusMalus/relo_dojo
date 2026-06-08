@@ -15,6 +15,7 @@ import {
 } from "../services/api";
 import { useProgress } from "./progress";
 import { cefrMidpoint, isCefr, levelToCefr, skillFor, updateSkill } from "./adaptive";
+import { captureMistake } from "./mistakes";
 
 export type Result = {
   correct: boolean;
@@ -49,7 +50,11 @@ export function useExerciseCheck() {
           ? await checkInteractive(exercise.token, response)
           : await checkFreeText(exercise.text, String(response));
         setResult(res);
-        if (!res.correct) onWrong?.();
+        if (!res.correct) {
+          onWrong?.();
+          // Remember the exact missed item so it can be resurfaced in Review (fire-and-forget).
+          void captureMistake(exercise);
+        }
         // Difficulty-aware skill signal: partial score + the difficulty of the served item.
         const fallback = cefrMidpoint(levelToCefr(skillFor(progressRef.current, exercise.topic)));
         const servedDifficulty = isCefr(exercise.level) ? cefrMidpoint(exercise.level) : fallback;

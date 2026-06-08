@@ -2,6 +2,8 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useProgress } from "../../store/progress";
 import { topicRows } from "../../store/dojo";
+import { useI18n } from "../../store/i18n";
+import { RU_TOPIC_LABELS } from "../../i18n/strings";
 import { useTheme } from "../../theme/theme";
 import BeltKnot from "./BeltKnot";
 import DailyMixButton from "./DailyMixButton";
@@ -15,7 +17,9 @@ export default function TopicsBody() {
   const t = useTheme();
   const router = useRouter();
   const { progress } = useProgress();
+  const { t: tr, lang } = useI18n();
   const rows = topicRows(progress);
+  const topicLabel = (id: string, fallback: string) => (lang === "ru" ? RU_TOPIC_LABELS[id] ?? fallback : fallback);
 
   const goPractice = (topic?: string) =>
     router.push(topic ? { pathname: "/practice", params: { topic } } : "/practice");
@@ -24,7 +28,7 @@ export default function TopicsBody() {
     <>
       <DailyMixButton onPress={() => goPractice()} />
       <Txt variant="label" style={{ marginTop: 4 }}>
-        All grammar topics
+        {tr("topics.all")}
       </Txt>
       {rows.map((r) => (
         <Pressable
@@ -38,7 +42,7 @@ export default function TopicsBody() {
           <BeltKnot belt={r.belt} size={34} />
           <View style={{ flex: 1, gap: 6 }}>
             <View style={styles.titleRow}>
-              <Txt variant="cardTitle">{r.label}</Txt>
+              <Txt variant="cardTitle">{topicLabel(r.id, r.label)}</Txt>
               <View style={[styles.codeChip, { backgroundColor: t.c.surface3, borderColor: t.c.line }]}>
                 <Txt variant="mono" color={t.c.ink2} style={{ fontSize: 12 }}>
                   {r.hint}
@@ -59,7 +63,7 @@ export default function TopicsBody() {
       <View style={styles.hintRow}>
         <Icon name="target" size={16} color={t.c.ink3} />
         <Txt variant="secondary" color={t.c.ink3}>
-          Difficulty still adapts to you.
+          {tr("topics.adapts")}
         </Txt>
       </View>
     </>
