@@ -39,14 +39,21 @@ type Method = "GET" | "POST" | "PUT";
 
 // LLM calls (/explain) can be slow on a cold model, but never hang forever — fail clearly instead.
 const REQUEST_TIMEOUT_MS = 90000;
+// A mini-story generates 3 exercises in sequence (each may retry), so it needs more headroom.
+const STORY_TIMEOUT_MS = 180000;
 
-async function request<T>(path: string, body?: unknown, method: Method = "POST"): Promise<T> {
+async function request<T>(
+  path: string,
+  body?: unknown,
+  method: Method = "POST",
+  timeoutMs: number = REQUEST_TIMEOUT_MS
+): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
     res = await fetch(`${BASE_URL}${path}`, {
@@ -139,6 +146,22 @@ export function getExercise(params?: {
   context?: string;
 }): Promise<Exercise> {
   return request<Exercise>("/exercise", params ?? {});
+}
+
+// A themed mini-story: a curated narrative wrapping a sequence of linked exercises.
+export type StoryBeat = { narration: string; exercise: Exercise };
+export type StorySet = {
+  id: string;
+  title: string;
+  intro: string;
+  level: string; // effective CEFR served across the set
+  beats: StoryBeat[];
+};
+
+// Generate a mini-story. `level` locks CEFR across the set; `context` overrides scenario flavor.
+// Three exercises are generated server-side in sequence, so this needs a longer timeout.
+export function getStory(params?: { level?: string; context?: string }): Promise<StorySet> {
+  return request<StorySet>("/story", params ?? {}, "POST", STORY_TIMEOUT_MS);
 }
 
 // Onboarding: map a free-text "what's hard for me" to canonical grammar topics.

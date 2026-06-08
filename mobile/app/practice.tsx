@@ -3,35 +3,20 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } 
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  checkFreeText,
-  checkInteractive,
-  explain,
-  type Exercise,
-  type ExplainResult,
-  type ResponseValue,
-} from "../services/api";
+import { type Exercise, type ResponseValue } from "../services/api";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ExerciseCard from "../components/ExerciseCard";
-import { useProgress, XP_PER_CORRECT } from "../store/progress";
-import { cefrMidpoint, isCefr, levelToCefr, selectNext, skillFor, updateSkill } from "../store/adaptive";
+import ResultPanel from "../components/ResultPanel";
+import { useProgress } from "../store/progress";
+import { levelToCefr, selectNext, skillFor } from "../store/adaptive";
+import { useExerciseCheck } from "../store/useExerciseCheck";
 import { buildContext, TOPIC_LABELS } from "../store/onboarding";
 import { useTheme } from "../theme/theme";
 import Button from "../components/ui/Button";
 import Icon from "../components/ui/Icon";
 import Txt from "../components/ui/Txt";
-import Sensei from "../components/ui/Sensei";
 import ProgressBar from "../components/ui/ProgressBar";
 import Confetti from "../components/ui/Confetti";
-
-type Result = {
-  correct: boolean;
-  correct_answer: string;
-  score?: number;
-  detail?: string;
-  explanation?: string;
-  tip?: string;
-};
 
 const SESSION_LEN = 10;
 
@@ -39,7 +24,9 @@ export default function PracticeScreen() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { progress, recordAnswer } = useProgress();
+  const { progress } = useProgress();
+  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
+    useExerciseCheck();
   const params = useLocalSearchParams<{ topic?: string }>();
   const forcedTopic = typeof params.topic === "string" ? params.topic : undefined;
   // Latest progress/topic for selecting/grading without stale closures.
@@ -60,28 +47,22 @@ export default function PracticeScreen() {
     });
   }
   const [exercise, setExercise] = useState<Exercise | null>(null);
-  const [levelUp, setLevelUp] = useState<string | null>(null);
   const [round, setRound] = useState(0); // bumps to remount ExerciseCard on each new exercise
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [responseDisplay, setResponseDisplay] = useState("");
-  const [result, setResult] = useState<Result | null>(null);
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [explainLoading, setExplainLoading] = useState(false);
-  const [explained, setExplained] = useState<ExplainResult | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [solved, setSolved] = useState(0);
+  const error = loadError ?? checkError;
 
   const shake = useRef(new Animated.Value(0)).current;
 
   const loadExercise = useCallback(async () => {
     setLoading(true);
-    setError(null);
-    setResult(null);
+    setLoadError(null);
+    reset();
     setResponse(null);
     setResponseDisplay("");
-    setExplained(null);
-    setLevelUp(null);
     setExercise(null);
     try {
       // Pull from the buffer (instant if prefetched); the queue handles adaptive selection and
@@ -89,11 +70,11 @@ export default function PracticeScreen() {
       setExercise(await queueRef.current!.next());
       setRound((r) => r + 1);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load exercise");
+      setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [reset]);
 
   useEffect(() => {
     // On mount, or when the drilled topic changes, drop any buffered cards (they may be off-topic)
@@ -121,56 +102,16 @@ export default function PracticeScreen() {
 
   async function onCheck() {
     if (!exercise || response === null || checking) return;
-    setChecking(true);
-    setError(null);
-    try {
-      let res: Result;
-      if (exercise.token) {
-        res = await checkInteractive(exercise.token, response);
-      } else {
-        res = await checkFreeText(exercise.text, String(response));
-      }
-      setResult(res);
-      setSolved((s) => s + 1);
-      if (!res.correct) runShake();
-      // Difficulty-aware skill signal: partial score + the difficulty of the served item.
-      const outcome = res.score ?? (res.correct ? 1 : 0);
-      const difficulty = cefrMidpoint(levelToCefr(skillFor(progressRef.current, exercise.topic)));
-      const servedDifficulty = isCefr(exercise.level) ? cefrMidpoint(exercise.level) : difficulty;
-      // Detect a CEFR level-up for this topic (compute the would-be new level before state updates).
-      const before = skillFor(progressRef.current, exercise.topic);
-      const after = updateSkill(
-        progressRef.current,
-        exercise.topic,
-        outcome,
-        servedDifficulty
-      )[exercise.topic];
-      // gamification + difficulty-aware skill: once per answer.
-      recordAnswer(exercise.topic, res.correct, { score: res.score, difficulty: servedDifficulty });
-      if (after > before && levelToCefr(after) !== levelToCefr(before)) {
-        setLevelUp(`${exercise.topic} is now ${levelToCefr(after)}`);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to check answer");
-    } finally {
-      setChecking(false);
-    }
+    const res = await check(exercise, response, runShake);
+    if (res) setSolved((s) => s + 1);
   }
 
-  async function onExplain() {
-    if (!exercise || !result || explainLoading) return;
-    setExplainLoading(true);
-    try {
-      setExplained(await explain(exercise.text, result.correct_answer, responseDisplay));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to explain");
-    } finally {
-      setExplainLoading(false);
-    }
+  function onExplain() {
+    if (!exercise) return;
+    doExplain(exercise, responseDisplay);
   }
 
   const canSubmit = response !== null && !checking;
-  const canExplain = !!result && !result.correct && !result.explanation && !explained && !!exercise?.token;
   const topicLabel = forcedTopic ? TOPIC_LABELS[forcedTopic] ?? forcedTopic : "Daily mix";
 
   return (
@@ -211,55 +152,15 @@ export default function PracticeScreen() {
           </Animated.View>
         )}
 
-        {result && (
-          <View
-            style={[
-              styles.panel,
-              {
-                backgroundColor: result.correct ? t.c.accentSoft : t.c.badSoft,
-                borderColor: result.correct ? t.c.accent : t.c.bad,
-                borderRadius: t.spacing.radius,
-              },
-            ]}
-          >
-            <View style={styles.panelHead}>
-              <Sensei size={44} mood={result.correct ? "cheer" : "think"} />
-              <View style={{ flex: 1 }}>
-                <Txt variant="cardTitle" color={result.correct ? t.c.accent : t.c.bad}>
-                  {result.correct ? "Clean strike!" : "Not quite"}
-                </Txt>
-                {result.correct ? (
-                  <Txt variant="bodyStrong" color={t.c.gold}>{`+${XP_PER_CORRECT} XP`}</Txt>
-                ) : (result.score ?? 0) > 0 && !!result.detail ? (
-                  <Txt variant="bodyStrong" color={t.c.fire}>{`Almost — ${result.detail} right`}</Txt>
-                ) : null}
-              </View>
-            </View>
-
-            {!result.correct && (
-              <Txt variant="mono" color={t.c.ink} style={{ marginTop: 4 }}>
-                {result.correct_answer}
-              </Txt>
-            )}
-            {result.correct && progress.currentCorrectRun >= 3 && (
-              <Txt variant="bodyStrong" color={t.c.fire}>{`🔥 ${progress.currentCorrectRun} correct in a row!`}</Txt>
-            )}
-            {!!levelUp && <Txt variant="bodyStrong" color={t.c.accent}>{`⬆ ${levelUp}`}</Txt>}
-            {!!result.explanation && <Txt variant="body" color={t.c.ink2}>{`💡 ${result.explanation}`}</Txt>}
-            {!!result.tip && <Txt variant="secondary" color={t.c.ink2}>{result.tip}</Txt>}
-
-            {canExplain && (
-              <Pressable onPress={onExplain} disabled={explainLoading} style={{ paddingVertical: 6 }}>
-                {explainLoading ? <ActivityIndicator color={t.c.accent} /> : <Txt variant="bodyStrong" color={t.c.accent}>Explain</Txt>}
-              </Pressable>
-            )}
-            {explained && (
-              <>
-                <Txt variant="body" color={t.c.ink2}>{`💡 ${explained.explanation}`}</Txt>
-                {!!explained.tip && <Txt variant="secondary" color={t.c.ink2}>{explained.tip}</Txt>}
-              </>
-            )}
-          </View>
+        {result && exercise && (
+          <ResultPanel
+            result={result}
+            exercise={exercise}
+            levelUp={levelUp}
+            explained={explained}
+            explainLoading={explainLoading}
+            onExplain={onExplain}
+          />
         )}
       </ScrollView>
 
@@ -283,7 +184,5 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10 },
   closeBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   content: { paddingHorizontal: 20, paddingTop: 8, gap: 14 },
-  panel: { borderWidth: 2, padding: 16, gap: 8 },
-  panelHead: { flexDirection: "row", alignItems: "center", gap: 12 },
   footer: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1 },
 });

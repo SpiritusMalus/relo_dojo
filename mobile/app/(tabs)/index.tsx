@@ -7,6 +7,7 @@ import { useTheme, type Belt } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
 import DailyMixButton from "../../components/ui/DailyMixButton";
+import StoryButton from "../../components/ui/StoryButton";
 import Sensei from "../../components/ui/Sensei";
 import BeltKnot from "../../components/ui/BeltKnot";
 import Icon from "../../components/ui/Icon";
@@ -52,6 +53,7 @@ export default function HomeScreen() {
       </LinearGradient>
 
       <DailyMixButton onPress={() => goPractice()} />
+      <StoryButton onPress={() => router.push("/story")} />
 
       {/* Today's path */}
       <View style={styles.pathHeader}>

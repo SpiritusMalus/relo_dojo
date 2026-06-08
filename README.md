@@ -32,6 +32,7 @@ mobile/    Expo app (React Native + TypeScript, expo-router)
 | `GET /health` | liveness |
 | `POST /chat` | free chat with the model (Phase 1) |
 | `POST /exercise` | generate an exercise (interactive types carry a sealed `token`) |
+| `POST /story` | generate a themed mini-story (a sequence of linked exercises) |
 | `POST /check` | deterministic grade of an interactive answer (no LLM) |
 | `POST /check-answer` | LLM grade of a free-text answer + explanation |
 | `POST /explain` | on-demand LLM teaching note for an interactive miss |

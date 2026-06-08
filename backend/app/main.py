@@ -4,6 +4,7 @@ Public (no auth):
 - GET  /health       -> {"status": "ok"}
 - POST /chat         -> free chat with the model (Phase 1)
 - POST /exercise     -> generate an exercise (interactive or free-text)
+- POST /story        -> generate a themed mini-story (a sequence of linked exercises)
 - POST /check        -> deterministic grade of an interactive answer (no LLM)
 - POST /check-answer -> LLM grade of a free-text answer + explanation
 - POST /explain      -> on-demand LLM teaching note for an interactive miss
@@ -34,8 +35,10 @@ from .schemas import (
     ExerciseOut,
     ExplainIn,
     ExplainOut,
+    StoryIn,
+    StoryOut,
 )
-from .services import grammar, tokens
+from .services import grammar, stories, tokens
 from .services.ollama_client import OllamaError, generate
 
 app = FastAPI(title="Grammar Dojo API", version="0.4.0")
@@ -77,6 +80,19 @@ async def exercise(payload: ExerciseIn = ExerciseIn()) -> ExerciseOut:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     # grammar guarantees keys; the answer stays sealed in `token`, never in plaintext here.
     return ExerciseOut(**data)
+
+
+@app.post("/story", response_model=StoryOut)
+async def story(payload: StoryIn = StoryIn()) -> StoryOut:
+    """Generate a themed mini-story: a curated scenario wrapping a sequence of linked exercises.
+
+    Each beat's answer stays sealed in its own `token` and is graded by the existing /check. Public.
+    """
+    try:
+        data = await stories.build_story(level=payload.level, context_override=payload.context)
+    except OllamaError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return StoryOut(**data)
 
 
 @app.post("/check", response_model=CheckOut)

@@ -71,6 +71,32 @@ class ExerciseOut(BaseModel):
     token: Optional[str] = None
 
 
+# --- themed sets / mini-stories (Batch 2) ---
+class StoryIn(BaseModel):
+    """Optional steering for a mini-story. `level` locks CEFR across the whole set; `context`
+    overrides the scenario's flavor. Both optional — anything omitted falls back to defaults."""
+
+    level: Optional[str] = Field(default=None, max_length=4)  # CEFR: A1..C1
+    context: Optional[str] = Field(default=None, max_length=300)
+
+
+class StoryBeat(BaseModel):
+    """One step of a mini-story: a line of narration plus its exercise (graded via /check)."""
+
+    narration: str = ""
+    exercise: ExerciseOut
+
+
+class StoryOut(BaseModel):
+    """A themed set: a curated narrative wrapping an ordered list of linked exercises."""
+
+    id: str
+    title: str
+    intro: str = ""
+    level: str = ""  # effective CEFR served across the set
+    beats: list[StoryBeat] = []
+
+
 # --- deterministic interactive check (Phase 2.5) ---
 class CheckIn(BaseModel):
     """`response` shape depends on the type: chosen option / assembled sentence (str),
