@@ -8,6 +8,7 @@ import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
 import DailyMixButton from "../../components/ui/DailyMixButton";
 import StoryButton from "../../components/ui/StoryButton";
+import ChallengeButton from "../../components/ui/ChallengeButton";
 import Sensei from "../../components/ui/Sensei";
 import BeltKnot from "../../components/ui/BeltKnot";
 import Icon from "../../components/ui/Icon";
@@ -54,6 +55,7 @@ export default function HomeScreen() {
 
       <DailyMixButton onPress={() => goPractice()} />
       <StoryButton onPress={() => router.push("/story")} />
+      <ChallengeButton onPress={() => router.push("/challenge")} />
 
       {/* Today's path */}
       <View style={styles.pathHeader}>
