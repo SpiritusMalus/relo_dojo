@@ -35,6 +35,13 @@ export function setAuthToken(token: string | null): void {
   authToken = token;
 }
 
+// UI language ("ru" | "en"), set by the i18n store. Sent to LLM endpoints so explanations/feedback
+// come back in the learner's language. Held in a module var so non-React callers (this file) can read it.
+let apiLang: string = "ru";
+export function setApiLang(lang: string): void {
+  apiLang = lang;
+}
+
 type Method = "GET" | "POST" | "PUT";
 
 // LLM calls (/explain) can be slow on a cold model, but never hang forever — fail clearly instead.
@@ -174,9 +181,9 @@ export function checkInteractive(token: string, response: ResponseValue): Promis
   return request<CheckResult>("/check", { token, response });
 }
 
-// LLM grade for free-text answers (includes an explanation).
+// LLM grade for free-text answers (includes an explanation, in the learner's language).
 export function checkFreeText(text: string, userAnswer: string): Promise<TextCheckResult> {
-  return request<TextCheckResult>("/check-answer", { text, user_answer: userAnswer });
+  return request<TextCheckResult>("/check-answer", { text, user_answer: userAnswer, lang: apiLang });
 }
 
 // On-demand teaching note for an interactive miss.
@@ -189,6 +196,7 @@ export function explain(
     text,
     correct_answer: correctAnswer,
     user_response: userResponse,
+    lang: apiLang,
   });
 }
 

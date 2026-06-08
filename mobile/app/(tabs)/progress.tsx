@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Switch, View } from "react-native";
 import { ACHIEVEMENTS, levelFor, useProgress, XP_PER_LEVEL, xpInLevel } from "../../store/progress";
 import { useAuth } from "../../store/auth";
+import { useI18n } from "../../store/i18n";
 import { beltProgress, topicRows } from "../../store/dojo";
 import { belts, useTheme } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
@@ -26,6 +27,7 @@ export default function ProgressScreen() {
   const t = useTheme();
   const { progress, resetOnboarding } = useProgress();
   const { user, logout } = useAuth();
+  const { t: tr, lang, setLang } = useI18n();
 
   const bp = beltProgress(progress);
   const rows = topicRows(progress);
@@ -164,7 +166,7 @@ export default function ProgressScreen() {
           </Txt>
         )}
         <View style={styles.toggleRow}>
-          <Txt variant="bodyStrong">Dark mode</Txt>
+          <Txt variant="bodyStrong">{tr("settings.dark")}</Txt>
           <Switch
             value={t.name === "dark"}
             onValueChange={t.toggle}
@@ -172,10 +174,31 @@ export default function ProgressScreen() {
             thumbColor={t.c.surface}
           />
         </View>
-        <Button label="Redo onboarding" variant="ghost" uppercase={false} onPress={resetOnboarding} style={{ marginBottom: 10 }} />
+        <View style={styles.toggleRow}>
+          <Txt variant="bodyStrong">{tr("settings.language")}</Txt>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {(["ru", "en"] as const).map((l) => (
+              <Pressable
+                key={l}
+                onPress={() => setLang(l)}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  borderRadius: t.spacing.radiusSm,
+                  backgroundColor: lang === l ? t.c.accent : t.c.surface3,
+                }}
+              >
+                <Txt variant="bodyStrong" color={lang === l ? t.c.accentInk : t.c.ink2}>
+                  {l === "ru" ? "Русский" : "English"}
+                </Txt>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+        <Button label={tr("settings.redoOnboarding")} variant="ghost" uppercase={false} onPress={resetOnboarding} style={{ marginBottom: 10 }} />
         <Pressable onPress={logout} style={{ minHeight: 44, justifyContent: "center", alignItems: "center" }}>
           <Txt variant="bodyStrong" color={t.c.bad}>
-            Log out
+            {tr("settings.logout")}
           </Txt>
         </Pressable>
       </Card>

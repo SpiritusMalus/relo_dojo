@@ -118,6 +118,7 @@ class CheckOut(BaseModel):
 class CheckTextIn(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT)
     user_answer: str = Field(min_length=1, max_length=MAX_ANSWER)
+    lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language for the explanation
 
 
 class CheckTextOut(BaseModel):
@@ -132,6 +133,7 @@ class ExplainIn(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT)
     correct_answer: str = Field(min_length=1, max_length=MAX_ANSWER)
     user_response: str = Field(default="", max_length=MAX_ANSWER)
+    lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language for the explanation
 
 
 class ExplainOut(BaseModel):

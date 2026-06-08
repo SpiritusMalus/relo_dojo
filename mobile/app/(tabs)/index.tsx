@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useProgress } from "../../store/progress";
+import { useI18n } from "../../store/i18n";
 import { beltProgress, buildPath, type NodeState, type PathNode } from "../../store/dojo";
 import { useTheme, type Belt } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
@@ -20,6 +21,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const t = useTheme();
   const { progress } = useProgress();
+  const { t: tr } = useI18n();
 
   const bp = beltProgress(progress);
   const { nodes, doneCount, total } = buildPath(progress, 6);
@@ -42,13 +44,15 @@ export default function HomeScreen() {
           <Sensei belt={bp.belt} size={92} mood="cheer" bob />
         </View>
         <Txt variant="label" color={bp.belt.ink} style={{ opacity: 0.8 }}>
-          Your belt
+          {tr("home.yourBelt")}
         </Txt>
         <Txt variant="hero" color={bp.belt.ink} style={{ marginTop: 2 }}>
           {bp.belt.name}
         </Txt>
         <Txt variant="bodyStrong" color={bp.belt.ink} style={{ opacity: 0.9, marginTop: 4, marginBottom: 12 }}>
-          {bp.atMax ? `CEFR ${bp.cefr} · top belt` : `CEFR ${bp.cefr} · ${bp.pctToNext}% to ${bp.nextBelt.name}`}
+          {bp.atMax
+            ? tr("home.topBelt", { cefr: bp.cefr })
+            : tr("home.toNext", { cefr: bp.cefr, pct: bp.pctToNext, belt: bp.nextBelt.name })}
         </Txt>
         <ProgressBar pct={bp.atMax ? 100 : bp.pctToNext} color={bp.belt.ink} track="rgba(0,0,0,0.16)" />
       </LinearGradient>
@@ -59,8 +63,8 @@ export default function HomeScreen() {
 
       {/* Today's path */}
       <View style={styles.pathHeader}>
-        <Txt variant="cardTitle">Today's path</Txt>
-        <Txt variant="secondary" color={t.c.ink3}>{`${doneCount} of ${total} done`}</Txt>
+        <Txt variant="cardTitle">{tr("home.todaysPath")}</Txt>
+        <Txt variant="secondary" color={t.c.ink3}>{tr("home.ofDone", { done: doneCount, total })}</Txt>
       </View>
 
       <View>
@@ -81,7 +85,7 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      <Button label="Browse all topics" variant="ghost" onPress={() => router.push("/topics")} />
+      <Button label={tr("home.browseTopics")} variant="ghost" onPress={() => router.push("/topics")} />
     </Screen>
   );
 }
@@ -170,13 +174,14 @@ function NodeCircle({ state, belt }: { state: NodeState; belt: Belt }) {
 
 function NodeCard({ node }: { node: PathNode }) {
   const t = useTheme();
+  const { t: tr } = useI18n();
   if (node.state === "test") {
     return (
       <View style={styles.cardInner}>
         <View style={{ flex: 1 }}>
-          <Txt variant="cardTitle">Belt test</Txt>
+          <Txt variant="cardTitle">{tr("home.beltTest")}</Txt>
           <Txt variant="secondary" color={t.c.ink3}>
-            Earn your next belt
+            {tr("home.beltTestSub")}
           </Txt>
         </View>
         <Icon name="chevron" size={22} color={t.c.ink3} />

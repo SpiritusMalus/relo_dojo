@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View 
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../store/auth";
+import { useI18n } from "../store/i18n";
 import { useTheme } from "../theme/theme";
 import Sensei from "../components/ui/Sensei";
 import Button from "../components/ui/Button";
@@ -10,6 +11,7 @@ import Txt from "../components/ui/Txt";
 
 export default function LoginScreen() {
   const t = useTheme();
+  const { t: tr } = useI18n();
   const insets = useSafeAreaInsets();
   const { login, register } = useAuth();
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -49,14 +51,14 @@ export default function LoginScreen() {
             Grammar Dojo
           </Txt>
           <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center", maxWidth: 280 }}>
-            Short daily grammar drills for developers — earn your belt.
+            {tr("login.tagline")}
           </Txt>
         </View>
 
         {/* Form */}
         <View style={{ gap: 14 }}>
-          <Field label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" editable={!busy} keyboardType="email-address" />
-          <Field label="Password" value={password} onChangeText={setPassword} placeholder="Min 8 characters" editable={!busy} secureTextEntry />
+          <Field label={tr("login.email")} value={email} onChangeText={setEmail} placeholder="you@example.com" editable={!busy} keyboardType="email-address" />
+          <Field label={tr("login.password")} value={password} onChangeText={setPassword} placeholder={tr("login.passwordHint")} editable={!busy} secureTextEntry />
 
           {!!error && (
             <Txt variant="secondary" color={t.c.bad} style={{ textAlign: "center" }}>
@@ -64,12 +66,12 @@ export default function LoginScreen() {
             </Txt>
           )}
 
-          <Button label={busy ? "…" : isRegister ? "Create account" : "Enter the dojo"} onPress={onSubmit} disabled={!canSubmit} />
+          <Button label={busy ? "…" : isRegister ? tr("login.create") : tr("login.enter")} onPress={onSubmit} disabled={!canSubmit} />
 
           <View style={styles.divider}>
             <View style={[styles.line, { backgroundColor: t.c.line2 }]} />
             <Txt variant="caption" color={t.c.ink3}>
-              OR
+              {tr("login.or")}
             </Txt>
             <View style={[styles.line, { backgroundColor: t.c.line2 }]} />
           </View>
@@ -79,7 +81,9 @@ export default function LoginScreen() {
               <Button label="GitHub" variant="ghost" uppercase={false} disabled onPress={() => {}} />
             </View>
             <View style={{ flex: 1 }}>
-              <Button label="Google" variant="ghost" uppercase={false} disabled onPress={() => {}} />
+              {/* Google OAuth: needs EXPO_PUBLIC_GOOGLE_CLIENT_ID + a backend /auth/google verifier.
+                  Until configured, the button surfaces a clear message instead of silently doing nothing. */}
+              <Button label="Google" variant="ghost" uppercase={false} onPress={() => setError(tr("login.googleConfig"))} />
             </View>
           </View>
 
@@ -92,7 +96,7 @@ export default function LoginScreen() {
             style={{ alignItems: "center", paddingVertical: 8 }}
           >
             <Txt variant="bodyStrong" color={t.c.accent}>
-              {isRegister ? "Have an account? Log in" : "New here? Create an account"}
+              {isRegister ? tr("login.haveAccount") : tr("login.newHere")}
             </Txt>
           </Pressable>
         </View>

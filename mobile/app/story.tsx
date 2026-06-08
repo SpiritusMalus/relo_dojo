@@ -14,6 +14,8 @@ import ExerciseCard from "../components/ExerciseCard";
 import ResultPanel from "../components/ResultPanel";
 import { useProgress, XP_PER_CORRECT } from "../store/progress";
 import { useExerciseCheck } from "../store/useExerciseCheck";
+import { useI18n } from "../store/i18n";
+import { loadingMessageFor } from "../i18n/loading";
 import { beltProgress } from "../store/dojo";
 import { useTheme } from "../theme/theme";
 import Button from "../components/ui/Button";
@@ -29,6 +31,7 @@ export default function StoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
+  const { t: tr } = useI18n();
   const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
     useExerciseCheck();
 
@@ -137,7 +140,7 @@ export default function StoryScreen() {
           <View style={{ alignItems: "center", gap: 12, marginTop: 40 }}>
             <Sensei size={88} mood="think" bob />
             <ActivityIndicator color={t.c.accent} />
-            <Txt variant="secondary" color={t.c.ink2}>Writing your story…</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(0)}</Txt>
           </View>
         )}
 
@@ -146,7 +149,7 @@ export default function StoryScreen() {
             <Txt variant="body" color={t.c.bad} style={{ textAlign: "center" }}>
               {error}
             </Txt>
-            <Button label="Try again" variant="ghost" onPress={loadStory} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadStory} />
           </View>
         )}
 
@@ -154,9 +157,9 @@ export default function StoryScreen() {
         {finished && story && !loading && (
           <View style={{ alignItems: "center", gap: 14, marginTop: 24 }}>
             <Sensei size={104} mood="cheer" bob />
-            <Txt variant="cardTitle" color={t.c.accent}>{story.title} — done!</Txt>
-            <Txt variant="bodyStrong">{`${correctCount} / ${total} correct`}</Txt>
-            <Txt variant="bodyStrong" color={t.c.gold}>{`+${correctCount * XP_PER_CORRECT} XP`}</Txt>
+            <Txt variant="cardTitle" color={t.c.accent}>{tr("story.done", { title: story.title })}</Txt>
+            <Txt variant="bodyStrong">{tr("story.correctOfTotal", { c: correctCount, t: total })}</Txt>
+            <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.xp", { n: correctCount * XP_PER_CORRECT })}</Txt>
           </View>
         )}
 
@@ -201,11 +204,11 @@ export default function StoryScreen() {
       {story && !loading && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
           {finished ? (
-            <Button label="Back to home" onPress={() => router.back()} />
+            <Button label={tr("story.backHome")} onPress={() => router.back()} />
           ) : result ? (
-            <Button label={isLast ? "Finish" : "Next"} onPress={onAdvance} />
+            <Button label={isLast ? tr("action.finish") : tr("action.continue")} onPress={onAdvance} />
           ) : (
-            <Button label={checking ? "Checking…" : "Check"} onPress={onCheck} disabled={!canSubmit} />
+            <Button label={checking ? tr("action.checking") : tr("action.check")} onPress={onCheck} disabled={!canSubmit} />
           )}
         </View>
       )}

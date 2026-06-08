@@ -109,7 +109,7 @@ def check(payload: CheckIn) -> CheckOut:
 @app.post("/check-answer", response_model=CheckTextOut)
 async def check_answer(payload: CheckTextIn) -> CheckTextOut:
     try:
-        data = await grammar.check_answer(payload.text, payload.user_answer)
+        data = await grammar.check_answer(payload.text, payload.user_answer, payload.lang)
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return CheckTextOut(**data)
@@ -118,7 +118,7 @@ async def check_answer(payload: CheckTextIn) -> CheckTextOut:
 @app.post("/explain", response_model=ExplainOut)
 async def explain(payload: ExplainIn) -> ExplainOut:
     try:
-        data = await grammar.explain(payload.text, payload.correct_answer, payload.user_response)
+        data = await grammar.explain(payload.text, payload.correct_answer, payload.user_response, payload.lang)
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return ExplainOut(**data)

@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { AuthProvider, useAuth } from "../store/auth";
 import { ProgressProvider, useProgress } from "../store/progress";
+import { I18nProvider } from "../store/i18n";
 import { ThemeProvider, fontMap } from "../theme/theme";
 
 // Redirect between login, onboarding, and the tabs based on auth + onboarding state.
@@ -59,11 +60,13 @@ export default function RootLayout() {
   // AuthProvider wraps ProgressProvider so progress sync can read the auth token.
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <ProgressProvider>
-          <RootNav />
-        </ProgressProvider>
-      </AuthProvider>
+      <I18nProvider>
+        <AuthProvider>
+          <ProgressProvider>
+            <RootNav />
+          </ProgressProvider>
+        </AuthProvider>
+      </I18nProvider>
     </ThemeProvider>
   );
 }

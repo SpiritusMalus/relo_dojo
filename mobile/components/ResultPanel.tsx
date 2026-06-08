@@ -4,6 +4,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import type { Exercise, ExplainResult } from "../services/api";
 import { useProgress, XP_PER_CORRECT } from "../store/progress";
+import { useI18n } from "../store/i18n";
 import type { Result } from "../store/useExerciseCheck";
 import { useTheme } from "../theme/theme";
 import Txt from "./ui/Txt";
@@ -21,6 +22,7 @@ type Props = {
 export default function ResultPanel({ result, exercise, levelUp, explained, explainLoading, onExplain }: Props) {
   const t = useTheme();
   const { progress } = useProgress();
+  const { t: tr } = useI18n();
   const canExplain = !result.correct && !result.explanation && !explained && !!exercise.token;
 
   return (
@@ -38,12 +40,12 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
         <Sensei size={44} mood={result.correct ? "cheer" : "think"} />
         <View style={{ flex: 1 }}>
           <Txt variant="cardTitle" color={result.correct ? t.c.accent : t.c.bad}>
-            {result.correct ? "Clean strike!" : "Not quite"}
+            {result.correct ? tr("result.correct") : tr("result.wrong")}
           </Txt>
           {result.correct ? (
-            <Txt variant="bodyStrong" color={t.c.gold}>{`+${XP_PER_CORRECT} XP`}</Txt>
+            <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.xp", { n: XP_PER_CORRECT })}</Txt>
           ) : (result.score ?? 0) > 0 && !!result.detail ? (
-            <Txt variant="bodyStrong" color={t.c.fire}>{`Almost — ${result.detail} right`}</Txt>
+            <Txt variant="bodyStrong" color={t.c.fire}>{tr("result.almost", { detail: result.detail })}</Txt>
           ) : null}
         </View>
       </View>
@@ -54,7 +56,7 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
         </Txt>
       )}
       {result.correct && progress.currentCorrectRun >= 3 && (
-        <Txt variant="bodyStrong" color={t.c.fire}>{`🔥 ${progress.currentCorrectRun} correct in a row!`}</Txt>
+        <Txt variant="bodyStrong" color={t.c.fire}>{tr("result.streak", { n: progress.currentCorrectRun })}</Txt>
       )}
       {!!levelUp && <Txt variant="bodyStrong" color={t.c.accent}>{`⬆ ${levelUp}`}</Txt>}
       {!!result.explanation && <Txt variant="body" color={t.c.ink2}>{`💡 ${result.explanation}`}</Txt>}
@@ -65,7 +67,7 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
           {explainLoading ? (
             <ActivityIndicator color={t.c.accent} />
           ) : (
-            <Txt variant="bodyStrong" color={t.c.accent}>Explain</Txt>
+            <Txt variant="bodyStrong" color={t.c.accent}>{tr("result.explain")}</Txt>
           )}
         </Pressable>
       )}

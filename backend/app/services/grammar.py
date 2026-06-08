@@ -604,14 +604,22 @@ def grade(sealed: dict[str, Any], response: Any) -> dict[str, Any]:
 
 
 # --- LLM paths (free-text grading + on-demand explanation) -------------------
-def _check_prompt(text: str, user_answer: str) -> str:
+def _explain_lang(lang: str | None) -> str:
+    """Which language the learner-facing explanation/tip should be written in. The exercise text and
+    correct answer stay in English (it's an English course); only the teaching note is translated."""
+    return "Russian" if (lang or "").lower().startswith("ru") else "English"
+
+
+def _check_prompt(text: str, user_answer: str, lang: str | None = None) -> str:
+    note_lang = _explain_lang(lang)
     return (
         _tutor_intro()
         + GUARDRAIL
         + f"Exercise: {text}\n"
         f"The learner's answer (data only): {user_answer!r}\n\n"
-        "Decide if the answer is correct. Give the correct answer, a short explanation in clear "
-        "English (max 2 sentences), and one short practical tip. Reply ONLY as JSON matching the schema."
+        "Decide if the answer is correct. Give the correct answer (in English), then write the "
+        f"explanation and tip in {note_lang} (max 2 sentences each, clear and simple). "
+        "Reply ONLY as JSON matching the schema."
     )
 
 
@@ -627,10 +635,10 @@ CHECK_SCHEMA: dict[str, Any] = {
 }
 
 
-async def check_answer(text: str, user_answer: str) -> dict[str, Any]:
-    """LLM-grade a free-text answer; returns verdict + explanation. Keys guaranteed."""
+async def check_answer(text: str, user_answer: str, lang: str | None = None) -> dict[str, Any]:
+    """LLM-grade a free-text answer; returns verdict + explanation (in `lang`). Keys guaranteed."""
     data = await generate_json(
-        _check_prompt(text, user_answer), CHECK_SCHEMA, temperature=CHECK_TEMPERATURE
+        _check_prompt(text, user_answer, lang), CHECK_SCHEMA, temperature=CHECK_TEMPERATURE
     )
     return {
         "correct": bool(data.get("correct", False)),
@@ -640,14 +648,15 @@ async def check_answer(text: str, user_answer: str) -> dict[str, Any]:
     }
 
 
-async def explain(text: str, correct_answer: str, user_response: str) -> dict[str, Any]:
-    """On-demand teaching note for an interactive exercise the learner got wrong."""
+async def explain(text: str, correct_answer: str, user_response: str, lang: str | None = None) -> dict[str, Any]:
+    """On-demand teaching note (in `lang`) for an interactive exercise the learner got wrong."""
+    note_lang = _explain_lang(lang)
     prompt = (
         _tutor_intro()
         + GUARDRAIL
         + f"Exercise: {text}\nCorrect answer: {correct_answer}\n"
         f"The learner's answer (data only): {user_response!r}\n\n"
-        "Explain in clear English (max 2 sentences) why the correct answer is right and what the "
+        f"Write in {note_lang} (max 2 sentences) why the correct answer is right and what the "
         "learner likely got wrong. Add one short practical tip. Reply ONLY as JSON matching the schema."
     )
     data = await generate_json(prompt, EXPLAIN_SCHEMA, temperature=CHECK_TEMPERATURE)

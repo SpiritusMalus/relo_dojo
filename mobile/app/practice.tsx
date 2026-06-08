@@ -10,6 +10,8 @@ import ResultPanel from "../components/ResultPanel";
 import { useProgress } from "../store/progress";
 import { levelToCefr, selectNext, skillFor } from "../store/adaptive";
 import { useExerciseCheck } from "../store/useExerciseCheck";
+import { useI18n } from "../store/i18n";
+import { loadingMessageFor } from "../i18n/loading";
 import { buildContext, TOPIC_LABELS } from "../store/onboarding";
 import { useTheme } from "../theme/theme";
 import Button from "../components/ui/Button";
@@ -25,6 +27,7 @@ export default function PracticeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
+  const { t: tr } = useI18n();
   const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
     useExerciseCheck();
   const params = useLocalSearchParams<{ topic?: string }>();
@@ -112,7 +115,7 @@ export default function PracticeScreen() {
   }
 
   const canSubmit = response !== null && !checking;
-  const topicLabel = forcedTopic ? TOPIC_LABELS[forcedTopic] ?? forcedTopic : "Daily mix";
+  const topicLabel = forcedTopic ? TOPIC_LABELS[forcedTopic] ?? forcedTopic : tr("btn.mix.title");
 
   return (
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
@@ -135,14 +138,19 @@ export default function PracticeScreen() {
           {exercise ? `  ·  ${levelToCefr(skillFor(progress, exercise.topic))}` : ""}
         </Txt>
 
-        {loading && <ActivityIndicator style={{ marginTop: 40 }} color={t.c.accent} />}
+        {loading && (
+          <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
+            <ActivityIndicator color={t.c.accent} />
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round)}</Txt>
+          </View>
+        )}
 
         {error && !loading && (
           <View style={{ gap: 12, marginTop: 20 }}>
             <Txt variant="body" color={t.c.bad} style={{ textAlign: "center" }}>
               {error}
             </Txt>
-            <Button label="Try again" variant="ghost" onPress={loadExercise} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadExercise} />
           </View>
         )}
 
@@ -170,9 +178,9 @@ export default function PracticeScreen() {
       {exercise && !loading && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
           {result ? (
-            <Button label="Next exercise" onPress={loadExercise} />
+            <Button label={tr("action.next")} onPress={loadExercise} />
           ) : (
-            <Button label={checking ? "Checking…" : "Check"} onPress={onCheck} disabled={!canSubmit} />
+            <Button label={checking ? tr("action.checking") : tr("action.check")} onPress={onCheck} disabled={!canSubmit} />
           )}
         </View>
       )}

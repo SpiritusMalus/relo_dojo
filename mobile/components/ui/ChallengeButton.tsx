@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { useTheme } from "../../theme/theme";
+import { useI18n } from "../../store/i18n";
 import Icon from "./Icon";
 import Txt from "./Txt";
 
@@ -10,6 +11,7 @@ const EDGE = "#B9831C";
 
 export default function ChallengeButton({ onPress }: { onPress: () => void }) {
   const t = useTheme();
+  const { t: tr } = useI18n();
   return (
     <Pressable
       onPress={onPress}
@@ -31,10 +33,10 @@ export default function ChallengeButton({ onPress }: { onPress: () => void }) {
       </View>
       <View style={{ flex: 1 }}>
         <Txt variant="cardTitle" color={INK}>
-          Daily Challenge
+          {tr("btn.challenge.title")}
         </Txt>
         <Txt variant="secondary" color={INK} style={{ opacity: 0.8 }}>
-          60 seconds · beat your best
+          {tr("btn.challenge.sub")}
         </Txt>
       </View>
       <Icon name="chevron" size={22} color={INK} />

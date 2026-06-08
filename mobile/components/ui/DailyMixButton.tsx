@@ -1,11 +1,13 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { useTheme } from "../../theme/theme";
+import { useI18n } from "../../store/i18n";
 import Icon from "./Icon";
 import Txt from "./Txt";
 
 // Full-width chunky accent button: lightning tile + "Daily mix" / subtitle + chevron.
 export default function DailyMixButton({ onPress }: { onPress: () => void }) {
   const t = useTheme();
+  const { t: tr } = useI18n();
   return (
     <Pressable
       onPress={onPress}
@@ -28,10 +30,10 @@ export default function DailyMixButton({ onPress }: { onPress: () => void }) {
       </View>
       <View style={{ flex: 1 }}>
         <Txt variant="cardTitle" color={t.c.accentInk}>
-          Daily mix
+          {tr("btn.mix.title")}
         </Txt>
         <Txt variant="secondary" color="rgba(255,255,255,0.85)">
-          Adaptive — across all your topics
+          {tr("btn.mix.sub")}
         </Txt>
       </View>
       <Icon name="chevron" size={22} color={t.c.accentInk} />

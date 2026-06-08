@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { useTheme } from "../../theme/theme";
+import { useI18n } from "../../store/i18n";
 import Icon from "./Icon";
 import Txt from "./Txt";
 
@@ -7,6 +8,7 @@ import Txt from "./Txt";
 // pair visually on the Home tab while staying clearly distinct.
 export default function StoryButton({ onPress }: { onPress: () => void }) {
   const t = useTheme();
+  const { t: tr } = useI18n();
   return (
     <Pressable
       onPress={onPress}
@@ -29,10 +31,10 @@ export default function StoryButton({ onPress }: { onPress: () => void }) {
       </View>
       <View style={{ flex: 1 }}>
         <Txt variant="cardTitle" color="#FFFFFF">
-          Mini-story
+          {tr("btn.story.title")}
         </Txt>
         <Txt variant="secondary" color="rgba(255,255,255,0.85)">
-          A short themed set with a twist
+          {tr("btn.story.sub")}
         </Txt>
       </View>
       <Icon name="chevron" size={22} color="#FFFFFF" />

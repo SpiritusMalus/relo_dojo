@@ -14,6 +14,8 @@ import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQue
 import ExerciseCard from "../components/ExerciseCard";
 import { useProgress } from "../store/progress";
 import { useExerciseCheck } from "../store/useExerciseCheck";
+import { useI18n } from "../store/i18n";
+import { loadingMessageFor } from "../i18n/loading";
 import { selectNext } from "../store/adaptive";
 import { buildContext } from "../store/onboarding";
 import {
@@ -40,6 +42,7 @@ export default function ChallengeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
+  const { t: tr } = useI18n();
   const { result, checking, error: checkError, check, reset } = useExerciseCheck();
 
   const progressRef = useRef(progress);
@@ -174,17 +177,17 @@ export default function ChallengeScreen() {
         </View>
         <ScrollView contentContainerStyle={[styles.content, { alignItems: "center", paddingBottom: insets.bottom + 120 }]}>
           <Sensei size={108} mood="cheer" bob />
-          <Txt variant="hero" style={{ marginTop: 8 }}>Daily Challenge</Txt>
+          <Txt variant="hero" style={{ marginTop: 8 }}>{tr("ch.title")}</Txt>
           <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
-            {`${CHALLENGE_SECONDS} seconds. Answer fast, build a combo — each correct answer in a row multiplies your points (up to ${comboMultiplier(Infinity)}×).`}
+            {tr("ch.intro", { seconds: CHALLENGE_SECONDS, max: comboMultiplier(Infinity) })}
           </Txt>
           <Card style={{ width: "100%", alignItems: "center", gap: 4, marginTop: 8 }}>
-            <Txt variant="label" color={t.c.ink3}>Best score</Txt>
+            <Txt variant="label" color={t.c.ink3}>{tr("ch.best")}</Txt>
             <Txt variant="hero" color={t.c.gold}>{best}</Txt>
           </Card>
         </ScrollView>
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
-          <Button label="Start challenge" onPress={start} />
+          <Button label={tr("ch.start")} onPress={start} />
         </View>
       </View>
     );
@@ -197,20 +200,20 @@ export default function ChallengeScreen() {
         <StatusBar style={t.name === "dark" ? "light" : "dark"} />
         <ScrollView contentContainerStyle={[styles.content, { alignItems: "center", paddingBottom: insets.bottom + 120 }]}>
           <Sensei size={112} mood={isRecord ? "cheer" : "happy"} bob />
-          <Txt variant="hero" style={{ marginTop: 8 }}>Time!</Txt>
-          {isRecord && <Txt variant="bodyStrong" color={t.c.gold}>🏆 New personal best!</Txt>}
+          <Txt variant="hero" style={{ marginTop: 8 }}>{tr("ch.time")}</Txt>
+          {isRecord && <Txt variant="bodyStrong" color={t.c.gold}>{tr("ch.newBest")}</Txt>}
           <Txt variant="hero" color={t.c.accent}>{score}</Txt>
-          <Txt variant="secondary" color={t.c.ink3}>{`Best ${best}`}</Txt>
+          <Txt variant="secondary" color={t.c.ink3}>{tr("ch.bestLabel", { n: best })}</Txt>
           <View style={styles.statRow}>
-            <Stat label="Correct" value={`${correct}/${answered}`} />
-            <Stat label="Best combo" value={`${bestCombo}×`} />
+            <Stat label={tr("ch.correct")} value={`${correct}/${answered}`} />
+            <Stat label={tr("ch.bestCombo")} value={`${bestCombo}×`} />
           </View>
         </ScrollView>
         {isRecord && <Confetti />}
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
-          <Button label="Play again" onPress={start} />
+          <Button label={tr("ch.playAgain")} onPress={start} />
           <Pressable onPress={() => router.back()} style={{ paddingVertical: 10, alignItems: "center" }}>
-            <Txt variant="bodyStrong" color={t.c.ink2}>Back to home</Txt>
+            <Txt variant="bodyStrong" color={t.c.ink2}>{tr("ch.backHome")}</Txt>
           </Pressable>
         </View>
       </View>
@@ -239,18 +242,23 @@ export default function ChallengeScreen() {
       {/* Combo banner */}
       <View style={styles.comboRow}>
         <Txt variant="caption" color={t.c.ink3}>
-          {combo >= 1 ? `🔥 ${combo} combo` : "Build a combo"}
+          {combo >= 1 ? tr("ch.combo", { n: combo }) : tr("ch.buildCombo")}
         </Txt>
-        <Txt variant="caption" color={mult > 1 ? t.c.fire : t.c.ink3}>{`${mult}× points`}</Txt>
+        <Txt variant="caption" color={mult > 1 ? t.c.fire : t.c.ink3}>{tr("ch.points", { n: mult })}</Txt>
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
-        {loading && <ActivityIndicator style={{ marginTop: 40 }} color={t.c.accent} />}
+        {loading && (
+          <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
+            <ActivityIndicator color={t.c.accent} />
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round)}</Txt>
+          </View>
+        )}
 
         {error && !loading && (
           <View style={{ gap: 12, marginTop: 20 }}>
             <Txt variant="body" color={t.c.bad} style={{ textAlign: "center" }}>{error}</Txt>
-            <Button label="Try again" variant="ghost" onPress={loadExercise} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadExercise} />
           </View>
         )}
         {checkError && !error && (
@@ -265,7 +273,7 @@ export default function ChallengeScreen() {
           <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, borderColor: flashColor, borderWidth: 2 }}>
             <Sensei size={40} mood={result.correct ? "cheer" : "think"} />
             <View style={{ flex: 1 }}>
-              <Txt variant="cardTitle" color={flashColor}>{result.correct ? "Strike!" : "Miss"}</Txt>
+              <Txt variant="cardTitle" color={flashColor}>{result.correct ? tr("ch.strike") : tr("ch.miss")}</Txt>
               {!result.correct && <Txt variant="mono" color={t.c.ink2}>{result.correct_answer}</Txt>}
             </View>
             {result.correct && <Txt variant="bodyStrong" color={t.c.gold}>{`+${scoreAnswer(Math.max(0, combo - 1), true).points}`}</Txt>}
@@ -275,7 +283,7 @@ export default function ChallengeScreen() {
 
       {phase === "solving" && exercise && !loading && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
-          <Button label={checking ? "Checking…" : "Check"} onPress={onCheck} disabled={!canSubmit} />
+          <Button label={checking ? tr("action.checking") : tr("action.check")} onPress={onCheck} disabled={!canSubmit} />
         </View>
       )}
     </View>
