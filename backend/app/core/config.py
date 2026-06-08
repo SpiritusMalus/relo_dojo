@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # Fernet key; if empty an ephemeral key is generated per run (tokens won't survive a restart).
     CHECK_SECRET: str = ""
 
+    # --- Google sign-in (optional) ---
+    # OAuth Web client ID; /auth/google verifies that Google ID tokens were issued for it.
+    # Empty = Google login disabled (endpoint returns 503).
+    GOOGLE_CLIENT_ID: str = ""
+
     # --- Accounts / DB (Phase 4) ---
     DATABASE_URL: str  # required, e.g. postgresql+asyncpg://user:pass@host/grammar_dojo
     JWT_SECRET: str  # required; sign/verify access tokens
@@ -44,3 +49,4 @@ OLLAMA_MODEL = settings.OLLAMA_MODEL
 EXERCISE_TEMPERATURE = settings.EXERCISE_TEMPERATURE
 CHECK_TEMPERATURE = settings.CHECK_TEMPERATURE
 CHECK_SECRET = settings.CHECK_SECRET
+GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID

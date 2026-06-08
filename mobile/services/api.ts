@@ -212,6 +212,11 @@ export function login(email: string, password: string): Promise<TokenResp> {
   return request<TokenResp>("/auth/login", { email, password });
 }
 
+// Exchange a verified Google ID token (from expo-auth-session) for our own JWT.
+export function googleLogin(idToken: string): Promise<TokenResp> {
+  return request<TokenResp>("/auth/google", { id_token: idToken });
+}
+
 export function getMe(): Promise<AuthUser> {
   return request<AuthUser>("/auth/me", undefined, "GET");
 }
