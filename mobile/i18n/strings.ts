@@ -61,7 +61,7 @@ export const STRINGS = {
     "ch.strike": "Strike!",
     "ch.miss": "Miss",
 
-    "login.tagline": "Short daily grammar drills for developers — earn your belt.",
+    "login.tagline": "Short daily grammar drills for any field — earn your belt.",
     "login.email": "Email",
     "login.password": "Password",
     "login.passwordHint": "Min 8 characters",
@@ -194,7 +194,7 @@ export const STRINGS = {
     "ch.strike": "Удар!",
     "ch.miss": "Мимо",
 
-    "login.tagline": "Короткие ежедневные тренировки грамматики для разработчиков — заработай свой пояс.",
+    "login.tagline": "Короткие ежедневные тренировки грамматики для любой сферы — заработай свой пояс.",
     "login.email": "Почта",
     "login.password": "Пароль",
     "login.passwordHint": "Минимум 8 символов",
