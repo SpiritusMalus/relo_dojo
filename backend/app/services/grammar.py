@@ -1,7 +1,7 @@
 """Grammar exercise generation, deterministic grading & explanations (Phase 2.5).
 
 Prompt engineering lives here. The model produces structured JSON (forced via Ollama `format`),
-so output is parseable. Examples are drawn from the developer's world when natural.
+so output is parseable. Examples are tailored to the learner's field when one is given, else everyday.
 Topic mix is weighted toward the user's weak spots.
 
 Most exercises are now **interactive** (tap-based) with deterministic answers, so the LLM only
@@ -200,10 +200,12 @@ def _context_clause(context: str | None) -> str:
     return f"Tailor examples to the learner's context: {c}.\n"
 
 
-# Shared flavor: make items feel like a real developer's day, not a dry textbook.
+# Shared flavor: make items feel like a vivid real-life moment, not a dry textbook. Domain-driven:
+# uses the learner's field (from _context_clause) when one is given, otherwise a clear everyday scene.
 SCENARIO = (
-    "Frame it as a vivid, real developer moment (a bug, a code review, a flaky deploy, a Slack "
-    "message, an error log) and add light humor when it fits naturally.\n"
+    "Frame it as a vivid, real moment from the learner's world when a context/field is given (e.g. a "
+    "shift for a nurse, a deadline for a marketer, a bug for a developer); otherwise use a clear "
+    "everyday situation. Add light humor when it fits naturally.\n"
 )
 
 
@@ -214,7 +216,8 @@ def _tutor_intro(
     scenario: bool = False,
 ) -> str:
     return (
-        "You are an English grammar tutor for a Python developer learning English.\n"
+        "You are an English grammar tutor. Tailor examples to the learner's field when one is given; "
+        "otherwise use clear, everyday English.\n"
         + _level_clause(level)
         + _context_clause(context)
         + (SCENARIO if scenario else "")
@@ -232,7 +235,7 @@ async def _gen_multiple_choice(topic: str, level: str | None = None, context: st
         "'text' is a sentence with a single blank shown as '___'. 'options' is 3-4 short choices "
         "(make the distractors plausible and close in meaning at higher CEFR levels). "
         "'answer' is exactly one of the options (the correct one). "
-        "When natural, use an example from the developer's world (code, docs, error messages). "
+        "When a field/context is given, draw the example from it; otherwise use a clear everyday situation. "
         "Reply ONLY as JSON matching the schema.",
         level,
         context,
@@ -264,7 +267,7 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
         f"levels) that illustrates: {topic}, then give its natural Russian translation.\n"
         "'sentence_en' is the English sentence (plain words, at most one comma, end with a period). "
         "'sentence_ru' is its Russian translation. "
-        "Use an example from the developer's world (code, docs, error messages) when natural. "
+        "Draw the example from the learner's field when one is given; otherwise a clear everyday situation. "
         "Reply ONLY as JSON.",
         level,
         context,
@@ -373,7 +376,7 @@ async def _gen_free_text(topic: str, level: str | None = None, context: str | No
     prompt = _tutor_intro(
         f"Create ONE short 'fill the gap' exercise focused on: {topic}.\n"
         "'text' is a single sentence with a blank shown as '___' that the learner types the missing "
-        "word(s) into. Use a developer-world example when natural. Reply ONLY as JSON.",
+        "word(s) into. Use an example from the learner's field when given, else everyday. Reply ONLY as JSON.",
         level,
         context,
         scenario=True,
@@ -392,7 +395,7 @@ async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | 
         "'items' is 4 short words or phrases; exactly ONE does not belong with the others (by grammar "
         "category, collocation, or meaning relevant to the topic). 'odd' is exactly that item (it MUST "
         "appear verbatim in 'items'). 'reason' is a brief why. Keep items under 4 words each. "
-        "Use a developer-world flavor when natural. Reply ONLY as JSON matching the schema.",
+        "Flavor it with the learner's field when given, else everyday. Reply ONLY as JSON matching the schema.",
         level,
         context,
         scenario=True,
@@ -420,7 +423,7 @@ async def _gen_multiple_blanks(topic: str, level: str | None = None, context: st
         "'text' is a single sentence; show each blank as '___' (use the literal three underscores). "
         "'blanks' has one entry PER blank, in left-to-right order: 'options' is 2-3 short choices and "
         "'answer' is the correct one (it MUST be one of the options). The number of '___' in 'text' "
-        "MUST equal the number of blanks. Use a developer-world example when natural. Reply ONLY as JSON.",
+        "MUST equal the number of blanks. Use the learner's field when given, else everyday. Reply ONLY as JSON.",
         level,
         context,
         scenario=True,
@@ -462,7 +465,7 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
         f"conversation and naturally practices: {topic}.\n"
         "'lines' is the dialog IN THE CORRECT ORDER (each line a single short turn, under 12 words). "
         "Lines must only make sense in one order (use cohesion: questions before answers, references "
-        "like 'it'/'that' after their antecedent). Set it in a developer's day when natural. Reply ONLY as JSON.",
+        "like 'it'/'that' after their antecedent). Set it in the learner's field when given, else everyday. Reply ONLY as JSON.",
         level,
         context,
         scenario=True,
