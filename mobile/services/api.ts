@@ -146,11 +146,13 @@ export async function postChat(message: string): Promise<string> {
 }
 
 // Optional adaptive steering: topic / CEFR level / exercise type (all optional; backend falls back).
+// `mistakes` = recent items the learner got wrong on this topic, to personalize generation.
 export function getExercise(params?: {
   topic?: string;
   level?: string;
   type?: string;
   context?: string;
+  mistakes?: string[];
 }): Promise<Exercise> {
   return request<Exercise>("/exercise", params ?? {});
 }

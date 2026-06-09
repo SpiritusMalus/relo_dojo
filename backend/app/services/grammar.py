@@ -200,6 +200,36 @@ def _context_clause(context: str | None) -> str:
     return f"Tailor examples to the learner's context: {c}.\n"
 
 
+# Personalized targeting (lightweight RAG): the learner's own recent misses on THIS topic. We feed
+# the wrong items back so the new exercise drills the same weak point — but in a fresh sentence, not a
+# copy (exact replay lives in Review). Kept short and sanitized; small models copy long prompts.
+MAX_MISTAKE_HINTS = 3
+_MISTAKE_MAX_LEN = 120
+
+
+def _sanitize_mistakes(mistakes: list[str] | None) -> list[str]:
+    out: list[str] = []
+    for m in mistakes or []:
+        s = " ".join(str(m).split())[:_MISTAKE_MAX_LEN].strip()  # collapse whitespace/newlines, cap
+        if s:
+            out.append(s)
+        if len(out) >= MAX_MISTAKE_HINTS:
+            break
+    return out
+
+
+def _mistakes_clause(mistakes: list[str] | None) -> str:
+    items = _sanitize_mistakes(mistakes)
+    if not items:
+        return ""
+    joined = "; ".join(f'"{m}"' for m in items)
+    return (
+        f"The learner recently answered these items WRONG on this topic: {joined}. "
+        "Drill the SAME grammar point so they get another attempt at it, but write a NEW, different "
+        "sentence (do NOT reuse or quote these) and make the distractors reflect the likely confusion.\n"
+    )
+
+
 # Shared flavor: make items feel like a vivid real-life moment, not a dry textbook. Domain-driven:
 # uses the learner's field (from _context_clause) when one is given, otherwise a clear everyday scene.
 SCENARIO = (
@@ -213,6 +243,7 @@ def _tutor_intro(
     extra: str = "",
     level: str | None = None,
     context: str | None = None,
+    mistakes: list[str] | None = None,
     scenario: bool = False,
 ) -> str:
     return (
@@ -220,6 +251,7 @@ def _tutor_intro(
         "otherwise use clear, everyday English.\n"
         + _level_clause(level)
         + _context_clause(context)
+        + _mistakes_clause(mistakes)
         + (SCENARIO if scenario else "")
         + extra
     )
@@ -229,7 +261,7 @@ def _tutor_intro(
 # Each returns the client payload (no answer) plus a sealed `token` carrying the answer.
 
 
-async def _gen_multiple_choice(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
+async def _gen_multiple_choice(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE short multiple-choice exercise focused on: {topic}.\n"
         "'text' is a sentence with a single blank shown as '___'. 'options' is 3-4 short choices "
@@ -239,6 +271,7 @@ async def _gen_multiple_choice(topic: str, level: str | None = None, context: st
         "Reply ONLY as JSON matching the schema.",
         level,
         context,
+        mistakes,
         scenario=True,
     )
     data = await generate_json(prompt, MC_SCHEMA, temperature=EXERCISE_TEMPERATURE)
@@ -260,7 +293,7 @@ async def _gen_multiple_choice(topic: str, level: str | None = None, context: st
     }
 
 
-async def _gen_build_the_sentence(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
+async def _gen_build_the_sentence(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
     # Translation exercise: show the Russian source, learner builds the English from word tiles.
     prompt = _tutor_intro(
         f"Write ONE correct English sentence (6 to 12 words; longer and more complex at higher CEFR "
@@ -271,6 +304,7 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
         "Reply ONLY as JSON.",
         level,
         context,
+        mistakes,
         scenario=True,
     )
     data = await generate_json(prompt, BUILD_SCHEMA, temperature=EXERCISE_TEMPERATURE)
@@ -295,7 +329,7 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
     }
 
 
-async def _gen_match_pairs(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
+async def _gen_match_pairs(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create 3 or 4 matching pairs to practice: {topic}.\n"
         "Each 'left' MUST be a short sentence containing exactly one blank shown as '___'. "
@@ -303,6 +337,7 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
         "sentence). Keep each side under 6 words. Pairs must be unambiguous. Reply ONLY as JSON.",
         level,
         context,
+        mistakes,
         scenario=True,
     )
     data = await generate_json(prompt, MATCH_SCHEMA, temperature=EXERCISE_TEMPERATURE)
@@ -335,7 +370,7 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
     }
 
 
-async def _gen_tap_the_error(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
+async def _gen_tap_the_error(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Write ONE English sentence (6 to 12 words) containing exactly ONE grammatically wrong "
         f"word, related to: {topic}.\n"
@@ -343,6 +378,7 @@ async def _gen_tap_the_error(topic: str, level: str | None = None, context: str 
         "sentence. 'correction' is the word that should replace it. Reply ONLY as JSON.",
         level,
         context,
+        mistakes,
         scenario=True,
     )
     data = await generate_json(prompt, ERROR_SCHEMA, temperature=EXERCISE_TEMPERATURE)
@@ -372,13 +408,14 @@ async def _gen_tap_the_error(topic: str, level: str | None = None, context: str 
     }
 
 
-async def _gen_free_text(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
+async def _gen_free_text(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE short 'fill the gap' exercise focused on: {topic}.\n"
         "'text' is a single sentence with a blank shown as '___' that the learner types the missing "
         "word(s) into. Use an example from the learner's field when given, else everyday. Reply ONLY as JSON.",
         level,
         context,
+        mistakes,
         scenario=True,
     )
     data = await generate_json(prompt, FREETEXT_SCHEMA, temperature=EXERCISE_TEMPERATURE)
@@ -389,7 +426,7 @@ async def _gen_free_text(topic: str, level: str | None = None, context: str | No
     return {"type": "free-text", "topic": topic, "text": text, "token": None}
 
 
-async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
+async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE 'odd one out' exercise to practice: {topic}.\n"
         "'items' is 4 short words or phrases; exactly ONE does not belong with the others (by grammar "
@@ -398,6 +435,7 @@ async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | 
         "Flavor it with the learner's field when given, else everyday. Reply ONLY as JSON matching the schema.",
         level,
         context,
+        mistakes,
         scenario=True,
     )
     data = await generate_json(prompt, ODD_ONE_OUT_SCHEMA, temperature=EXERCISE_TEMPERATURE)
@@ -417,7 +455,7 @@ async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | 
     }
 
 
-async def _gen_multiple_blanks(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
+async def _gen_multiple_blanks(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE fill-the-gaps exercise with 2 or 3 blanks to practice: {topic}.\n"
         "'text' is a single sentence; show each blank as '___' (use the literal three underscores). "
@@ -426,6 +464,7 @@ async def _gen_multiple_blanks(topic: str, level: str | None = None, context: st
         "MUST equal the number of blanks. Use the learner's field when given, else everyday. Reply ONLY as JSON.",
         level,
         context,
+        mistakes,
         scenario=True,
     )
     data = await generate_json(prompt, MULTI_BLANK_SCHEMA, temperature=EXERCISE_TEMPERATURE)
@@ -459,7 +498,7 @@ async def _gen_multiple_blanks(topic: str, level: str | None = None, context: st
     }
 
 
-async def _gen_order_the_dialog(topic: str, level: str | None = None, context: str | None = None) -> dict[str, Any] | None:
+async def _gen_order_the_dialog(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE short dialog of 3 to 5 lines that, in the correct order, forms a coherent "
         f"conversation and naturally practices: {topic}.\n"
@@ -468,6 +507,7 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
         "like 'it'/'that' after their antecedent). Set it in the learner's field when given, else everyday. Reply ONLY as JSON.",
         level,
         context,
+        mistakes,
         scenario=True,
     )
     data = await generate_json(prompt, ORDER_DIALOG_SCHEMA, temperature=EXERCISE_TEMPERATURE)
@@ -510,6 +550,7 @@ async def generate_exercise(
     level: str | None = None,
     ex_type: str | None = None,
     context: str | None = None,
+    mistakes: list[str] | None = None,
 ) -> dict[str, Any]:
     """Generate a new exercise. The client may steer topic/level/type (adaptive difficulty);
     anything invalid or omitted falls back to the weighted defaults.
@@ -526,12 +567,12 @@ async def generate_exercise(
     # level), then fall back to multiple-choice — never ship a broken or over-hard item.
     result = None
     for _ in range(3):
-        result = await _GENERATORS[ex_type](topic, level, context)
+        result = await _GENERATORS[ex_type](topic, level, context, mistakes)
         if result is not None:
             break
     if result is None and ex_type != "multiple-choice":
         for _ in range(2):
-            result = await _gen_multiple_choice(topic, level, context)
+            result = await _gen_multiple_choice(topic, level, context, mistakes)
             if result is not None:
                 break
     if result is None:

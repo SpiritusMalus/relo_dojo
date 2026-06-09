@@ -38,6 +38,27 @@ export function upsertMistake(list: Mistake[], ex: Exercise, now: string): Mista
   return [entry, ...rest].slice(0, MISTAKES_CAP);
 }
 
+// Exercise types whose `text` is a real example sentence (so it's useful to feed back to the
+// generator). build/match/order use a generic instruction in `text`, so they're skipped here.
+const SENTENCE_TYPES = new Set(["multiple-choice", "tap-the-error", "multiple-blanks", "odd-one-out"]);
+export const MAX_MISTAKE_HINTS = 3;
+
+/** Recent missed example sentences for one topic (newest-first, deduped, capped) — fed to /exercise
+ *  so a new item drills the same weak point. Pure: takes the already-loaded list. */
+export function mistakeHintsForTopic(list: Mistake[], topic: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of list) {
+    if (m.topic !== topic || !SENTENCE_TYPES.has(m.exercise.type)) continue;
+    const text = (m.exercise.text ?? "").trim();
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    out.push(text);
+    if (out.length >= MAX_MISTAKE_HINTS) break;
+  }
+  return out;
+}
+
 async function save(list: Mistake[]): Promise<void> {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));

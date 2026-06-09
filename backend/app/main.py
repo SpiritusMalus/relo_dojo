@@ -74,7 +74,11 @@ async def exercise(payload: ExerciseIn = ExerciseIn()) -> ExerciseOut:
     """Optionally steered by the client (topic/level/type) for adaptive difficulty; public."""
     try:
         data = await grammar.generate_exercise(
-            topic=payload.topic, level=payload.level, ex_type=payload.type, context=payload.context
+            topic=payload.topic,
+            level=payload.level,
+            ex_type=payload.type,
+            context=payload.context,
+            mistakes=payload.mistakes,
         )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

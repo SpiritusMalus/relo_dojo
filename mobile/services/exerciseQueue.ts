@@ -8,7 +8,7 @@
 // of a level, so the served CEFR rarely changes; acceptable for the latency win.
 import { getExercise, type Exercise } from "./api";
 
-export type FetchParams = { topic: string; level: string; type: string; context: string };
+export type FetchParams = { topic: string; level: string; type: string; context: string; mistakes?: string[] };
 
 export type QueueDeps = {
   /** Resolve the next exercise's params from the current learner model (called per fetch). */

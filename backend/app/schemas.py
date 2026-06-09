@@ -34,6 +34,9 @@ class ExerciseIn(BaseModel):
     level: Optional[str] = Field(default=None, max_length=4)  # CEFR: A1..C1
     type: Optional[str] = Field(default=None, max_length=40)
     context: Optional[str] = Field(default=None, max_length=300)  # domain/goal hint string
+    # Recent items the learner got wrong on this topic, to personalize generation (sanitized + capped
+    # server-side). Count bounded here; per-item length/whitespace handled in grammar._sanitize_mistakes.
+    mistakes: list[str] = Field(default_factory=list, max_length=5)
 
 
 class MatchItem(BaseModel):

@@ -10,6 +10,26 @@ def test_multiple_choice_exact_match_case_insensitive():
     assert grammar.grade(sealed, "a")["correct"] is False
 
 
+def test_sanitize_mistakes_caps_count_and_length_and_strips_whitespace():
+    raw = [f"item {i}" for i in range(10)]
+    out = grammar._sanitize_mistakes(raw)
+    assert len(out) == grammar.MAX_MISTAKE_HINTS  # capped
+    # collapses newlines/extra spaces and truncates long entries
+    cleaned = grammar._sanitize_mistakes(["  she\n\n  is   ___  engineer  ", "x" * 500])
+    assert cleaned[0] == "she is ___ engineer"
+    assert len(cleaned[1]) <= grammar._MISTAKE_MAX_LEN
+    assert grammar._sanitize_mistakes(None) == []
+    assert grammar._sanitize_mistakes(["", "   "]) == []
+
+
+def test_mistakes_clause_is_empty_without_items_and_present_with():
+    assert grammar._mistakes_clause(None) == ""
+    assert grammar._mistakes_clause([]) == ""
+    clause = grammar._mistakes_clause(["She is ___ engineer."])
+    assert "WRONG" in clause and "NEW" in clause  # instructs a fresh item on the same point
+    assert "She is ___ engineer." in clause
+
+
 def test_odd_one_out_uses_same_path():
     sealed = {"t": "odd-one-out", "answer": "banana"}
     assert grammar.grade(sealed, "banana")["correct"] is True

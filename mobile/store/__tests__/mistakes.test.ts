@@ -1,4 +1,4 @@
-import { MISTAKES_CAP, mistakeId, upsertMistake, type Mistake } from "../mistakes";
+import { MAX_MISTAKE_HINTS, MISTAKES_CAP, mistakeHintsForTopic, mistakeId, upsertMistake, type Mistake } from "../mistakes";
 import type { Exercise } from "../../services/api";
 
 function ex(overrides: Partial<Exercise> = {}): Exercise {
@@ -54,5 +54,40 @@ describe("upsertMistake", () => {
     // the most recent insert is at the front; the very first inserts were evicted
     expect(list[0].exercise.text).toBe(`q${MISTAKES_CAP + 4}`);
     expect(list.some((m) => m.exercise.text === "q0")).toBe(false);
+  });
+});
+
+describe("mistakeHintsForTopic", () => {
+  const now = "2026-06-08T10:00:00.000Z";
+  const mk = (over: Partial<Exercise>): Mistake => {
+    const e = ex(over);
+    return { id: mistakeId(e), exercise: e, topic: e.topic, missedAt: now, misses: 1 };
+  };
+
+  it("returns only this topic's sentence-bearing texts, newest-first and capped", () => {
+    const list: Mistake[] = [
+      mk({ topic: "articles", text: "She is ___ engineer." }),
+      mk({ topic: "articles", text: "I saw ___ owl." }),
+      mk({ topic: "conditionals", text: "If it ___ I leave." }), // other topic
+      mk({ topic: "articles", text: "He has ___ idea." }),
+      mk({ topic: "articles", text: "We need ___ plan." }),
+    ];
+    const hints = mistakeHintsForTopic(list, "articles");
+    expect(hints).toHaveLength(MAX_MISTAKE_HINTS);
+    expect(hints[0]).toBe("She is ___ engineer.");
+    expect(hints).not.toContain("If it ___ I leave.");
+  });
+
+  it("skips types whose text is a generic instruction (build/match/order)", () => {
+    const list: Mistake[] = [
+      mk({ topic: "articles", type: "build-the-sentence", text: "Translate into English:" }),
+      mk({ topic: "articles", type: "match-pairs", text: "Match each item with its pair." }),
+    ];
+    expect(mistakeHintsForTopic(list, "articles")).toEqual([]);
+  });
+
+  it("dedupes identical sentences", () => {
+    const list: Mistake[] = [mk({ text: "Same ___ here." }), mk({ text: "Same ___ here." })];
+    expect(mistakeHintsForTopic(list, "articles")).toEqual(["Same ___ here."]);
   });
 });

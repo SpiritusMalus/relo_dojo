@@ -11,6 +11,7 @@ import { useProgress } from "../store/progress";
 import { effectiveSkill, levelToCefr, selectNext } from "../store/adaptive";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
+import { loadMistakes, mistakeHintsForTopic, type Mistake } from "../store/mistakes";
 import { loadingMessageFor } from "../i18n/loading";
 import { buildContext, TOPIC_LABELS } from "../store/onboarding";
 import { useTheme } from "../theme/theme";
@@ -40,12 +41,21 @@ export default function PracticeScreen() {
 
   // Pre-generation buffer: while the learner solves a card, the next ones are fetched in the
   // background so "Next" is instant. Params are resolved from the freshest learner model per fetch.
+  // Recent misses (per device), refreshed on each load; fed back to the generator to target weak
+  // points in a fresh sentence (personalized practice). Kept in a ref so selectParams stays sync.
+  const mistakesRef = useRef<Mistake[]>([]);
   const queueRef = useRef<ExerciseQueue | null>(null);
   if (queueRef.current === null) {
     queueRef.current = createExerciseQueue({
       selectParams: () => {
         const { topic, cefr, type } = selectNext(progressRef.current, forcedTopicRef.current);
-        return { topic, level: cefr, type, context: buildContext(progressRef.current.profile) };
+        return {
+          topic,
+          level: cefr,
+          type,
+          context: buildContext(progressRef.current.profile),
+          mistakes: mistakeHintsForTopic(mistakesRef.current, topic),
+        };
       },
     });
   }
@@ -68,6 +78,8 @@ export default function PracticeScreen() {
     setResponseDisplay("");
     setExercise(null);
     try {
+      // Refresh the local miss list so freshly-refilled cards can target the latest weak points.
+      mistakesRef.current = await loadMistakes();
       // Pull from the buffer (instant if prefetched); the queue handles adaptive selection and
       // refills itself in the background.
       setExercise(await queueRef.current!.next());
