@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -145,6 +145,9 @@ function Calibration({
   const [count, setCount] = useState(0);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [result, setResult] = useState<{ correct: boolean; correct_answer: string } | null>(null);
+  // Shuffle the options ONCE per item — not on every render, or tapping a choice (which re-renders)
+  // would reshuffle the list and make the options jump around / drop the selection.
+  const exercise = useMemo(() => (item ? itemToExercise(item) : null), [item]);
 
   const finish = useCallback(
     () => onDone(seedSkillFromLevel(levelRef.current, profile.focusTopics ?? []), levelRef.current),
@@ -194,9 +197,9 @@ function Calibration({
         </Txt>
       </Pressable>
 
-      {item && (
+      {item && exercise && (
         <View style={{ gap: 14, marginTop: 4 }}>
-          <ExerciseCard key={item.id} exercise={itemToExercise(item)} locked={result !== null} onChange={(v) => setResponse(v)} />
+          <ExerciseCard key={item.id} exercise={exercise} locked={result !== null} onChange={(v) => setResponse(v)} />
           {result === null ? (
             <Button label={tr("action.check")} onPress={check} disabled={response === null} />
           ) : (
