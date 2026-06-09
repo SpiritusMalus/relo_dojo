@@ -14,6 +14,7 @@ import { useProgress } from "../store/progress";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
 import { loadMistakes, resolveMistake, type Mistake } from "../store/mistakes";
+import { loadingMessageFor } from "../i18n/loading";
 import { useTheme } from "../theme/theme";
 import Button from "../components/ui/Button";
 import Icon from "../components/ui/Icon";
@@ -112,7 +113,12 @@ export default function ReviewScreen() {
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
-        {items === null && <ActivityIndicator style={{ marginTop: 40 }} color={t.c.accent} />}
+        {items === null && (
+          <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
+            <ActivityIndicator color={t.c.accent} />
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(0)}</Txt>
+          </View>
+        )}
 
         {/* Empty state */}
         {items !== null && total === 0 && !finished && (
