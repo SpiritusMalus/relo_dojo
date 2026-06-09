@@ -69,6 +69,7 @@ export const STRINGS = {
     "login.enter": "Enter the dojo",
     "login.haveAccount": "Have an account? Log in",
     "login.newHere": "New here? Create an account",
+    "login.gmailBlocked": "Sorry, Gmail isn't allowed for sign-up in Russia.",
 
     "settings.dark": "Dark mode",
     "settings.language": "Language",
@@ -200,6 +201,7 @@ export const STRINGS = {
     "login.enter": "Войти в додзё",
     "login.haveAccount": "Уже есть аккаунт? Войти",
     "login.newHere": "Впервые здесь? Создать аккаунт",
+    "login.gmailBlocked": "Извините, gmail запрещён в России для регистрации",
 
     "settings.dark": "Тёмная тема",
     "settings.language": "Язык",

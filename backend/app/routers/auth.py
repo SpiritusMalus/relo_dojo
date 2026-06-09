@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..core.email_policy import BLOCKED_EMAIL_MESSAGE, is_blocked_email
 from ..core.security import create_access_token, hash_password, verify_password
 from ..db.models import User
 from ..deps import get_current_user, get_db
@@ -22,6 +23,8 @@ async def _get_by_email(db: AsyncSession, email: str) -> User | None:
 @router.post("/register", response_model=TokenOut, status_code=status.HTTP_201_CREATED)
 async def register(payload: RegisterIn, db: AsyncSession = Depends(get_db)) -> TokenOut:
     email = payload.email.lower()
+    if is_blocked_email(email):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=BLOCKED_EMAIL_MESSAGE)
     if await _get_by_email(db, email) is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
     user = User(email=email, password_hash=hash_password(payload.password))
@@ -33,6 +36,8 @@ async def register(payload: RegisterIn, db: AsyncSession = Depends(get_db)) -> T
 
 @router.post("/login", response_model=TokenOut)
 async def login(payload: LoginIn, db: AsyncSession = Depends(get_db)) -> TokenOut:
+    if is_blocked_email(payload.email):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=BLOCKED_EMAIL_MESSAGE)
     user = await _get_by_email(db, payload.email.lower())
     # Verify even when the user is missing to keep timing uniform isn't trivial here; a generic
     # 401 avoids leaking which emails exist.

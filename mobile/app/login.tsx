@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../store/auth";
 import { useI18n } from "../store/i18n";
+import { isBlockedEmail } from "../services/email";
 import { useTheme } from "../theme/theme";
 import Sensei from "../components/ui/Sensei";
 import Button from "../components/ui/Button";
@@ -21,7 +22,8 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const isRegister = mode === "register";
-  const canSubmit = email.includes("@") && password.length >= 8 && !busy;
+  const gmailBlocked = isBlockedEmail(email);
+  const canSubmit = email.includes("@") && password.length >= 8 && !busy && !gmailBlocked;
 
   async function onSubmit() {
     if (!canSubmit) return;
@@ -59,6 +61,14 @@ export default function LoginScreen() {
         <View style={{ gap: 14 }}>
           <Field label={tr("login.email")} value={email} onChangeText={setEmail} placeholder="you@example.com" editable={!busy} keyboardType="email-address" />
           <Field label={tr("login.password")} value={password} onChangeText={setPassword} placeholder={tr("login.passwordHint")} editable={!busy} secureTextEntry />
+
+          {gmailBlocked && (
+            <View style={[styles.banner, { backgroundColor: t.c.badSoft, borderColor: t.c.bad, borderRadius: t.spacing.radiusSm }]}>
+              <Txt variant="secondary" color={t.c.bad} style={{ textAlign: "center" }}>
+                {tr("login.gmailBlocked")}
+              </Txt>
+            </View>
+          )}
 
           {!!error && (
             <Txt variant="secondary" color={t.c.bad} style={{ textAlign: "center" }}>
@@ -139,4 +149,5 @@ function Field({
 const styles = StyleSheet.create({
   content: { flex: 1, justifyContent: "center", paddingHorizontal: 24, gap: 28 },
   hero: { alignItems: "center", gap: 6 },
+  banner: { borderWidth: 1, paddingVertical: 10, paddingHorizontal: 12 },
 });
