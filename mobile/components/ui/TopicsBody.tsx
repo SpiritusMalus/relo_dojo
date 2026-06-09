@@ -6,13 +6,12 @@ import { useI18n } from "../../store/i18n";
 import { RU_TOPIC_LABELS } from "../../i18n/strings";
 import { useTheme } from "../../theme/theme";
 import BeltKnot from "./BeltKnot";
-import DailyMixButton from "./DailyMixButton";
 import ProgressBar from "./ProgressBar";
 import Icon from "./Icon";
 import Txt from "./Txt";
 
-// Daily-mix button + the full list of grammar topic cards. Shared by the /topics route and the
-// Train tab. Tapping a topic opens Practice filtered to it.
+// The full list of grammar topic cards (self-directed practice). Shared by the /topics route and the
+// Train tab. Tapping a topic opens Practice filtered to it. The adaptive Daily Mix lives on Home.
 export default function TopicsBody() {
   const t = useTheme();
   const router = useRouter();
@@ -26,7 +25,6 @@ export default function TopicsBody() {
 
   return (
     <>
-      <DailyMixButton onPress={() => goPractice()} />
       <Txt variant="label" style={{ marginTop: 4 }}>
         {tr("topics.all")}
       </Txt>

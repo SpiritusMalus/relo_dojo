@@ -8,6 +8,7 @@ import { belts, useTheme } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
 import Card from "../../components/ui/Card";
+import JourneyPath from "../../components/ui/JourneyPath";
 import Sensei from "../../components/ui/Sensei";
 import ProgressBar from "../../components/ui/ProgressBar";
 import Button from "../../components/ui/Button";
@@ -74,6 +75,9 @@ export default function ProgressScreen() {
           })}
         </View>
       </Card>
+
+      {/* Belt journey — read-only progress map (launching practice lives on Home / Train) */}
+      <JourneyPath />
 
       {/* Level + XP */}
       <Card>

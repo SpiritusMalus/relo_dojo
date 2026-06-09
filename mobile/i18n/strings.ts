@@ -81,6 +81,7 @@ export const STRINGS = {
     "topics.adapts": "Difficulty still adapts to you.",
 
     "prog.overall": "Overall level · CEFR {cefr}",
+    "prog.journey": "Your journey",
     "prog.level": "Level {n}",
     "prog.xp": "✦ {n} XP",
     "prog.xpToNext": "{n} XP to level {next}",
@@ -213,6 +214,7 @@ export const STRINGS = {
     "topics.adapts": "Сложность по-прежнему подстраивается под тебя.",
 
     "prog.overall": "Общий уровень · CEFR {cefr}",
+    "prog.journey": "Твой путь",
     "prog.level": "Уровень {n}",
     "prog.xp": "✦ {n} XP",
     "prog.xpToNext": "{n} XP до уровня {next}",
