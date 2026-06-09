@@ -107,9 +107,9 @@ export const STRINGS = {
     "ob.rateTitle": "How would you rate your English?",
     "ob.timeTitle": "How much time per day?",
     "ob.minutes": "{n} min",
-    "ob.areaTitle": "What's your area?",
-    "ob.areaSub": "Pick any — or add your own stack or interests.",
-    "ob.domainOther": "Other (e.g. game dev, ML, music)…",
+    "ob.areaTitle": "What's your field?",
+    "ob.areaSub": "Pick your field — examples will match it. Add your own if it's not listed.",
+    "ob.domainOther": "Other field or interest (e.g. cooking, finance)…",
     "ob.calTitle": "Quick level check",
     "ob.calProgress": "{n} of {total} · finding your level",
     "ob.calSkip": "Skip the check",
@@ -241,8 +241,8 @@ export const STRINGS = {
     "ob.timeTitle": "Сколько времени в день?",
     "ob.minutes": "{n} мин",
     "ob.areaTitle": "Чем ты занимаешься?",
-    "ob.areaSub": "Выбери всё подходящее — или добавь свой стек либо интересы.",
-    "ob.domainOther": "Другое (напр. геймдев, ML, музыка)…",
+    "ob.areaSub": "Выбери свою сферу — примеры будут под неё. Добавь свою, если её нет в списке.",
+    "ob.domainOther": "Другая сфера или интерес (напр. кулинария, финансы)…",
     "ob.calTitle": "Быстрая проверка уровня",
     "ob.calProgress": "{n} из {total} · определяем твой уровень",
     "ob.calSkip": "Пропустить проверку",
@@ -291,11 +291,12 @@ export const RU_TOPIC_LABELS: Record<string, string> = {
 };
 
 export const RU_GOAL_LABELS: Record<string, string> = {
-  docs: "Читать доки и код-ревью",
-  writing: "Писать лучше PR и задачи",
-  interviews: "Проходить тех. интервью",
-  team: "Общаться с международной командой",
-  conferences: "Конференции и доклады",
+  emails: "Писать понятные письма и сообщения",
+  meetings: "Высказываться на встречах",
+  reading: "Читать статьи и документы",
+  interviews: "Проходить собеседования",
+  customers: "Общаться с клиентами",
+  travel: "Путешествия и бытовое общение",
 };
 
 export const RU_SELF_LABELS: Record<string, string> = {

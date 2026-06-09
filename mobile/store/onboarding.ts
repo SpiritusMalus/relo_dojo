@@ -3,15 +3,33 @@ import type { Profile } from "./progress";
 import { LEVEL_MAX, LEVEL_MIN, START_LEVEL, TOPIC_PRIORS } from "./adaptive";
 
 // --- survey option data (canonical topic keys match backend grammar.py TOPICS) ---
+// Cross-field goals (not software-specific) so the survey fits any sphere.
 export const GOALS: { id: string; label: string }[] = [
-  { id: "docs", label: "Read docs & code reviews" },
-  { id: "writing", label: "Write better PRs & issues" },
-  { id: "interviews", label: "Pass tech interviews" },
-  { id: "team", label: "Talk with an international team" },
-  { id: "conferences", label: "Conferences & talks" },
+  { id: "emails", label: "Write clearer emails & messages" },
+  { id: "meetings", label: "Speak up in meetings" },
+  { id: "reading", label: "Read articles & documents" },
+  { id: "interviews", label: "Job interviews" },
+  { id: "customers", label: "Talk with clients & customers" },
+  { id: "travel", label: "Travel & everyday talk" },
 ];
 
-export const DOMAINS = [
+// Top-level field of work/interest. Feeds example flavor (context) for any learner.
+export const SPHERES = [
+  "Software & IT",
+  "Medicine & health",
+  "Business & finance",
+  "Law",
+  "Marketing & sales",
+  "Education",
+  "Science & engineering",
+  "Hospitality & travel",
+  "Creative & media",
+  "Everyday / general",
+];
+
+// Optional sub-roles, shown only when the sphere is Software & IT (kept from the dev-first version).
+export const SOFTWARE_SPHERE = "Software & IT";
+export const SOFTWARE_ROLES = [
   "backend",
   "frontend",
   "fullstack",
@@ -23,15 +41,18 @@ export const DOMAINS = [
   "security",
   "embedded",
 ];
+// Back-compat alias (older code referenced DOMAINS).
+export const DOMAINS = SOFTWARE_ROLES;
 export const DAILY_MINUTES = [5, 10, 15, 30, 60];
 
 // Short phrases used to flavor generated examples toward the learner's goal.
 export const GOAL_PHRASES: Record<string, string> = {
-  docs: "reading documentation",
-  writing: "writing PRs and issues",
-  interviews: "tech interviews",
-  team: "talking with an international team",
-  conferences: "conference talks",
+  emails: "writing emails and messages",
+  meetings: "speaking in meetings",
+  reading: "reading articles and documents",
+  interviews: "job interviews",
+  customers: "talking with clients and customers",
+  travel: "travelling and everyday conversation",
 };
 
 export const SELF_LEVELS: { id: string; label: string }[] = [
@@ -88,13 +109,19 @@ export function seedSkillFromProfile(profile: Profile): Record<string, number> {
 
 // --- functional effects of the profile ---
 
-/** A hint string for example generation: the learner's domains/interests + goals (no "other"). */
+/** A hint string for example generation: the learner's sphere + sub-roles/interests + goals. */
 export function buildContext(profile: Profile | null): string {
   if (!profile) return "";
+  const sphere = (profile.sphere ?? "").trim();
   const domains = (profile.domains ?? []).filter((d) => d && d !== "other");
   const goals = (profile.goals ?? []).map((g) => GOAL_PHRASES[g] ?? g).filter(Boolean);
   const parts: string[] = [];
-  if (domains.length) parts.push(domains.join(", "));
+  // Field first (e.g. "Medicine & health — emergency nursing"), then goals.
+  if (sphere && sphere !== "Everyday / general") {
+    parts.push(domains.length ? `${sphere} — ${domains.join(", ")}` : sphere);
+  } else if (domains.length) {
+    parts.push(domains.join(", "));
+  }
   if (goals.length) parts.push(`goals: ${goals.join(", ")}`);
   return parts.join("; ");
 }

@@ -30,7 +30,8 @@ export type Profile = {
   focusTopics: string[];
   selfLevel: string; // beginner | intermediate | advanced
   dailyMinutes: number;
-  domains: string[];
+  sphere: string; // top-level field of work/interest (any sphere, "" if skipped)
+  domains: string[]; // optional sub-roles (only when sphere is Software & IT)
   painText: string;
 };
 
