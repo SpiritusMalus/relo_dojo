@@ -10,7 +10,7 @@ Public (no auth):
 - POST /explain      -> on-demand LLM teaching note for an interactive miss
 
 Accounts (Phase 4):
-- POST /auth/register, /auth/login, /auth/google ; GET /auth/me
+- POST /auth/register, /auth/login ; GET /auth/me
 - GET/PUT /progress  (require a Bearer token)
 
 The LLM is self-hosted Ollama; the model is set via OLLAMA_MODEL in .env.

@@ -67,10 +67,8 @@ export const STRINGS = {
     "login.passwordHint": "Min 8 characters",
     "login.create": "Create account",
     "login.enter": "Enter the dojo",
-    "login.or": "OR",
     "login.haveAccount": "Have an account? Log in",
     "login.newHere": "New here? Create an account",
-    "login.googleConfig": "Google sign-in isn't configured yet.",
 
     "settings.dark": "Dark mode",
     "settings.language": "Language",
@@ -200,10 +198,8 @@ export const STRINGS = {
     "login.passwordHint": "Минимум 8 символов",
     "login.create": "Создать аккаунт",
     "login.enter": "Войти в додзё",
-    "login.or": "ИЛИ",
     "login.haveAccount": "Уже есть аккаунт? Войти",
     "login.newHere": "Впервые здесь? Создать аккаунт",
-    "login.googleConfig": "Вход через Google ещё не настроен.",
 
     "settings.dark": "Тёмная тема",
     "settings.language": "Язык",

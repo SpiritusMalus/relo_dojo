@@ -159,12 +159,6 @@ class LoginIn(BaseModel):
     password: str = Field(min_length=1, max_length=MAX_PASSWORD)
 
 
-class GoogleAuthIn(BaseModel):
-    """A Google ID token (JWT) obtained on the client via expo-auth-session; verified server-side."""
-
-    id_token: str = Field(min_length=1, max_length=4000)
-
-
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"

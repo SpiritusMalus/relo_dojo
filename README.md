@@ -36,7 +36,6 @@ mobile/    Expo app (React Native + TypeScript, expo-router)
 | `POST /check` | deterministic grade of an interactive answer (no LLM) |
 | `POST /check-answer` | LLM grade of a free-text answer + explanation |
 | `POST /explain` | on-demand LLM teaching note for an interactive miss |
-| `POST /auth/google` | sign in with a verified Google ID token → app JWT (optional; see `docs/google-login.md`) |
 
 ### Ollama (one-time)
 

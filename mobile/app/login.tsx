@@ -1,17 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as WebBrowser from "expo-web-browser";
-import * as Google from "expo-auth-session/providers/google";
 import { useAuth } from "../store/auth";
 import { useI18n } from "../store/i18n";
-
-// Finishes the web-based auth session if the app was reopened via the OAuth redirect.
-WebBrowser.maybeCompleteAuthSession();
-
-// Web OAuth client ID from Google Cloud Console (set EXPO_PUBLIC_GOOGLE_CLIENT_ID). Empty = disabled.
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 import { useTheme } from "../theme/theme";
 import Sensei from "../components/ui/Sensei";
 import Button from "../components/ui/Button";
@@ -21,7 +13,7 @@ export default function LoginScreen() {
   const t = useTheme();
   const { t: tr } = useI18n();
   const insets = useSafeAreaInsets();
-  const { login, register, loginWithGoogle } = useAuth();
+  const { login, register } = useAuth();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,34 +22,6 @@ export default function LoginScreen() {
 
   const isRegister = mode === "register";
   const canSubmit = email.includes("@") && password.length >= 8 && !busy;
-
-  // Google sign-in via expo-auth-session. The hook always runs (no conditional hooks); we only
-  // actually start the flow when a client ID is configured.
-  const [, googleResponse, promptGoogle] = Google.useIdTokenAuthRequest({ clientId: GOOGLE_CLIENT_ID });
-
-  useEffect(() => {
-    if (!googleResponse) return;
-    if (googleResponse.type === "success") {
-      const idToken = googleResponse.params?.id_token ?? googleResponse.authentication?.idToken;
-      if (idToken) {
-        setBusy(true);
-        setError(null);
-        loginWithGoogle(idToken)
-          .catch((e) => setError(e instanceof Error ? e.message : "Google sign-in failed"))
-          .finally(() => setBusy(false));
-      }
-    } else if (googleResponse.type === "error") {
-      setError(googleResponse.error?.message ?? "Google sign-in failed");
-    }
-  }, [googleResponse, loginWithGoogle]);
-
-  function onGoogle() {
-    if (!GOOGLE_CLIENT_ID) {
-      setError(tr("login.googleConfig"));
-      return;
-    }
-    promptGoogle();
-  }
 
   async function onSubmit() {
     if (!canSubmit) return;
@@ -103,25 +67,6 @@ export default function LoginScreen() {
           )}
 
           <Button label={busy ? "…" : isRegister ? tr("login.create") : tr("login.enter")} onPress={onSubmit} disabled={!canSubmit} />
-
-          <View style={styles.divider}>
-            <View style={[styles.line, { backgroundColor: t.c.line2 }]} />
-            <Txt variant="caption" color={t.c.ink3}>
-              {tr("login.or")}
-            </Txt>
-            <View style={[styles.line, { backgroundColor: t.c.line2 }]} />
-          </View>
-
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Button label="GitHub" variant="ghost" uppercase={false} disabled onPress={() => {}} />
-            </View>
-            <View style={{ flex: 1 }}>
-              {/* Google OAuth via expo-auth-session → backend /auth/google. Needs
-                  EXPO_PUBLIC_GOOGLE_CLIENT_ID; otherwise onGoogle() surfaces a clear message. */}
-              <Button label="Google" variant="ghost" uppercase={false} disabled={busy} onPress={onGoogle} />
-            </View>
-          </View>
 
           <Pressable
             onPress={() => {
@@ -194,6 +139,4 @@ function Field({
 const styles = StyleSheet.create({
   content: { flex: 1, justifyContent: "center", paddingHorizontal: 24, gap: 28 },
   hero: { alignItems: "center", gap: 6 },
-  divider: { flexDirection: "row", alignItems: "center", gap: 12 },
-  line: { flex: 1, height: 1 },
 });
