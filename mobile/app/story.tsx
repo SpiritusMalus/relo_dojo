@@ -15,6 +15,7 @@ import ResultPanel from "../components/ResultPanel";
 import { useProgress, XP_PER_CORRECT } from "../store/progress";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
+import { buildContext } from "../store/onboarding";
 import { loadingMessageFor } from "../i18n/loading";
 import { beltProgress } from "../store/dojo";
 import { useTheme } from "../theme/theme";
@@ -58,9 +59,11 @@ export default function StoryScreen() {
     setFinished(false);
     setStory(null);
     try {
-      // Lock the whole set to the learner's current overall CEFR.
+      // Lock the whole set to the learner's current overall CEFR; flavor exercises to their field
+      // (universal story frame, field-specific examples). Empty context falls back to the scenario.
       const level = beltProgress(progress).cefr;
-      setStory(await getStory({ level }));
+      const context = buildContext(progress.profile);
+      setStory(await getStory({ level, context }));
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load the story");
     } finally {

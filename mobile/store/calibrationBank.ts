@@ -1,6 +1,8 @@
 // Vetted placement-test item bank (pure data) — used by the onboarding warm-up instead of LLM
 // generation, so level estimation is reliable. All multiple-choice, graded locally (answer known).
-// `level` is the CEFR midpoint on the 0..5 scale: A1≈0.5, A2≈1.5, B1≈2.5, B2≈3.5, C1≈4.5.
+// Sentences are deliberately everyday and field-neutral so placement is fair for any learner
+// (not only developers). `level` is the CEFR midpoint on the 0..5 scale: A1≈0.5, A2≈1.5, B1≈2.5,
+// B2≈3.5, C1≈4.5. Options list the answer first here; the UI shuffles them before display.
 
 export type CalItem = {
   id: string;
@@ -13,38 +15,38 @@ export type CalItem = {
 
 export const CALIBRATION_BANK: CalItem[] = [
   // --- A1 (0.5) ---
-  { id: "a1-prep1", topic: "prepositions", level: 0.5, text: "The file is ___ the desktop.", options: ["on", "in", "at"], answer: "on" },
+  { id: "a1-prep1", topic: "prepositions", level: 0.5, text: "The keys are ___ the table.", options: ["on", "in", "at"], answer: "on" },
   { id: "a1-art1", topic: "articles", level: 0.5, text: "I have ___ idea.", options: ["an", "a", "the"], answer: "an" },
-  { id: "a1-verb1", topic: "verb sequence (tense agreement)", level: 0.5, text: "She ___ a developer.", options: ["is", "are", "am"], answer: "is" },
-  { id: "a1-voc1", topic: "vocabulary", level: 0.5, text: "I write code on my ___.", options: ["computer", "banana", "river"], answer: "computer" },
-  { id: "a1-prep2", topic: "prepositions", level: 0.5, text: "We start work ___ 9 a.m.", options: ["at", "in", "on"], answer: "at" },
+  { id: "a1-verb1", topic: "verb sequence (tense agreement)", level: 0.5, text: "She ___ a teacher.", options: ["is", "are", "am"], answer: "is" },
+  { id: "a1-voc1", topic: "vocabulary", level: 0.5, text: "I drink coffee from a ___.", options: ["cup", "river", "cloud"], answer: "cup" },
+  { id: "a1-prep2", topic: "prepositions", level: 0.5, text: "We have lunch ___ noon.", options: ["at", "in", "on"], answer: "at" },
 
   // --- A2 (1.5) ---
-  { id: "a2-art1", topic: "articles", level: 1.5, text: "He opened ___ file I sent yesterday.", options: ["the", "a", "an"], answer: "the" },
-  { id: "a2-comp1", topic: "comparatives & superlatives", level: 1.5, text: "Python is ___ to read than assembly.", options: ["easier", "easy", "easiest"], answer: "easier" },
-  { id: "a2-modal1", topic: "modal verbs", level: 1.5, text: "You ___ push to main without a review.", options: ["shouldn't", "doesn't", "aren't"], answer: "shouldn't" },
-  { id: "a2-prep1", topic: "prepositions", level: 1.5, text: "The result depends ___ the input.", options: ["on", "of", "at"], answer: "on" },
-  { id: "a2-verb1", topic: "verb sequence (tense agreement)", level: 1.5, text: "Yesterday I ___ all the tests.", options: ["ran", "run", "runs"], answer: "ran" },
+  { id: "a2-art1", topic: "articles", level: 1.5, text: "He opened ___ letter I sent yesterday.", options: ["the", "a", "an"], answer: "the" },
+  { id: "a2-comp1", topic: "comparatives & superlatives", level: 1.5, text: "A train is ___ than a bicycle.", options: ["faster", "fast", "fastest"], answer: "faster" },
+  { id: "a2-modal1", topic: "modal verbs", level: 1.5, text: "You ___ smoke inside the hospital.", options: ["shouldn't", "doesn't", "aren't"], answer: "shouldn't" },
+  { id: "a2-prep1", topic: "prepositions", level: 1.5, text: "The result depends ___ the weather.", options: ["on", "of", "at"], answer: "on" },
+  { id: "a2-verb1", topic: "verb sequence (tense agreement)", level: 1.5, text: "Yesterday I ___ to the market.", options: ["went", "go", "goes"], answer: "went" },
 
   // --- B1 (2.5) ---
-  { id: "b1-cond1", topic: "conditionals", level: 2.5, text: "If the input is null, the function ___ an error.", options: ["throws", "throw", "throwing"], answer: "throws" },
-  { id: "b1-ger1", topic: "gerunds & infinitives", level: 2.5, text: "I enjoy ___ unit tests.", options: ["writing", "to write", "write"], answer: "writing" },
-  { id: "b1-phr1", topic: "phrasal verbs", level: 2.5, text: "The script ___ when memory runs out.", options: ["breaks down", "breaks", "falls"], answer: "breaks down" },
-  { id: "b1-word1", topic: "word order", level: 2.5, text: "Choose the correct sentence.", options: ["She often commits code.", "She commits often code.", "Often she code commits."], answer: "She often commits code." },
-  { id: "b1-verb1", topic: "verb sequence (tense agreement)", level: 2.5, text: "He said he ___ finished the task.", options: ["had", "has", "have"], answer: "had" },
+  { id: "b1-cond1", topic: "conditionals", level: 2.5, text: "If you heat ice, it ___ to water.", options: ["turns", "turn", "turning"], answer: "turns" },
+  { id: "b1-ger1", topic: "gerunds & infinitives", level: 2.5, text: "I enjoy ___ in the garden.", options: ["working", "to work", "work"], answer: "working" },
+  { id: "b1-phr1", topic: "phrasal verbs", level: 2.5, text: "The car ___ when the fuel runs out.", options: ["breaks down", "breaks", "falls"], answer: "breaks down" },
+  { id: "b1-word1", topic: "word order", level: 2.5, text: "Choose the correct sentence.", options: ["She often visits her parents.", "She visits often her parents.", "Often she parents visits."], answer: "She often visits her parents." },
+  { id: "b1-verb1", topic: "verb sequence (tense agreement)", level: 2.5, text: "He said he ___ finished dinner.", options: ["had", "has", "have"], answer: "had" },
 
   // --- B2 (3.5) ---
-  { id: "b2-cond1", topic: "conditionals", level: 3.5, text: "If I ___ more time, I would refactor this module.", options: ["had", "have", "will have"], answer: "had" },
-  { id: "b2-modal1", topic: "modal verbs", level: 3.5, text: "The outage ___ have been caused by the cache.", options: ["could", "can", "will"], answer: "could" },
-  { id: "b2-ger1", topic: "gerunds & infinitives", level: 3.5, text: "The team decided ___ the database.", options: ["to migrate", "migrating", "migrate"], answer: "to migrate" },
-  { id: "b2-prep1", topic: "prepositions", level: 3.5, text: "This service is responsible ___ authentication.", options: ["for", "of", "to"], answer: "for" },
-  { id: "b2-comp1", topic: "comparatives & superlatives", level: 3.5, text: "This is by far the ___ approach we've tried.", options: ["most efficient", "more efficient", "efficientest"], answer: "most efficient" },
+  { id: "b2-cond1", topic: "conditionals", level: 3.5, text: "If I ___ more time, I would repaint the room.", options: ["had", "have", "will have"], answer: "had" },
+  { id: "b2-modal1", topic: "modal verbs", level: 3.5, text: "The delay ___ have been caused by the storm.", options: ["could", "can", "will"], answer: "could" },
+  { id: "b2-ger1", topic: "gerunds & infinitives", level: 3.5, text: "The team decided ___ the schedule.", options: ["to change", "changing", "change"], answer: "to change" },
+  { id: "b2-prep1", topic: "prepositions", level: 3.5, text: "This office is responsible ___ customer support.", options: ["for", "of", "to"], answer: "for" },
+  { id: "b2-comp1", topic: "comparatives & superlatives", level: 3.5, text: "This is by far the ___ meal we've had.", options: ["most delicious", "more delicious", "deliciousest"], answer: "most delicious" },
 
   // --- C1 (4.5) ---
-  { id: "c1-cond1", topic: "conditionals", level: 4.5, text: "Had we caught the bug earlier, we ___ the rollback.", options: ["could have avoided", "could avoid", "can avoid"], answer: "could have avoided" },
-  { id: "c1-verb1", topic: "verb sequence (tense agreement)", level: 4.5, text: "By the time the patch shipped, the issue ___ for weeks.", options: ["had been occurring", "has occurred", "occurs"], answer: "had been occurring" },
-  { id: "c1-word1", topic: "word order", level: 4.5, text: "Choose the correct sentence.", options: ["Rarely have I seen such clean code.", "Rarely I have seen such clean code.", "I have rarely seen such code clean."], answer: "Rarely have I seen such clean code." },
-  { id: "c1-punc1", topic: "punctuation", level: 4.5, text: "Choose the correctly punctuated line.", options: ["The list is empty; therefore, we skip it.", "The list is empty, therefore we skip it.", "The list is empty therefore; we skip it."], answer: "The list is empty; therefore, we skip it." },
+  { id: "c1-cond1", topic: "conditionals", level: 4.5, text: "Had we left earlier, we ___ the traffic.", options: ["could have avoided", "could avoid", "can avoid"], answer: "could have avoided" },
+  { id: "c1-verb1", topic: "verb sequence (tense agreement)", level: 4.5, text: "By the time help arrived, the fire ___ for hours.", options: ["had been burning", "has burned", "burns"], answer: "had been burning" },
+  { id: "c1-word1", topic: "word order", level: 4.5, text: "Choose the correct sentence.", options: ["Rarely have I seen such a crowd.", "Rarely I have seen such a crowd.", "I have rarely seen such crowd a."], answer: "Rarely have I seen such a crowd." },
+  { id: "c1-punc1", topic: "punctuation", level: 4.5, text: "Choose the correctly punctuated line.", options: ["The room was empty; therefore, we left.", "The room was empty, therefore we left.", "The room was empty therefore; we left."], answer: "The room was empty; therefore, we left." },
 ];
 
 /** Pick the unused bank item whose level is closest to `target` (random tie-break). */
