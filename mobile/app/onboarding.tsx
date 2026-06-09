@@ -16,9 +16,11 @@ import { useProgress, type Profile } from "../store/progress";
 import { levelToCefr } from "../store/adaptive";
 import {
   DAILY_MINUTES,
-  DOMAINS,
   GOALS,
   SELF_LEVELS,
+  SPHERES,
+  SOFTWARE_SPHERE,
+  SOFTWARE_ROLES,
   TOPIC_LABELS,
   buildContext,
   minutesToGoal,
@@ -45,6 +47,17 @@ const GOAL_LABELS: Record<string, string> = Object.fromEntries(GOALS.map((g) => 
 const CALIBRATION_ITEMS = 10;
 const LAST_STEP = 8;
 
+// Fisher-Yates: never mutate the source bank, and don't leak the answer's position
+// (bank items list the correct answer first).
+function shuffled<T>(arr: T[]): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function itemToExercise(item: CalItem): Exercise {
   return {
     type: "multiple-choice",
@@ -52,7 +65,7 @@ function itemToExercise(item: CalItem): Exercise {
     level: "",
     text: item.text,
     prompt: "",
-    options: item.options,
+    options: shuffled(item.options),
     tiles: [],
     tokens: [],
     left: [],
@@ -273,6 +286,7 @@ export default function OnboardingScreen() {
   const [painText, setPainText] = useState("");
   const [selfLevel, setSelfLevel] = useState("");
   const [dailyMinutes, setDailyMinutes] = useState(0);
+  const [sphere, setSphere] = useState("");
   const [domains, setDomains] = useState<string[]>([]);
   const [goalOther, setGoalOther] = useState("");
   const [domainOther, setDomainOther] = useState("");
@@ -281,8 +295,8 @@ export default function OnboardingScreen() {
   const [estimatedLevel, setEstimatedLevel] = useState(1.5);
 
   const buildProfile = useCallback(
-    (): Profile => ({ goals, focusTopics, selfLevel, dailyMinutes, domains, painText }),
-    [goals, focusTopics, selfLevel, dailyMinutes, domains, painText]
+    (): Profile => ({ goals, focusTopics, selfLevel, dailyMinutes, sphere, domains, painText }),
+    [goals, focusTopics, selfLevel, dailyMinutes, sphere, domains, painText]
   );
 
   const finish = useCallback(
@@ -405,12 +419,31 @@ export default function OnboardingScreen() {
         {step === 6 && (
           <StepView title={tr("ob.areaTitle")} subtitle={tr("ob.areaSub")}>
             <View style={styles.wrap}>
-              {DOMAINS.map((d) => (
-                <Chip key={d} label={d} selected={domains.includes(d)} onPress={() => toggleDomain(d)} />
+              {SPHERES.map((s) => (
+                <Chip
+                  key={s}
+                  label={s}
+                  selected={sphere === s}
+                  onPress={() => {
+                    setSphere(s);
+                    if (s !== SOFTWARE_SPHERE) setDomains([]); // drop stale software sub-roles
+                  }}
+                />
               ))}
             </View>
+            {sphere === SOFTWARE_SPHERE && (
+              <View style={styles.wrap}>
+                {SOFTWARE_ROLES.map((d) => (
+                  <Chip key={d} label={d} selected={domains.includes(d)} onPress={() => toggleDomain(d)} />
+                ))}
+              </View>
+            )}
             <Input value={domainOther} onChangeText={setDomainOther} placeholder={tr("ob.domainOther")} />
-            <Button label={tr("ob.next")} onPress={() => nextWithOther(domainOther, setDomains, () => setDomainOther(""))} disabled={domains.length === 0 && !domainOther.trim()} />
+            <Button
+              label={tr("ob.next")}
+              onPress={() => nextWithOther(domainOther, setDomains, () => setDomainOther(""))}
+              disabled={!sphere && !domainOther.trim()}
+            />
           </StepView>
         )}
 
