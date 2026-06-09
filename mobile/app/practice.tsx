@@ -8,7 +8,7 @@ import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQue
 import ExerciseCard from "../components/ExerciseCard";
 import ResultPanel from "../components/ResultPanel";
 import { useProgress } from "../store/progress";
-import { levelToCefr, selectNext, skillFor } from "../store/adaptive";
+import { effectiveSkill, levelToCefr, selectNext } from "../store/adaptive";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
 import { loadingMessageFor } from "../i18n/loading";
@@ -135,7 +135,7 @@ export default function PracticeScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
         <Txt variant="label" style={{ marginBottom: 2 }}>
           {topicLabel}
-          {exercise ? `  ·  ${levelToCefr(skillFor(progress, exercise.topic))}` : ""}
+          {exercise ? `  ·  ${levelToCefr(effectiveSkill(progress, exercise.topic))}` : ""}
         </Txt>
 
         {loading && (

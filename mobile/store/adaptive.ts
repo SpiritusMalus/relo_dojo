@@ -56,6 +56,39 @@ export function skillFor(p: Progress, topic: string): number {
   return typeof v === "number" ? v : START_LEVEL;
 }
 
+// Cross-topic cold start: grammar topics that tend to move together. Used to estimate the level of a
+// topic the learner hasn't actually practiced yet from correlated topics they have — e.g. someone
+// strong in conditionals likely isn't a beginner at verb-sequence — instead of a flat START_LEVEL.
+export const TOPIC_CORRELATIONS: Record<string, string[]> = {
+  "verb sequence (tense agreement)": ["conditionals", "modal verbs", "gerunds & infinitives"],
+  conditionals: ["verb sequence (tense agreement)", "modal verbs"],
+  "modal verbs": ["conditionals", "verb sequence (tense agreement)"],
+  "gerunds & infinitives": ["verb sequence (tense agreement)", "phrasal verbs"],
+  prepositions: ["articles", "phrasal verbs"],
+  articles: ["prepositions"],
+  "phrasal verbs": ["prepositions", "gerunds & infinitives"],
+  "word order": ["comparatives & superlatives", "punctuation"],
+  "comparatives & superlatives": ["word order"],
+  punctuation: ["word order"],
+  vocabulary: [],
+};
+
+// How far an untested topic's estimate is pulled from its seed toward correlated practiced topics.
+export const COLD_START_BLEND = 0.6;
+
+/** Effective skill used for difficulty/selection. For a topic with real evidence (≥1 attempt) this is
+ *  just `skillFor`. For an *untested* topic it blends the seed toward the average skill of correlated
+ *  topics the learner HAS practiced, so cold topics start near related ability instead of flat. */
+export function effectiveSkill(p: Progress, topic: string): number {
+  const base = skillFor(p, topic);
+  const attempts = p.topics?.[topic]?.attempts ?? 0;
+  if (attempts > 0) return base; // direct evidence wins
+  const related = (TOPIC_CORRELATIONS[topic] ?? []).filter((t) => (p.topics?.[t]?.attempts ?? 0) > 0);
+  if (related.length === 0) return base; // nothing correlated practiced yet
+  const avg = related.reduce((s, t) => s + skillFor(p, t), 0) / related.length;
+  return clamp(base + COLD_START_BLEND * (avg - base), LEVEL_MIN, LEVEL_MAX);
+}
+
 // How strongly the served difficulty bends the expected outcome (per skill-level of gap). At 0 this
 // reduces to the plain target-success controller (expected outcome = TARGET_SUCCESS always).
 export const DIFFICULTY_SENSITIVITY = 0.15;
@@ -82,7 +115,8 @@ export function updateSkill(
   const o = typeof outcome === "boolean" ? (outcome ? 1 : 0) : clamp(outcome, 0, 1);
   const attempts = p.topics[topic]?.attempts ?? 0;
   const k = Math.max(0.15, 0.5 / (1 + attempts / 20));
-  const skill = skillFor(p, topic);
+  // Cold-start aware: the first answer on an untested topic moves from its correlated estimate.
+  const skill = effectiveSkill(p, topic);
   const expected = expectedOutcome(skill, difficulty ?? skill);
   const next = clamp(skill + k * (o - expected), LEVEL_MIN, LEVEL_MAX);
   return { ...p.skill, [topic]: next };
@@ -201,7 +235,7 @@ export function selectNext(
           topics,
           topics.map((t) => topicWeight(p, t, today))
         );
-  const level = skillFor(p, topic);
+  const level = effectiveSkill(p, topic);
   const tw = typeWeightsForLevel(level).filter(([, w]) => w > 0);
   const type = weightedPick(
     tw.map(([t]) => t),

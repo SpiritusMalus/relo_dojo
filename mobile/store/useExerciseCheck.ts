@@ -14,7 +14,7 @@ import {
   type ResponseValue,
 } from "../services/api";
 import { useProgress } from "./progress";
-import { cefrMidpoint, isCefr, levelToCefr, skillFor, updateSkill } from "./adaptive";
+import { cefrMidpoint, effectiveSkill, isCefr, levelToCefr, updateSkill } from "./adaptive";
 import { captureMistake } from "./mistakes";
 
 export type Result = {
@@ -56,11 +56,11 @@ export function useExerciseCheck() {
           void captureMistake(exercise);
         }
         // Difficulty-aware skill signal: partial score + the difficulty of the served item.
-        const fallback = cefrMidpoint(levelToCefr(skillFor(progressRef.current, exercise.topic)));
+        const fallback = cefrMidpoint(levelToCefr(effectiveSkill(progressRef.current, exercise.topic)));
         const servedDifficulty = isCefr(exercise.level) ? cefrMidpoint(exercise.level) : fallback;
         const outcome = res.score ?? (res.correct ? 1 : 0);
         // Detect a CEFR level-up for this topic (compute the would-be new level before state updates).
-        const before = skillFor(progressRef.current, exercise.topic);
+        const before = effectiveSkill(progressRef.current, exercise.topic);
         const after = updateSkill(progressRef.current, exercise.topic, outcome, servedDifficulty)[exercise.topic];
         recordAnswer(exercise.topic, res.correct, { score: res.score, difficulty: servedDifficulty });
         if (after > before && levelToCefr(after) !== levelToCefr(before)) {

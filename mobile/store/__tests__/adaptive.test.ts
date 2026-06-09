@@ -1,5 +1,7 @@
 import {
   cefrMidpoint,
+  COLD_START_BLEND,
+  effectiveSkill,
   expectedOutcome,
   FOCUS_BOOST,
   isCefr,
@@ -37,6 +39,46 @@ describe("skillFor", () => {
   it("returns the stored skill when present", () => {
     const p = progressWith({ skill: { prepositions: 3.1 } });
     expect(skillFor(p, "prepositions")).toBe(3.1);
+  });
+});
+
+describe("effectiveSkill (cross-topic cold start)", () => {
+  const VERB = "verb sequence (tense agreement)";
+
+  it("returns the raw skill for a topic with real evidence (≥1 attempt)", () => {
+    const p = progressWith({
+      skill: { [VERB]: 1.0, conditionals: 4.0 },
+      topics: { [VERB]: { attempts: 2, correct: 1 }, conditionals: { attempts: 5, correct: 5 } },
+    });
+    expect(effectiveSkill(p, VERB)).toBe(1.0); // direct evidence wins, no inference
+  });
+
+  it("falls back to the seed when no correlated topic has been practiced", () => {
+    const p = progressWith({ skill: { [VERB]: 1.0 } });
+    expect(effectiveSkill(p, VERB)).toBe(1.0);
+    // and START_LEVEL when there's no seed at all
+    expect(effectiveSkill(DEFAULT_PROGRESS, VERB)).toBe(START_LEVEL);
+  });
+
+  it("blends an untested topic toward its practiced correlates", () => {
+    const p = progressWith({
+      skill: { [VERB]: 1.0, conditionals: 4.0 },
+      topics: { conditionals: { attempts: 4, correct: 4 } }, // VERB untested
+    });
+    // 1.0 + COLD_START_BLEND * (4.0 - 1.0)
+    expect(effectiveSkill(p, VERB)).toBeCloseTo(1.0 + COLD_START_BLEND * 3, 5);
+    expect(effectiveSkill(p, VERB)).toBeGreaterThan(START_LEVEL);
+  });
+
+  it("feeds the cold-start estimate into the first updateSkill of an untested topic", () => {
+    const p = progressWith({
+      skill: { conditionals: 4.0 }, // VERB has neither seed nor attempts
+      topics: { conditionals: { attempts: 4, correct: 4 } },
+    });
+    const cold = effectiveSkill(p, VERB); // inferred from conditionals
+    const after = updateSkill(p, VERB, true)[VERB];
+    expect(after).toBeGreaterThan(cold); // a correct answer nudges up from the inferred start
+    expect(cold).toBeGreaterThan(START_LEVEL);
   });
 });
 
