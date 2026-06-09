@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # link is {APP_BASE_URL}/auth/verify?token=...; empty in dev → we log the link instead of erroring.
     APP_BASE_URL: str = ""
     VERIFY_TOKEN_EXPIRE_H: int = 24  # verification link lifetime, hours
+    # Server-side gate: how many exercises an UNVERIFIED account may get per day (the "starter").
+    # Stories are blocked entirely until verified. 0 = unverified users get no exercises.
+    STARTER_DAILY_LIMIT: int = 15
     EMAIL_FROM: str = "dojo@grammardojo.ru"
     EMAIL_FROM_NAME: str = "Grammar Dojo"
     # SMTP transport. If SMTP_HOST is empty, email sending is disabled and the link is logged (dev).

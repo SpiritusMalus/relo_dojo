@@ -44,3 +44,23 @@ async def get_current_user(
     if user is None:
         raise _UNAUTHORIZED
     return user
+
+
+async def get_current_user_optional(
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    """Resolve the user if a valid bearer token is present, else None (never raises).
+
+    Used by public lesson endpoints that stay open to anonymous callers but apply per-account
+    gating (starter quota / verification) when the request is authenticated."""
+    if creds is None or not creds.credentials:
+        return None
+    sub = decode_token(creds.credentials)
+    if sub is None:
+        return None
+    try:
+        user_id = uuid.UUID(sub)
+    except ValueError:
+        return None
+    return await db.get(User, user_id)

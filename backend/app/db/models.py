@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Uuid, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,8 +24,12 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     # Email confirmation (gates full access). Registration still logs the user in immediately, but
-    # lessons stay locked (except a starter) until this flips via the verification link.
+    # lessons stay locked (except a small daily starter) until this flips via the verification link.
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # Server-side starter quota for UNVERIFIED users: how many exercises served today (UTC day).
+    # Lets the backend enforce the "starter only" gate, not just the client.
+    starter_day: Mapped[str] = mapped_column(String(10), nullable=False, server_default="")
+    starter_used: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

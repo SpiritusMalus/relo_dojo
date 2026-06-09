@@ -16,10 +16,15 @@ Accounts (Phase 4):
 The LLM is self-hosted Ollama; the model is set via OLLAMA_MODEL in .env.
 """
 
-from fastapi import FastAPI, HTTPException
+from typing import Optional
+
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .core.config import settings
+from .db.models import User
+from .deps import get_current_user_optional, get_db
 from .routers import auth as auth_router
 from .routers import progress as progress_router
 from .schemas import (
@@ -38,7 +43,7 @@ from .schemas import (
     StoryIn,
     StoryOut,
 )
-from .services import grammar, stories, tokens
+from .services import gating, grammar, stories, tokens
 from .services.ollama_client import OllamaError, generate
 
 app = FastAPI(title="Grammar Dojo API", version="0.4.0")
@@ -70,8 +75,14 @@ async def chat(payload: ChatIn) -> ChatOut:
 
 
 @app.post("/exercise", response_model=ExerciseOut)
-async def exercise(payload: ExerciseIn = ExerciseIn()) -> ExerciseOut:
-    """Optionally steered by the client (topic/level/type) for adaptive difficulty; public."""
+async def exercise(
+    payload: ExerciseIn = ExerciseIn(),
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+) -> ExerciseOut:
+    """Adaptive exercise. Unverified accounts get a daily starter quota (server-enforced); verified
+    and anonymous callers are unmetered."""
+    await gating.consume_starter_exercise(user, db)
     try:
         data = await grammar.generate_exercise(
             topic=payload.topic,
@@ -87,11 +98,15 @@ async def exercise(payload: ExerciseIn = ExerciseIn()) -> ExerciseOut:
 
 
 @app.post("/story", response_model=StoryOut)
-async def story(payload: StoryIn = StoryIn()) -> StoryOut:
-    """Generate a themed mini-story: a curated scenario wrapping a sequence of linked exercises.
+async def story(
+    payload: StoryIn = StoryIn(),
+    user: Optional[User] = Depends(get_current_user_optional),
+) -> StoryOut:
+    """Themed mini-story (a sequence of linked exercises). Blocked for unverified accounts.
 
-    Each beat's answer stays sealed in its own `token` and is graded by the existing /check. Public.
+    Each beat's answer stays sealed in its own `token` and is graded by the existing /check.
     """
+    gating.require_verified(user)
     try:
         data = await stories.build_story(level=payload.level, context_override=payload.context)
     except OllamaError as exc:
