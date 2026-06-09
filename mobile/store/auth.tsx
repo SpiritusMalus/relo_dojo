@@ -13,6 +13,7 @@ import {
   getMe,
   login as apiLogin,
   register as apiRegister,
+  requestVerification as apiRequestVerification,
   setAuthToken,
   type AuthUser,
 } from "../services/api";
@@ -27,6 +28,10 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Re-fetch the current user (e.g. after the email link is opened) to pick up is_verified. */
+  refreshUser: () => Promise<void>;
+  /** Resend the activation email to the logged-in user. */
+  resendVerification: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -87,9 +92,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, [apply]);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      setUser(await getMe());
+    } catch {
+      // ignore; a stale/expired session is handled by the normal 401 path elsewhere
+    }
+  }, []);
+
+  const resendVerification = useCallback(async () => {
+    await apiRequestVerification();
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ ready, token, user, login, register, logout }),
-    [ready, token, user, login, register, logout]
+    () => ({ ready, token, user, login, register, logout, refreshUser, resendVerification }),
+    [ready, token, user, login, register, logout, refreshUser, resendVerification]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

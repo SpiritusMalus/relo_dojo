@@ -203,7 +203,7 @@ export function explain(
 }
 
 // --- accounts & progress sync (Phase 4) ---
-export type AuthUser = { id: string; email: string };
+export type AuthUser = { id: string; email: string; is_verified: boolean };
 type TokenResp = { access_token: string; token_type: string };
 
 export function register(email: string, password: string): Promise<TokenResp> {
@@ -216,6 +216,11 @@ export function login(email: string, password: string): Promise<TokenResp> {
 
 export function getMe(): Promise<AuthUser> {
   return request<AuthUser>("/auth/me", undefined, "GET");
+}
+
+// Resend the account-activation email to the logged-in user.
+export function requestVerification(): Promise<{ message: string }> {
+  return request<{ message: string }>("/auth/request-verification", {}, "POST");
 }
 
 export function getProgress(): Promise<Progress> {

@@ -167,6 +167,11 @@ class TokenOut(BaseModel):
 class UserOut(BaseModel):
     id: str
     email: EmailStr
+    is_verified: bool = False
+
+
+class MessageOut(BaseModel):
+    message: str
 
 
 # --- progress sync (Phase 4): typed mirror of the client snapshot ---

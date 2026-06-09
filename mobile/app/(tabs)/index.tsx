@@ -3,11 +3,14 @@ import { StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useProgress } from "../../store/progress";
+import { useAuth } from "../../store/auth";
 import { useI18n } from "../../store/i18n";
 import { beltProgress } from "../../store/dojo";
 import { useTheme } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
+import ActivationBanner from "../../components/ui/ActivationBanner";
+import LockGate from "../../components/ui/LockGate";
 import DailyMixButton from "../../components/ui/DailyMixButton";
 import StoryButton from "../../components/ui/StoryButton";
 import ChallengeButton from "../../components/ui/ChallengeButton";
@@ -24,9 +27,12 @@ export default function HomeScreen() {
   const router = useRouter();
   const t = useTheme();
   const { progress } = useProgress();
+  const { user } = useAuth();
   const { t: tr } = useI18n();
 
   const bp = beltProgress(progress);
+  // Until the account is verified, only the starter (Daily Mix) is open; other modes are locked.
+  const locked = !!user && !user.is_verified;
 
   // Refresh the mistake count whenever Home regains focus (e.g. returning from Review/Practice).
   const [mistakes, setMistakes] = useState(0);
@@ -43,6 +49,8 @@ export default function HomeScreen() {
   return (
     <Screen>
       <TopBar belt={bp.belt} streak={progress.dailyStreak} xp={progress.xp} />
+
+      <ActivationBanner />
 
       {/* Belt hero — background is the current belt colour */}
       <LinearGradient
@@ -68,11 +76,19 @@ export default function HomeScreen() {
         <ProgressBar pct={bp.atMax ? 100 : bp.pctToNext} color={bp.belt.ink} track="rgba(0,0,0,0.16)" />
       </LinearGradient>
 
-      {/* Recommended daily action + special modes */}
+      {/* Recommended daily action (starter — always open) + special modes (locked until verified) */}
       <DailyMixButton onPress={() => router.push("/practice")} />
-      <StoryButton onPress={() => router.push("/story")} />
-      <ChallengeButton onPress={() => router.push("/challenge")} />
-      {mistakes > 0 && <ReviewButton count={mistakes} onPress={() => router.push("/review")} />}
+      <LockGate locked={locked}>
+        <StoryButton onPress={() => router.push("/story")} />
+      </LockGate>
+      <LockGate locked={locked}>
+        <ChallengeButton onPress={() => router.push("/challenge")} />
+      </LockGate>
+      {mistakes > 0 && (
+        <LockGate locked={locked}>
+          <ReviewButton count={mistakes} onPress={() => router.push("/review")} />
+        </LockGate>
+      )}
     </Screen>
   );
 }

@@ -7,6 +7,7 @@ import { beltProgress, topicRows } from "../../store/dojo";
 import { belts, useTheme } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
+import ActivationBanner from "../../components/ui/ActivationBanner";
 import Card from "../../components/ui/Card";
 import JourneyPath from "../../components/ui/JourneyPath";
 import Sensei from "../../components/ui/Sensei";
@@ -39,6 +40,8 @@ export default function ProgressScreen() {
   return (
     <Screen>
       <TopBar belt={bp.belt} streak={progress.dailyStreak} xp={progress.xp} />
+
+      <ActivationBanner />
 
       {/* Belt showcase */}
       <Card>

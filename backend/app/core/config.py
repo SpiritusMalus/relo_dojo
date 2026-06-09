@@ -31,6 +31,22 @@ class Settings(BaseSettings):
     # Comma-separated allowed CORS origins. Explicit on purpose — no "*" default in prod.
     ALLOWED_ORIGINS: str = ""
 
+    # --- Email confirmation (account activation) ---
+    # Base URL the verification link points at (the backend, e.g. https://api.grammardojo.ru). The
+    # link is {APP_BASE_URL}/auth/verify?token=...; empty in dev → we log the link instead of erroring.
+    APP_BASE_URL: str = ""
+    VERIFY_TOKEN_EXPIRE_H: int = 24  # verification link lifetime, hours
+    EMAIL_FROM: str = "dojo@grammardojo.ru"
+    EMAIL_FROM_NAME: str = "Grammar Dojo"
+    # SMTP transport. If SMTP_HOST is empty, email sending is disabled and the link is logged (dev).
+    # For grammardojo.ru this is your mail provider's SMTP (e.g. Yandex 360 smtp.yandex.ru:465 SSL,
+    # or Mail.ru biz smtp.mail.ru:465). Set SMTP_SSL=true for port 465, or keep STARTTLS for 587.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_SSL: bool = False  # True → implicit TLS (port 465); False → STARTTLS (port 587)
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]

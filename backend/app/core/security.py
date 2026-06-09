@@ -42,5 +42,35 @@ def decode_token(token: str) -> str | None:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
     except jwt.PyJWTError:
         return None
+    if payload.get("scope") == _VERIFY_SCOPE:
+        return None  # an email-verification token must never authenticate a request
+    sub = payload.get("sub")
+    return str(sub) if sub else None
+
+
+# --- email verification tokens (separate scope so they can't be used as access tokens) ---
+_VERIFY_SCOPE = "verify"
+
+
+def create_verify_token(subject: str) -> str:
+    """Signed JWT for the activation link; `sub` = user id, scoped to verification, short-lived."""
+    now = datetime.now(timezone.utc)
+    payload: dict[str, Any] = {
+        "sub": subject,
+        "scope": _VERIFY_SCOPE,
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(hours=settings.VERIFY_TOKEN_EXPIRE_H)).timestamp()),
+    }
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
+
+
+def decode_verify_token(token: str) -> str | None:
+    """Return the user id if this is a valid, unexpired verification token, else None."""
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
+    except jwt.PyJWTError:
+        return None
+    if payload.get("scope") != _VERIFY_SCOPE:
+        return None
     sub = payload.get("sub")
     return str(sub) if sub else None
