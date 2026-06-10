@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -42,8 +42,12 @@ export default function HomeScreen() {
 
   // Refresh the mistake count whenever Home regains focus (e.g. returning from Review/Practice).
   const [mistakes, setMistakes] = useState(0);
+
   // Trigger: onboarding done → open the one-shot 24h starter offer (no-op if it ever existed).
-  if (progress.onboarded) void ensureOffer("starter24");
+  // In an effect, not the render body — render must stay side-effect-free.
+  useEffect(() => {
+    if (progress.onboarded) void ensureOffer("starter24");
+  }, [progress.onboarded]);
 
   useFocusEffect(
     useCallback(() => {
