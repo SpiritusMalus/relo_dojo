@@ -7,6 +7,8 @@ Earning and spending both happen here so the client can never set a balance:
 Catalog items:
 - "omamori"     buy a streak-freeze charm: coins -= PRICE_OMAMORI * qty, freezes += qty
 - "use_freeze"  consume an owned charm (streak logic, branch 3): freezes -= qty, no coin cost
+- "extra_pack"  +EXTRA_PACK_SIZE exercises for TODAY (free tier): coins -= PRICE_EXTRA_PACK * qty,
+                today's used-counter -= size (may go negative = extra headroom; resets next day)
 """
 
 from __future__ import annotations
@@ -53,6 +55,27 @@ async def spend(user: User, db: AsyncSession, item: str, qty: int) -> User:
             .values(coins=User.coins - cost, freezes=User.freezes + qty)
         )
         short = _NOT_ENOUGH
+    elif item == "extra_pack":
+        # Two-step on purpose: the coin debit is the guarded (race-safe) part; the quota bump is a
+        # plain ORM update on the already-loaded row, committed together with the debit below.
+        from .gating import _normalize_day  # local import — avoids a module cycle
+
+        cost = settings.PRICE_EXTRA_PACK * qty
+        stmt = (
+            update(User)
+            .where(User.id == user.id, User.coins >= cost)
+            .values(coins=User.coins - cost)
+        )
+        short = _NOT_ENOUGH
+        res = await db.execute(stmt)
+        if res.rowcount == 0:
+            await db.rollback()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=short)
+        _normalize_day(user)
+        user.starter_used -= settings.EXTRA_PACK_SIZE * qty
+        await db.commit()
+        await db.refresh(user)
+        return user
     elif item == "use_freeze":
         stmt = (
             update(User)

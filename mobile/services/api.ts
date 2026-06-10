@@ -44,13 +44,16 @@ export function setApiLang(lang: string): void {
 
 type Method = "GET" | "POST" | "PUT";
 
-// Error that carries the HTTP status so callers can react (e.g. 403 → account not activated).
+// Error that carries the HTTP status + an optional machine-readable code so callers can route UI
+// (e.g. 403 "starter_limit" → activation prompt; 403 "daily_limit" → limit sheet with the upsell).
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -89,8 +92,10 @@ async function request<T>(
   }
 
   if (!res.ok) {
-    // Errors carry {detail: "..."} (string) or, for 422 validation, {detail: [{msg, ...}]}.
+    // Errors carry {detail: "..."} (string), {detail: {code, message, ...}} (structured gating),
+    // or, for 422 validation, {detail: [{msg, ...}]}.
     let detail = `Backend error ${res.status}`;
+    let code: string | undefined;
     try {
       const data = (await res.json()) as { detail?: unknown };
       const d = data?.detail;
@@ -98,11 +103,15 @@ async function request<T>(
         detail = d;
       } else if (Array.isArray(d)) {
         detail = d.map((e) => (e && typeof e === "object" && "msg" in e ? (e as any).msg : String(e))).join("; ");
+      } else if (d && typeof d === "object") {
+        const obj = d as { code?: unknown; message?: unknown };
+        if (typeof obj.message === "string") detail = obj.message;
+        if (typeof obj.code === "string") code = obj.code;
       }
     } catch {
       // non-JSON error body — keep the generic message
     }
-    throw new ApiError(detail, res.status);
+    throw new ApiError(detail, res.status, code);
   }
   return (await res.json()) as T;
 }
@@ -243,9 +252,10 @@ export function requestVerification(): Promise<{ message: string }> {
 }
 
 // --- economy: koku wallet (server-authoritative) ---
-export type Wallet = { coins: number; freezes: number; is_premium: boolean };
+// left_today: exercises remaining on the free tier today; null = unlimited (premium).
+export type Wallet = { coins: number; freezes: number; is_premium: boolean; left_today?: number | null };
 // Catalog item ids understood by POST /wallet/spend (must match backend services/wallet.py).
-export type SpendItem = "omamori" | "use_freeze";
+export type SpendItem = "omamori" | "use_freeze" | "extra_pack";
 
 export function getWallet(): Promise<Wallet> {
   return request<Wallet>("/wallet", undefined, "GET");

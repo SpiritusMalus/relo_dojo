@@ -182,6 +182,9 @@ class WalletOut(BaseModel):
     coins: int = 0
     freezes: int = 0
     is_premium: bool = False
+    # Exercises remaining today on the free tier; None = unlimited (premium). Drives the Home
+    # counter — the user should SEE the limit shrinking before they hit it.
+    left_today: Optional[int] = None
 
 
 class SpendIn(BaseModel):

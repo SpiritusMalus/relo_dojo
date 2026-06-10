@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError, type Exercise, type ResponseValue } from "../services/api";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ActivationBanner from "../components/ui/ActivationBanner";
+import LimitSheet from "../components/ui/LimitSheet";
+import { beltProgress } from "../store/dojo";
 import ExerciseCard from "../components/ExerciseCard";
 import ResultPanel from "../components/ResultPanel";
 import { useProgress } from "../store/progress";
@@ -67,6 +69,7 @@ export default function PracticeScreen() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [gated, setGated] = useState(false); // 403: account not activated / starter limit reached
+  const [limited, setLimited] = useState(false); // 403 "daily_limit": free-tier cap → upsell sheet
   const [solved, setSolved] = useState(0);
   const error = loadError ?? checkError;
 
@@ -76,6 +79,7 @@ export default function PracticeScreen() {
     setLoading(true);
     setLoadError(null);
     setGated(false);
+    setLimited(false);
     reset();
     setResponse(null);
     setResponseDisplay("");
@@ -88,10 +92,12 @@ export default function PracticeScreen() {
       setExercise(await queueRef.current!.next());
       setRound((r) => r + 1);
     } catch (e) {
-      // 403 = account not verified / daily starter limit reached → show the activation prompt,
-      // not a raw error.
-      if (e instanceof ApiError && e.status === 403) setGated(true);
-      else setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
+      // 403 routes by code: "daily_limit" (verified free tier) → limit sheet with the upsell;
+      // anything else (starter/activation) → the activation prompt. Never a raw error.
+      if (e instanceof ApiError && e.status === 403) {
+        if (e.code === "daily_limit") setLimited(true);
+        else setGated(true);
+      } else setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
       setLoading(false);
     }
@@ -160,6 +166,12 @@ export default function PracticeScreen() {
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
             <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round)}</Txt>
+          </View>
+        )}
+
+        {limited && !loading && (
+          <View style={{ marginTop: 20 }}>
+            <LimitSheet belt={beltProgress(progress).belt} onUnlocked={loadExercise} />
           </View>
         )}
 

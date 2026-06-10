@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useProgress } from "../../store/progress";
 import { useAuth } from "../../store/auth";
+import { useWallet } from "../../store/wallet";
 import { useI18n } from "../../store/i18n";
 import { beltProgress } from "../../store/dojo";
 import { useTheme } from "../../theme/theme";
@@ -28,6 +29,7 @@ export default function HomeScreen() {
   const t = useTheme();
   const { progress } = useProgress();
   const { user } = useAuth();
+  const { leftToday, refresh } = useWallet();
   const { t: tr } = useI18n();
 
   const bp = beltProgress(progress);
@@ -40,10 +42,13 @@ export default function HomeScreen() {
     useCallback(() => {
       let active = true;
       mistakeCount().then((n) => active && setMistakes(n));
+      // Refresh the wallet too: koku earned and the daily allowance spent in Practice should be
+      // visible the moment the learner lands back on Home (the shrinking counter is the point).
+      void refresh();
       return () => {
         active = false;
       };
-    }, [])
+    }, [refresh])
   );
 
   return (
@@ -78,6 +83,11 @@ export default function HomeScreen() {
 
       {/* Recommended daily action (starter — always open) + special modes (locked until verified) */}
       <DailyMixButton onPress={() => router.push("/practice")} />
+      {leftToday !== null && (
+        <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center", marginTop: -6 }}>
+          {tr("home.leftToday", { n: leftToday })}
+        </Txt>
+      )}
       <LockGate locked={locked}>
         <StoryButton onPress={() => router.push("/story")} />
       </LockGate>
