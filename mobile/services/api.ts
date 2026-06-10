@@ -266,6 +266,15 @@ export function spendItem(item: SpendItem, qty = 1): Promise<Wallet> {
   return request<Wallet>("/wallet/spend", { item, qty });
 }
 
+// --- scroll rewards (variable reinforcement) ---
+// One opened scroll: what dropped + post-credit balances. kind "kensei" = client-side x2-XP timer.
+export type ScrollReward = { kind: "koku" | "omamori" | "kensei"; amount: number; coins: number; freezes: number };
+
+// Open one end-of-session reward scroll (server-rolled; 403 "scroll_limit" past the daily cap).
+export function openScroll(): Promise<ScrollReward> {
+  return request<ScrollReward>("/rewards/scroll", {});
+}
+
 export function getProgress(): Promise<Progress> {
   return request<Progress>("/progress", undefined, "GET");
 }

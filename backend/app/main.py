@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .core.config import settings
 from .db.models import User
-from .deps import get_current_user_optional, get_db
+from .deps import get_current_user, get_current_user_optional, get_db
 from .routers import auth as auth_router
 from .routers import progress as progress_router
 from .routers import wallet as wallet_router
@@ -41,10 +41,11 @@ from .schemas import (
     ExerciseOut,
     ExplainIn,
     ExplainOut,
+    ScrollOut,
     StoryIn,
     StoryOut,
 )
-from .services import gating, grammar, stories, tokens
+from .services import gating, grammar, rewards, stories, tokens
 from .services import wallet as wallet_service
 from .services.ollama_client import OllamaError, generate
 
@@ -154,6 +155,16 @@ async def explain(payload: ExplainIn) -> ExplainOut:
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return ExplainOut(**data)
+
+
+@app.post("/rewards/scroll", response_model=ScrollOut)
+async def open_scroll(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ScrollOut:
+    """Open one reward scroll (end of a session). Server-rolled and server-credited — the variable
+    prize is the comeback hook, the daily cap is the farm guard."""
+    return ScrollOut(**await rewards.grant_scroll(user, db))
 
 
 @app.post("/profile/analyze", response_model=AnalyzeOut)

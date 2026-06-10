@@ -1,0 +1,80 @@
+"""Scroll rewards — server-rolled variable reinforcement (monetization branch 4).
+
+The "slot machine" of the dojo: after a finished session the client requests a scroll; the SERVER
+rolls a weighted table and credits the prize, so the economy can't be farmed by a patched client.
+The unpredictability is the point — most scrolls are small koku, the occasional fat drop or rare
+charm is what makes the next session itch.
+
+Abuse guard: SCROLLS_PER_DAY per account (UTC day), tracked in users.scroll_day / scrolls_used.
+"""
+
+from __future__ import annotations
+
+import random
+from datetime import datetime, timezone
+from typing import Protocol
+
+from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..core.config import settings
+from ..db.models import User
+
+
+class _Rng(Protocol):
+    def random(self) -> float: ...
+
+
+# (kind, amount, weight). Weights are relative; koku dominates, the rares carry the thrill.
+SCROLL_TABLE: list[tuple[str, int, int]] = [
+    ("koku", 5, 50),  # common: pocket change
+    ("koku", 15, 30),  # decent
+    ("koku", 40, 12),  # fat drop
+    ("omamori", 1, 5),  # rare: streak charm
+    ("kensei", 1, 3),  # rare: x2 XP boost (client-side timer)
+]
+
+_TOTAL_WEIGHT = sum(w for _, _, w in SCROLL_TABLE)
+
+
+def roll_scroll(rng: _Rng = random) -> tuple[str, int]:
+    """Weighted roll over SCROLL_TABLE. `rng` injectable for deterministic tests."""
+    pick = rng.random() * _TOTAL_WEIGHT
+    acc = 0.0
+    for kind, amount, weight in SCROLL_TABLE:
+        acc += weight
+        if pick < acc:
+            return kind, amount
+    return SCROLL_TABLE[-1][0], SCROLL_TABLE[-1][1]  # float edge — give the last row
+
+
+def _utc_day() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+async def grant_scroll(user: User, db: AsyncSession, rng: _Rng = random) -> dict:
+    """Roll and credit one scroll for the user; 403 {code: scroll_limit} past the daily cap."""
+    today = _utc_day()
+    if user.scroll_day != today:
+        user.scroll_day = today
+        user.scrolls_used = 0
+    if user.scrolls_used >= settings.SCROLLS_PER_DAY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "scroll_limit", "message": "No more scrolls today — the dojo rests."},
+        )
+    kind, amount = roll_scroll(rng)
+    user.scrolls_used += 1
+    if kind == "koku":
+        user.coins += amount
+    elif kind == "omamori":
+        user.freezes += amount
+    # "kensei" is a client-side XP timer — nothing to credit server-side.
+    await db.commit()
+    await db.refresh(user)
+    return {
+        "kind": kind,
+        "amount": amount,
+        "coins": user.coins,
+        "freezes": user.freezes,
+    }

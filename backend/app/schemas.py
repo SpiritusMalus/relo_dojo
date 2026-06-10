@@ -236,6 +236,17 @@ class ProgressData(BaseModel):
     todayDate: str = ""
     todayCount: int = 0
     brokenStreak: Optional[BrokenStreak] = None
+    boostUntil: str = ""  # ISO timestamp while the x2-XP "kensei" boost is active ("" = none)
+
+
+# --- scroll rewards (variable reinforcement) ---
+class ScrollOut(BaseModel):
+    """One opened scroll: what dropped + the post-credit balances."""
+
+    kind: str  # "koku" | "omamori" | "kensei"
+    amount: int
+    coins: int
+    freezes: int
 
 
 # --- onboarding free-text analysis (Phase: onboarding) ---

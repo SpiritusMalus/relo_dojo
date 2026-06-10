@@ -97,6 +97,14 @@ export const STRINGS = {
     "streak.repairing": "Restoring the path…",
     "streak.letGo": "Let it go",
 
+    "scroll.title": "Sensei hands you a scroll",
+    "scroll.open": "Open the scroll",
+    "scroll.opening": "Unrolling…",
+    "scroll.koku": "+{n} 🌾 koku",
+    "scroll.omamori": "An omamori! Your streak is under protection",
+    "scroll.kensei": "Kensei mode: x2 XP for 15 minutes",
+    "scroll.rare": "A rare find!",
+
     "topics.title": "Topics",
     "topics.all": "All grammar topics",
     "topics.adapts": "Difficulty still adapts to you.",
@@ -250,6 +258,14 @@ export const STRINGS = {
     "streak.repair": "Отработка у Сэнсэя — {price} 🌾",
     "streak.repairing": "Восстанавливаем путь…",
     "streak.letGo": "Отпустить",
+
+    "scroll.title": "Сэнсэй протягивает свиток",
+    "scroll.open": "Открыть свиток",
+    "scroll.opening": "Разворачиваем…",
+    "scroll.koku": "+{n} 🌾 коку",
+    "scroll.omamori": "Омамори! Твоя серия под защитой",
+    "scroll.kensei": "Режим кэнсэй: x2 XP на 15 минут",
+    "scroll.rare": "Редкая находка!",
 
     "topics.title": "Темы",
     "topics.all": "Все темы грамматики",
