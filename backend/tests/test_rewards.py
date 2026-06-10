@@ -86,6 +86,18 @@ async def test_daily_cap_blocks_with_code(monkeypatch):
     assert exc.value.detail.get("code") == "scroll_limit"
 
 
+async def test_premium_doubles_the_daily_cap(monkeypatch):
+    monkeypatch.setattr(settings, "SCROLLS_PER_DAY", 1)
+    db = _FakeDB()
+    u = _user()
+    u.is_premium = True
+    await rewards.grant_scroll(u, db, rng=_FixedRng(0.0))
+    out = await rewards.grant_scroll(u, db, rng=_FixedRng(0.0))  # 2nd is fine for Black Belt
+    assert out["kind"] == "koku"
+    with pytest.raises(Exception):
+        await rewards.grant_scroll(u, db, rng=_FixedRng(0.0))  # 3rd hits the doubled cap
+
+
 async def test_cap_resets_on_new_day(monkeypatch):
     monkeypatch.setattr(settings, "SCROLLS_PER_DAY", 1)
     db = _FakeDB()

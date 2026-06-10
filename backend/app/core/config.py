@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     REPAIR_MAX: int = 300
     # Scroll rewards (variable reinforcement): how many scrolls an account may open per UTC day.
     SCROLLS_PER_DAY: int = 3
+    # Dev-only premium toggle: when true, POST /dev/premium flips the caller's Black Belt flag.
+    # MUST stay false in prod — the real flag will be set by a payment provider (Phase 7/8).
+    DEV_PREMIUM_TOGGLE: bool = False
 
     @property
     def allowed_origins_list(self) -> list[str]:

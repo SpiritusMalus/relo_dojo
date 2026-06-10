@@ -167,6 +167,20 @@ async def open_scroll(
     return ScrollOut(**await rewards.grant_scroll(user, db))
 
 
+@app.post("/dev/premium")
+async def dev_premium_toggle(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, bool]:
+    """DEV ONLY: flip the caller's premium flag (guarded by DEV_PREMIUM_TOGGLE, off by default).
+    In prod the flag is owned by the payment provider integration (Phase 7/8)."""
+    if not settings.DEV_PREMIUM_TOGGLE:
+        raise HTTPException(status_code=404, detail="Not found.")
+    user.is_premium = not user.is_premium
+    await db.commit()
+    return {"is_premium": user.is_premium}
+
+
 @app.post("/profile/analyze", response_model=AnalyzeOut)
 async def analyze(payload: AnalyzeIn) -> AnalyzeOut:
     """Onboarding: map a free-text 'what's hard for me' to canonical grammar topics. Public."""
