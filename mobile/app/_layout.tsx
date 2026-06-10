@@ -4,7 +4,9 @@ import { useFonts } from "expo-font";
 import { AuthProvider, useAuth } from "../store/auth";
 import { ProgressProvider, useProgress } from "../store/progress";
 import { WalletProvider } from "../store/wallet";
-import { I18nProvider } from "../store/i18n";
+import { I18nProvider, useI18n } from "../store/i18n";
+import { localDate } from "../store/streak";
+import { ensurePermission, rescheduleAll } from "../services/notifications";
 import { ThemeProvider, fontMap } from "../theme/theme";
 
 // Redirect between login, onboarding, and the tabs based on auth + onboarding state.
@@ -36,6 +38,21 @@ function RootNav() {
       router.replace("/");
     }
   }, [authReady, token, progressReady, synced, progress.onboarded, segments, router]);
+
+  // Trigger layer: once onboarded, keep the notification plan in sync with today's state.
+  // Re-runs when training happens (cancels today's nags) or the streak/language changes.
+  const { lang } = useI18n();
+  const trainedToday = progress.lastActiveDate === localDate(new Date());
+  useEffect(() => {
+    if (!authReady || !progressReady || !token || !progress.onboarded) return;
+    const timer = setTimeout(() => {
+      void (async () => {
+        if (!(await ensurePermission())) return;
+        await rescheduleAll({ lang, trainedToday, dailyStreak: progress.dailyStreak });
+      })();
+    }, 2000); // debounce: recordAnswer fires per card; one re-plan per burst is plenty
+    return () => clearTimeout(timer);
+  }, [authReady, progressReady, token, progress.onboarded, trainedToday, progress.dailyStreak, lang]);
 
   if (!authReady) return null; // brief splash while we read stored token
 
