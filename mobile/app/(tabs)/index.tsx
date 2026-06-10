@@ -12,6 +12,8 @@ import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
 import ActivationBanner from "../../components/ui/ActivationBanner";
 import StreakRepairSheet from "../../components/ui/StreakRepairSheet";
+import OfferBanner from "../../components/ui/OfferBanner";
+import { ensureOffer } from "../../store/offers";
 import LockGate from "../../components/ui/LockGate";
 import DailyMixButton from "../../components/ui/DailyMixButton";
 import StoryButton from "../../components/ui/StoryButton";
@@ -39,6 +41,9 @@ export default function HomeScreen() {
 
   // Refresh the mistake count whenever Home regains focus (e.g. returning from Review/Practice).
   const [mistakes, setMistakes] = useState(0);
+  // Trigger: onboarding done → open the one-shot 24h starter offer (no-op if it ever existed).
+  if (progress.onboarded) void ensureOffer("starter24");
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -60,6 +65,9 @@ export default function HomeScreen() {
 
       {/* Broken-streak repair offer (loss aversion): visible while the repair window is open */}
       <StreakRepairSheet belt={bp.belt} />
+
+      {/* One-shot timed offer (FOMO with an honest clock) */}
+      <OfferBanner />
 
       {/* Belt hero — background is the current belt colour */}
       <LinearGradient

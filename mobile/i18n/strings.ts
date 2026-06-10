@@ -130,6 +130,12 @@ export const STRINGS = {
     "premium.perkKoku": "Double koku for correct answers",
     "premium.perkScrolls": "Twice the reward scrolls per day",
 
+    "offer.starterTitle": "Welcome gift: omamori at half price",
+    "offer.starterSub": "75 🌾 instead of 150 — streak protection from day one.",
+    "offer.limitTitle": "Double pack, same price",
+    "offer.limitSub": "+20 exercises for the price of 10. Once only.",
+    "offer.endsIn": "Ends in {time}",
+
     "topics.title": "Topics",
     "topics.all": "All grammar topics",
     "topics.adapts": "Difficulty still adapts to you.",
@@ -316,6 +322,12 @@ export const STRINGS = {
     "premium.perkUnlimited": "Безлимит упражнений — без дневного потолка",
     "premium.perkKoku": "Двойные коку за верные ответы",
     "premium.perkScrolls": "Вдвое больше свитков наград в день",
+
+    "offer.starterTitle": "Подарок новичку: омамори за полцены",
+    "offer.starterSub": "75 🌾 вместо 150 — защита серии с первого дня.",
+    "offer.limitTitle": "Двойная добавка по той же цене",
+    "offer.limitSub": "+20 упражнений по цене 10. Только один раз.",
+    "offer.endsIn": "Закончится через {time}",
 
     "topics.title": "Темы",
     "topics.all": "Все темы грамматики",

@@ -112,6 +112,22 @@ async def test_extra_pack_raises_today_headroom():
     assert db.commits == 1
 
 
+async def test_promo_items_resolve():
+    from app.services.gating import _utc_day
+
+    db = _FakeDB(rowcount=1)
+    user = _user()
+    await wallet.spend(user, db, "omamori_promo", 1)  # half-price charm: just must not 400
+    debited = [v for v in db.last_params().values() if isinstance(v, int)]
+    assert settings.PRICE_OMAMORI_PROMO in debited
+
+    db2 = _FakeDB(rowcount=1)
+    u2 = _user()
+    await wallet.spend(u2, db2, "extra_pack_promo", 1)  # double pack, regular price
+    assert u2.starter_day == _utc_day()
+    assert u2.starter_used == -settings.EXTRA_PACK_SIZE * 2
+
+
 async def test_extra_pack_insufficient_koku_is_409():
     db = _FakeDB(rowcount=0)
     user = _user()

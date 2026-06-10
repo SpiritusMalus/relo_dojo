@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     COIN_REWARD_CORRECT: int = 2
     # Shop prices, in koku.
     PRICE_OMAMORI: int = 150  # streak-freeze charm
+    PRICE_OMAMORI_PROMO: int = 75  # starter offer: half-price charm (24h client window)
+    # Limit offer: double pack for the regular price (48h client window after first limit hit).
+    # Promo windows are enforced client-side; the discounted item itself is harmless to keep open.
     PRICE_EXTRA_PACK: int = 50  # +EXTRA_PACK_SIZE exercises for today (free tier)
     EXTRA_PACK_SIZE: int = 10
     # Streak repair ("отработка у Сэнсэя"): price grows with the LOST streak length (loss aversion
