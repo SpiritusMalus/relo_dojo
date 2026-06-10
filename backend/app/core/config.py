@@ -64,9 +64,11 @@ class Settings(BaseSettings):
     EXTRA_PACK_SIZE: int = 10
     # Streak repair ("отработка у Сэнсэя"): price grows with the LOST streak length (loss aversion
     # priced in — the more invested the user is, the dearer the rescue), capped at REPAIR_MAX.
-    REPAIR_BASE: int = 100
-    REPAIR_PER_DAY: int = 5
-    REPAIR_MAX: int = 600
+    # Softened curve (user decision 2026-06-10): growth keeps the loss-aversion pressure, the lower
+    # cap avoids punishing the most loyal users hardest.
+    REPAIR_BASE: int = 80
+    REPAIR_PER_DAY: int = 2
+    REPAIR_MAX: int = 300
 
     @property
     def allowed_origins_list(self) -> list[str]:

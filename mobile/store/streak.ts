@@ -16,9 +16,9 @@ export const MIN_REPAIRABLE_STREAK = 3;
 
 // Display mirror of backend pricing (core/config.py: REPAIR_BASE/PER_DAY/MAX). The server computes
 // the real charge in /wallet/spend, so drift here is cosmetic only.
-export const REPAIR_BASE = 100;
-export const REPAIR_PER_DAY = 5;
-export const REPAIR_MAX = 600;
+export const REPAIR_BASE = 80;
+export const REPAIR_PER_DAY = 2;
+export const REPAIR_MAX = 300;
 
 /** Koku price to restore a streak of `streak` days. Grows with the loss — loss aversion priced in. */
 export function repairPrice(streak: number): number {
