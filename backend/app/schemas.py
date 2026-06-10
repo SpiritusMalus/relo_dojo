@@ -188,10 +188,11 @@ class WalletOut(BaseModel):
 
 
 class SpendIn(BaseModel):
-    """Spend koku (or consume an owned item). `item` is validated against the server catalog."""
+    """Spend koku (or consume an owned item). `item` is validated against the server catalog.
+    qty: item count; for streak_repair it's the lost streak length (price input), hence the cap."""
 
     item: str = Field(min_length=1, max_length=40)
-    qty: int = Field(default=1, ge=1, le=10)
+    qty: int = Field(default=1, ge=1, le=400)
 
 
 class MessageOut(BaseModel):
@@ -214,6 +215,13 @@ class Profile(BaseModel):
     painText: str = ""
 
 
+class BrokenStreak(BaseModel):
+    """A noticed streak break awaiting paid repair (client-side window; see mobile store/streak.ts)."""
+
+    streak: int = 0
+    date: str = ""  # local YYYY-MM-DD when the break was noticed
+
+
 class ProgressData(BaseModel):
     xp: int = 0
     dailyStreak: int = 0
@@ -227,6 +235,7 @@ class ProgressData(BaseModel):
     profile: Optional[Profile] = None
     todayDate: str = ""
     todayCount: int = 0
+    brokenStreak: Optional[BrokenStreak] = None
 
 
 # --- onboarding free-text analysis (Phase: onboarding) ---
