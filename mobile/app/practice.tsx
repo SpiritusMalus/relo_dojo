@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -158,13 +158,26 @@ export default function PracticeScreen() {
   const canSubmit = response !== null && !checking;
   const topicLabel = forcedTopic ? TOPIC_LABELS[forcedTopic] ?? forcedTopic : tr("btn.mix.title");
 
+  // X mid-session: confirm before discarding answered cards and the end-of-session scroll.
+  // Free exit before the first answer and once the summary is showing (nothing left to lose).
+  function onClose() {
+    if (solved === 0 || showScroll) {
+      router.back();
+      return;
+    }
+    Alert.alert(tr("exit.title"), tr("exit.msg"), [
+      { text: tr("exit.stay"), style: "cancel" },
+      { text: tr("exit.leave"), style: "destructive", onPress: () => router.back() },
+    ]);
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
       <StatusBar style={t.name === "dark" ? "light" : "dark"} />
 
       {/* Header: close, session progress, streak */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.closeBtn} accessibilityLabel="Close">
+        <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn} accessibilityLabel="Close">
           <Icon name="x" size={24} color={t.c.ink2} />
         </Pressable>
         <View style={{ flex: 1, marginHorizontal: 14 }}>

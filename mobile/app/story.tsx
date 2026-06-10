@@ -5,7 +5,7 @@
 // the result panel are the exact same ones the Practice screen uses (useExerciseCheck + ResultPanel),
 // so a story answer counts toward XP, streaks and the adaptive model just like a normal card.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -123,6 +123,19 @@ export default function StoryScreen() {
     }
   }
 
+  // X mid-story: confirm once at least one beat is answered (otherwise nothing is lost).
+  function onClose() {
+    const started = !!story && !finished && (beatIndex > 0 || !!result);
+    if (!started) {
+      router.back();
+      return;
+    }
+    Alert.alert(tr("exit.title"), tr("exit.msgStory"), [
+      { text: tr("exit.stay"), style: "cancel" },
+      { text: tr("exit.leave"), style: "destructive", onPress: () => router.back() },
+    ]);
+  }
+
   const canSubmit = response !== null && !checking;
   const total = story?.beats.length ?? 0;
   // Header progress: count answered beats (the current one once it's been checked).
@@ -134,7 +147,7 @@ export default function StoryScreen() {
 
       {/* Header: close, set progress, streak */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.closeBtn} accessibilityLabel="Close">
+        <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn} accessibilityLabel="Close">
           <Icon name="x" size={24} color={t.c.ink2} />
         </Pressable>
         <View style={{ flex: 1, marginHorizontal: 14 }}>
