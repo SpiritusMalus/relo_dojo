@@ -50,12 +50,18 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_SSL: bool = False  # True → implicit TLS (port 465); False → STARTTLS (port 587)
 
+    # Daily exercise cap for VERIFIED free accounts (premium = unlimited). The squeeze point of the
+    # free tier: hitting it at peak motivation is what sells extra packs and Black Belt.
+    FREE_DAILY_LIMIT: int = 20
+
     # --- Economy (koku wallet) ---
     # Koku awarded per correct /check answer for authenticated users (server-authoritative;
     # variable bonus arrives with the variable-rewards branch).
     COIN_REWARD_CORRECT: int = 2
     # Shop prices, in koku.
     PRICE_OMAMORI: int = 150  # streak-freeze charm
+    PRICE_EXTRA_PACK: int = 50  # +EXTRA_PACK_SIZE exercises for today (free tier)
+    EXTRA_PACK_SIZE: int = 10
 
     @property
     def allowed_origins_list(self) -> list[str]:

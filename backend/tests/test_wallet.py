@@ -42,7 +42,9 @@ class _FakeDB:
 
 
 def _user() -> SimpleNamespace:
-    return SimpleNamespace(id=uuid.uuid4(), coins=0, freezes=0, is_premium=False)
+    return SimpleNamespace(
+        id=uuid.uuid4(), coins=0, freezes=0, is_premium=False, starter_day="", starter_used=0
+    )
 
 
 async def test_award_anonymous_is_zero():
@@ -84,6 +86,26 @@ async def test_spend_success_commits_and_refreshes():
     assert out is user
     assert db.commits == 1
     assert db.refreshed
+
+
+async def test_extra_pack_raises_today_headroom():
+    from app.services.gating import _utc_day
+
+    db = _FakeDB(rowcount=1)
+    user = _user()
+    await wallet.spend(user, db, "extra_pack", 1)
+    assert user.starter_day == _utc_day()  # day normalized so the bonus isn't lost on first use
+    assert user.starter_used == -settings.EXTRA_PACK_SIZE  # negative used = extra headroom
+    assert db.commits == 1
+
+
+async def test_extra_pack_insufficient_koku_is_409():
+    db = _FakeDB(rowcount=0)
+    user = _user()
+    with pytest.raises(Exception) as exc:
+        await wallet.spend(user, db, "extra_pack", 1)
+    assert getattr(exc.value, "status_code", None) == 409
+    assert user.starter_used == 0  # quota untouched when the debit fails
 
 
 async def test_use_freeze_without_charms_is_409():

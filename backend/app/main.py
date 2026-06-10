@@ -83,9 +83,9 @@ async def exercise(
     user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ) -> ExerciseOut:
-    """Adaptive exercise. Unverified accounts get a daily starter quota (server-enforced); verified
-    and anonymous callers are unmetered."""
-    await gating.consume_starter_exercise(user, db)
+    """Adaptive exercise. Daily quota is server-enforced per tier: unverified = starter,
+    verified free = FREE_DAILY_LIMIT, premium/anonymous = unmetered."""
+    await gating.consume_daily_exercise(user, db)
     try:
         data = await grammar.generate_exercise(
             topic=payload.topic,

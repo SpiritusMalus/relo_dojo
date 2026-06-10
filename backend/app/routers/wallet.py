@@ -9,12 +9,18 @@ from ..db.models import User
 from ..deps import get_current_user, get_db
 from ..schemas import SpendIn, WalletOut
 from ..services import wallet as wallet_service
+from ..services.gating import left_today
 
 router = APIRouter(prefix="/wallet", tags=["wallet"])
 
 
 def _out(user: User) -> WalletOut:
-    return WalletOut(coins=user.coins, freezes=user.freezes, is_premium=user.is_premium)
+    return WalletOut(
+        coins=user.coins,
+        freezes=user.freezes,
+        is_premium=user.is_premium,
+        left_today=left_today(user),
+    )
 
 
 @router.get("", response_model=WalletOut)

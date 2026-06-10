@@ -13,11 +13,18 @@ import {
 import { getWallet, spendItem, type SpendItem, type Wallet } from "../services/api";
 import { useAuth } from "./auth";
 
+// Client-side mirror of backend config (core/config.py) for display; the server enforces the real
+// values, so a drift here is cosmetic only.
+export const PRICE_EXTRA_PACK = 50;
+export const EXTRA_PACK_SIZE = 10;
+
 type WalletContextValue = {
   ready: boolean; // false until the first fetch after login resolves (or fails)
   coins: number;
   freezes: number;
   isPremium: boolean;
+  /** Exercises remaining today on the free tier; null = unlimited (premium / unknown). */
+  leftToday: number | null;
   /** Re-fetch the wallet from the server (e.g. after a purchase elsewhere). */
   refresh: () => Promise<void>;
   /** Buy/consume a catalog item on the server. Throws ApiError 409 when balance is insufficient. */
@@ -26,7 +33,7 @@ type WalletContextValue = {
   applyCheckReward: (coins?: number | null) => void;
 };
 
-const EMPTY: Wallet = { coins: 0, freezes: 0, is_premium: false };
+const EMPTY: Wallet = { coins: 0, freezes: 0, is_premium: false, left_today: null };
 const WalletContext = createContext<WalletContextValue | null>(null);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
@@ -80,6 +87,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       coins: wallet.coins,
       freezes: wallet.freezes,
       isPremium: wallet.is_premium,
+      leftToday: wallet.left_today ?? null,
       refresh,
       spend,
       applyCheckReward,

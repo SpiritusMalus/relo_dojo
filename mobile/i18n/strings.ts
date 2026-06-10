@@ -83,6 +83,14 @@ export const STRINGS = {
     "activate.stillPending": "Not activated yet — open the link in your email.",
     "activate.lockedMsg": "Activate your account to unlock this lesson.",
 
+    "limit.title": "Today's training is complete",
+    "limit.sub": "Sensei: the dojo opens again tomorrow. Or take an extra set now.",
+    "limit.buyPack": "+{n} exercises — {price} 🌾",
+    "limit.buying": "Opening the mat…",
+    "limit.notEnough": "Not enough koku ({coins} 🌾). Earn more with correct answers.",
+    "limit.premiumSoon": "Black Belt — unlimited (soon)",
+    "home.leftToday": "{n} exercises left today",
+
     "topics.title": "Topics",
     "topics.all": "All grammar topics",
     "topics.adapts": "Difficulty still adapts to you.",
@@ -222,6 +230,14 @@ export const STRINGS = {
     "activate.check": "Я подтвердил",
     "activate.stillPending": "Пока не активирован — открой ссылку из письма.",
     "activate.lockedMsg": "Активируй аккаунт, чтобы открыть этот урок.",
+
+    "limit.title": "Тренировка на сегодня окончена",
+    "limit.sub": "Сэнсэй: додзё откроется завтра. Или возьми дополнительный подход сейчас.",
+    "limit.buyPack": "+{n} упражнений — {price} 🌾",
+    "limit.buying": "Расстилаем мат…",
+    "limit.notEnough": "Не хватает коку ({coins} 🌾). Заработай их верными ответами.",
+    "limit.premiumSoon": "Чёрный пояс — безлимит (скоро)",
+    "home.leftToday": "Осталось сегодня: {n}",
 
     "topics.title": "Темы",
     "topics.all": "Все темы грамматики",
