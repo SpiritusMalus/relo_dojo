@@ -32,6 +32,12 @@ export const STRINGS = {
     "action.finish": "Finish",
     "action.continue": "Next",
 
+    "exit.title": "Leave the session?",
+    "exit.msg": "Your progress in this session and the reward scroll will be lost.",
+    "exit.msgStory": "Your progress in this story will be lost.",
+    "exit.stay": "Keep going",
+    "exit.leave": "Leave",
+
     "result.correct": "Clean strike!",
     "result.wrong": "Not quite",
     "result.almost": "Almost — {detail} right",
@@ -223,6 +229,12 @@ export const STRINGS = {
     "action.tryAgain": "Ещё раз",
     "action.finish": "Завершить",
     "action.continue": "Дальше",
+
+    "exit.title": "Выйти из тренировки?",
+    "exit.msg": "Прогресс этой сессии и наградной свиток будут потеряны.",
+    "exit.msgStory": "Прогресс этой истории будет потерян.",
+    "exit.stay": "Остаться",
+    "exit.leave": "Выйти",
 
     "result.correct": "Чистый удар!",
     "result.wrong": "Мимо",
