@@ -66,6 +66,7 @@ function RootNav() {
       <Stack.Screen name="challenge" options={{ headerShown: false }} />
       <Stack.Screen name="review" options={{ headerShown: false }} />
       <Stack.Screen name="shop" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="premium" options={{ headerShown: false }} />
     </Stack>
   );

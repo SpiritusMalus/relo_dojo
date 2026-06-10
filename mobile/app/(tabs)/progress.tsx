@@ -1,6 +1,5 @@
-import { Pressable, StyleSheet, Switch, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { ACHIEVEMENTS, levelFor, useProgress, XP_PER_LEVEL, xpInLevel } from "../../store/progress";
-import { useAuth } from "../../store/auth";
 import { useI18n } from "../../store/i18n";
 import { RU_ACH, RU_TOPIC_LABELS } from "../../i18n/strings";
 import { beltProgress, topicRows } from "../../store/dojo";
@@ -12,7 +11,6 @@ import Card from "../../components/ui/Card";
 import JourneyPath from "../../components/ui/JourneyPath";
 import Sensei from "../../components/ui/Sensei";
 import ProgressBar from "../../components/ui/ProgressBar";
-import Button from "../../components/ui/Button";
 import Txt from "../../components/ui/Txt";
 
 // Emoji glyph + one-line sub per stored achievement id (presentational only).
@@ -28,9 +26,8 @@ const ACH_META: Record<string, { glyph: string; sub: string }> = {
 
 export default function ProgressScreen() {
   const t = useTheme();
-  const { progress, resetOnboarding } = useProgress();
-  const { user, logout } = useAuth();
-  const { t: tr, lang, setLang } = useI18n();
+  const { progress } = useProgress();
+  const { t: tr, lang } = useI18n();
 
   const bp = beltProgress(progress);
   const rows = topicRows(progress);
@@ -163,53 +160,6 @@ export default function ProgressScreen() {
         </View>
       </Card>
 
-      {/* Account */}
-      <Card>
-        <Txt variant="label" style={{ marginBottom: 10 }}>
-          Account
-        </Txt>
-        {!!user && (
-          <Txt variant="body" color={t.c.ink3} style={{ marginBottom: 12 }}>
-            {user.email}
-          </Txt>
-        )}
-        <View style={styles.toggleRow}>
-          <Txt variant="bodyStrong">{tr("settings.dark")}</Txt>
-          <Switch
-            value={t.name === "dark"}
-            onValueChange={t.toggle}
-            trackColor={{ true: t.c.accent, false: t.c.line2 }}
-            thumbColor={t.c.surface}
-          />
-        </View>
-        <View style={styles.toggleRow}>
-          <Txt variant="bodyStrong">{tr("settings.language")}</Txt>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            {(["ru", "en"] as const).map((l) => (
-              <Pressable
-                key={l}
-                onPress={() => setLang(l)}
-                style={{
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  borderRadius: t.spacing.radiusSm,
-                  backgroundColor: lang === l ? t.c.accent : t.c.surface3,
-                }}
-              >
-                <Txt variant="bodyStrong" color={lang === l ? t.c.accentInk : t.c.ink2}>
-                  {l === "ru" ? "Русский" : "English"}
-                </Txt>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        <Button label={tr("settings.redoOnboarding")} variant="ghost" uppercase={false} onPress={resetOnboarding} style={{ marginBottom: 10 }} />
-        <Pressable onPress={logout} style={{ minHeight: 44, justifyContent: "center", alignItems: "center" }}>
-          <Txt variant="bodyStrong" color={t.c.bad}>
-            {tr("settings.logout")}
-          </Txt>
-        </Pressable>
-      </Card>
     </Screen>
   );
 }
@@ -224,5 +174,4 @@ const styles = StyleSheet.create({
   topicRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   achGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   ach: { width: "47.5%", borderWidth: 1, borderRadius: 14, padding: 12, gap: 2 },
-  toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44, marginBottom: 6 },
 });
