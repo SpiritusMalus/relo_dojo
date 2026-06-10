@@ -136,7 +136,6 @@ export const STRINGS = {
     "offer.limitSub": "+20 exercises for the price of 10. Once only.",
     "offer.endsIn": "Ends in {time}",
 
-    "topics.title": "Topics",
     "topics.all": "All grammar topics",
     "topics.adapts": "Difficulty still adapts to you.",
 
@@ -329,7 +328,6 @@ export const STRINGS = {
     "offer.limitSub": "+20 упражнений по цене 10. Только один раз.",
     "offer.endsIn": "Закончится через {time}",
 
-    "topics.title": "Темы",
     "topics.all": "Все темы грамматики",
     "topics.adapts": "Сложность по-прежнему подстраивается под тебя.",
 
