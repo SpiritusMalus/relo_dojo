@@ -14,6 +14,7 @@ import {
   type ResponseValue,
 } from "../services/api";
 import { useProgress } from "./progress";
+import { useWallet } from "./wallet";
 import { cefrMidpoint, effectiveSkill, isCefr, levelToCefr, updateSkill } from "./adaptive";
 import { captureMistake } from "./mistakes";
 
@@ -24,10 +25,13 @@ export type Result = {
   detail?: string;
   explanation?: string;
   tip?: string;
+  coins_earned?: number; // koku earned (authenticated + correct only)
+  coins?: number | null; // new server koku balance after the award
 };
 
 export function useExerciseCheck() {
   const { progress, recordAnswer } = useProgress();
+  const { applyCheckReward } = useWallet();
   // Latest progress for selecting/grading without stale closures.
   const progressRef = useRef(progress);
   progressRef.current = progress;
@@ -50,6 +54,8 @@ export function useExerciseCheck() {
           ? await checkInteractive(exercise.token, response)
           : await checkFreeText(exercise.text, String(response));
         setResult(res);
+        // Koku earned server-side on a correct answer — patch the cached wallet balance.
+        applyCheckReward(res.coins);
         if (!res.correct) {
           onWrong?.();
           // Remember the exact missed item so it can be resurfaced in Review (fire-and-forget).
@@ -74,7 +80,7 @@ export function useExerciseCheck() {
         setChecking(false);
       }
     },
-    [recordAnswer]
+    [recordAnswer, applyCheckReward]
   );
 
   // On-demand teaching note for an interactive miss.

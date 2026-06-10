@@ -115,6 +115,10 @@ class CheckOut(BaseModel):
     correct_answer: str
     score: float = 1.0  # fraction right (0..1); partial credit for multi-element types
     detail: str = ""  # e.g. "2/3" for multi-element answers; "" for single-answer types
+    # Koku earned for this answer (authenticated + correct only) and the new balance.
+    # 0 / None for anonymous callers — fully backward compatible.
+    coins_earned: int = 0
+    coins: Optional[int] = None
 
 
 # --- free-text check (LLM) ---
@@ -168,6 +172,23 @@ class UserOut(BaseModel):
     id: str
     email: EmailStr
     is_verified: bool = False
+    is_premium: bool = False
+    coins: int = 0
+    freezes: int = 0
+
+
+# --- economy: koku wallet ---
+class WalletOut(BaseModel):
+    coins: int = 0
+    freezes: int = 0
+    is_premium: bool = False
+
+
+class SpendIn(BaseModel):
+    """Spend koku (or consume an owned item). `item` is validated against the server catalog."""
+
+    item: str = Field(min_length=1, max_length=40)
+    qty: int = Field(default=1, ge=1, le=10)
 
 
 class MessageOut(BaseModel):

@@ -50,6 +50,13 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_SSL: bool = False  # True → implicit TLS (port 465); False → STARTTLS (port 587)
 
+    # --- Economy (koku wallet) ---
+    # Koku awarded per correct /check answer for authenticated users (server-authoritative;
+    # variable bonus arrives with the variable-rewards branch).
+    COIN_REWARD_CORRECT: int = 2
+    # Shop prices, in koku.
+    PRICE_OMAMORI: int = 150  # streak-freeze charm
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]

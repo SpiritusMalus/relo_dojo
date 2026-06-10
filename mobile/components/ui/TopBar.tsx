@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { useTheme, type Belt } from "../../theme/theme";
 import BeltKnot from "./BeltKnot";
 import BeltPickerSheet from "./BeltPickerSheet";
+import CoinBadge from "./CoinBadge";
 import Txt from "./Txt";
 
 // Top bar shared by tabbed screens: belt knot + CEFR (tap → belt sheet); streak + XP badges.
@@ -25,6 +26,7 @@ export default function TopBar({ belt, streak, xp }: { belt: Belt; streak: numbe
       </Pressable>
 
       <View style={styles.right}>
+        <CoinBadge />
         <View style={[styles.badge, { backgroundColor: t.c.fireSoft }]}>
           <Txt variant="caption" color={t.c.fire}>{`🔥 ${streak}`}</Txt>
         </View>

@@ -30,6 +30,16 @@ class User(Base):
     # Lets the backend enforce the "starter only" gate, not just the client.
     starter_day: Mapped[str] = mapped_column(String(10), nullable=False, server_default="")
     starter_used: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    # --- Economy (monetization plan, branch 1) ---
+    # Premium ("Black Belt") entitlement. Set manually / by a payment provider later — the flag is
+    # the single source of truth the rest of the gating reads.
+    is_premium: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # Soft currency ("koku"). Server-authoritative: earned only via /check on a correct answer,
+    # spent only via /wallet/spend — the client can never set a balance directly.
+    coins: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    # Streak-freeze charms ("omamori") owned. Bought in the shop; consumed by the client's streak
+    # logic via /wallet/spend (item="use_freeze").
+    freezes: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
