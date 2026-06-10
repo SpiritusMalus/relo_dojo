@@ -146,6 +146,8 @@ export type CheckResult = {
   correct_answer: string;
   score?: number; // fraction right (0..1); partial credit for multi-element types
   detail?: string; // e.g. "2/3" for multi-element answers; "" otherwise
+  coins_earned?: number; // koku earned for this answer (authenticated + correct only)
+  coins?: number | null; // new server balance after the award; null/absent for anonymous
 };
 export type ExplainResult = { explanation: string; tip: string };
 export type TextCheckResult = CheckResult & ExplainResult;
@@ -213,7 +215,14 @@ export function explain(
 }
 
 // --- accounts & progress sync (Phase 4) ---
-export type AuthUser = { id: string; email: string; is_verified: boolean };
+export type AuthUser = {
+  id: string;
+  email: string;
+  is_verified: boolean;
+  is_premium?: boolean;
+  coins?: number;
+  freezes?: number;
+};
 type TokenResp = { access_token: string; token_type: string };
 
 export function register(email: string, password: string): Promise<TokenResp> {
@@ -231,6 +240,20 @@ export function getMe(): Promise<AuthUser> {
 // Resend the account-activation email to the logged-in user.
 export function requestVerification(): Promise<{ message: string }> {
   return request<{ message: string }>("/auth/request-verification", {}, "POST");
+}
+
+// --- economy: koku wallet (server-authoritative) ---
+export type Wallet = { coins: number; freezes: number; is_premium: boolean };
+// Catalog item ids understood by POST /wallet/spend (must match backend services/wallet.py).
+export type SpendItem = "omamori" | "use_freeze";
+
+export function getWallet(): Promise<Wallet> {
+  return request<Wallet>("/wallet", undefined, "GET");
+}
+
+// Buy/consume a catalog item. Throws ApiError 409 when the balance is insufficient.
+export function spendItem(item: SpendItem, qty = 1): Promise<Wallet> {
+  return request<Wallet>("/wallet/spend", { item, qty });
 }
 
 export function getProgress(): Promise<Progress> {

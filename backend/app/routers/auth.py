@@ -72,7 +72,14 @@ async def login(payload: LoginIn, db: AsyncSession = Depends(get_db)) -> TokenOu
 
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)) -> UserOut:
-    return UserOut(id=str(user.id), email=user.email, is_verified=user.is_verified)
+    return UserOut(
+        id=str(user.id),
+        email=user.email,
+        is_verified=user.is_verified,
+        is_premium=user.is_premium,
+        coins=user.coins,
+        freezes=user.freezes,
+    )
 
 
 @router.post("/request-verification", response_model=MessageOut)

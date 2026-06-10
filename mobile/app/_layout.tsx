@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { AuthProvider, useAuth } from "../store/auth";
 import { ProgressProvider, useProgress } from "../store/progress";
+import { WalletProvider } from "../store/wallet";
 import { I18nProvider } from "../store/i18n";
 import { ThemeProvider, fontMap } from "../theme/theme";
 
@@ -63,9 +64,11 @@ export default function RootLayout() {
     <ThemeProvider>
       <I18nProvider>
         <AuthProvider>
-          <ProgressProvider>
-            <RootNav />
-          </ProgressProvider>
+          <WalletProvider>
+            <ProgressProvider>
+              <RootNav />
+            </ProgressProvider>
+          </WalletProvider>
         </AuthProvider>
       </I18nProvider>
     </ThemeProvider>

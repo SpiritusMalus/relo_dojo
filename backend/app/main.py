@@ -27,6 +27,7 @@ from .db.models import User
 from .deps import get_current_user_optional, get_db
 from .routers import auth as auth_router
 from .routers import progress as progress_router
+from .routers import wallet as wallet_router
 from .schemas import (
     AnalyzeIn,
     AnalyzeOut,
@@ -44,6 +45,7 @@ from .schemas import (
     StoryOut,
 )
 from .services import gating, grammar, stories, tokens
+from .services import wallet as wallet_service
 from .services.ollama_client import OllamaError, generate
 
 app = FastAPI(title="Grammar Dojo API", version="0.4.0")
@@ -58,6 +60,7 @@ app.add_middleware(
 
 app.include_router(auth_router.router)
 app.include_router(progress_router.router)
+app.include_router(wallet_router.router)
 
 
 @app.get("/health")
@@ -115,14 +118,24 @@ async def story(
 
 
 @app.post("/check", response_model=CheckOut)
-def check(payload: CheckIn) -> CheckOut:
-    """Deterministic grade for interactive types. No LLM — instant and reliable."""
+async def check(
+    payload: CheckIn,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+) -> CheckOut:
+    """Deterministic grade for interactive types. No LLM — instant and reliable.
+
+    Economy: a correct answer earns koku for authenticated callers (server-authoritative —
+    the wallet can only grow here, never via the client). Anonymous callers grade as before."""
     try:
         sealed = tokens.unseal(payload.token)
     except tokens.TokenError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     result = grammar.grade(sealed, payload.response)
-    return CheckOut(**result)
+    coins_earned, coins = 0, None
+    if result.get("correct"):
+        coins_earned, coins = await wallet_service.award_correct_check(user, db)
+    return CheckOut(**result, coins_earned=coins_earned, coins=coins)
 
 
 @app.post("/check-answer", response_model=CheckTextOut)
