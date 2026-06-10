@@ -77,6 +77,8 @@ export const STRINGS = {
     "login.newHere": "New here? Create an account",
     "login.gmailBlocked": "Sorry, Gmail isn't allowed for sign-up in Russia.",
 
+    "settings.title": "Settings",
+    "settings.account": "Account",
     "settings.dark": "Dark mode",
     "settings.language": "Language",
     "settings.redoOnboarding": "Redo onboarding",
@@ -275,6 +277,8 @@ export const STRINGS = {
     "login.newHere": "Впервые здесь? Создать аккаунт",
     "login.gmailBlocked": "Извините, gmail запрещён в России для регистрации",
 
+    "settings.title": "Настройки",
+    "settings.account": "Аккаунт",
     "settings.dark": "Тёмная тема",
     "settings.language": "Язык",
     "settings.redoOnboarding": "Пройти онбординг заново",
