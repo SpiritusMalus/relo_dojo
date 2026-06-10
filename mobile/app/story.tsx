@@ -9,7 +9,8 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } 
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getStory, type ResponseValue, type StorySet } from "../services/api";
+import { gateKind, getStory, type ResponseValue, type StorySet } from "../services/api";
+import ActivationBanner from "../components/ui/ActivationBanner";
 import ExerciseCard from "../components/ExerciseCard";
 import ResultPanel from "../components/ResultPanel";
 import { useProgress, XP_PER_CORRECT } from "../store/progress";
@@ -39,6 +40,7 @@ export default function StoryScreen() {
   const [story, setStory] = useState<StorySet | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [gated, setGated] = useState(false); // 403: account gate → activation prompt, not an error
   const [beatIndex, setBeatIndex] = useState(0);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [responseDisplay, setResponseDisplay] = useState("");
@@ -51,6 +53,7 @@ export default function StoryScreen() {
   const loadStory = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    setGated(false);
     reset();
     setResponse(null);
     setResponseDisplay("");
@@ -65,7 +68,9 @@ export default function StoryScreen() {
       const context = buildContext(progress.profile);
       setStory(await getStory({ level, context }));
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Failed to load the story");
+      // Stories are verified-only on the server; any 403 here is an account gate, not an error.
+      if (gateKind(e)) setGated(true);
+      else setLoadError(e instanceof Error ? e.message : "Failed to load the story");
     } finally {
       setLoading(false);
     }
@@ -144,6 +149,16 @@ export default function StoryScreen() {
             <Sensei size={88} mood="think" bob />
             <ActivityIndicator color={t.c.accent} />
             <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(0)}</Txt>
+          </View>
+        )}
+
+        {gated && !loading && (
+          <View style={{ gap: 12, marginTop: 20 }}>
+            <ActivationBanner />
+            <Txt variant="secondary" color={t.c.ink3} style={{ textAlign: "center" }}>
+              {tr("activate.lockedMsg")}
+            </Txt>
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadStory} />
           </View>
         )}
 

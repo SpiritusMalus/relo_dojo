@@ -3,7 +3,7 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } 
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ApiError, type Exercise, type ResponseValue } from "../services/api";
+import { gateKind, type Exercise, type ResponseValue } from "../services/api";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ActivationBanner from "../components/ui/ActivationBanner";
 import LimitSheet from "../components/ui/LimitSheet";
@@ -103,15 +103,15 @@ export default function PracticeScreen() {
       setExercise(await queueRef.current!.next());
       setRound((r) => r + 1);
     } catch (e) {
-      // 403 routes by code: "daily_limit" (verified free tier) → limit sheet with the upsell;
-      // anything else (starter/activation) → the activation prompt. Never a raw error.
-      if (e instanceof ApiError && e.status === 403) {
-        if (e.code === "daily_limit") {
-          setLimited(true);
-          // Trigger: first limit hit ever → open the one-shot 48h double-pack offer.
-          void ensureOffer("limit48");
-        } else setGated(true);
-      } else setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
+      // 403 routes by gate kind: "limit" → limit sheet with the upsell; "gated" → the activation
+      // prompt. Never a raw error.
+      const gate = gateKind(e);
+      if (gate === "limit") {
+        setLimited(true);
+        // Trigger: first limit hit ever → open the one-shot 48h double-pack offer.
+        void ensureOffer("limit48");
+      } else if (gate === "gated") setGated(true);
+      else setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
       setLoading(false);
     }

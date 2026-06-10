@@ -57,6 +57,15 @@ export class ApiError extends Error {
   }
 }
 
+// Classify a failed load by gate type so every mode (Practice, Challenge, Story) routes the same
+// way: "limit" = verified free tier hit the daily cap (→ LimitSheet upsell); "gated" = any other
+// 403 (starter limit / unverified account → activation prompt); null = not a gate (real error).
+export type GateKind = "limit" | "gated" | null;
+export function gateKind(e: unknown): GateKind {
+  if (!(e instanceof ApiError) || e.status !== 403) return null;
+  return e.code === "daily_limit" ? "limit" : "gated";
+}
+
 // LLM calls (/explain) can be slow on a cold model, but never hang forever — fail clearly instead.
 const REQUEST_TIMEOUT_MS = 90000;
 // A mini-story generates 3 exercises in sequence (each may retry), so it needs more headroom.

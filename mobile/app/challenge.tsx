@@ -9,9 +9,13 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } 
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { type Exercise, type ResponseValue } from "../services/api";
+import { gateKind, type Exercise, type ResponseValue } from "../services/api";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
+import ActivationBanner from "../components/ui/ActivationBanner";
+import LimitSheet from "../components/ui/LimitSheet";
 import ExerciseCard from "../components/ExerciseCard";
+import { beltProgress } from "../store/dojo";
+import { ensureOffer } from "../store/offers";
 import { useProgress } from "../store/progress";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
@@ -64,6 +68,8 @@ export default function ChallengeScreen() {
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [limited, setLimited] = useState(false); // 403 "daily_limit": free-tier cap → upsell sheet
+  const [gated, setGated] = useState(false); // 403 starter/activation → activation prompt
 
   const [timeLeft, setTimeLeft] = useState(CHALLENGE_SECONDS);
   const [score, setScore] = useState(0);
@@ -87,6 +93,8 @@ export default function ChallengeScreen() {
   const loadExercise = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setLimited(false);
+    setGated(false);
     reset();
     setResponse(null);
     setExercise(null);
@@ -95,20 +103,28 @@ export default function ChallengeScreen() {
       setRound((r) => r + 1);
       setPhase("solving");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load exercise");
+      // Same routing as Practice: the daily cap and the activation gate are product states, not
+      // errors — show the sheet/prompt (and pause the clock) instead of a raw failure.
+      const gate = gateKind(e);
+      if (gate === "limit") {
+        setLimited(true);
+        void ensureOffer("limit48");
+      } else if (gate === "gated") setGated(true);
+      else setError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
       setLoading(false);
     }
   }, [reset]);
 
   // Countdown: only ticks while the learner is actively solving / reading feedback, so a slow fetch
-  // (cold model) doesn't eat the clock. Hitting zero ends the run.
+  // (cold model), an error, or a gate sheet doesn't eat the clock. Hitting zero ends the run.
   useEffect(() => {
     if (phase !== "solving" && phase !== "feedback") return;
+    if (loading || error || limited || gated) return;
     if (timeLeft <= 0) return;
     const id = setTimeout(() => setTimeLeft((s) => s - 1), 1000);
     return () => clearTimeout(id);
-  }, [phase, timeLeft]);
+  }, [phase, timeLeft, loading, error, limited, gated]);
 
   const finish = useCallback(async () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
@@ -252,6 +268,26 @@ export default function ChallengeScreen() {
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
             <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round)}</Txt>
+          </View>
+        )}
+
+        {/* Daily cap mid-run: the clock is paused; buying a pack resumes, or bail out with the
+            score earned so far. */}
+        {limited && !loading && (
+          <View style={{ gap: 12, marginTop: 20 }}>
+            <LimitSheet belt={beltProgress(progress).belt} onUnlocked={loadExercise} />
+            <Button label={tr("ch.backHome")} variant="ghost" onPress={() => router.back()} />
+          </View>
+        )}
+
+        {gated && !loading && (
+          <View style={{ gap: 12, marginTop: 20 }}>
+            <ActivationBanner />
+            <Txt variant="secondary" color={t.c.ink3} style={{ textAlign: "center" }}>
+              {tr("activate.lockedMsg")}
+            </Txt>
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadExercise} />
+            <Button label={tr("ch.backHome")} variant="ghost" onPress={() => router.back()} />
           </View>
         )}
 
