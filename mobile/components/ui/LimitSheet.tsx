@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
+import { useRouter } from "expo-router";
 import { useI18n } from "../../store/i18n";
 import { EXTRA_PACK_SIZE, PRICE_EXTRA_PACK, useWallet } from "../../store/wallet";
 import { useTheme } from "../../theme/theme";
@@ -15,6 +16,7 @@ import type { Belt } from "../../theme/theme";
 export default function LimitSheet({ belt, onUnlocked }: { belt: Belt; onUnlocked: () => void }) {
   const t = useTheme();
   const { t: tr } = useI18n();
+  const router = useRouter();
   const { coins, spend } = useWallet();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,8 +63,8 @@ export default function LimitSheet({ belt, onUnlocked }: { belt: Belt; onUnlocke
               {tr("limit.notEnough", { coins })}
             </Txt>
           )}
-          {/* Premium teaser — the subscription screen ships with the paywall branch. */}
-          <Button label={tr("limit.premiumSoon")} variant="ghost" disabled />
+          {/* The other way out: the Black Belt pitch, served exactly at the blocked moment. */}
+          <Button label={tr("limit.premium")} variant="ghost" onPress={() => router.push("/premium")} />
         </View>
 
         {error && (

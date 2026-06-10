@@ -22,9 +22,11 @@ import Button from "../components/ui/Button";
 import Icon from "../components/ui/Icon";
 import Txt from "../components/ui/Txt";
 import ProgressBar from "../components/ui/ProgressBar";
+import Card from "../components/ui/Card";
 import Confetti from "../components/ui/Confetti";
 import Scroll from "../components/ui/Scroll";
 import { boostActive } from "../store/progress";
+import { useWallet } from "../store/wallet";
 
 const SESSION_LEN = 10;
 
@@ -73,7 +75,12 @@ export default function PracticeScreen() {
   const [gated, setGated] = useState(false); // 403: account not activated / starter limit reached
   const [limited, setLimited] = useState(false); // 403 "daily_limit": free-tier cap → upsell sheet
   const [solved, setSolved] = useState(0);
-  const [showScroll, setShowScroll] = useState(false); // end-of-session reward scroll
+  const [sessionCorrect, setSessionCorrect] = useState(0);
+  const [showScroll, setShowScroll] = useState(false); // end-of-session summary + reward scroll
+  const { isPremium } = useWallet();
+  // XP at session start — the summary shows the delta (combo/boost included automatically).
+  const startXpRef = useRef<number | null>(null);
+  if (startXpRef.current === null) startXpRef.current = progress.xp;
   const error = loadError ?? checkError;
 
   const shake = useRef(new Animated.Value(0)).current;
@@ -133,7 +140,10 @@ export default function PracticeScreen() {
   async function onCheck() {
     if (!exercise || response === null || checking) return;
     const res = await check(exercise, response, runShake);
-    if (res) setSolved((s) => s + 1);
+    if (res) {
+      setSolved((s) => s + 1);
+      if (res.correct) setSessionCorrect((c) => c + 1);
+    }
   }
 
   function onExplain() {
@@ -200,8 +210,23 @@ export default function PracticeScreen() {
         )}
 
         {showScroll && (
-          <View style={{ marginTop: 20 }}>
+          <View style={{ marginTop: 20, gap: 14 }}>
+            {/* Session summary — the peak-end beat: stats, then the scroll, then the pitch. */}
+            <Card>
+              <View style={{ alignItems: "center", gap: 6, paddingVertical: 4 }}>
+                <Txt variant="bodyStrong">{tr("summary.title")}</Txt>
+                <Txt variant="body" color={t.c.ink2}>
+                  {tr("summary.stats", { correct: sessionCorrect, total: solved })}
+                </Txt>
+                <Txt variant="bodyStrong" color={t.c.gold}>
+                  {tr("summary.xp", { n: progress.xp - (startXpRef.current ?? progress.xp) })}
+                </Txt>
+              </View>
+            </Card>
             <Scroll onDone={() => router.back()} />
+            {!isPremium && (
+              <Button label={tr("limit.premium")} variant="ghost" onPress={() => router.push("/premium")} />
+            )}
           </View>
         )}
 

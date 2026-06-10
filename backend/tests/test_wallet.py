@@ -59,6 +59,14 @@ async def test_award_anonymous_is_zero():
     assert db.commits == 0  # nothing written for anonymous callers
 
 
+async def test_award_doubles_for_premium():
+    db = _FakeDB(scalar=4)
+    u = _user()
+    u.is_premium = True
+    earned, _ = await wallet.award_correct_check(u, db)
+    assert earned == settings.COIN_REWARD_CORRECT * 2  # Black Belt perk
+
+
 async def test_award_credits_and_returns_new_balance():
     db = _FakeDB(scalar=42)
     earned, balance = await wallet.award_correct_check(_user(), db)

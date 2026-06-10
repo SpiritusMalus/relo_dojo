@@ -36,7 +36,8 @@ async def award_correct_check(user: User | None, db: AsyncSession) -> tuple[int,
     Returns (earned, new_balance); (0, None) for anonymous callers."""
     if user is None:
         return 0, None
-    earned = settings.COIN_REWARD_CORRECT
+    # Black Belt perk: double koku per correct answer.
+    earned = settings.COIN_REWARD_CORRECT * (2 if user.is_premium else 1)
     res = await db.execute(
         update(User)
         .where(User.id == user.id)

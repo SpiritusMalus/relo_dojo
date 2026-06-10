@@ -58,7 +58,9 @@ async def grant_scroll(user: User, db: AsyncSession, rng: _Rng = random) -> dict
     if user.scroll_day != today:
         user.scroll_day = today
         user.scrolls_used = 0
-    if user.scrolls_used >= settings.SCROLLS_PER_DAY:
+    # Black Belt perk: double the daily scroll cap.
+    cap = settings.SCROLLS_PER_DAY * (2 if getattr(user, "is_premium", False) else 1)
+    if user.scrolls_used >= cap:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "scroll_limit", "message": "No more scrolls today — the dojo rests."},
