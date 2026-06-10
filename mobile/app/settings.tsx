@@ -87,6 +87,14 @@ export default function SettingsScreen() {
             </Txt>
           </Pressable>
         </Card>
+
+        {/* Secondary door to the Lavka, for people who look for "where do I spend koku" here. */}
+        <Button
+          label={`🌾 ${tr("btn.shop.title")}`}
+          variant="ghost"
+          uppercase={false}
+          onPress={() => router.push("/shop")}
+        />
       </ScrollView>
     </View>
   );

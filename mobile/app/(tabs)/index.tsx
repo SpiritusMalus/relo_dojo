@@ -19,6 +19,7 @@ import DailyMixButton from "../../components/ui/DailyMixButton";
 import StoryButton from "../../components/ui/StoryButton";
 import ChallengeButton from "../../components/ui/ChallengeButton";
 import ReviewButton from "../../components/ui/ReviewButton";
+import ShopButton from "../../components/ui/ShopButton";
 import { mistakeCount } from "../../store/mistakes";
 import Sensei from "../../components/ui/Sensei";
 import ProgressBar from "../../components/ui/ProgressBar";
@@ -111,6 +112,9 @@ export default function HomeScreen() {
           <ReviewButton count={mistakes} onPress={() => router.push("/review")} />
         </LockGate>
       )}
+      {/* Named entry to the Lavka — the CoinBadge alone (a tappable balance) was too implicit.
+          Not gated: the server allows unverified accounts to spend koku they've earned. */}
+      <ShopButton onPress={() => router.push("/shop")} />
     </Screen>
   );
 }

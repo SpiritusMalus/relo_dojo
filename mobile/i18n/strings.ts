@@ -24,6 +24,8 @@ export const STRINGS = {
     "btn.story.sub": "A short themed set with a twist",
     "btn.challenge.title": "Daily Challenge",
     "btn.challenge.sub": "60 seconds · beat your best",
+    "btn.shop.title": "The Lavka",
+    "btn.shop.sub": "Spend koku: streak charms & extra packs",
 
     "action.check": "Check",
     "action.checking": "Checking…",
@@ -224,6 +226,8 @@ export const STRINGS = {
     "btn.story.sub": "Короткий сюжетный набор с изюминкой",
     "btn.challenge.title": "Челлендж дня",
     "btn.challenge.sub": "60 секунд · побей рекорд",
+    "btn.shop.title": "Лавка",
+    "btn.shop.sub": "Трать коку: омамори и доп. подходы",
 
     "action.check": "Проверить",
     "action.checking": "Проверяем…",
