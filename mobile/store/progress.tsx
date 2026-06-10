@@ -30,6 +30,12 @@ const STORAGE_KEY = "grammar-dojo/progress/v1";
 
 export const XP_PER_CORRECT = 10;
 export const XP_PER_LEVEL = 100;
+// Combo: every COMBO_EVERY-th correct answer in a row drops a bonus — the run becomes a stake.
+export const COMBO_EVERY = 5;
+export const COMBO_BONUS_XP = 20;
+// "Kensei" boost (scroll rare drop): all XP doubles while the timer runs.
+export const BOOST_MINUTES = 15;
+export const BOOST_MULTIPLIER = 2;
 
 export type TopicStat = { attempts: number; correct: number; lastSeen?: string }; // lastSeen: local YYYY-MM-DD
 
@@ -58,6 +64,8 @@ export type Progress = {
   todayCount: number; // answers given today (for the daily goal)
   // A noticed streak break that can still be repaired for koku (see store/streak.ts). null = none.
   brokenStreak?: BrokenStreak | null;
+  // ISO timestamp until which the x2-XP "kensei" boost runs ("" = no boost).
+  boostUntil?: string;
 };
 
 export const DEFAULT_PROGRESS: Progress = {
@@ -74,7 +82,13 @@ export const DEFAULT_PROGRESS: Progress = {
   todayDate: "",
   todayCount: 0,
   brokenStreak: null,
+  boostUntil: "",
 };
+
+/** Is the x2-XP boost active at `now`? */
+export function boostActive(p: Progress, now: Date = new Date()): boolean {
+  return !!p.boostUntil && now.toISOString() < p.boostUntil;
+}
 
 // --- Derived helpers ---------------------------------------------------------
 
@@ -168,9 +182,14 @@ export function recordAnswer(
     dailyStreak = 1;
   }
 
+  // XP: base + combo bonus (every COMBO_EVERY-th in a row), doubled while the kensei boost runs.
+  const comboHit = correct && currentCorrectRun > 0 && currentCorrectRun % COMBO_EVERY === 0;
+  const mult = boostActive(prev, now) ? BOOST_MULTIPLIER : 1;
+  const earnedXp = correct ? (XP_PER_CORRECT + (comboHit ? COMBO_BONUS_XP : 0)) * mult : 0;
+
   const next: Progress = {
     ...prev,
-    xp: prev.xp + (correct ? XP_PER_CORRECT : 0),
+    xp: prev.xp + earnedXp,
     topics,
     currentCorrectRun,
     bestCorrectRun,
@@ -246,6 +265,8 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
         : b.todayCount,
     // Keep the later break event (or null when both sides are clean).
     brokenStreak: pickLaterBreak(a.brokenStreak ?? null, b.brokenStreak ?? null),
+    // Boost: the later expiry wins (ISO strings compare lexicographically).
+    boostUntil: (a.boostUntil ?? "") >= (b.boostUntil ?? "") ? a.boostUntil ?? "" : b.boostUntil ?? "",
   };
 }
 
@@ -270,6 +291,7 @@ async function load(): Promise<Progress> {
       skill: stored.skill ?? {},
       profile: stored.profile ?? null,
       brokenStreak: stored.brokenStreak ?? null,
+      boostUntil: stored.boostUntil ?? "",
     };
   } catch {
     return DEFAULT_PROGRESS;
@@ -297,6 +319,8 @@ type ProgressContextValue = {
   repairStreak: () => Promise<void>;
   /** Let the broken streak go (closes the repair offer). */
   dismissBrokenStreak: () => void;
+  /** Start the x2-XP "kensei" boost (scroll rare drop): BOOST_MINUTES from now. */
+  activateBoost: () => void;
 };
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
@@ -442,6 +466,16 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     });
   }, [schedulePush]);
 
+  const activateBoost = useCallback(() => {
+    setProgress((prev) => {
+      const until = new Date(Date.now() + BOOST_MINUTES * 60000).toISOString();
+      const next: Progress = { ...prev, boostUntil: until };
+      void save(next);
+      schedulePush(next);
+      return next;
+    });
+  }, [schedulePush]);
+
   const record = useCallback(
     (topic: string, correct: boolean, grade?: GradeSignal) => {
       setProgress((prev) => {
@@ -485,8 +519,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       resetOnboarding,
       repairStreak,
       dismissBrokenStreak,
+      activateBoost,
     }),
-    [progress, ready, synced, record, completeOnboarding, resetOnboarding, repairStreak, dismissBrokenStreak]
+    [progress, ready, synced, record, completeOnboarding, resetOnboarding, repairStreak, dismissBrokenStreak, activateBoost]
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

@@ -23,6 +23,8 @@ import Icon from "../components/ui/Icon";
 import Txt from "../components/ui/Txt";
 import ProgressBar from "../components/ui/ProgressBar";
 import Confetti from "../components/ui/Confetti";
+import Scroll from "../components/ui/Scroll";
+import { boostActive } from "../store/progress";
 
 const SESSION_LEN = 10;
 
@@ -71,6 +73,7 @@ export default function PracticeScreen() {
   const [gated, setGated] = useState(false); // 403: account not activated / starter limit reached
   const [limited, setLimited] = useState(false); // 403 "daily_limit": free-tier cap → upsell sheet
   const [solved, setSolved] = useState(0);
+  const [showScroll, setShowScroll] = useState(false); // end-of-session reward scroll
   const error = loadError ?? checkError;
 
   const shake = useRef(new Animated.Value(0)).current;
@@ -153,7 +156,9 @@ export default function PracticeScreen() {
         <View style={{ flex: 1, marginHorizontal: 14 }}>
           <ProgressBar pct={(Math.min(solved, SESSION_LEN) / SESSION_LEN) * 100} height={10} />
         </View>
-        <Txt variant="caption" color={t.c.fire}>{`🔥 ${progress.dailyStreak}`}</Txt>
+        <Txt variant="caption" color={t.c.fire}>
+          {`${boostActive(progress) ? "⚡x2 " : ""}🔥 ${progress.dailyStreak}`}
+        </Txt>
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
@@ -194,13 +199,19 @@ export default function PracticeScreen() {
           </View>
         )}
 
-        {exercise && !loading && (
+        {showScroll && (
+          <View style={{ marginTop: 20 }}>
+            <Scroll onDone={() => router.back()} />
+          </View>
+        )}
+
+        {exercise && !loading && !showScroll && (
           <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
             <ExerciseCard key={round} exercise={exercise} locked={!!result} onChange={onChange} />
           </Animated.View>
         )}
 
-        {result && exercise && (
+        {result && exercise && !showScroll && (
           <ResultPanel
             result={result}
             exercise={exercise}
@@ -215,10 +226,15 @@ export default function PracticeScreen() {
       {result?.correct && <Confetti />}
 
       {/* Sticky bottom action */}
-      {exercise && !loading && (
+      {exercise && !loading && !showScroll && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
           {result ? (
-            <Button label={tr("action.next")} onPress={loadExercise} />
+            // Session complete → the reward scroll is the closing beat; otherwise next card.
+            solved >= SESSION_LEN ? (
+              <Button label={tr("action.finish")} onPress={() => setShowScroll(true)} />
+            ) : (
+              <Button label={tr("action.next")} onPress={loadExercise} />
+            )
           ) : (
             <Button label={checking ? tr("action.checking") : tr("action.check")} onPress={onCheck} disabled={!canSubmit} />
           )}

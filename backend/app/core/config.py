@@ -69,6 +69,8 @@ class Settings(BaseSettings):
     REPAIR_BASE: int = 80
     REPAIR_PER_DAY: int = 2
     REPAIR_MAX: int = 300
+    # Scroll rewards (variable reinforcement): how many scrolls an account may open per UTC day.
+    SCROLLS_PER_DAY: int = 3
 
     @property
     def allowed_origins_list(self) -> list[str]:
