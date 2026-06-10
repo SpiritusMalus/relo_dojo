@@ -3,8 +3,9 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } 
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { type Exercise, type ResponseValue } from "../services/api";
+import { ApiError, type Exercise, type ResponseValue } from "../services/api";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
+import ActivationBanner from "../components/ui/ActivationBanner";
 import ExerciseCard from "../components/ExerciseCard";
 import ResultPanel from "../components/ResultPanel";
 import { useProgress } from "../store/progress";
@@ -65,6 +66,7 @@ export default function PracticeScreen() {
   const [responseDisplay, setResponseDisplay] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [gated, setGated] = useState(false); // 403: account not activated / starter limit reached
   const [solved, setSolved] = useState(0);
   const error = loadError ?? checkError;
 
@@ -73,6 +75,7 @@ export default function PracticeScreen() {
   const loadExercise = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    setGated(false);
     reset();
     setResponse(null);
     setResponseDisplay("");
@@ -85,7 +88,10 @@ export default function PracticeScreen() {
       setExercise(await queueRef.current!.next());
       setRound((r) => r + 1);
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
+      // 403 = account not verified / daily starter limit reached → show the activation prompt,
+      // not a raw error.
+      if (e instanceof ApiError && e.status === 403) setGated(true);
+      else setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
       setLoading(false);
     }
@@ -157,7 +163,17 @@ export default function PracticeScreen() {
           </View>
         )}
 
-        {error && !loading && (
+        {gated && !loading && (
+          <View style={{ marginTop: 20, gap: 12 }}>
+            <ActivationBanner />
+            <Txt variant="secondary" color={t.c.ink3} style={{ textAlign: "center" }}>
+              {tr("activate.lockedMsg")}
+            </Txt>
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadExercise} />
+          </View>
+        )}
+
+        {error && !gated && !loading && (
           <View style={{ gap: 12, marginTop: 20 }}>
             <Txt variant="body" color={t.c.bad} style={{ textAlign: "center" }}>
               {error}

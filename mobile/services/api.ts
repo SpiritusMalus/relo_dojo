@@ -44,6 +44,16 @@ export function setApiLang(lang: string): void {
 
 type Method = "GET" | "POST" | "PUT";
 
+// Error that carries the HTTP status so callers can react (e.g. 403 → account not activated).
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 // LLM calls (/explain) can be slow on a cold model, but never hang forever — fail clearly instead.
 const REQUEST_TIMEOUT_MS = 90000;
 // A mini-story generates 3 exercises in sequence (each may retry), so it needs more headroom.
@@ -92,7 +102,7 @@ async function request<T>(
     } catch {
       // non-JSON error body — keep the generic message
     }
-    throw new Error(detail);
+    throw new ApiError(detail, res.status);
   }
   return (await res.json()) as T;
 }
