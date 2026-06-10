@@ -9,6 +9,11 @@ Catalog items:
 - "use_freeze"  consume an owned charm (streak logic, branch 3): freezes -= qty, no coin cost
 - "extra_pack"  +EXTRA_PACK_SIZE exercises for TODAY (free tier): coins -= PRICE_EXTRA_PACK * qty,
                 today's used-counter -= size (may go negative = extra headroom; resets next day)
+- "streak_repair"  buy back a broken daily streak; qty = the LOST streak length, price =
+                min(REPAIR_BASE + REPAIR_PER_DAY * qty, REPAIR_MAX). The streak itself lives in the
+                client progress snapshot; the server only charges. (Known limit: qty is
+                client-reported — understating it lowers the price. Acceptable while the snapshot
+                is client-owned JSONB; tighten if the streak ever moves server-side.)
 """
 
 from __future__ import annotations
@@ -76,6 +81,14 @@ async def spend(user: User, db: AsyncSession, item: str, qty: int) -> User:
         await db.commit()
         await db.refresh(user)
         return user
+    elif item == "streak_repair":
+        cost = min(settings.REPAIR_BASE + settings.REPAIR_PER_DAY * qty, settings.REPAIR_MAX)
+        stmt = (
+            update(User)
+            .where(User.id == user.id, User.coins >= cost)
+            .values(coins=User.coins - cost)
+        )
+        short = _NOT_ENOUGH
     elif item == "use_freeze":
         stmt = (
             update(User)

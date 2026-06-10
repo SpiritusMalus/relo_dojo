@@ -91,6 +91,12 @@ export const STRINGS = {
     "limit.premiumSoon": "Black Belt — unlimited (soon)",
     "home.leftToday": "{n} exercises left today",
 
+    "streak.brokenTitle": "Your {n}-day streak has snapped",
+    "streak.brokenSub": "Sensei: discipline slipped for a day. An extra practice with me can restore the path.",
+    "streak.repair": "Practice with Sensei — {price} 🌾",
+    "streak.repairing": "Restoring the path…",
+    "streak.letGo": "Let it go",
+
     "topics.title": "Topics",
     "topics.all": "All grammar topics",
     "topics.adapts": "Difficulty still adapts to you.",
@@ -238,6 +244,12 @@ export const STRINGS = {
     "limit.notEnough": "Не хватает коку ({coins} 🌾). Заработай их верными ответами.",
     "limit.premiumSoon": "Чёрный пояс — безлимит (скоро)",
     "home.leftToday": "Осталось сегодня: {n}",
+
+    "streak.brokenTitle": "Серия из {n} дней оборвалась",
+    "streak.brokenSub": "Сэнсэй: дисциплина дрогнула на один день. Отработка со мной может восстановить путь.",
+    "streak.repair": "Отработка у Сэнсэя — {price} 🌾",
+    "streak.repairing": "Восстанавливаем путь…",
+    "streak.letGo": "Отпустить",
 
     "topics.title": "Темы",
     "topics.all": "Все темы грамматики",

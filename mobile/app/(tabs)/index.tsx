@@ -11,6 +11,7 @@ import { useTheme } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
 import ActivationBanner from "../../components/ui/ActivationBanner";
+import StreakRepairSheet from "../../components/ui/StreakRepairSheet";
 import LockGate from "../../components/ui/LockGate";
 import DailyMixButton from "../../components/ui/DailyMixButton";
 import StoryButton from "../../components/ui/StoryButton";
@@ -56,6 +57,9 @@ export default function HomeScreen() {
       <TopBar belt={bp.belt} streak={progress.dailyStreak} xp={progress.xp} />
 
       <ActivationBanner />
+
+      {/* Broken-streak repair offer (loss aversion): visible while the repair window is open */}
+      <StreakRepairSheet belt={bp.belt} />
 
       {/* Belt hero — background is the current belt colour */}
       <LinearGradient

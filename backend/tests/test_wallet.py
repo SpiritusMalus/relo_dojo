@@ -28,8 +28,13 @@ class _FakeDB:
         self.rollbacks = 0
         self.refreshed = False
 
-    async def execute(self, stmt):  # noqa: ANN001 — SQLAlchemy statement, unused in the fake
+    async def execute(self, stmt):  # noqa: ANN001 — SQLAlchemy statement
+        self.last_stmt = stmt
         return _FakeResult(self.rowcount, self.scalar)
+
+    def last_params(self) -> dict:
+        """Compiled bind params of the last statement (e.g. the koku amount debited)."""
+        return dict(self.last_stmt.compile().params)
 
     async def commit(self) -> None:
         self.commits += 1
@@ -106,6 +111,21 @@ async def test_extra_pack_insufficient_koku_is_409():
         await wallet.spend(user, db, "extra_pack", 1)
     assert getattr(exc.value, "status_code", None) == 409
     assert user.starter_used == 0  # quota untouched when the debit fails
+
+
+async def test_streak_repair_charges_price_scaled_by_lost_streak():
+    db = _FakeDB(rowcount=1)
+    await wallet.spend(_user(), db, "streak_repair", 30)  # qty = lost streak length
+    assert db.commits == 1
+    debited = [v for v in db.last_params().values() if isinstance(v, int)]
+    assert settings.REPAIR_BASE + settings.REPAIR_PER_DAY * 30 in debited
+
+
+async def test_streak_repair_price_caps_at_max():
+    db = _FakeDB(rowcount=1)
+    await wallet.spend(_user(), db, "streak_repair", 400)  # absurdly long streak
+    debited = [v for v in db.last_params().values() if isinstance(v, int)]
+    assert settings.REPAIR_MAX in debited
 
 
 async def test_use_freeze_without_charms_is_409():

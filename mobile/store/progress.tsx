@@ -16,7 +16,15 @@ import {
 } from "react";
 import { getProgress, putProgress } from "../services/api";
 import { useAuth } from "./auth";
+import { useWallet } from "./wallet";
 import { updateSkill } from "./adaptive";
+import {
+  MIN_REPAIRABLE_STREAK,
+  repairOpen,
+  streakStatus,
+  yesterdayOf,
+  type BrokenStreak,
+} from "./streak";
 
 const STORAGE_KEY = "grammar-dojo/progress/v1";
 
@@ -48,6 +56,8 @@ export type Progress = {
   profile: Profile | null;
   todayDate: string; // local YYYY-MM-DD of the current day's counter
   todayCount: number; // answers given today (for the daily goal)
+  // A noticed streak break that can still be repaired for koku (see store/streak.ts). null = none.
+  brokenStreak?: BrokenStreak | null;
 };
 
 export const DEFAULT_PROGRESS: Progress = {
@@ -63,6 +73,7 @@ export const DEFAULT_PROGRESS: Progress = {
   profile: null,
   todayDate: "",
   todayCount: 0,
+  brokenStreak: null,
 };
 
 // --- Derived helpers ---------------------------------------------------------
@@ -143,12 +154,18 @@ export function recordAnswer(
   const bestCorrectRun = Math.max(prev.bestCorrectRun, currentCorrectRun);
 
   let dailyStreak: number;
+  let brokenStreak: BrokenStreak | null = prev.brokenStreak ?? null;
   if (prev.lastActiveDate === today) {
     dailyStreak = prev.dailyStreak; // already counted today
   } else if (isYesterday(prev.lastActiveDate, now)) {
     dailyStreak = prev.dailyStreak + 1;
   } else {
-    dailyStreak = 1; // first ever, or a gap broke the streak
+    // First ever, or a gap broke the streak. A streak worth repairing becomes a visible BREAK
+    // event (repair offer, store/streak.ts) instead of vanishing silently — the loss must be felt.
+    if (prev.dailyStreak >= MIN_REPAIRABLE_STREAK && prev.lastActiveDate && !brokenStreak) {
+      brokenStreak = { streak: prev.dailyStreak, date: today };
+    }
+    dailyStreak = 1;
   }
 
   const next: Progress = {
@@ -158,6 +175,7 @@ export function recordAnswer(
     currentCorrectRun,
     bestCorrectRun,
     dailyStreak,
+    brokenStreak,
     lastActiveDate: today,
     // Adaptive level update uses prior attempts (prev), so compute before the increment is "seen".
     // Prefer the partial score + served difficulty when available (difficulty-aware update);
@@ -226,7 +244,15 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
         : a.todayDate > b.todayDate
         ? a.todayCount
         : b.todayCount,
+    // Keep the later break event (or null when both sides are clean).
+    brokenStreak: pickLaterBreak(a.brokenStreak ?? null, b.brokenStreak ?? null),
   };
+}
+
+function pickLaterBreak(a: BrokenStreak | null, b: BrokenStreak | null): BrokenStreak | null {
+  if (!a) return b;
+  if (!b) return a;
+  return a.date >= b.date ? a : b;
 }
 
 // --- Persistence -------------------------------------------------------------
@@ -243,6 +269,7 @@ async function load(): Promise<Progress> {
       topics: stored.topics ?? {},
       skill: stored.skill ?? {},
       profile: stored.profile ?? null,
+      brokenStreak: stored.brokenStreak ?? null,
     };
   } catch {
     return DEFAULT_PROGRESS;
@@ -266,12 +293,17 @@ type ProgressContextValue = {
   recordAnswer: (topic: string, correct: boolean, grade?: GradeSignal) => void;
   completeOnboarding: (profile: Profile, skill: Record<string, number>) => void;
   resetOnboarding: () => void;
+  /** Buy back the broken streak ("отработка у Сэнсэя"). Charges koku server-side; throws on 409. */
+  repairStreak: () => Promise<void>;
+  /** Let the broken streak go (closes the repair offer). */
+  dismissBrokenStreak: () => void;
 };
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
   const { token, ready: authReady } = useAuth();
+  const { freezes, spend, ready: walletReady } = useWallet();
   const [progress, setProgress] = useState<Progress>(DEFAULT_PROGRESS);
   const [ready, setReady] = useState(false);
   // Gates onboarding routing: stays false from a token change until the server snapshot is merged
@@ -330,6 +362,86 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     })();
   }, [ready, authReady, token]);
 
+  // Streak reconciliation on launch / after sync: a gap is either bridged by an owned omamori
+  // (consumed server-side — the charm exists to be silently useful) or surfaced as a BREAK event
+  // with a paid repair window. Without this, a missed day would only be noticed mid-practice.
+  const reconciled = useRef(false);
+  useEffect(() => {
+    if (!ready || !walletReady || reconciled.current) return;
+    reconciled.current = true;
+    const now = new Date();
+    const p = progressRef.current;
+    // Expire a stale repair offer first (the window closed — the loss is final).
+    if (p.brokenStreak && !repairOpen(p.brokenStreak, now)) {
+      setProgress((prev) => {
+        const next = { ...prev, brokenStreak: null };
+        void save(next);
+        schedulePush(next);
+        return next;
+      });
+    }
+    const status = streakStatus(p.dailyStreak, p.lastActiveDate, now);
+    if (status.kind !== "broken") return;
+    void (async () => {
+      let bridged = false;
+      if (freezes > 0) {
+        try {
+          await spend("use_freeze"); // omamori auto-saves the streak
+          bridged = true;
+        } catch {
+          // 409 (charm raced away) / offline → fall through to the break event
+        }
+      }
+      setProgress((prev) => {
+        const next: Progress = bridged
+          ? { ...prev, lastActiveDate: yesterdayOf(now) } // gap bridged — practicing today extends it
+          : prev.brokenStreak
+          ? prev // a break is already recorded — don't double-fire
+          : {
+              ...prev,
+              brokenStreak: { streak: prev.dailyStreak, date: localDate(now) },
+              dailyStreak: 0,
+            };
+        if (next !== prev) {
+          void save(next);
+          schedulePush(next);
+        }
+        return next;
+      });
+    })();
+  }, [ready, walletReady, freezes, spend, schedulePush]);
+
+  const repairStreak = useCallback(async () => {
+    const broken = progressRef.current.brokenStreak;
+    if (!broken || !repairOpen(broken, new Date())) return;
+    // Server charges koku (price scales with the lost streak); throws ApiError 409 if short.
+    await spend("streak_repair", broken.streak);
+    const now = new Date();
+    setProgress((prev) => {
+      const practicedToday = prev.lastActiveDate === localDate(now);
+      const next: Progress = {
+        ...prev,
+        // Restored; if they already practiced today, today's session extends the revived streak.
+        dailyStreak: broken.streak + (practicedToday ? 1 : 0),
+        lastActiveDate: practicedToday ? prev.lastActiveDate : yesterdayOf(now),
+        brokenStreak: null,
+      };
+      void save(next);
+      schedulePush(next);
+      return next;
+    });
+  }, [spend, schedulePush]);
+
+  const dismissBrokenStreak = useCallback(() => {
+    setProgress((prev) => {
+      if (!prev.brokenStreak) return prev;
+      const next: Progress = { ...prev, brokenStreak: null };
+      void save(next);
+      schedulePush(next);
+      return next;
+    });
+  }, [schedulePush]);
+
   const record = useCallback(
     (topic: string, correct: boolean, grade?: GradeSignal) => {
       setProgress((prev) => {
@@ -364,8 +476,17 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, [schedulePush]);
 
   const value = useMemo<ProgressContextValue>(
-    () => ({ progress, ready, synced, recordAnswer: record, completeOnboarding, resetOnboarding }),
-    [progress, ready, synced, record, completeOnboarding, resetOnboarding]
+    () => ({
+      progress,
+      ready,
+      synced,
+      recordAnswer: record,
+      completeOnboarding,
+      resetOnboarding,
+      repairStreak,
+      dismissBrokenStreak,
+    }),
+    [progress, ready, synced, record, completeOnboarding, resetOnboarding, repairStreak, dismissBrokenStreak]
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

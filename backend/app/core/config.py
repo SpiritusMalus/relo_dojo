@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     PRICE_OMAMORI: int = 150  # streak-freeze charm
     PRICE_EXTRA_PACK: int = 50  # +EXTRA_PACK_SIZE exercises for today (free tier)
     EXTRA_PACK_SIZE: int = 10
+    # Streak repair ("отработка у Сэнсэя"): price grows with the LOST streak length (loss aversion
+    # priced in — the more invested the user is, the dearer the rescue), capped at REPAIR_MAX.
+    REPAIR_BASE: int = 100
+    REPAIR_PER_DAY: int = 5
+    REPAIR_MAX: int = 600
 
     @property
     def allowed_origins_list(self) -> list[str]:
