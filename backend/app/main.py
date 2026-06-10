@@ -16,6 +16,9 @@ Accounts (Phase 4):
 The LLM is self-hosted Ollama; the model is set via OLLAMA_MODEL in .env.
 """
 
+import asyncio
+import logging
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -62,6 +65,34 @@ app.add_middleware(
 app.include_router(auth_router.router)
 app.include_router(progress_router.router)
 app.include_router(wallet_router.router)
+
+
+def run_migrations() -> None:
+    """Apply pending Alembic migrations (sync; called in a worker thread on startup).
+
+    Paths are resolved from this file so it works regardless of the process cwd."""
+    from alembic import command
+    from alembic.config import Config as AlembicConfig
+
+    root = Path(__file__).resolve().parents[1]  # backend/
+    cfg = AlembicConfig(str(root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(root / "alembic"))
+    command.upgrade(cfg, "head")
+
+
+@app.on_event("startup")
+async def startup_migrate() -> None:
+    """Schema always matches the code: `alembic upgrade head` on boot (AUTO_MIGRATE to disable)."""
+    if not settings.AUTO_MIGRATE:
+        return
+    try:
+        # Worker thread: alembic is sync and its env.py calls asyncio.run() internally.
+        await asyncio.get_running_loop().run_in_executor(None, run_migrations)
+        logging.getLogger("uvicorn.error").info("Alembic migrations applied (auto-migrate).")
+    except Exception:  # pragma: no cover — never block startup on a migration hiccup
+        logging.getLogger("uvicorn.error").exception(
+            "Auto-migrate failed — run `alembic upgrade head` manually."
+        )
 
 
 @app.get("/health")
