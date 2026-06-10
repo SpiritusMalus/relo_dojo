@@ -26,6 +26,7 @@ import Card from "../components/ui/Card";
 import Confetti from "../components/ui/Confetti";
 import Scroll from "../components/ui/Scroll";
 import { boostActive } from "../store/progress";
+import { ensureOffer } from "../store/offers";
 import { useWallet } from "../store/wallet";
 
 const SESSION_LEN = 10;
@@ -105,8 +106,11 @@ export default function PracticeScreen() {
       // 403 routes by code: "daily_limit" (verified free tier) → limit sheet with the upsell;
       // anything else (starter/activation) → the activation prompt. Never a raw error.
       if (e instanceof ApiError && e.status === 403) {
-        if (e.code === "daily_limit") setLimited(true);
-        else setGated(true);
+        if (e.code === "daily_limit") {
+          setLimited(true);
+          // Trigger: first limit hit ever → open the one-shot 48h double-pack offer.
+          void ensureOffer("limit48");
+        } else setGated(true);
       } else setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
       setLoading(false);

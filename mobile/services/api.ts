@@ -255,7 +255,13 @@ export function requestVerification(): Promise<{ message: string }> {
 // left_today: exercises remaining on the free tier today; null = unlimited (premium).
 export type Wallet = { coins: number; freezes: number; is_premium: boolean; left_today?: number | null };
 // Catalog item ids understood by POST /wallet/spend (must match backend services/wallet.py).
-export type SpendItem = "omamori" | "use_freeze" | "extra_pack" | "streak_repair";
+export type SpendItem =
+  | "omamori"
+  | "omamori_promo"
+  | "use_freeze"
+  | "extra_pack"
+  | "extra_pack_promo"
+  | "streak_repair";
 
 export function getWallet(): Promise<Wallet> {
   return request<Wallet>("/wallet", undefined, "GET");

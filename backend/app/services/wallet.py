@@ -53,15 +53,16 @@ async def spend(user: User, db: AsyncSession, item: str, qty: int) -> User:
     """Apply one catalog purchase/consumption atomically; refresh and return the user.
 
     409 when the balance (coins or freezes) is insufficient; 400 for an unknown item."""
-    if item == "omamori":
-        cost = settings.PRICE_OMAMORI * qty
+    if item in ("omamori", "omamori_promo"):
+        price = settings.PRICE_OMAMORI_PROMO if item == "omamori_promo" else settings.PRICE_OMAMORI
+        cost = price * qty
         stmt = (
             update(User)
             .where(User.id == user.id, User.coins >= cost)
             .values(coins=User.coins - cost, freezes=User.freezes + qty)
         )
         short = _NOT_ENOUGH
-    elif item == "extra_pack":
+    elif item in ("extra_pack", "extra_pack_promo"):
         # Two-step on purpose: the coin debit is the guarded (race-safe) part; the quota bump is a
         # plain ORM update on the already-loaded row, committed together with the debit below.
         from .gating import _normalize_day  # local import — avoids a module cycle
@@ -78,7 +79,9 @@ async def spend(user: User, db: AsyncSession, item: str, qty: int) -> User:
             await db.rollback()
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=short)
         _normalize_day(user)
-        user.starter_used -= settings.EXTRA_PACK_SIZE * qty
+        # Promo: double pack for the same price (FOMO limit offer).
+        size = settings.EXTRA_PACK_SIZE * (2 if item == "extra_pack_promo" else 1)
+        user.starter_used -= size * qty
         await db.commit()
         await db.refresh(user)
         return user
