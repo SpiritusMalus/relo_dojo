@@ -18,7 +18,8 @@ from typing import Any
 
 from ..core.config import CHECK_TEMPERATURE, EXERCISE_TEMPERATURE
 from . import tokens
-from .ollama_client import OllamaError, generate_json
+from .llm import LLMError as OllamaError  # one exception across providers (503 path)
+from .llm import generate_json
 
 # Prepended to prompts that embed user input: reduces prompt-injection influence on output.
 GUARDRAIL = (

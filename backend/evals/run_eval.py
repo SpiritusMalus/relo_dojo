@@ -5,10 +5,11 @@ Feeds every {exercise, answer} from eval_set.json through the SAME `check_answer
 one. Use it to compare models (gemma3:4b vs 12b, a Modelfile build, ...) or to regression-test any
 prompt change in grammar.py before it hits users.
 
-Usage (from backend/, venv active, Ollama running):
-    python -m evals.run_eval                       # model from .env (OLLAMA_MODEL)
-    python -m evals.run_eval --model gemma3:12b    # override the model
-    python -m evals.run_eval --model grammar-tutor # eval a Modelfile build
+Usage (from backend/, venv active; Ollama running for the ollama provider):
+    python -m evals.run_eval                       # provider+model from .env
+    python -m evals.run_eval --model gemma3:12b    # override the active provider's model
+    python -m evals.run_eval --provider anthropic  # eval the API path (needs ANTHROPIC_API_KEY)
+    python -m evals.run_eval --provider openai --model gpt-4o-mini
     python -m evals.run_eval --limit 10            # quick smoke run
     python -m evals.run_eval --generate 5          # also: generation smoke test, 5 items/type
 
@@ -30,11 +31,18 @@ HERE = Path(__file__).resolve().parent
 BACKEND = HERE.parent
 
 
-def _bootstrap(model: str | None) -> None:
+# Which env var the --model override lands in, per provider.
+_MODEL_ENV = {"ollama": "OLLAMA_MODEL", "anthropic": "ANTHROPIC_MODEL", "openai": "OPENAI_MODEL"}
+
+
+def _bootstrap(model: str | None, provider: str | None) -> None:
     """Set env BEFORE importing app modules (config reads env at import time).
     The eval never touches the DB, so required-but-unused secrets get dummies."""
+    if provider:
+        os.environ["LLM_PROVIDER"] = provider
+    active = (provider or os.environ.get("LLM_PROVIDER") or "ollama").lower()
     if model:
-        os.environ["OLLAMA_MODEL"] = model
+        os.environ[_MODEL_ENV.get(active, "OLLAMA_MODEL")] = model
     os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://eval:eval@localhost/eval_unused")
     os.environ.setdefault("JWT_SECRET", "eval-unused")
     sys.path.insert(0, str(BACKEND))
@@ -76,7 +84,7 @@ async def run_generation_smoke(per_type: int) -> dict:
     """Generate items per type through the real pipeline; count validation failures (503s).
     A high failure rate = the model can't reliably fill that type's schema."""
     from app.services.grammar import _ENABLED_TYPES, generate_exercise
-    from app.services.ollama_client import OllamaError
+    from app.services.llm import LLMError as OllamaError
 
     stats: dict[str, dict] = {}
     for ex_type in sorted(_ENABLED_TYPES):
@@ -94,20 +102,24 @@ async def run_generation_smoke(per_type: int) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", help="override OLLAMA_MODEL for this run")
+    ap.add_argument("--model", help="override the active provider's model for this run")
+    ap.add_argument("--provider", choices=["ollama", "anthropic", "openai"], help="override LLM_PROVIDER")
     ap.add_argument("--file", default=str(HERE / "eval_set.json"), help="eval set path")
     ap.add_argument("--limit", type=int, help="only run the first N items")
     ap.add_argument("--generate", type=int, metavar="N", help="also run a generation smoke test, N items per type")
     ap.add_argument("--min-accuracy", type=float, default=0.9, help="exit 1 below this (default 0.9)")
     args = ap.parse_args()
 
-    _bootstrap(args.model)
+    _bootstrap(args.model, args.provider)
     from app.core.config import settings  # after bootstrap
+    from app.services.llm import active_model  # after bootstrap
 
     items = json.loads(Path(args.file).read_text())["items"]
     if args.limit:
         items = items[: args.limit]
-    print(f"Model: {os.environ.get('OLLAMA_MODEL', settings.OLLAMA_MODEL)} @ {settings.OLLAMA_URL}")
+    provider = settings.LLM_PROVIDER
+    where = settings.OLLAMA_URL if provider == "ollama" else "API"
+    print(f"Provider: {provider} | Model: {active_model()} @ {where}")
     print(f"Items: {len(items)}\n")
 
     report = asyncio.run(run_checks(items, args.min_accuracy))
@@ -118,9 +130,15 @@ def main() -> None:
     reports = HERE / "reports"
     reports.mkdir(exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
-    model_slug = os.environ.get("OLLAMA_MODEL", "default").replace(":", "_").replace("/", "_")
+    model_slug = active_model().replace(":", "_").replace("/", "_")
     out = reports / f"{model_slug}_{stamp}.json"
-    out.write_text(json.dumps({"model": os.environ.get("OLLAMA_MODEL"), "when": stamp, **report}, indent=2, ensure_ascii=False))
+    out.write_text(
+        json.dumps(
+            {"provider": provider, "model": active_model(), "when": stamp, **report},
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
     print(f"\nReport: {out.relative_to(BACKEND)}")
 
     sys.exit(0 if report["accuracy"] >= args.min_accuracy else 1)

@@ -13,7 +13,7 @@ Accounts (Phase 4):
 - POST /auth/register, /auth/login ; GET /auth/me
 - GET/PUT /progress  (require a Bearer token)
 
-The LLM is self-hosted Ollama; the model is set via OLLAMA_MODEL in .env.
+The LLM is routed by LLM_PROVIDER (.env): ollama (local dev, default) | anthropic | openai.
 """
 
 import asyncio
@@ -51,7 +51,8 @@ from .schemas import (
 )
 from .services import gating, grammar, learner_profile, rewards, stories, tokens
 from .services import wallet as wallet_service
-from .services.ollama_client import OllamaError, generate
+from .services.llm import LLMError as OllamaError  # one exception across providers
+from .services.llm import generate
 
 app = FastAPI(title="Grammar Dojo API", version="0.4.0")
 

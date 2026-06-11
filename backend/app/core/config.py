@@ -13,7 +13,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # --- Ollama (Phase 1+) ---
+    # --- LLM provider (API migration, decided 2026-06-11) ---
+    # "ollama" (local dev, default) | "anthropic" | "openai". Prod runs on an API provider;
+    # re-run the eval set (evals/run_eval.py --provider ...) before flipping this in prod.
+    LLM_PROVIDER: str = "ollama"
+    ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_MODEL: str = "claude-haiku-4-5"
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    LLM_MAX_TOKENS: int = 1024  # API providers require an explicit cap
+
+    # --- Ollama (local dev path) ---
     OLLAMA_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "gemma3:4b"
     EXERCISE_TEMPERATURE: float = 0.7
