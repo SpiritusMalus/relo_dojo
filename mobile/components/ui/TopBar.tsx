@@ -5,6 +5,7 @@ import { useTheme, type Belt } from "../../theme/theme";
 import BeltKnot from "./BeltKnot";
 import BeltPickerSheet from "./BeltPickerSheet";
 import CoinBadge from "./CoinBadge";
+import PremiumBadge from "./PremiumBadge";
 import Icon from "./Icon";
 import Txt from "./Txt";
 
@@ -30,6 +31,7 @@ export default function TopBar({ belt, streak, xp }: { belt: Belt; streak: numbe
       </Pressable>
 
       <View style={styles.right}>
+        <PremiumBadge />
         <CoinBadge />
         <View style={[styles.badge, { backgroundColor: t.c.fireSoft }]}>
           <Txt variant="caption" color={t.c.fire}>{`🔥 ${streak}`}</Txt>

@@ -66,6 +66,11 @@ async def grant_scroll(user: User, db: AsyncSession, rng: _Rng = random) -> dict
             detail={"code": "scroll_limit", "message": "No more scrolls today — the dojo rests."},
         )
     kind, amount = roll_scroll(rng)
+    # Black Belt perk: koku prizes are doubled too (user decision 2026-06-11 — cap alone was a
+    # weaker perk than x2 koku and didn't justify the upsell). Rares (omamori/kensei) stay 1:
+    # doubling a charm or a timed boost would distort their value, not their thrill.
+    if kind == "koku" and getattr(user, "is_premium", False):
+        amount *= 2
     user.scrolls_used += 1
     if kind == "koku":
         user.coins += amount
