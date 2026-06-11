@@ -98,6 +98,21 @@ async def test_premium_doubles_the_daily_cap(monkeypatch):
         await rewards.grant_scroll(u, db, rng=_FixedRng(0.0))  # 3rd hits the doubled cap
 
 
+async def test_premium_doubles_koku_amounts_but_not_rares():
+    db = _FakeDB()
+    u = _user()
+    u.is_premium = True
+    out = await rewards.grant_scroll(u, db, rng=_FixedRng(0.0))  # first koku row
+    assert out["kind"] == "koku"
+    assert out["amount"] == rewards.SCROLL_TABLE[0][1] * 2
+    assert u.coins == out["amount"]
+    # Rares are NOT doubled — an omamori stays a single charm.
+    out2 = await rewards.grant_scroll(u, db, rng=_FixedRng(0.93))
+    assert out2["kind"] == "omamori"
+    assert out2["amount"] == 1
+    assert u.freezes == 1
+
+
 async def test_cap_resets_on_new_day(monkeypatch):
     monkeypatch.setattr(settings, "SCROLLS_PER_DAY", 1)
     db = _FakeDB()

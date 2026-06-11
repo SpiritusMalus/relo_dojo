@@ -138,7 +138,7 @@ export const STRINGS = {
     "premium.active": "Your Black Belt is active 🖤",
     "premium.perkUnlimited": "Unlimited exercises — no daily cap",
     "premium.perkKoku": "Double koku for correct answers",
-    "premium.perkScrolls": "Twice the reward scrolls per day",
+    "premium.perkScrolls": "Twice the scrolls per day — with double koku inside",
 
     "offer.starterTitle": "Welcome gift: omamori at half price",
     "offer.starterSub": "75 🌾 instead of 150 — streak protection from day one.",
@@ -340,7 +340,7 @@ export const STRINGS = {
     "premium.active": "Твой Чёрный пояс активен 🖤",
     "premium.perkUnlimited": "Безлимит упражнений — без дневного потолка",
     "premium.perkKoku": "Двойные коку за верные ответы",
-    "premium.perkScrolls": "Вдвое больше свитков наград в день",
+    "premium.perkScrolls": "Вдвое больше свитков в день — и двойные коку внутри",
 
     "offer.starterTitle": "Подарок новичку: омамори за полцены",
     "offer.starterSub": "75 🌾 вместо 150 — защита серии с первого дня.",
