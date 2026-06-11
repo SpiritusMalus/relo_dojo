@@ -11,10 +11,19 @@
 //                 ever fire after real absence.
 //
 // All texts go through the same Sensei voice — pressure, but in-character (никакой паники совы).
+// NOTE: Notifications don't work in Expo Go on Android (SDK 53+). Safe to skip in dev; use
+// development build for full notification testing.
 
-import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import type { Lang } from "../i18n/strings";
+
+// Conditional import: skip if notifications aren't available (e.g., Expo Go on Android SDK 53+)
+let Notifications: typeof import("expo-notifications") | null = null;
+try {
+  Notifications = require("expo-notifications");
+} catch {
+  // Notifications unavailable — functions will safely no-op below
+}
 
 export const DAILY_HOUR = 19;
 export const ESCALATION_HOUR = 21.5; // 21:30
@@ -55,7 +64,7 @@ const WINBACK: Record<Lang, Record<number, string>> = {
 let configured = false;
 
 function configureOnce(): void {
-  if (configured) return;
+  if (configured || !Notifications) return;
   configured = true;
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -75,6 +84,7 @@ function configureOnce(): void {
 
 /** Ask once for permission. Returns whether notifications are allowed. */
 export async function ensurePermission(): Promise<boolean> {
+  if (!Notifications) return false; // Notifications unavailable (e.g., Expo Go on Android)
   configureOnce();
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
@@ -102,6 +112,7 @@ export type ScheduleState = {
 
 /** Cancel everything and re-plan the future from the current state. Safe to call often. */
 export async function rescheduleAll(state: ScheduleState, now: Date = new Date()): Promise<void> {
+  if (!Notifications) return; // Notifications unavailable (e.g., Expo Go on Android)
   configureOnce();
   await Notifications.cancelAllScheduledNotificationsAsync();
   const seed = now.getDate();
