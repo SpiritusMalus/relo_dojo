@@ -45,6 +45,8 @@ from .schemas import (
     ExerciseOut,
     ExplainIn,
     ExplainOut,
+    ReviewIn,
+    ReviewOut,
     ScrollOut,
     StoryIn,
     StoryOut,
@@ -215,6 +217,32 @@ async def explain(
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return ExplainOut(**data)
+
+
+@app.post("/review-text", response_model=ReviewOut)
+async def review_text(
+    payload: ReviewIn,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+) -> ReviewOut:
+    """"Review my text" (Stage 3): the learner pastes their REAL email/message → graded breakdown
+    vs their weak spots. Verified accounts only (LLM-heavy, like /story). Findings feed the
+    learner profile's weak-spot summary so future feedback remembers them."""
+    gating.require_verified(user)
+    prof = await learner_profile.get_data(user, db)
+    try:
+        data = await grammar.review_text(
+            payload.text,
+            payload.lang,
+            tone=prof.tone if prof else None,
+            weak_spots=prof.weakSpots if prof else None,
+        )
+    except OllamaError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    topics = list(dict.fromkeys(i["topic"] for i in data["issues"]))
+    if user is not None and topics:
+        await learner_profile.save_review(user, db, topics)
+    return ReviewOut(**data, topics=topics)
 
 
 @app.post("/rewards/scroll", response_model=ScrollOut)

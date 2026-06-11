@@ -55,3 +55,18 @@ async def save_goal(user: User, db: AsyncSession, text: str, topics: list[str]) 
     """Persist a free-text goal into the caller's profile (creates the profile if missing)."""
     data = await get_data(user, db) or LearnerProfileData()
     await upsert(user, db, apply_goal(data, text, topics))
+
+
+def apply_review(data: LearnerProfileData, topics: list[str], today: str | None = None) -> LearnerProfileData:
+    """Pure: fold a text review's findings into the weak-spot summary (Stage 3 feeds Stage 1's
+    memory until the Stage 2 Progress Agent owns this field). Empty findings clear nothing."""
+    if topics:
+        day = today or date.today().isoformat()
+        data.weakSpots = f"Text review {day}: issues with {', '.join(dict.fromkeys(topics))}"
+    return data
+
+
+async def save_review(user: User, db: AsyncSession, topics: list[str]) -> None:
+    """Persist text-review findings into the caller's weak-spot summary."""
+    data = await get_data(user, db) or LearnerProfileData()
+    await upsert(user, db, apply_review(data, topics))

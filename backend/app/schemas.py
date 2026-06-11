@@ -261,6 +261,25 @@ class AnalyzeOut(BaseModel):
     saved: bool = False  # true when the goal was persisted into the caller's learner profile
 
 
+# --- "Review my text" (Praktika adoption Stage 3) ---
+class ReviewIn(BaseModel):
+    text: str = Field(min_length=1, max_length=MAX_TEXT)
+    lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language for notes
+
+
+class ReviewIssue(BaseModel):
+    quote: str  # exact fragment from the learner's text
+    better: str  # corrected fragment, natural English
+    topic: str  # canonical grammar topic
+    note: str = ""  # one short reason, in the learner's language
+
+
+class ReviewOut(BaseModel):
+    summary: str = ""
+    issues: list[ReviewIssue] = []
+    topics: list[str] = []  # distinct topics found (client convenience; also fed to the profile)
+
+
 # --- learner profile (Praktika adoption Stage 1: server-side memory layer) ---
 TONES = ("soft", "balanced", "strict")
 

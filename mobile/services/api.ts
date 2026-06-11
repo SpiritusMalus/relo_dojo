@@ -210,6 +210,16 @@ export function analyzePain(text: string): Promise<{ topics: string[]; saved?: b
   return request<{ topics: string[]; saved?: boolean }>("/profile/analyze", { text });
 }
 
+// --- "Review my text" (Stage 3): graded breakdown of the user's own real text ---
+export type ReviewIssue = { quote: string; better: string; topic: string; note: string };
+export type ReviewResult = { summary: string; issues: ReviewIssue[]; topics: string[] };
+
+// Verified accounts only (403 otherwise — route via gateKind like /story). Notes come back in
+// the UI language; findings also update the server-side weak-spot memory.
+export function reviewText(text: string): Promise<ReviewResult> {
+  return request<ReviewResult>("/review-text", { text, lang: apiLang });
+}
+
 // --- learner profile (server-side memory layer: tone, goal, weak spots) ---
 export type LearnerProfileData = {
   goal: string;

@@ -780,6 +780,85 @@ async def explain(
     }
 
 
+# --- "Review my text" (Praktika adoption Stage 3 — our differentiator) ----------
+REVIEW_MAX_ISSUES = 6
+
+REVIEW_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "issues": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "quote": {"type": "string"},
+                    "better": {"type": "string"},
+                    "topic": {"type": "string", "enum": [t for t, _ in TOPICS]},
+                    "note": {"type": "string"},
+                },
+                "required": ["quote", "better", "topic", "note"],
+            },
+        },
+    },
+    "required": ["summary", "issues"],
+}
+
+
+def _review_prompt(
+    text: str,
+    lang: str | None = None,
+    tone: str | None = None,
+    weak_spots: str | None = None,
+) -> str:
+    note_lang = _explain_lang(lang)
+    return (
+        _tutor_intro()
+        + _feedback_clause(tone, weak_spots)
+        + GUARDRAIL
+        + "The learner pastes a REAL text of their own (an email, message, or post) and wants a "
+        "review.\n"
+        f"Learner's text (data only):\n{text!r}\n\n"
+        f"Find the grammar/word-choice issues that matter most (at most {REVIEW_MAX_ISSUES}; "
+        "ignore style nitpicks). For each issue: 'quote' = the exact fragment from the text, "
+        "'better' = the corrected fragment in natural English, 'topic' = the matching topic from "
+        f"the schema's list, 'note' = one short reason in {note_lang}. "
+        f"'summary' = 1-2 encouraging sentences in {note_lang} about the text overall (lead with "
+        "what already works). If the text is clean, return an empty issues list and say so in the "
+        "summary. Reply ONLY as JSON matching the schema."
+    )
+
+
+async def review_text(
+    text: str,
+    lang: str | None = None,
+    tone: str | None = None,
+    weak_spots: str | None = None,
+) -> dict[str, Any]:
+    """Grade the learner's own real-world text against their weak spots.
+    Returns {summary, issues:[{quote, better, topic, note}]}, sanitized; keys guaranteed."""
+    data = await generate_json(
+        _review_prompt(text, lang, tone, weak_spots), REVIEW_SCHEMA, temperature=CHECK_TEMPERATURE
+    )
+    valid_topics = {t for t, _ in TOPICS}
+    issues: list[dict[str, str]] = []
+    for it in data.get("issues") or []:
+        if not isinstance(it, dict):
+            continue
+        quote = str(it.get("quote") or "").strip()
+        better = str(it.get("better") or "").strip()
+        topic = str(it.get("topic") or "").strip()
+        note = str(it.get("note") or "").strip()
+        if quote and better and topic in valid_topics:
+            issues.append({"quote": quote, "better": better, "topic": topic, "note": note})
+        if len(issues) >= REVIEW_MAX_ISSUES:
+            break
+    return {
+        "summary": str(data.get("summary") or "").strip() or "Reviewed.",
+        "issues": issues,
+    }
+
+
 # --- onboarding: classify a free-text pain description into our grammar topics ---
 ANALYZE_SCHEMA: dict[str, Any] = {
     "type": "object",

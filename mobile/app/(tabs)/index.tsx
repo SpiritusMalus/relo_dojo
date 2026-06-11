@@ -19,6 +19,7 @@ import DailyMixButton from "../../components/ui/DailyMixButton";
 import StoryButton from "../../components/ui/StoryButton";
 import ChallengeButton from "../../components/ui/ChallengeButton";
 import ReviewButton from "../../components/ui/ReviewButton";
+import TextReviewButton from "../../components/ui/TextReviewButton";
 import ShopButton from "../../components/ui/ShopButton";
 import { mistakeCount } from "../../store/mistakes";
 import Sensei from "../../components/ui/Sensei";
@@ -110,6 +111,9 @@ export default function HomeScreen() {
       </LockGate>
       <LockGate locked={locked}>
         <ChallengeButton onPress={() => router.push("/challenge")} />
+      </LockGate>
+      <LockGate locked={locked}>
+        <TextReviewButton onPress={() => router.push("/text-review")} />
       </LockGate>
       {mistakes > 0 && (
         <LockGate locked={locked}>
