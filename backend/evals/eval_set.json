@@ -1,0 +1,66 @@
+{
+  "_comment": "Hand-vetted eval set (BACKLOG: 'Eval set PRIORITY'). Each item = a free-text exercise, a learner answer, and the expected verdict. Run with run_eval.py to compare models/prompts objectively. Keep items unambiguous: exactly one defensible verdict each.",
+  "items": [
+    { "id": "prep-01", "topic": "prepositions", "text": "I will arrive ___ Monday.", "answer": "on", "expected": true, "note": "days take 'on'" },
+    { "id": "prep-02", "topic": "prepositions", "text": "I will arrive ___ Monday.", "answer": "in", "expected": false, "note": "'in Monday' is wrong" },
+    { "id": "prep-03", "topic": "prepositions", "text": "She has lived here ___ 2019.", "answer": "since", "expected": true, "note": "point in time → since" },
+    { "id": "prep-04", "topic": "prepositions", "text": "She has lived here ___ 2019.", "answer": "for", "expected": false, "note": "'for' needs a duration, not a year" },
+    { "id": "prep-05", "topic": "prepositions", "text": "The meeting starts ___ 3 pm.", "answer": "at", "expected": true, "note": "clock time → at" },
+    { "id": "prep-06", "topic": "prepositions", "text": "The meeting starts ___ 3 pm.", "answer": "on", "expected": false, "note": "'on 3 pm' is wrong" },
+    { "id": "prep-07", "topic": "prepositions", "text": "It depends ___ the weather.", "answer": "on", "expected": true, "note": "depend on" },
+    { "id": "prep-08", "topic": "prepositions", "text": "It depends ___ the weather.", "answer": "of", "expected": false, "note": "RU interference: 'зависит от'" },
+    { "id": "prep-09", "topic": "prepositions", "text": "I'm listening ___ music right now.", "answer": "to", "expected": true, "note": "listen to" },
+    { "id": "prep-10", "topic": "prepositions", "text": "I'm listening ___ music right now.", "answer": "", "expected": false, "note": "empty answer: 'listen music' is wrong" },
+
+    { "id": "cond-01", "topic": "conditionals", "text": "If it rains tomorrow, we ___ stay home.", "answer": "will", "expected": true, "note": "first conditional" },
+    { "id": "cond-02", "topic": "conditionals", "text": "If it rains tomorrow, we ___ stay home.", "answer": "would", "expected": false, "note": "mixing 1st and 2nd conditional" },
+    { "id": "cond-03", "topic": "conditionals", "text": "If I ___ you, I would apologize.", "answer": "were", "expected": true, "note": "second conditional, subjunctive" },
+    { "id": "cond-04", "topic": "conditionals", "text": "If I ___ you, I would apologize.", "answer": "am", "expected": false, "note": "'If I am you' is wrong here" },
+    { "id": "cond-05", "topic": "conditionals", "text": "If she had studied harder, she ___ have passed the exam.", "answer": "would", "expected": true, "note": "third conditional" },
+    { "id": "cond-06", "topic": "conditionals", "text": "If she had studied harder, she ___ have passed the exam.", "answer": "will", "expected": false, "note": "'will have passed' breaks the third conditional" },
+    { "id": "cond-07", "topic": "conditionals", "text": "If you heat ice, it ___.", "answer": "melts", "expected": true, "note": "zero conditional" },
+
+    { "id": "seq-01", "topic": "verb sequence (tense agreement)", "text": "He told me he ___ the report the day before.", "answer": "had finished", "expected": true, "note": "backshift with 'the day before'" },
+    { "id": "seq-02", "topic": "verb sequence (tense agreement)", "text": "He told me he ___ the report the day before.", "answer": "finishes", "expected": false, "note": "present simple after past reporting verb + past time" },
+    { "id": "seq-03", "topic": "verb sequence (tense agreement)", "text": "By the time we arrived, the film ___ already started.", "answer": "had", "expected": true, "note": "past perfect before a past event" },
+    { "id": "seq-04", "topic": "verb sequence (tense agreement)", "text": "By the time we arrived, the film ___ already started.", "answer": "has", "expected": false, "note": "present perfect clashes with 'arrived'" },
+    { "id": "seq-05", "topic": "verb sequence (tense agreement)", "text": "She said she ___ call me later that evening.", "answer": "would", "expected": true, "note": "will → would in reported speech" },
+
+    { "id": "art-01", "topic": "articles", "text": "She is ___ engineer.", "answer": "an", "expected": true, "note": "vowel sound → an" },
+    { "id": "art-02", "topic": "articles", "text": "She is ___ engineer.", "answer": "a", "expected": false, "note": "'a engineer' is wrong" },
+    { "id": "art-03", "topic": "articles", "text": "We watched ___ sun rise over the sea.", "answer": "the", "expected": true, "note": "unique object → the" },
+    { "id": "art-04", "topic": "articles", "text": "He plays ___ guitar very well.", "answer": "the", "expected": true, "note": "instruments take 'the'" },
+    { "id": "art-05", "topic": "articles", "text": "I bought ___ umbrella because it was raining.", "answer": "a", "expected": false, "note": "'a umbrella' — vowel sound needs 'an'" },
+
+    { "id": "mod-01", "topic": "modal verbs", "text": "You ___ smoke in the hospital — it is strictly forbidden.", "answer": "mustn't", "expected": true, "note": "prohibition" },
+    { "id": "mod-02", "topic": "modal verbs", "text": "You ___ smoke in the hospital — it is strictly forbidden.", "answer": "don't have to", "expected": false, "note": "absence of obligation ≠ prohibition" },
+    { "id": "mod-03", "topic": "modal verbs", "text": "She ___ speak three languages fluently.", "answer": "can", "expected": true, "note": "ability" },
+    { "id": "mod-04", "topic": "modal verbs", "text": "She ___ speak three languages fluently.", "answer": "cans", "expected": false, "note": "modals don't take -s" },
+    { "id": "mod-05", "topic": "modal verbs", "text": "He ___ be at home — the lights are on.", "answer": "must", "expected": true, "note": "logical deduction" },
+
+    { "id": "phr-01", "topic": "phrasal verbs", "text": "Please turn ___ the lights when you leave.", "answer": "off", "expected": true, "note": "turn off" },
+    { "id": "phr-02", "topic": "phrasal verbs", "text": "Please turn ___ the lights when you leave.", "answer": "of", "expected": false, "note": "of/off confusion" },
+    { "id": "phr-03", "topic": "phrasal verbs", "text": "He gave ___ smoking last year.", "answer": "up", "expected": true, "note": "give up = quit" },
+    { "id": "phr-04", "topic": "phrasal verbs", "text": "I'm looking forward ___ your reply.", "answer": "to", "expected": true, "note": "look forward to" },
+    { "id": "phr-05", "topic": "phrasal verbs", "text": "I'm looking forward ___ your reply.", "answer": "for", "expected": false, "note": "'forward for' is wrong" },
+
+    { "id": "ger-01", "topic": "gerunds & infinitives", "text": "I enjoy ___ books in the evening.", "answer": "reading", "expected": true, "note": "enjoy + gerund" },
+    { "id": "ger-02", "topic": "gerunds & infinitives", "text": "I enjoy ___ books in the evening.", "answer": "to read", "expected": false, "note": "enjoy never takes infinitive" },
+    { "id": "ger-03", "topic": "gerunds & infinitives", "text": "She decided ___ a new job.", "answer": "to find", "expected": true, "note": "decide + infinitive" },
+    { "id": "ger-04", "topic": "gerunds & infinitives", "text": "He avoided ___ the question.", "answer": "answering", "expected": true, "note": "avoid + gerund" },
+    { "id": "ger-05", "topic": "gerunds & infinitives", "text": "I look forward to ___ you next week.", "answer": "seeing", "expected": true, "note": "'to' is a preposition here → gerund" },
+    { "id": "ger-06", "topic": "gerunds & infinitives", "text": "I look forward to ___ you next week.", "answer": "see", "expected": false, "note": "classic trap: bare verb after prepositional 'to'" },
+    { "id": "ger-07", "topic": "gerunds & infinitives", "text": "Despite ___ hard, he failed the exam.", "answer": "working", "expected": true, "note": "despite + gerund" },
+    { "id": "ger-08", "topic": "gerunds & infinitives", "text": "Despite ___ hard, he failed the exam.", "answer": "to work", "expected": false, "note": "despite never takes infinitive" },
+
+    { "id": "cmp-01", "topic": "comparatives & superlatives", "text": "This test is ___ than the last one.", "answer": "easier", "expected": true, "note": "short adjective → -er" },
+    { "id": "cmp-02", "topic": "comparatives & superlatives", "text": "This test is ___ than the last one.", "answer": "more easy", "expected": false, "note": "double-marking error" },
+    { "id": "cmp-03", "topic": "comparatives & superlatives", "text": "It was the ___ day of my life.", "answer": "best", "expected": true, "note": "irregular superlative" },
+    { "id": "cmp-04", "topic": "comparatives & superlatives", "text": "It was the ___ day of my life.", "answer": "goodest", "expected": false, "note": "irregular form misused" },
+
+    { "id": "voc-01", "topic": "vocabulary", "text": "Could you ___ me a favor?", "answer": "do", "expected": true, "note": "do a favor (collocation)" },
+    { "id": "voc-02", "topic": "vocabulary", "text": "Could you ___ me a favor?", "answer": "make", "expected": false, "note": "make/do confusion" },
+    { "id": "voc-03", "topic": "vocabulary", "text": "I need to ___ a decision by Friday.", "answer": "make", "expected": true, "note": "make a decision" },
+    { "id": "voc-04", "topic": "vocabulary", "text": "I need to ___ a decision by Friday.", "answer": "do", "expected": false, "note": "'do a decision' is wrong (make/do confusion)" }
+  ]
+}
