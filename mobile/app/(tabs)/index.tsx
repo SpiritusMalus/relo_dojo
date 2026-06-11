@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,6 +22,9 @@ import ReviewButton from "../../components/ui/ReviewButton";
 import TextReviewButton from "../../components/ui/TextReviewButton";
 import ShopButton from "../../components/ui/ShopButton";
 import { mistakeCount } from "../../store/mistakes";
+import { buildStats, planPatch, shouldReplan } from "../../store/planner";
+import { isoDay } from "../../store/adaptive";
+import { requestPlan } from "../../services/api";
 import Sensei from "../../components/ui/Sensei";
 import ProgressBar from "../../components/ui/ProgressBar";
 import Txt from "../../components/ui/Txt";
@@ -32,7 +35,7 @@ import Txt from "../../components/ui/Txt";
 export default function HomeScreen() {
   const router = useRouter();
   const t = useTheme();
-  const { progress } = useProgress();
+  const { progress, updateProfile } = useProgress();
   const { user } = useAuth();
   const { leftToday, refresh } = useWallet();
   const { t: tr } = useI18n();
@@ -49,6 +52,22 @@ export default function HomeScreen() {
   useEffect(() => {
     if (progress.onboarded) void ensureOffer("starter24");
   }, [progress.onboarded]);
+
+  // Stage 2 Planner trigger: once per Home mount, if the plan is missing/stale (new goal, 3-day
+  // lapse, weekly refresh) ask the server for a fresh one and cache it into the local profile.
+  // Verified-account-and-online concerns are the server's: failures are silently ignored.
+  const planAskedRef = useRef(false);
+  useEffect(() => {
+    if (planAskedRef.current || !user || !progress.onboarded || !progress.profile) return;
+    const reason = shouldReplan(progress, isoDay(new Date()));
+    if (!reason) return;
+    planAskedRef.current = true;
+    requestPlan(buildStats(progress))
+      .then((plan) => updateProfile(planPatch(plan, progress.profile!)))
+      .catch(() => {
+        planAskedRef.current = false; // let a later visit retry (offline / model down)
+      });
+  }, [user, progress, updateProfile]);
 
   useFocusEffect(
     useCallback(() => {

@@ -292,12 +292,22 @@ class GoalEntry(BaseModel):
     topics: list[str] = []  # canonical grammar topics extracted from the text
 
 
+class PlanData(BaseModel):
+    """The Planner's output (Stage 2): per-topic urgency multipliers the client's adaptive
+    engine folds into topic selection, plus a one-line human focus note."""
+
+    topicWeights: dict[str, float] = {}
+    note: str = Field(default="", max_length=300)
+    date: str = ""  # ISO date the plan was made (drives the weekly refresh trigger)
+    goal: str = Field(default="", max_length=MAX_TEXT)  # goal the plan was built for
+
+
 class LearnerProfileData(BaseModel):
-    """The shared learner memory all feedback (and, in Stage 2, agents) reads.
+    """The shared learner memory all feedback and agents read.
 
     Stored as one JSONB row per user (db.models.LearnerProfile). `goal` is the CURRENT free-text
-    goal; `goalHistory` keeps the trail. `weakSpots` is a short human-readable summary — written
-    by the Progress Agent in Stage 2, threaded into feedback prompts already in Stage 1."""
+    goal; `goalHistory` keeps the trail. `weakSpots` (internal, English) and `wins` (learner-facing,
+    UI language) are written by the Stage 2 Progress Agent; `plan` by the Stage 2 Planner."""
 
     goal: str = Field(default="", max_length=MAX_TEXT)
     goalTopics: list[str] = Field(default_factory=list, max_length=20)
@@ -306,8 +316,38 @@ class LearnerProfileData(BaseModel):
     interests: list[str] = Field(default_factory=list, max_length=20)
     tone: str = "balanced"  # soft | balanced | strict (anything else falls back to balanced)
     weakSpots: str = Field(default="", max_length=500)
+    wins: str = Field(default="", max_length=300)
+    plan: Optional[PlanData] = None
     goalHistory: list[GoalEntry] = Field(default_factory=list, max_length=50)
 
     def model_post_init(self, __context: object) -> None:
         if self.tone not in TONES:
             self.tone = "balanced"
+
+
+# --- Stage 2 agents: session summary in, profile delta / plan out ---
+class SessionAnswer(BaseModel):
+    topic: str = Field(max_length=60)
+    correct: bool
+    level: str = Field(default="", max_length=4)  # CEFR the item was served at
+
+
+class SessionIn(BaseModel):
+    answers: list[SessionAnswer] = Field(min_length=1, max_length=100)
+    lang: Optional[str] = Field(default=None, max_length=8)  # UI language for `wins`
+
+
+class ProgressAgentOut(BaseModel):
+    weakSpots: str = ""
+    wins: str = ""
+
+
+class TopicStatsIn(BaseModel):
+    attempts: int = Field(ge=0, le=100000)
+    correct: int = Field(ge=0, le=100000)
+    skill: float = Field(ge=0, le=5)  # adaptive level 0..5
+
+
+class PlanIn(BaseModel):
+    stats: dict[str, TopicStatsIn] = Field(default_factory=dict)
+    lang: Optional[str] = Field(default=None, max_length=8)  # UI language for the note

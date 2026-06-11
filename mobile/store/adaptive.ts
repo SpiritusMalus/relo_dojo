@@ -212,10 +212,13 @@ export function topicWeight(p: Progress, topic: string, today: string = isoDay(n
   const st = p.topics[topic];
   const acc = st && st.attempts >= 3 ? st.correct / st.attempts : 0.5;
   const focus = p.profile?.focusTopics?.includes(topic) ? FOCUS_BOOST : 1;
+  // Stage 2 Planner: per-topic urgency multiplier (server-clamped to 0.5..2; 1 = neutral).
+  const plan = p.profile?.planWeights?.[topic] ?? 1;
   return (
     TOPIC_PRIORS[topic] *
     (1 + Math.max(0, TARGET_SUCCESS - acc) * 2) *
     focus *
+    plan *
     reviewBoost(p, topic, today)
   );
 }

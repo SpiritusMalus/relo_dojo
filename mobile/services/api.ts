@@ -220,6 +220,22 @@ export function reviewText(text: string): Promise<ReviewResult> {
   return request<ReviewResult>("/review-text", { text, lang: apiLang });
 }
 
+// --- Stage 2 agents: Progress Agent (post-session) + Planner (trigger-based) ---
+export type SessionAnswer = { topic: string; correct: boolean; level: string };
+export type ProgressAgentResult = { weakSpots: string; wins: string };
+export type PlanResult = { topicWeights: Record<string, number>; note: string; date: string; goal: string };
+export type TopicStats = Record<string, { attempts: number; correct: number; skill: number }>;
+
+// Post-session memory update (auth required; fire-and-forget from the summary screen).
+export function postSessionSummary(answers: SessionAnswer[]): Promise<ProgressAgentResult> {
+  return request<ProgressAgentResult>("/agent/progress", { answers, lang: apiLang });
+}
+
+// Build a fresh week plan (auth required; called when store/planner.ts says the plan is stale).
+export function requestPlan(stats: TopicStats): Promise<PlanResult> {
+  return request<PlanResult>("/agent/plan", { stats, lang: apiLang });
+}
+
 // --- learner profile (server-side memory layer: tone, goal, weak spots) ---
 export type LearnerProfileData = {
   goal: string;

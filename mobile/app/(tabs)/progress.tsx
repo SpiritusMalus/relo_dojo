@@ -103,6 +103,37 @@ export default function ProgressScreen() {
         </Card>
       </View>
 
+      {/* Sensei's notes (Stage 2): reframed stats — slips as material, the agent's win line,
+          and the Planner's focus for the week. Errors are never shown as raw failure counts. */}
+      {(() => {
+        const slips = Object.values(progress.topics).reduce((n, s) => n + (s.attempts - s.correct), 0);
+        const wins = progress.profile?.wins;
+        const planNote = progress.profile?.planNote;
+        if (!slips && !wins && !planNote) return null;
+        return (
+          <Card>
+            <Txt variant="label" style={{ marginBottom: 8 }}>
+              {tr("prog.senseiNotes")}
+            </Txt>
+            {!!wins && (
+              <Txt variant="body" style={{ marginBottom: 6 }}>
+                {wins}
+              </Txt>
+            )}
+            {slips > 0 && (
+              <Txt variant="secondary" color={t.c.ink2} style={{ marginBottom: planNote ? 6 : 0 }}>
+                {tr("prog.reframe", { n: slips })}
+              </Txt>
+            )}
+            {!!planNote && (
+              <Txt variant="secondary" color={t.c.ink3}>
+                {tr("prog.planFocus", { note: planNote })}
+              </Txt>
+            )}
+          </Card>
+        );
+      })()}
+
       {/* Belts by topic */}
       <Card>
         <Txt variant="label" style={{ marginBottom: 12 }}>

@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, 
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { gateKind, type Exercise, type ResponseValue } from "../services/api";
+import { gateKind, postSessionSummary, type Exercise, type ResponseValue, type SessionAnswer } from "../services/api";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ActivationBanner from "../components/ui/ActivationBanner";
 import LimitSheet from "../components/ui/LimitSheet";
@@ -35,8 +35,11 @@ export default function PracticeScreen() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { progress } = useProgress();
+  const { progress, updateProfile } = useProgress();
   const { t: tr } = useI18n();
+  // Stage 2 Progress Agent: every answer of this session, pushed once at the summary screen.
+  const sessionAnswersRef = useRef<SessionAnswer[]>([]);
+  const summarySentRef = useRef(false);
   const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
     useExerciseCheck();
   const params = useLocalSearchParams<{ topic?: string }>();
@@ -147,7 +150,20 @@ export default function PracticeScreen() {
     if (res) {
       setSolved((s) => s + 1);
       if (res.correct) setSessionCorrect((c) => c + 1);
+      sessionAnswersRef.current.push({ topic: exercise.topic, correct: res.correct, level: exercise.level });
     }
+  }
+
+  // Fire-and-forget memory update (auth required server-side; anonymous callers just 401 → ignored).
+  // The agent's "wins" line comes back for the Progress tab; weak-spot memory updates server-side.
+  function pushSessionSummary() {
+    if (summarySentRef.current || sessionAnswersRef.current.length === 0) return;
+    summarySentRef.current = true;
+    postSessionSummary(sessionAnswersRef.current)
+      .then((r) => {
+        if (r.wins) updateProfile({ wins: r.wins });
+      })
+      .catch(() => {}); // best-effort: offline / logged out / model down
   }
 
   function onExplain() {
@@ -273,7 +289,13 @@ export default function PracticeScreen() {
           {result ? (
             // Session complete → the reward scroll is the closing beat; otherwise next card.
             solved >= SESSION_LEN ? (
-              <Button label={tr("action.finish")} onPress={() => setShowScroll(true)} />
+              <Button
+                label={tr("action.finish")}
+                onPress={() => {
+                  pushSessionSummary();
+                  setShowScroll(true);
+                }}
+              />
             ) : (
               <Button label={tr("action.next")} onPress={loadExercise} />
             )

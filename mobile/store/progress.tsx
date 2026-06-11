@@ -48,6 +48,12 @@ export type Profile = {
   domains: string[]; // optional sub-roles (only when sphere is Software & IT)
   painText: string;
   tone?: string; // feedback tone preference: soft | balanced | strict (default balanced)
+  // --- Stage 2 agent outputs, cached locally (canonical copy lives in the server profile) ---
+  wins?: string; // Progress Agent's encouraging line, shown on the Progress tab
+  planWeights?: Record<string, number>; // Planner's per-topic urgency multipliers (0.5..2)
+  planNote?: string; // Planner's one-line focus, shown on the Progress tab
+  planDate?: string; // ISO date the plan was made (weekly-refresh trigger)
+  planGoal?: string; // goal the plan was built for (new-goal trigger)
 };
 
 export type Progress = {
