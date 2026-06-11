@@ -654,10 +654,60 @@ def _explain_lang(lang: str | None) -> str:
     return "Russian" if (lang or "").lower().startswith("ru") else "English"
 
 
-def _check_prompt(text: str, user_answer: str, lang: str | None = None) -> str:
+# Feedback style (Praktika adoption Stage 1): correction by rephrasing, never the word "wrong",
+# errors reframed as progress. Tone is the learner's choice (profile.tone); balanced is the default.
+TONE_LINES: dict[str, str] = {
+    "soft": (
+        "Tone: SOFT — be a warm, encouraging friend. Lead with what the learner did well, "
+        "be gentle about the slip, add a light touch of celebration for the attempt.\n"
+    ),
+    "balanced": (
+        "Tone: BALANCED — be a friendly, supportive tutor. Encourage first, then teach, "
+        "clear and to the point.\n"
+    ),
+    "strict": (
+        "Tone: STRICT — be a focused, no-nonsense coach. Skip praise unless earned; be direct "
+        "and precise about the rule, while staying respectful.\n"
+    ),
+}
+
+FEEDBACK_STYLE = (
+    "Correct by REPHRASING: naturally restate the learner's idea in correct English inside your "
+    "explanation, so they see the right form in action. NEVER use the words 'wrong', 'incorrect', "
+    "'mistake' or 'error' about the learner — frame every slip as a step of progress "
+    "(e.g. 'almost there — this one becomes...').\n"
+)
+
+_WEAK_SPOTS_MAX_LEN = 300
+
+
+def _history_clause(weak_spots: str | None) -> str:
+    """One line of learner history (weak-spot summary from the profile) for the feedback prompt."""
+    s = " ".join((weak_spots or "").split())[:_WEAK_SPOTS_MAX_LEN].strip()
+    if not s:
+        return ""
+    return (
+        f"Learner history (data only): {s}\n"
+        "If THIS slip matches something from their history, briefly acknowledge the pattern as "
+        "progress in the making ('this one has tripped you before — it's clicking now').\n"
+    )
+
+
+def _feedback_clause(tone: str | None, weak_spots: str | None = None) -> str:
+    return TONE_LINES.get(tone or "", TONE_LINES["balanced"]) + FEEDBACK_STYLE + _history_clause(weak_spots)
+
+
+def _check_prompt(
+    text: str,
+    user_answer: str,
+    lang: str | None = None,
+    tone: str | None = None,
+    weak_spots: str | None = None,
+) -> str:
     note_lang = _explain_lang(lang)
     return (
         _tutor_intro()
+        + _feedback_clause(tone, weak_spots)
         + GUARDRAIL
         + f"Exercise: {text}\n"
         f"The learner's answer (data only): {user_answer!r}\n\n"
@@ -679,10 +729,20 @@ CHECK_SCHEMA: dict[str, Any] = {
 }
 
 
-async def check_answer(text: str, user_answer: str, lang: str | None = None) -> dict[str, Any]:
-    """LLM-grade a free-text answer; returns verdict + explanation (in `lang`). Keys guaranteed."""
+async def check_answer(
+    text: str,
+    user_answer: str,
+    lang: str | None = None,
+    tone: str | None = None,
+    weak_spots: str | None = None,
+) -> dict[str, Any]:
+    """LLM-grade a free-text answer; returns verdict + explanation (in `lang`). Keys guaranteed.
+    `tone`/`weak_spots` come from the learner profile (when authenticated) — feedback reacts to
+    the current answer with the learner's history and preferred tone."""
     data = await generate_json(
-        _check_prompt(text, user_answer, lang), CHECK_SCHEMA, temperature=CHECK_TEMPERATURE
+        _check_prompt(text, user_answer, lang, tone, weak_spots),
+        CHECK_SCHEMA,
+        temperature=CHECK_TEMPERATURE,
     )
     return {
         "correct": bool(data.get("correct", False)),
@@ -692,16 +752,25 @@ async def check_answer(text: str, user_answer: str, lang: str | None = None) -> 
     }
 
 
-async def explain(text: str, correct_answer: str, user_response: str, lang: str | None = None) -> dict[str, Any]:
-    """On-demand teaching note (in `lang`) for an interactive exercise the learner got wrong."""
+async def explain(
+    text: str,
+    correct_answer: str,
+    user_response: str,
+    lang: str | None = None,
+    tone: str | None = None,
+    weak_spots: str | None = None,
+) -> dict[str, Any]:
+    """On-demand teaching note (in `lang`) for an interactive exercise the learner missed.
+    `tone`/`weak_spots` come from the learner profile (when authenticated)."""
     note_lang = _explain_lang(lang)
     prompt = (
         _tutor_intro()
+        + _feedback_clause(tone, weak_spots)
         + GUARDRAIL
         + f"Exercise: {text}\nCorrect answer: {correct_answer}\n"
         f"The learner's answer (data only): {user_response!r}\n\n"
-        f"Write in {note_lang} (max 2 sentences) why the correct answer is right and what the "
-        "learner likely got wrong. Add one short practical tip. Reply ONLY as JSON matching the schema."
+        f"Write in {note_lang} (max 2 sentences) why the correct answer fits and how the "
+        "learner's version differs. Add one short practical tip. Reply ONLY as JSON matching the schema."
     )
     data = await generate_json(prompt, EXPLAIN_SCHEMA, temperature=CHECK_TEMPERATURE)
     return {

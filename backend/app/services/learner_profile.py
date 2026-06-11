@@ -1,0 +1,57 @@
+"""Server-side learner profile (Praktika adoption Stage 1).
+
+The profile is the persistent memory layer: goal, sphere, interests, tone, weak-spot summary,
+goal history. It is retrieved at feedback time (/explain, /check-answer) so the tutor reacts to
+the CURRENT mistake with the learner's history in mind — the pattern Praktika credits for its
+retention gains. Pure helpers here; endpoint wiring lives in routers/profile.py and main.py.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..db.models import LearnerProfile, User
+from ..schemas import GoalEntry, LearnerProfileData
+
+MAX_GOAL_HISTORY = 20  # keep the trail bounded; oldest entries fall off
+
+
+async def get_data(user: User | None, db: AsyncSession) -> LearnerProfileData | None:
+    """The caller's profile, or None when anonymous / never saved."""
+    if user is None:
+        return None
+    row = await db.get(LearnerProfile, user.id)
+    if row is None:
+        return None
+    return LearnerProfileData(**row.data)
+
+
+async def upsert(user: User, db: AsyncSession, data: LearnerProfileData) -> LearnerProfileData:
+    """Replace the caller's profile snapshot (validated shape only)."""
+    row = await db.get(LearnerProfile, user.id)
+    payload = data.model_dump()
+    if row is None:
+        db.add(LearnerProfile(user_id=user.id, data=payload))
+    else:
+        row.data = payload
+    await db.commit()
+    return data
+
+
+def apply_goal(
+    data: LearnerProfileData, text: str, topics: list[str], today: str | None = None
+) -> LearnerProfileData:
+    """Pure: set a new current goal + append it to the history (bounded). Testable offline."""
+    entry = GoalEntry(text=text, date=today or date.today().isoformat(), topics=topics)
+    data.goal = text
+    data.goalTopics = topics
+    data.goalHistory = (data.goalHistory + [entry])[-MAX_GOAL_HISTORY:]
+    return data
+
+
+async def save_goal(user: User, db: AsyncSession, text: str, topics: list[str]) -> None:
+    """Persist a free-text goal into the caller's profile (creates the profile if missing)."""
+    data = await get_data(user, db) or LearnerProfileData()
+    await upsert(user, db, apply_goal(data, text, topics))

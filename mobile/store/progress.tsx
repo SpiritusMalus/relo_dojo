@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getProgress, putProgress } from "../services/api";
+import { getProgress, putProgress, syncLearnerProfile } from "../services/api";
 import { useAuth } from "./auth";
 import { useWallet } from "./wallet";
 import { updateSkill } from "./adaptive";
@@ -47,6 +47,7 @@ export type Profile = {
   sphere: string; // top-level field of work/interest (any sphere, "" if skipped)
   domains: string[]; // optional sub-roles (only when sphere is Software & IT)
   painText: string;
+  tone?: string; // feedback tone preference: soft | balanced | strict (default balanced)
 };
 
 export type Progress = {
@@ -315,6 +316,8 @@ type ProgressContextValue = {
   recordAnswer: (topic: string, correct: boolean, grade?: GradeSignal) => void;
   completeOnboarding: (profile: Profile, skill: Record<string, number>) => void;
   resetOnboarding: () => void;
+  /** Merge a partial change into the profile (e.g. tone or a new goal from settings). */
+  updateProfile: (patch: Partial<Profile>) => void;
   /** Buy back the broken streak ("отработка у Сэнсэя"). Charges koku server-side; throws on 409. */
   repairStreak: () => Promise<void>;
   /** Let the broken streak go (closes the repair offer). */
@@ -496,6 +499,32 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         schedulePush(next);
         return next;
       });
+      // Mirror the survey into the server-side learner profile (memory layer for feedback).
+      // The free-text goal itself is persisted by /profile/analyze when authenticated.
+      void syncLearnerProfile({
+        sphere: profile.sphere,
+        domains: profile.domains,
+        tone: profile.tone || "balanced",
+      });
+    },
+    [schedulePush]
+  );
+
+  const updateProfile = useCallback(
+    (patch: Partial<Profile>) => {
+      setProgress((prev) => {
+        if (!prev.profile) return prev;
+        const next: Progress = { ...prev, profile: { ...prev.profile, ...patch } };
+        void save(next);
+        schedulePush(next);
+        return next;
+      });
+      // Keep the server-side memory layer in step for the fields it owns.
+      const serverPatch: Record<string, unknown> = {};
+      if (patch.tone !== undefined) serverPatch.tone = patch.tone;
+      if (patch.sphere !== undefined) serverPatch.sphere = patch.sphere;
+      if (patch.domains !== undefined) serverPatch.domains = patch.domains;
+      if (Object.keys(serverPatch).length) void syncLearnerProfile(serverPatch);
     },
     [schedulePush]
   );
@@ -517,11 +546,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       recordAnswer: record,
       completeOnboarding,
       resetOnboarding,
+      updateProfile,
       repairStreak,
       dismissBrokenStreak,
       activateBoost,
     }),
-    [progress, ready, synced, record, completeOnboarding, resetOnboarding, repairStreak, dismissBrokenStreak, activateBoost]
+    [progress, ready, synced, record, completeOnboarding, resetOnboarding, updateProfile, repairStreak, dismissBrokenStreak, activateBoost]
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

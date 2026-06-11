@@ -50,6 +50,9 @@ class User(Base):
     progress: Mapped["Progress"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
+    learner_profile: Mapped["LearnerProfile"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class Progress(Base):
@@ -64,3 +67,24 @@ class Progress(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="progress")
+
+
+class LearnerProfile(Base):
+    """Server-side learner memory (Praktika adoption, Stage 1).
+
+    One JSONB row per user — the shared profile all feedback/planning reads: structured goal,
+    sphere/sub-roles, interests, tone (soft/balanced/strict), weak-spot summary, goal history.
+    Shape is validated by schemas.LearnerProfileData. JSONB so Stage 2 agents can extend it
+    without a migration."""
+
+    __tablename__ = "learner_profiles"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    user: Mapped["User"] = relationship(back_populates="learner_profile")

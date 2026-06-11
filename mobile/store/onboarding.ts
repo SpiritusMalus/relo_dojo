@@ -55,6 +55,14 @@ export const GOAL_PHRASES: Record<string, string> = {
   travel: "travelling and everyday conversation",
 };
 
+// Feedback tone (Praktika adoption Stage 1): how the Sensei talks about slips.
+export const TONES: { id: string; label: string }[] = [
+  { id: "soft", label: "Soft — cheer me on" },
+  { id: "balanced", label: "Balanced — friendly and clear" },
+  { id: "strict", label: "Strict — straight to the point" },
+];
+export const DEFAULT_TONE = "balanced";
+
 export const SELF_LEVELS: { id: string; label: string }[] = [
   { id: "beginner", label: "Beginner — I rely on a dictionary" },
   { id: "intermediate", label: "Intermediate — I read docs okay" },

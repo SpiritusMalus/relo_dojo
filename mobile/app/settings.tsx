@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,8 +7,12 @@ import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import { useAuth } from "../store/auth";
 import { useProgress } from "../store/progress";
+import { DEFAULT_TONE, TONES } from "../store/onboarding";
+import { RU_TONE_LABELS } from "../i18n/strings";
+import { analyzePain } from "../services/api";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
+import Chip from "../components/ui/Chip";
 import Icon from "../components/ui/Icon";
 import Txt from "../components/ui/Txt";
 
@@ -19,7 +24,31 @@ export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
-  const { resetOnboarding } = useProgress();
+  const { progress, resetOnboarding, updateProfile } = useProgress();
+  const tone = progress.profile?.tone || DEFAULT_TONE;
+  const [goalText, setGoalText] = useState("");
+  const [goalBusy, setGoalBusy] = useState(false);
+  const [goalSaved, setGoalSaved] = useState(false);
+
+  // "Change my goal": free text, any time. /profile/analyze maps it to topics and (when logged in)
+  // persists it into the server-side learner profile; locally it refreshes painText + focusTopics.
+  async function submitGoal() {
+    const text = goalText.trim();
+    if (!text || goalBusy) return;
+    setGoalBusy(true);
+    setGoalSaved(false);
+    try {
+      const { topics } = await analyzePain(text);
+      const prevFocus = progress.profile?.focusTopics ?? [];
+      updateProfile({ painText: text, focusTopics: Array.from(new Set([...prevFocus, ...topics])) });
+      setGoalText("");
+      setGoalSaved(true);
+    } catch {
+      // offline / model down — keep the text so the user can retry
+    } finally {
+      setGoalBusy(false);
+    }
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top + 8 }}>
@@ -74,6 +103,21 @@ export default function SettingsScreen() {
               ))}
             </View>
           </View>
+          <View style={{ marginBottom: 12 }}>
+            <Txt variant="bodyStrong" style={{ marginBottom: 8 }}>
+              {tr("settings.tone")}
+            </Txt>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {TONES.map((x) => (
+                <Chip
+                  key={x.id}
+                  label={lang === "ru" ? RU_TONE_LABELS[x.id] ?? x.label : x.label}
+                  selected={tone === x.id}
+                  onPress={() => updateProfile({ tone: x.id })}
+                />
+              ))}
+            </View>
+          </View>
           <Button
             label={tr("settings.redoOnboarding")}
             variant="ghost"
@@ -86,6 +130,51 @@ export default function SettingsScreen() {
               {tr("settings.logout")}
             </Txt>
           </Pressable>
+        </Card>
+
+        {/* Free-text goal change (Praktika adoption Stage 1): the account adapts to a new goal. */}
+        <Card>
+          <Txt variant="label" style={{ marginBottom: 6 }}>
+            {tr("settings.goalTitle")}
+          </Txt>
+          <Txt variant="secondary" color={t.c.ink3} style={{ marginBottom: 10 }}>
+            {tr("settings.goalSub")}
+          </Txt>
+          {!!progress.profile?.painText && (
+            <Txt variant="body" color={t.c.ink2} style={{ marginBottom: 10 }}>
+              «{progress.profile.painText}»
+            </Txt>
+          )}
+          <TextInput
+            value={goalText}
+            onChangeText={(v) => {
+              setGoalText(v);
+              setGoalSaved(false);
+            }}
+            placeholder={tr("settings.goalPlaceholder")}
+            placeholderTextColor={t.c.ink3}
+            multiline
+            style={{
+              borderWidth: 1,
+              borderColor: t.c.line2,
+              borderRadius: t.spacing.radiusSm,
+              padding: 12,
+              minHeight: 64,
+              color: t.c.ink,
+              marginBottom: 10,
+            }}
+          />
+          {goalSaved && (
+            <Txt variant="secondary" color={t.c.accent} style={{ marginBottom: 8 }}>
+              {tr("settings.goalSaved")}
+            </Txt>
+          )}
+          <Button
+            label={goalBusy ? tr("ob.analyzing") : tr("settings.goalSave")}
+            uppercase={false}
+            onPress={submitGoal}
+            disabled={goalBusy || !goalText.trim()}
+          />
         </Card>
 
         {/* Secondary door to the Lavka, for people who look for "where do I spend koku" here. */}

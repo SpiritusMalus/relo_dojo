@@ -16,8 +16,10 @@ import { useProgress, type Profile } from "../store/progress";
 import { levelToCefr } from "../store/adaptive";
 import {
   DAILY_MINUTES,
+  DEFAULT_TONE,
   GOALS,
   SELF_LEVELS,
+  TONES,
   SPHERES,
   SOFTWARE_SPHERE,
   SOFTWARE_ROLES,
@@ -30,7 +32,7 @@ import {
 } from "../store/onboarding";
 import { pickItem, type CalItem } from "../store/calibrationBank";
 import { useI18n } from "../store/i18n";
-import { RU_GOAL_LABELS, RU_SELF_LABELS, RU_TOPIC_LABELS } from "../i18n/strings";
+import { RU_GOAL_LABELS, RU_SELF_LABELS, RU_TONE_LABELS, RU_TOPIC_LABELS } from "../i18n/strings";
 import { beltByCefr, useTheme } from "../theme/theme";
 import Screen from "../components/ui/Screen";
 import Card from "../components/ui/Card";
@@ -45,7 +47,7 @@ import Txt from "../components/ui/Txt";
 
 const GOAL_LABELS: Record<string, string> = Object.fromEntries(GOALS.map((g) => [g.id, g.label]));
 const CALIBRATION_ITEMS = 10;
-const LAST_STEP = 8;
+const LAST_STEP = 9;
 
 // Fisher-Yates: never mutate the source bank, and don't leak the answer's position
 // (bank items list the correct answer first).
@@ -291,6 +293,7 @@ export default function OnboardingScreen() {
   const [dailyMinutes, setDailyMinutes] = useState(0);
   const [sphere, setSphere] = useState("");
   const [domains, setDomains] = useState<string[]>([]);
+  const [tone, setTone] = useState(DEFAULT_TONE);
   const [goalOther, setGoalOther] = useState("");
   const [domainOther, setDomainOther] = useState("");
   const [busy, setBusy] = useState(false);
@@ -298,8 +301,8 @@ export default function OnboardingScreen() {
   const [estimatedLevel, setEstimatedLevel] = useState(1.5);
 
   const buildProfile = useCallback(
-    (): Profile => ({ goals, focusTopics, selfLevel, dailyMinutes, sphere, domains, painText }),
-    [goals, focusTopics, selfLevel, dailyMinutes, sphere, domains, painText]
+    (): Profile => ({ goals, focusTopics, selfLevel, dailyMinutes, sphere, domains, painText, tone }),
+    [goals, focusTopics, selfLevel, dailyMinutes, sphere, domains, painText, tone]
   );
 
   const finish = useCallback(
@@ -409,6 +412,20 @@ export default function OnboardingScreen() {
         )}
 
         {step === 5 && (
+          <StepView title={tr("ob.toneTitle")} subtitle={tr("ob.toneSub")}>
+            {TONES.map((x) => (
+              <Chip
+                key={x.id}
+                label={lang === "ru" ? RU_TONE_LABELS[x.id] ?? x.label : x.label}
+                selected={tone === x.id}
+                onPress={() => setTone(x.id)}
+              />
+            ))}
+            <Button label={tr("ob.next")} onPress={next} />
+          </StepView>
+        )}
+
+        {step === 6 && (
           <StepView title={tr("ob.timeTitle")}>
             <View style={styles.wrap}>
               {DAILY_MINUTES.map((m) => (
@@ -419,7 +436,7 @@ export default function OnboardingScreen() {
           </StepView>
         )}
 
-        {step === 6 && (
+        {step === 7 && (
           <StepView title={tr("ob.areaTitle")} subtitle={tr("ob.areaSub")}>
             <View style={styles.wrap}>
               {SPHERES.map((s) => (
@@ -450,7 +467,7 @@ export default function OnboardingScreen() {
           </StepView>
         )}
 
-        {step === 7 && (
+        {step === 8 && (
           <Calibration
             profile={buildProfile()}
             onDone={(skill, level) => {
@@ -461,10 +478,10 @@ export default function OnboardingScreen() {
           />
         )}
 
-        {step === 8 && <Reveal profile={buildProfile()} estimatedLevel={estimatedLevel} onStart={() => finish(calibratedSkill)} />}
+        {step === 9 && <Reveal profile={buildProfile()} estimatedLevel={estimatedLevel} onStart={() => finish(calibratedSkill)} />}
       </ScrollView>
 
-      {step === 8 && <Confetti />}
+      {step === 9 && <Confetti />}
     </View>
   );
 }

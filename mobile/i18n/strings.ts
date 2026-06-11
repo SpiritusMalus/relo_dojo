@@ -85,6 +85,12 @@ export const STRINGS = {
     "settings.language": "Language",
     "settings.redoOnboarding": "Redo onboarding",
     "settings.logout": "Log out",
+    "settings.tone": "Sensei's tone",
+    "settings.goalTitle": "My goal",
+    "settings.goalSub": "Tell Sensei what you want from English — the plan adapts.",
+    "settings.goalPlaceholder": "e.g. I freeze when writing to my boss",
+    "settings.goalSave": "Update my goal",
+    "settings.goalSaved": "Goal updated — Sensei will keep it in mind.",
     "activate.title": "Activate your account to unlock lessons",
     "activate.sub": "We sent a link to {email}. Open it, then tap “I confirmed”.",
     "activate.resend": "Resend email",
@@ -174,6 +180,8 @@ export const STRINGS = {
     "ob.painPlaceholder": "e.g. I mix up in/on/at and if-sentences",
     "ob.analyzing": "Analyzing…",
     "ob.rateTitle": "How would you rate your English?",
+    "ob.toneTitle": "How should Sensei talk to you?",
+    "ob.toneSub": "How feedback sounds when something needs work. Change it anytime in settings.",
     "ob.timeTitle": "How much time per day?",
     "ob.minutes": "{n} min",
     "ob.areaTitle": "What's your field?",
@@ -287,6 +295,12 @@ export const STRINGS = {
     "settings.language": "Язык",
     "settings.redoOnboarding": "Пройти онбординг заново",
     "settings.logout": "Выйти",
+    "settings.tone": "Тон Сэнсэя",
+    "settings.goalTitle": "Моя цель",
+    "settings.goalSub": "Расскажи Сэнсэю, зачем тебе английский — план подстроится.",
+    "settings.goalPlaceholder": "напр. теряюсь, когда пишу начальнику",
+    "settings.goalSave": "Обновить цель",
+    "settings.goalSaved": "Цель обновлена — Сэнсэй учтёт.",
     "activate.title": "Активируй аккаунт, чтобы разблокировать уроки",
     "activate.sub": "Мы отправили ссылку на {email}. Открой её и нажми «Я подтвердил».",
     "activate.resend": "Выслать снова",
@@ -376,6 +390,8 @@ export const STRINGS = {
     "ob.painPlaceholder": "напр. путаю in/on/at и условные предложения",
     "ob.analyzing": "Анализируем…",
     "ob.rateTitle": "Как оценишь свой английский?",
+    "ob.toneTitle": "Как Сэнсэю говорить с тобой?",
+    "ob.toneSub": "Тон обратной связи, когда что-то не получилось. Можно поменять в настройках.",
     "ob.timeTitle": "Сколько времени в день?",
     "ob.minutes": "{n} мин",
     "ob.areaTitle": "Чем ты занимаешься?",
@@ -435,6 +451,12 @@ export const RU_GOAL_LABELS: Record<string, string> = {
   interviews: "Проходить собеседования",
   customers: "Общаться с клиентами",
   travel: "Путешествия и бытовое общение",
+};
+
+export const RU_TONE_LABELS: Record<string, string> = {
+  soft: "Мягко — подбадривай меня",
+  balanced: "Сбалансированно — дружелюбно и ясно",
+  strict: "Строго — сразу к делу",
 };
 
 export const RU_SELF_LABELS: Record<string, string> = {

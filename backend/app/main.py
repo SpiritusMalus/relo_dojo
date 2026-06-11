@@ -29,6 +29,7 @@ from .core.config import settings
 from .db.models import User
 from .deps import get_current_user, get_current_user_optional, get_db
 from .routers import auth as auth_router
+from .routers import profile as profile_router
 from .routers import progress as progress_router
 from .routers import wallet as wallet_router
 from .schemas import (
@@ -48,7 +49,7 @@ from .schemas import (
     StoryIn,
     StoryOut,
 )
-from .services import gating, grammar, rewards, stories, tokens
+from .services import gating, grammar, learner_profile, rewards, stories, tokens
 from .services import wallet as wallet_service
 from .services.ollama_client import OllamaError, generate
 
@@ -63,6 +64,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router.router)
+app.include_router(profile_router.router)
 app.include_router(progress_router.router)
 app.include_router(wallet_router.router)
 
@@ -171,18 +173,44 @@ async def check(
 
 
 @app.post("/check-answer", response_model=CheckTextOut)
-async def check_answer(payload: CheckTextIn) -> CheckTextOut:
+async def check_answer(
+    payload: CheckTextIn,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+) -> CheckTextOut:
+    """LLM grade + feedback. Authenticated callers get profile-aware feedback (tone + history)."""
+    prof = await learner_profile.get_data(user, db)
     try:
-        data = await grammar.check_answer(payload.text, payload.user_answer, payload.lang)
+        data = await grammar.check_answer(
+            payload.text,
+            payload.user_answer,
+            payload.lang,
+            tone=prof.tone if prof else None,
+            weak_spots=prof.weakSpots if prof else None,
+        )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return CheckTextOut(**data)
 
 
 @app.post("/explain", response_model=ExplainOut)
-async def explain(payload: ExplainIn) -> ExplainOut:
+async def explain(
+    payload: ExplainIn,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+) -> ExplainOut:
+    """Teaching note for a miss. Authenticated callers get profile-aware feedback (tone + history)
+    retrieved at feedback time — the tutor reacts to the CURRENT slip with memory of past ones."""
+    prof = await learner_profile.get_data(user, db)
     try:
-        data = await grammar.explain(payload.text, payload.correct_answer, payload.user_response, payload.lang)
+        data = await grammar.explain(
+            payload.text,
+            payload.correct_answer,
+            payload.user_response,
+            payload.lang,
+            tone=prof.tone if prof else None,
+            weak_spots=prof.weakSpots if prof else None,
+        )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return ExplainOut(**data)
@@ -213,10 +241,20 @@ async def dev_premium_toggle(
 
 
 @app.post("/profile/analyze", response_model=AnalyzeOut)
-async def analyze(payload: AnalyzeIn) -> AnalyzeOut:
-    """Onboarding: map a free-text 'what's hard for me' to canonical grammar topics. Public."""
+async def analyze(
+    payload: AnalyzeIn,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+) -> AnalyzeOut:
+    """Goal intake: map a free-text goal/'what's hard for me' to canonical grammar topics.
+    Public; for authenticated callers the goal is also persisted into the learner profile
+    (current goal + bounded history) — onboarding AND 'change my goal' in settings both land here."""
     try:
         topics = await grammar.analyze_pain(payload.text)
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return AnalyzeOut(topics=topics)
+    saved = False
+    if user is not None:
+        await learner_profile.save_goal(user, db, payload.text.strip(), topics)
+        saved = True
+    return AnalyzeOut(topics=topics, saved=saved)

@@ -211,8 +211,10 @@ class Profile(BaseModel):
     focusTopics: list[str] = []
     selfLevel: str = ""  # beginner | intermediate | advanced
     dailyMinutes: int = 0
+    sphere: str = ""  # top-level field of work/interest (was silently dropped on sync before)
     domains: list[str] = []
     painText: str = ""
+    tone: str = ""  # feedback tone preference (soft | balanced | strict); "" = default
 
 
 class BrokenStreak(BaseModel):
@@ -256,3 +258,37 @@ class AnalyzeIn(BaseModel):
 
 class AnalyzeOut(BaseModel):
     topics: list[str] = []  # subset of the canonical grammar topics
+    saved: bool = False  # true when the goal was persisted into the caller's learner profile
+
+
+# --- learner profile (Praktika adoption Stage 1: server-side memory layer) ---
+TONES = ("soft", "balanced", "strict")
+
+
+class GoalEntry(BaseModel):
+    """One entry in the goal history: what the learner said, when, and how it was classified."""
+
+    text: str = ""
+    date: str = ""  # ISO date the goal was set
+    topics: list[str] = []  # canonical grammar topics extracted from the text
+
+
+class LearnerProfileData(BaseModel):
+    """The shared learner memory all feedback (and, in Stage 2, agents) reads.
+
+    Stored as one JSONB row per user (db.models.LearnerProfile). `goal` is the CURRENT free-text
+    goal; `goalHistory` keeps the trail. `weakSpots` is a short human-readable summary — written
+    by the Progress Agent in Stage 2, threaded into feedback prompts already in Stage 1."""
+
+    goal: str = Field(default="", max_length=MAX_TEXT)
+    goalTopics: list[str] = Field(default_factory=list, max_length=20)
+    sphere: str = Field(default="", max_length=120)
+    domains: list[str] = Field(default_factory=list, max_length=20)
+    interests: list[str] = Field(default_factory=list, max_length=20)
+    tone: str = "balanced"  # soft | balanced | strict (anything else falls back to balanced)
+    weakSpots: str = Field(default="", max_length=500)
+    goalHistory: list[GoalEntry] = Field(default_factory=list, max_length=50)
+
+    def model_post_init(self, __context: object) -> None:
+        if self.tone not in TONES:
+            self.tone = "balanced"

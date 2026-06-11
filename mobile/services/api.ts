@@ -203,9 +203,43 @@ export function getStory(params?: { level?: string; context?: string }): Promise
   return request<StorySet>("/story", params ?? {}, "POST", STORY_TIMEOUT_MS);
 }
 
-// Onboarding: map a free-text "what's hard for me" to canonical grammar topics.
-export function analyzePain(text: string): Promise<{ topics: string[] }> {
-  return request<{ topics: string[] }>("/profile/analyze", { text });
+// Goal intake: map a free-text goal / "what's hard for me" to canonical grammar topics.
+// For authenticated callers the backend ALSO persists the goal into the learner profile
+// (saved: true) — both onboarding and "change my goal" in settings flow through here.
+export function analyzePain(text: string): Promise<{ topics: string[]; saved?: boolean }> {
+  return request<{ topics: string[]; saved?: boolean }>("/profile/analyze", { text });
+}
+
+// --- learner profile (server-side memory layer: tone, goal, weak spots) ---
+export type LearnerProfileData = {
+  goal: string;
+  goalTopics: string[];
+  sphere: string;
+  domains: string[];
+  interests: string[];
+  tone: string; // soft | balanced | strict
+  weakSpots: string;
+  goalHistory: { text: string; date: string; topics: string[] }[];
+};
+
+export function getLearnerProfile(): Promise<LearnerProfileData> {
+  return request<LearnerProfileData>("/profile", undefined, "GET");
+}
+
+export function putLearnerProfile(p: LearnerProfileData): Promise<LearnerProfileData> {
+  return request<LearnerProfileData>("/profile", p, "PUT");
+}
+
+// Merge a partial update into the server profile (fetch → patch → put). Best-effort:
+// silently no-ops when logged out / offline — the local snapshot still syncs via /progress.
+export async function syncLearnerProfile(patch: Partial<LearnerProfileData>): Promise<void> {
+  if (!authToken) return;
+  try {
+    const current = await getLearnerProfile();
+    await putLearnerProfile({ ...current, ...patch });
+  } catch {
+    // best-effort
+  }
 }
 
 // Deterministic, instant grade for interactive exercises (no LLM).
