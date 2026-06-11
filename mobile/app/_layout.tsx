@@ -48,11 +48,16 @@ function RootNav() {
     const timer = setTimeout(() => {
       void (async () => {
         if (!(await ensurePermission())) return;
-        await rescheduleAll({ lang, trainedToday, dailyStreak: progress.dailyStreak });
+        await rescheduleAll({
+          lang,
+          trainedToday,
+          dailyStreak: progress.dailyStreak,
+          remindHour: progress.profile?.remindHour,
+        });
       })();
     }, 2000); // debounce: recordAnswer fires per card; one re-plan per burst is plenty
     return () => clearTimeout(timer);
-  }, [authReady, progressReady, token, progress.onboarded, trainedToday, progress.dailyStreak, lang]);
+  }, [authReady, progressReady, token, progress.onboarded, trainedToday, progress.dailyStreak, lang, progress.profile?.remindHour]);
 
   if (!authReady) return null; // brief splash while we read stored token
 

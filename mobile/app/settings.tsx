@@ -8,6 +8,9 @@ import { useI18n } from "../store/i18n";
 import { useAuth } from "../store/auth";
 import { useProgress } from "../store/progress";
 import { DEFAULT_TONE, TONES } from "../store/onboarding";
+
+// Reminder-time presets (the notification plan re-builds from profile.remindHour on change).
+const REMIND_HOURS = [8, 12, 16, 19, 21];
 import { RU_TONE_LABELS } from "../i18n/strings";
 import { analyzePain } from "../services/api";
 import Button from "../components/ui/Button";
@@ -100,6 +103,21 @@ export default function SettingsScreen() {
                     {l === "ru" ? "Русский" : "English"}
                   </Txt>
                 </Pressable>
+              ))}
+            </View>
+          </View>
+          <View style={{ marginBottom: 12 }}>
+            <Txt variant="bodyStrong" style={{ marginBottom: 8 }}>
+              {tr("settings.remind")}
+            </Txt>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {REMIND_HOURS.map((h) => (
+                <Chip
+                  key={h}
+                  label={`${String(h).padStart(2, "0")}:00`}
+                  selected={(progress.profile?.remindHour ?? 19) === h}
+                  onPress={() => updateProfile({ remindHour: h })}
+                />
               ))}
             </View>
           </View>

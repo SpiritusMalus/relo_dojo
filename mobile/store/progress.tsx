@@ -54,6 +54,7 @@ export type Profile = {
   planNote?: string; // Planner's one-line focus, shown on the Progress tab
   planDate?: string; // ISO date the plan was made (weekly-refresh trigger)
   planGoal?: string; // goal the plan was built for (new-goal trigger)
+  remindHour?: number; // daily reminder hour (0..23); unset = default 19:00
 };
 
 export type Progress = {

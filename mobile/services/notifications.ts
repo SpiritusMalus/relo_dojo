@@ -25,10 +25,18 @@ try {
   // Notifications unavailable — functions will safely no-op below
 }
 
-export const DAILY_HOUR = 19;
-export const ESCALATION_HOUR = 21.5; // 21:30
+export const DAILY_HOUR = 19; // default when the learner hasn't picked a time
+export const ESCALATION_GAP_H = 2.5; // escalation follows the gentle call by 2.5h
+export const LATEST_ESCALATION_HOUR = 23.5; // never past 23:30 — it must land before midnight
 export const WINBACK_DAYS = [3, 7] as const;
 export const WINBACK_HOUR = 12;
+
+/** Pure: the two daily hours for a chosen reminder time (default 19:00 → escalation 21:30).
+ *  The escalation is capped so a late reminder still names the streak BEFORE it burns. */
+export function plannedHours(remindHour?: number): { daily: number; escalation: number } {
+  const daily = typeof remindHour === "number" && remindHour >= 0 && remindHour <= 23 ? remindHour : DAILY_HOUR;
+  return { daily, escalation: Math.min(LATEST_ESCALATION_HOUR, daily + ESCALATION_GAP_H) };
+}
 
 const GENTLE: Record<Lang, string[]> = {
   ru: [
@@ -108,6 +116,7 @@ export type ScheduleState = {
   lang: Lang;
   trainedToday: boolean; // practiced today → today's nags are off
   dailyStreak: number;
+  remindHour?: number; // learner-chosen reminder hour (0..23); default DAILY_HOUR
 };
 
 /** Cancel everything and re-plan the future from the current state. Safe to call often. */
@@ -117,15 +126,16 @@ export async function rescheduleAll(state: ScheduleState, now: Date = new Date()
   await Notifications.cancelAllScheduledNotificationsAsync();
   const seed = now.getDate();
   const plans: { date: Date; body: string }[] = [];
+  const { daily, escalation } = plannedHours(state.remindHour);
 
   if (!state.trainedToday) {
-    plans.push({ date: at(0, DAILY_HOUR, now), body: pick(GENTLE[state.lang], seed) });
+    plans.push({ date: at(0, daily, now), body: pick(GENTLE[state.lang], seed) });
     if (state.dailyStreak > 0) {
-      plans.push({ date: at(0, ESCALATION_HOUR, now), body: ESCALATION[state.lang](state.dailyStreak) });
+      plans.push({ date: at(0, escalation, now), body: ESCALATION[state.lang](state.dailyStreak) });
     }
   }
   // Tomorrow's gentle call (replaced with a fresh plan as soon as the app is opened again).
-  plans.push({ date: at(1, DAILY_HOUR, now), body: pick(GENTLE[state.lang], seed + 1) });
+  plans.push({ date: at(1, daily, now), body: pick(GENTLE[state.lang], seed + 1) });
   // Win-back ladder — only fires after genuine silence (every open re-plans it away).
   for (const days of WINBACK_DAYS) {
     plans.push({ date: at(days, WINBACK_HOUR, now), body: WINBACK[state.lang][days] });
