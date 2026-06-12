@@ -57,6 +57,8 @@ export type Profile = {
   planBaseline?: Record<string, number>; // correct-count per topic at plan time (quest progress)
   planBonusPaid?: string; // planDate whose completion bonus was already paid (one-shot per plan)
   remindHour?: number; // daily reminder hour (0..23); unset = default 19:00
+  // Student diary: weekly baseline + last finished week's recap (see store/diary.ts).
+  diary?: import("./diary").DiaryState;
 };
 
 export type Progress = {

@@ -2,6 +2,7 @@ import { StyleSheet, View } from "react-native";
 import { ACHIEVEMENTS, levelFor, useProgress, XP_PER_LEVEL, xpInLevel } from "../../store/progress";
 import { useI18n } from "../../store/i18n";
 import { RU_ACH, RU_TOPIC_LABELS } from "../../i18n/strings";
+import { TOPIC_LABELS } from "../../store/onboarding";
 import { beltProgress, topicRows } from "../../store/dojo";
 import { belts, useTheme } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
@@ -128,6 +129,38 @@ export default function ProgressScreen() {
             {!!planNote && (
               <Txt variant="secondary" color={t.c.ink3}>
                 {tr("prog.planFocus", { note: planNote })}
+              </Txt>
+            )}
+          </Card>
+        );
+      })()}
+
+      {/* Student diary: last finished week's recap (store/diary.ts; ticked from Home). */}
+      {(() => {
+        const recap = progress.profile?.diary?.last;
+        if (!recap) return null;
+        const top =
+          recap.topTopic &&
+          (lang === "ru" ? RU_TOPIC_LABELS[recap.topTopic] ?? recap.topTopic : TOPIC_LABELS[recap.topTopic] ?? recap.topTopic);
+        return (
+          <Card>
+            <Txt variant="label" style={{ marginBottom: 8 }}>
+              {`📖 ${tr("diary.title")}`}
+            </Txt>
+            <Txt variant="secondary" color={t.c.ink3} style={{ marginBottom: 6 }}>
+              {tr("diary.range", { from: recap.from, to: recap.to })}
+            </Txt>
+            <Txt variant="body" style={{ marginBottom: 4 }}>
+              {tr("diary.line", { correct: recap.correct, xp: recap.xp })}
+            </Txt>
+            {recap.slips > 0 && (
+              <Txt variant="secondary" color={t.c.ink2} style={{ marginBottom: 4 }}>
+                {tr("diary.slips", { n: recap.slips })}
+              </Txt>
+            )}
+            {!!top && (
+              <Txt variant="secondary" color={t.c.ink2}>
+                {tr("diary.top", { topic: top })}
               </Txt>
             )}
           </Card>

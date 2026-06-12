@@ -24,6 +24,7 @@ import ShopButton from "../../components/ui/ShopButton";
 import { mistakeCount } from "../../store/mistakes";
 import { buildStats, planPatch, shouldReplan } from "../../store/planner";
 import { bonusDue, bonusPaidPatch, buildQuests, questBaseline, QUEST_BONUS_XP } from "../../store/quest";
+import { tickDiary } from "../../store/diary";
 import ProgressBarUi from "../../components/ui/ProgressBar";
 import { senseiGreeting } from "../../store/greeting";
 import { canAttemptToday, examOffer } from "../../store/exam";
@@ -100,6 +101,12 @@ export default function HomeScreen() {
         planAskedRef.current = false; // let a later visit retry (offline / model down)
       });
   }, [user, progress, updateProfile]);
+
+  // Student diary: weekly tick — close a finished week into a recap, start a new baseline.
+  useEffect(() => {
+    const d = tickDiary(progress, isoDay(new Date()));
+    if (d) updateProfile({ diary: d });
+  }, [progress, updateProfile]);
 
   // Weekly quest scroll: pay the one-shot completion bonus the moment all goals are done.
   const quests = buildQuests(progress);

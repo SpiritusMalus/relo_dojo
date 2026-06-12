@@ -215,6 +215,19 @@ class Profile(BaseModel):
     domains: list[str] = []
     painText: str = ""
     tone: str = ""  # feedback tone preference (soft | balanced | strict); "" = default
+    # Client-owned gamification state mirrored through sync (shapes live in the mobile stores):
+    # planWeights/planNote/planDate/planGoal/planBaseline/planBonusPaid (quest scroll),
+    # wins (Progress Agent line), remindHour, diary (weekly recap). Kept as loose fields so the
+    # server never silently drops them (the Profile.sphere lesson).
+    wins: str = ""
+    planWeights: Optional[dict] = None
+    planNote: str = ""
+    planDate: str = ""
+    planGoal: str = ""
+    planBaseline: Optional[dict] = None
+    planBonusPaid: str = ""
+    remindHour: Optional[int] = None
+    diary: Optional[dict] = None
 
 
 class BrokenStreak(BaseModel):
