@@ -23,6 +23,9 @@ import TextReviewButton from "../../components/ui/TextReviewButton";
 import ShopButton from "../../components/ui/ShopButton";
 import { mistakeCount } from "../../store/mistakes";
 import { buildStats, planPatch, shouldReplan } from "../../store/planner";
+import { senseiGreeting } from "../../store/greeting";
+import { TOPIC_LABELS } from "../../store/onboarding";
+import { RU_TOPIC_LABELS } from "../../i18n/strings";
 import { isoDay } from "../../store/adaptive";
 import { requestPlan } from "../../services/api";
 import Sensei from "../../components/ui/Sensei";
@@ -38,7 +41,31 @@ export default function HomeScreen() {
   const { progress, updateProfile } = useProgress();
   const { user } = useAuth();
   const { leftToday, refresh } = useWallet();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
+
+  // Sensei's personal line — the memory layer made visible (Praktika's "caring friend who
+  // remembers"). Pure selection from local state; copy comes from i18n.
+  const greeting = senseiGreeting(progress, isoDay(new Date()));
+  const greetingText = (() => {
+    if (!greeting) return null;
+    switch (greeting.kind) {
+      case "doneToday":
+        return tr("greet.doneToday", { n: greeting.n });
+      case "wins":
+        return greeting.wins;
+      case "weakTopic": {
+        const label =
+          lang === "ru"
+            ? RU_TOPIC_LABELS[greeting.topic] ?? greeting.topic
+            : TOPIC_LABELS[greeting.topic] ?? greeting.topic;
+        return tr("greet.weakTopic", { topic: label });
+      }
+      case "streak":
+        return tr("greet.streak", { n: greeting.n });
+      default:
+        return tr((["greet.d0", "greet.d1", "greet.d2"] as const)[greeting.idx] ?? "greet.d0");
+    }
+  })();
 
   const bp = beltProgress(progress);
   // Until the account is verified, only the starter (Daily Mix) is open; other modes are locked.
@@ -117,6 +144,22 @@ export default function HomeScreen() {
         </Txt>
         <ProgressBar pct={bp.atMax ? 100 : bp.pctToNext} color={bp.belt.ink} track="rgba(0,0,0,0.16)" />
       </LinearGradient>
+
+      {/* Sensei's line: proof the dojo remembers you. Quiet styling — a remark, not a banner. */}
+      {!!greetingText && (
+        <View
+          style={{
+            backgroundColor: t.c.surface3,
+            borderRadius: t.spacing.radius,
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+          }}
+        >
+          <Txt variant="secondary" color={t.c.ink2} style={{ fontStyle: "italic" }}>
+            🥋 {greetingText}
+          </Txt>
+        </View>
+      )}
 
       {/* Recommended daily action (starter — always open) + special modes (locked until verified) */}
       <DailyMixButton onPress={() => router.push("/practice")} />
