@@ -70,15 +70,32 @@ export type BeltProgress = {
   atMax: boolean;
 };
 
-/** Overall belt + progress toward the next, from the mean per-topic skill. */
+/** Raw skill-derived belt index (0..5), BEFORE the exam cap — the exam logic compares against it. */
+export function skillBeltIdx(p: Progress): number {
+  const ids = Object.keys(TOPIC_PRIORS);
+  const mean = ids.reduce((s, id) => s + skillFor(p, id), 0) / Math.max(1, ids.length);
+  return beltByCefr(levelToCefr(Math.max(0, Math.min(4.999, mean)))).idx;
+}
+
+/** Overall belt + progress toward the next, from the mean per-topic skill.
+ *  Belt-exam cap: once `beltEarned` exists, the WORN belt is the earned one — skill past it shows
+ *  a full bar (the exam is the gate). `cefr` stays skill-derived: exercise difficulty must keep
+ *  adapting even while a promotion is pending. Legacy snapshots (no beltEarned) are unchanged. */
 export function beltProgress(p: Progress): BeltProgress {
   const ids = Object.keys(TOPIC_PRIORS);
   const mean = ids.reduce((s, id) => s + skillFor(p, id), 0) / Math.max(1, ids.length);
   const overallSkill = Math.max(0, Math.min(4.999, mean));
   const cefr = levelToCefr(overallSkill);
-  const belt = beltByCefr(cefr);
+  let belt = beltByCefr(cefr);
+  let pctToNext = Math.round((overallSkill - Math.floor(overallSkill)) * 100);
+  const earned = p.beltEarned;
+  if (earned !== undefined && earned < belt.idx) {
+    belt = beltByIndex(earned);
+    pctToNext = 100; // skill has outgrown the worn belt — the exam node is "ready"
+  } else if (earned !== undefined && earned > belt.idx) {
+    belt = beltByIndex(Math.min(earned, 5)); // earned is authoritative once set (sync quirks)
+  }
   const nextBelt = beltByIndex(belt.idx + 1);
-  const pctToNext = Math.round((overallSkill - Math.floor(overallSkill)) * 100);
   return { overallSkill: mean, cefr, belt, nextBelt, pctToNext, atMax: belt.idx >= 5 };
 }
 

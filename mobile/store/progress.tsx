@@ -74,6 +74,9 @@ export type Progress = {
   brokenStreak?: BrokenStreak | null;
   // ISO timestamp until which the x2-XP "kensei" boost runs ("" = no boost).
   boostUntil?: string;
+  // Belt exam: highest belt idx EARNED through an exam (worn belt). undefined = legacy, skill belt shown.
+  beltEarned?: number;
+  lastExamDate?: string; // local YYYY-MM-DD of the last exam attempt (one attempt per day)
 };
 
 export const DEFAULT_PROGRESS: Progress = {
@@ -275,6 +278,14 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     brokenStreak: pickLaterBreak(a.brokenStreak ?? null, b.brokenStreak ?? null),
     // Boost: the later expiry wins (ISO strings compare lexicographically).
     boostUntil: (a.boostUntil ?? "") >= (b.boostUntil ?? "") ? a.boostUntil ?? "" : b.boostUntil ?? "",
+    // Belt exam: the highest earned belt wins; the later attempt date wins.
+    beltEarned:
+      a.beltEarned === undefined
+        ? b.beltEarned
+        : b.beltEarned === undefined
+        ? a.beltEarned
+        : Math.max(a.beltEarned, b.beltEarned),
+    lastExamDate: (a.lastExamDate ?? "") >= (b.lastExamDate ?? "") ? a.lastExamDate : b.lastExamDate,
   };
 }
 
@@ -325,6 +336,8 @@ type ProgressContextValue = {
   resetOnboarding: () => void;
   /** Merge a partial change into the profile (e.g. tone or a new goal from settings). */
   updateProfile: (patch: Partial<Profile>) => void;
+  /** Record a belt-exam attempt; on pass the target belt becomes the worn (earned) one. */
+  recordExamResult: (passed: boolean, targetIdx: number, date: string) => void;
   /** Buy back the broken streak ("отработка у Сэнсэя"). Charges koku server-side; throws on 409. */
   repairStreak: () => Promise<void>;
   /** Let the broken streak go (closes the repair offer). */
@@ -536,6 +549,22 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [schedulePush]
   );
 
+  const recordExamResult = useCallback(
+    (passed: boolean, targetIdx: number, date: string) => {
+      setProgress((prev) => {
+        const next: Progress = {
+          ...prev,
+          lastExamDate: date,
+          beltEarned: passed ? Math.max(prev.beltEarned ?? 0, targetIdx) : prev.beltEarned,
+        };
+        void save(next);
+        schedulePush(next);
+        return next;
+      });
+    },
+    [schedulePush]
+  );
+
   const resetOnboarding = useCallback(() => {
     setProgress((prev) => {
       const next: Progress = { ...prev, onboarded: false };
@@ -554,11 +583,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       completeOnboarding,
       resetOnboarding,
       updateProfile,
+      recordExamResult,
       repairStreak,
       dismissBrokenStreak,
       activateBoost,
     }),
-    [progress, ready, synced, record, completeOnboarding, resetOnboarding, updateProfile, repairStreak, dismissBrokenStreak, activateBoost]
+    [progress, ready, synced, record, completeOnboarding, resetOnboarding, updateProfile, recordExamResult, repairStreak, dismissBrokenStreak, activateBoost]
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useProgress } from "../../store/progress";
@@ -24,6 +24,9 @@ import ShopButton from "../../components/ui/ShopButton";
 import { mistakeCount } from "../../store/mistakes";
 import { buildStats, planPatch, shouldReplan } from "../../store/planner";
 import { senseiGreeting } from "../../store/greeting";
+import { canAttemptToday, examOffer } from "../../store/exam";
+import { beltByIndex } from "../../theme/theme";
+import BeltKnot from "../../components/ui/BeltKnot";
 import { TOPIC_LABELS } from "../../store/onboarding";
 import { RU_TOPIC_LABELS } from "../../i18n/strings";
 import { isoDay } from "../../store/adaptive";
@@ -161,6 +164,41 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {/* Belt exam: skill has outgrown the worn belt — the promotion ritual is ready. */}
+      {(() => {
+        const offer = examOffer(progress);
+        if (!offer) return null;
+        const target = beltByIndex(offer.target);
+        const allowed = canAttemptToday(progress, isoDay(new Date()));
+        return (
+          <Pressable
+            onPress={() => router.push("/belt-exam")}
+            accessibilityRole="button"
+            accessibilityLabel="Belt exam"
+            style={({ pressed }) => [
+              styles.examBtn,
+              {
+                backgroundColor: t.c.gold,
+                borderRadius: t.spacing.radius,
+                borderBottomWidth: pressed ? 1 : 4,
+                borderBottomColor: target.edge,
+              },
+              pressed ? { transform: [{ translateY: 3 }] } : null,
+            ]}
+          >
+            <BeltKnot belt={target} size={40} />
+            <View style={{ flex: 1 }}>
+              <Txt variant="cardTitle" color={target.ink}>
+                {tr("exam.btnTitle", { belt: target.name })}
+              </Txt>
+              <Txt variant="secondary" color={target.ink} style={{ opacity: 0.8 }}>
+                {allowed ? tr("exam.btnSub") : tr("exam.tomorrow")}
+              </Txt>
+            </View>
+          </Pressable>
+        );
+      })()}
+
       {/* Recommended daily action (starter — always open) + special modes (locked until verified) */}
       <DailyMixButton onPress={() => router.push("/practice")} />
       {leftToday !== null && (
@@ -192,4 +230,5 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   hero: { padding: 20, overflow: "hidden" },
   heroMascot: { position: "absolute", top: 6, right: 10 },
+  examBtn: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, minHeight: 64 },
 });

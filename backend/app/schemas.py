@@ -239,6 +239,9 @@ class ProgressData(BaseModel):
     todayCount: int = 0
     brokenStreak: Optional[BrokenStreak] = None
     boostUntil: str = ""  # ISO timestamp while the x2-XP "kensei" boost is active ("" = none)
+    # Belt exam (client mechanic; synced so the worn belt survives device changes).
+    beltEarned: Optional[int] = None
+    lastExamDate: str = ""
 
 
 # --- scroll rewards (variable reinforcement) ---
