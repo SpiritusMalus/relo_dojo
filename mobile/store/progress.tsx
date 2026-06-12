@@ -54,6 +54,8 @@ export type Profile = {
   planNote?: string; // Planner's one-line focus, shown on the Progress tab
   planDate?: string; // ISO date the plan was made (weekly-refresh trigger)
   planGoal?: string; // goal the plan was built for (new-goal trigger)
+  planBaseline?: Record<string, number>; // correct-count per topic at plan time (quest progress)
+  planBonusPaid?: string; // planDate whose completion bonus was already paid (one-shot per plan)
   remindHour?: number; // daily reminder hour (0..23); unset = default 19:00
 };
 
@@ -338,6 +340,8 @@ type ProgressContextValue = {
   updateProfile: (patch: Partial<Profile>) => void;
   /** Record a belt-exam attempt; on pass the target belt becomes the worn (earned) one. */
   recordExamResult: (passed: boolean, targetIdx: number, date: string) => void;
+  /** Pay the weekly-quest completion bonus: +xp once, and mark the plan as paid. */
+  awardQuestBonus: (xp: number, profilePatch: Partial<Profile>) => void;
   /** Buy back the broken streak ("отработка у Сэнсэя"). Charges koku server-side; throws on 409. */
   repairStreak: () => Promise<void>;
   /** Let the broken streak go (closes the repair offer). */
@@ -565,6 +569,23 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [schedulePush]
   );
 
+  const awardQuestBonus = useCallback(
+    (xp: number, profilePatch: Partial<Profile>) => {
+      setProgress((prev) => {
+        if (!prev.profile) return prev;
+        const next: Progress = {
+          ...prev,
+          xp: prev.xp + xp,
+          profile: { ...prev.profile, ...profilePatch },
+        };
+        void save(next);
+        schedulePush(next);
+        return next;
+      });
+    },
+    [schedulePush]
+  );
+
   const resetOnboarding = useCallback(() => {
     setProgress((prev) => {
       const next: Progress = { ...prev, onboarded: false };
@@ -584,11 +605,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       resetOnboarding,
       updateProfile,
       recordExamResult,
+      awardQuestBonus,
       repairStreak,
       dismissBrokenStreak,
       activateBoost,
     }),
-    [progress, ready, synced, record, completeOnboarding, resetOnboarding, updateProfile, recordExamResult, repairStreak, dismissBrokenStreak, activateBoost]
+    [progress, ready, synced, record, completeOnboarding, resetOnboarding, updateProfile, recordExamResult, awardQuestBonus, repairStreak, dismissBrokenStreak, activateBoost]
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

@@ -38,15 +38,18 @@ export function buildStats(p: Progress): TopicStats {
   return out;
 }
 
-/** The profile patch that caches a server plan locally. */
+/** The profile patch that caches a server plan locally. `baseline` (correct counts per topic at
+ *  plan time) anchors the weekly quest progress (store/quest.ts). */
 export function planPatch(
   plan: { topicWeights: Record<string, number>; note: string; date: string },
-  profile: Profile
+  profile: Profile,
+  baseline: Record<string, number> = {}
 ): Partial<Profile> {
   return {
     planWeights: plan.topicWeights,
     planNote: plan.note,
     planDate: plan.date,
     planGoal: profile.painText || "",
+    planBaseline: baseline,
   };
 }

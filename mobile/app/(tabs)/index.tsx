@@ -23,6 +23,8 @@ import TextReviewButton from "../../components/ui/TextReviewButton";
 import ShopButton from "../../components/ui/ShopButton";
 import { mistakeCount } from "../../store/mistakes";
 import { buildStats, planPatch, shouldReplan } from "../../store/planner";
+import { bonusDue, bonusPaidPatch, buildQuests, questBaseline, QUEST_BONUS_XP } from "../../store/quest";
+import ProgressBarUi from "../../components/ui/ProgressBar";
 import { senseiGreeting } from "../../store/greeting";
 import { canAttemptToday, examOffer } from "../../store/exam";
 import { beltByIndex } from "../../theme/theme";
@@ -41,7 +43,7 @@ import Txt from "../../components/ui/Txt";
 export default function HomeScreen() {
   const router = useRouter();
   const t = useTheme();
-  const { progress, updateProfile } = useProgress();
+  const { progress, updateProfile, awardQuestBonus } = useProgress();
   const { user } = useAuth();
   const { leftToday, refresh } = useWallet();
   const { t: tr, lang } = useI18n();
@@ -93,11 +95,17 @@ export default function HomeScreen() {
     if (!reason) return;
     planAskedRef.current = true;
     requestPlan(buildStats(progress))
-      .then((plan) => updateProfile(planPatch(plan, progress.profile!)))
+      .then((plan) => updateProfile(planPatch(plan, progress.profile!, questBaseline(progress))))
       .catch(() => {
         planAskedRef.current = false; // let a later visit retry (offline / model down)
       });
   }, [user, progress, updateProfile]);
+
+  // Weekly quest scroll: pay the one-shot completion bonus the moment all goals are done.
+  const quests = buildQuests(progress);
+  useEffect(() => {
+    if (bonusDue(progress)) awardQuestBonus(QUEST_BONUS_XP, bonusPaidPatch(progress.profile!));
+  }, [progress, awardQuestBonus]);
 
   useFocusEffect(
     useCallback(() => {
@@ -161,6 +169,42 @@ export default function HomeScreen() {
           <Txt variant="secondary" color={t.c.ink2} style={{ fontStyle: "italic" }}>
             🥋 {greetingText}
           </Txt>
+        </View>
+      )}
+
+      {/* Weekly quest scroll: the Planner's focus as three visible goals (store/quest.ts). */}
+      {quests.length > 0 && (
+        <View
+          style={{
+            backgroundColor: t.c.surface,
+            borderRadius: t.spacing.radius,
+            borderWidth: 1,
+            borderColor: t.c.line,
+            padding: 14,
+            gap: 10,
+          }}
+        >
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Txt variant="label">{`📜 ${tr("quest.title")}`}</Txt>
+            <Txt variant="caption" color={t.c.ink3}>
+              {progress.profile?.planBonusPaid === progress.profile?.planDate
+                ? tr("quest.done")
+                : tr("quest.bonus", { n: QUEST_BONUS_XP })}
+            </Txt>
+          </View>
+          {quests.map((q) => (
+            <View key={q.topic} style={{ gap: 4 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Txt variant="secondary" color={t.c.ink2}>
+                  {lang === "ru" ? RU_TOPIC_LABELS[q.topic] ?? q.topic : TOPIC_LABELS[q.topic] ?? q.topic}
+                </Txt>
+                <Txt variant="secondary" color={q.done >= q.target ? t.c.accent : t.c.ink3}>
+                  {`${q.done}/${q.target}`}
+                </Txt>
+              </View>
+              <ProgressBarUi pct={(q.done / q.target) * 100} height={6} />
+            </View>
+          ))}
         </View>
       )}
 

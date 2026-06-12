@@ -62,9 +62,15 @@ describe("buildStats / planPatch", () => {
     });
     expect(buildStats(p)).toEqual({ articles: { attempts: 4, correct: 3, skill: 2.5 } });
   });
-  it("planPatch snapshots the goal the plan was built for", () => {
-    const patch = planPatch({ topicWeights: { articles: 2 }, note: "x", date: TODAY }, base().profile!);
-    expect(patch).toEqual({ planWeights: { articles: 2 }, planNote: "x", planDate: TODAY, planGoal: "emails" });
+  it("planPatch snapshots the goal and the quest baseline", () => {
+    const patch = planPatch({ topicWeights: { articles: 2 }, note: "x", date: TODAY }, base().profile!, { articles: 3 });
+    expect(patch).toEqual({
+      planWeights: { articles: 2 },
+      planNote: "x",
+      planDate: TODAY,
+      planGoal: "emails",
+      planBaseline: { articles: 3 },
+    });
   });
 });
 
