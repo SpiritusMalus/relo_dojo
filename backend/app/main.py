@@ -18,8 +18,9 @@ The LLM is routed by LLM_PROVIDER (.env): ollama (local dev, default) | anthropi
 
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional
+from typing import AsyncIterator, Optional
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,7 +58,22 @@ from .services import wallet as wallet_service
 from .services.llm import LLMError as OllamaError  # one exception across providers
 from .services.llm import generate
 
-app = FastAPI(title="Grammar Dojo API", version="0.4.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Schema always matches the code: `alembic upgrade head` on boot (AUTO_MIGRATE to disable)."""
+    if settings.AUTO_MIGRATE:
+        try:
+            # Worker thread: alembic is sync and its env.py calls asyncio.run() internally.
+            await asyncio.get_running_loop().run_in_executor(None, run_migrations)
+            logging.getLogger("uvicorn.error").info("Alembic migrations applied (auto-migrate).")
+        except Exception:  # pragma: no cover — never block startup on a migration hiccup
+            logging.getLogger("uvicorn.error").exception(
+                "Auto-migrate failed — run `alembic upgrade head` manually."
+            )
+    yield
+
+
+app = FastAPI(title="Grammar Dojo API", version="0.4.0", lifespan=lifespan)
 
 # CORS origins are explicit (configured via ALLOWED_ORIGINS) — no wildcard in production.
 app.add_middleware(
@@ -85,21 +101,6 @@ def run_migrations() -> None:
     cfg = AlembicConfig(str(root / "alembic.ini"))
     cfg.set_main_option("script_location", str(root / "alembic"))
     command.upgrade(cfg, "head")
-
-
-@app.on_event("startup")
-async def startup_migrate() -> None:
-    """Schema always matches the code: `alembic upgrade head` on boot (AUTO_MIGRATE to disable)."""
-    if not settings.AUTO_MIGRATE:
-        return
-    try:
-        # Worker thread: alembic is sync and its env.py calls asyncio.run() internally.
-        await asyncio.get_running_loop().run_in_executor(None, run_migrations)
-        logging.getLogger("uvicorn.error").info("Alembic migrations applied (auto-migrate).")
-    except Exception:  # pragma: no cover — never block startup on a migration hiccup
-        logging.getLogger("uvicorn.error").exception(
-            "Auto-migrate failed — run `alembic upgrade head` manually."
-        )
 
 
 @app.get("/health")
