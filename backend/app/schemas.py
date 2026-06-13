@@ -175,6 +175,21 @@ class UserOut(BaseModel):
     is_premium: bool = False
     coins: int = 0
     freezes: int = 0
+    # Cosmetics (engagement v2): everything the user can equip + what's equipped per slot.
+    cosmetics: list[str] = Field(default_factory=list)
+    equipped: dict[str, str] = Field(default_factory=dict)
+
+
+# --- cosmetics (engagement v2) ---
+class CosmeticsOut(BaseModel):
+    """Owned ids (incl. implicit starters) + equipped id per slot."""
+
+    owned: list[str] = Field(default_factory=list)
+    equipped: dict[str, str] = Field(default_factory=dict)
+
+
+class CosmeticIn(BaseModel):
+    id: str = Field(min_length=1, max_length=40)
 
 
 # --- economy: koku wallet ---

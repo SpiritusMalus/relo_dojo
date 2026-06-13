@@ -300,6 +300,9 @@ export type AuthUser = {
   is_premium?: boolean;
   coins?: number;
   freezes?: number;
+  // Cosmetics (engagement v2): owned ids (incl. implicit starters) + equipped id per slot.
+  cosmetics?: string[];
+  equipped?: Record<string, string>;
 };
 type TokenResp = { access_token: string; token_type: string };
 
@@ -339,6 +342,24 @@ export function getWallet(): Promise<Wallet> {
 // Buy/consume a catalog item. Throws ApiError 409 when the balance is insufficient.
 export function spendItem(item: SpendItem, qty = 1): Promise<Wallet> {
   return request<Wallet>("/wallet/spend", { item, qty });
+}
+
+// --- cosmetics (engagement v2): koku desire sink ---
+// Server-authoritative ownership. owned = implicit starters + purchased; equipped = id per slot.
+export type Cosmetics = { owned: string[]; equipped: Record<string, string> };
+
+export function getCosmetics(): Promise<Cosmetics> {
+  return request<Cosmetics>("/cosmetics", undefined, "GET");
+}
+
+// Buy a cosmetic with koku. Throws ApiError 409 (not enough koku) / 400 (unknown / not for sale).
+export function buyCosmetic(id: string): Promise<Cosmetics> {
+  return request<Cosmetics>("/cosmetics/buy", { id });
+}
+
+// Equip an owned cosmetic into its slot. Throws ApiError 409 (not owned) / 400 (unknown).
+export function equipCosmetic(id: string): Promise<Cosmetics> {
+  return request<Cosmetics>("/cosmetics/equip", { id });
 }
 
 // --- scroll rewards (variable reinforcement) ---
