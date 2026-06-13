@@ -184,6 +184,9 @@ export const STRINGS = {
     "ward.notEnough": "Not enough koku ({coins})",
     "ward.tryOn": "Trying on",
     "ward.outOfSeason": "Out of season — comes back in {season}",
+    "ward.pitch": "You can afford {name} — visit the Wardrobe",
+    "ward.open": "Open Wardrobe",
+    "ward.dress": "Dress your Sensei 👘",
 
     "limit.premium": "Black Belt — unlimited",
     "premium.title": "Black Belt",
@@ -446,6 +449,9 @@ export const STRINGS = {
     "ward.notEnough": "Не хватает коку ({coins})",
     "ward.tryOn": "Примеряем",
     "ward.outOfSeason": "Не сезон — вернётся: {season}",
+    "ward.pitch": "Тебе хватает на «{name}» — загляни в Гардероб",
+    "ward.open": "Открыть Гардероб",
+    "ward.dress": "Наряди Сэнсэя 👘",
 
     "limit.premium": "Чёрный пояс — безлимит",
     "premium.title": "Чёрный пояс",
