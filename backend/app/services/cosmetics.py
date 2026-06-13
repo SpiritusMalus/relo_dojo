@@ -33,6 +33,11 @@ CATALOG: dict[str, dict[str, Any]] = {
     "sensei_sage": {"slot": "sensei", "gate": "buy", "price": 200},
     "sensei_ronin": {"slot": "sensei", "gate": "buy", "price": 250},
     "sensei_sakura": {"slot": "sensei", "gate": "buy", "price": 300, "season": "spring"},
+    # Belt-knot styles (shows on the belt icon in the top bar, lists, progress — high daily exposure).
+    "knot_classic": {"slot": "knot", "gate": "starter", "price": 0},
+    "knot_gold": {"slot": "knot", "gate": "buy", "price": 150},
+    "knot_jade": {"slot": "knot", "gate": "buy", "price": 180},
+    "knot_tassel": {"slot": "knot", "gate": "buy", "price": 220},
 }
 
 _UNKNOWN = "Unknown cosmetic."
