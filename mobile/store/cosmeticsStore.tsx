@@ -12,7 +12,7 @@ import {
 } from "react";
 import { buyCosmetic, equipCosmetic, getCosmetics } from "../services/api";
 import { useAuth } from "./auth";
-import { senseiVisual, starterFor, type SenseiVisual } from "./cosmetics";
+import { knotVisual, senseiVisual, starterFor, type KnotVisual, type SenseiVisual } from "./cosmetics";
 
 type CosmeticsContextValue = {
   ready: boolean;
@@ -27,8 +27,8 @@ type CosmeticsContextValue = {
 
 type CosmeticsState = { owned: string[]; equipped: Record<string, string> };
 const EMPTY: CosmeticsState = {
-  owned: [starterFor("sensei")],
-  equipped: { sensei: starterFor("sensei") },
+  owned: [starterFor("sensei"), starterFor("knot")],
+  equipped: { sensei: starterFor("sensei"), knot: starterFor("knot") },
 };
 const CosmeticsContext = createContext<CosmeticsContextValue | null>(null);
 
@@ -96,4 +96,10 @@ export function useCosmetics(): CosmeticsContextValue {
 export function useEquippedSenseiVisual(): SenseiVisual {
   const ctx = useContext(CosmeticsContext);
   return senseiVisual(ctx?.equipped);
+}
+
+/** Safe optional read for low-level UI (BeltKnot): the equipped knot's visual, classic if none. */
+export function useEquippedKnotVisual(): KnotVisual {
+  const ctx = useContext(CosmeticsContext);
+  return knotVisual(ctx?.equipped);
 }

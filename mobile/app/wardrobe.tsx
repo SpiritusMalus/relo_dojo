@@ -1,6 +1,6 @@
-// Wardrobe (engagement v2) — the koku desire sink. Dress the Sensei mascot, which appears on every
-// screen, so a purchase is seen every day. Live try-on: tapping a skin previews it on the big Sensei
-// instantly (desire spike) without committing; Buy debits koku server-side, Wear equips it.
+// Wardrobe (engagement v2) — the koku desire sink. Dress the dojo (Sensei mascot + belt-knot),
+// which appear on every screen, so a purchase is seen every day. Live try-on: tapping an item
+// previews it instantly (desire spike) without committing; Buy debits koku server-side, Wear equips.
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -13,12 +13,19 @@ import { useWallet } from "../store/wallet";
 import { useProgress } from "../store/progress";
 import { useCosmetics } from "../store/cosmeticsStore";
 import { beltProgress } from "../store/dojo";
-import { catalogForSlot, isOwned, buyCheck, type CosmeticDef } from "../store/cosmetics";
+import { catalogForSlot, isOwned, buyCheck, SLOTS, type CosmeticDef, type Slot } from "../store/cosmetics";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Icon from "../components/ui/Icon";
 import Sensei from "../components/ui/Sensei";
+import BeltKnot from "../components/ui/BeltKnot";
 import Txt from "../components/ui/Txt";
+import type { Belt } from "../theme/theme";
+
+const SLOT_TITLE: Record<Slot, { en: string; ru: string }> = {
+  sensei: { en: "Sensei", ru: "Сэнсэй" },
+  knot: { en: "Belt knot", ru: "Узел пояса" },
+};
 
 export default function WardrobeScreen() {
   const t = useTheme();
@@ -30,24 +37,12 @@ export default function WardrobeScreen() {
   const { owned, equipped, buy, equip } = useCosmetics();
   const belt = beltProgress(progress).belt;
 
-  // Try-on: which skin the big preview shows (defaults to the equipped one).
-  const [preview, setPreview] = useState<string>(equipped.sensei ?? "sensei_classic");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     trackPaywallView({ kind: "shop", belt: belt.id });
   }, [belt.id]);
-
-  // Keep the preview in sync if the equipped skin changes elsewhere and nothing is being tried on.
-  useEffect(() => {
-    setPreview((p) => (p ? p : equipped.sensei ?? "sensei_classic"));
-  }, [equipped.sensei]);
-
-  const skins = catalogForSlot("sensei");
-  const previewDef = skins.find((s) => s.id === preview);
-  const name = (d: CosmeticDef) => (lang === "ru" ? d.name.ru : d.name.en);
-  const blurb = (d: CosmeticDef) => (lang === "ru" ? d.blurb.ru : d.blurb.en);
 
   async function onBuy(id: string) {
     if (busy) return;
@@ -93,63 +88,23 @@ export default function WardrobeScreen() {
         contentContainerStyle={{ padding: t.spacing.pad, paddingBottom: insets.bottom + 24, gap: t.spacing.gap }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Live try-on stage. */}
-        <Card>
-          <View style={{ alignItems: "center", gap: 8, paddingVertical: 10 }}>
-            <Sensei belt={belt} size={132} mood="happy" bob visual={previewDef?.visual} />
-            <Txt variant="bodyStrong">{previewDef ? name(previewDef) : ""}</Txt>
-            <Txt variant="secondary" color={t.c.ink2} style={{ textAlign: "center" }}>
-              {previewDef ? blurb(previewDef) : tr("ward.tagline")}
-            </Txt>
-          </View>
-        </Card>
-
-        {skins.map((s) => {
-          const ownedIt = isOwned(owned, s.id);
-          const worn = equipped.sensei === s.id;
-          const check = buyCheck(coins, owned, s.id);
-          return (
-            <Pressable key={s.id} onPress={() => setPreview(s.id)}>
-              <Card>
-                <View style={styles.row}>
-                  <View style={{ width: 56, alignItems: "center" }}>
-                    <Sensei belt={belt} size={52} mood="happy" visual={s.visual} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Txt variant="bodyStrong">{name(s)}</Txt>
-                    <Txt variant="secondary" color={t.c.ink2}>{blurb(s)}</Txt>
-                  </View>
-                  {preview === s.id && (
-                    <Txt variant="caption" color={t.c.ink3}>{tr("ward.tryOn")}</Txt>
-                  )}
-                </View>
-
-                {worn ? (
-                  <Button label={tr("ward.equipped")} variant="ghost" disabled onPress={() => {}} />
-                ) : ownedIt ? (
-                  <Button
-                    label={busy === s.id ? tr("ward.equipping") : tr("ward.equip")}
-                    onPress={() => onEquip(s.id)}
-                    disabled={busy !== null}
-                  />
-                ) : (
-                  <>
-                    <Button
-                      label={busy === s.id ? tr("ward.buying") : tr("ward.buy", { price: s.price })}
-                      onPress={() => onBuy(s.id)}
-                      disabled={!check.ok || busy !== null}
-                    />
-                    {check.reason === "too_poor" && (
-                      <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center", marginTop: 4 }}>
-                        {tr("ward.notEnough", { coins })}
-                      </Txt>
-                    )}
-                  </>
-                )}
-              </Card>
-            </Pressable>
-          );
-        })}
+        {SLOTS.map((slot) => (
+          <SlotSection
+            key={slot}
+            slot={slot}
+            belt={belt}
+            lang={lang}
+            coins={coins}
+            owned={owned}
+            equippedId={equipped[slot]}
+            busy={busy}
+            tr={tr}
+            inkSub={t.c.ink2}
+            inkFaint={t.c.ink3}
+            onBuy={onBuy}
+            onEquip={onEquip}
+          />
+        ))}
 
         {error && (
           <Txt variant="caption" color={t.c.bad} style={{ textAlign: "center" }}>
@@ -157,6 +112,112 @@ export default function WardrobeScreen() {
           </Txt>
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+function SlotPreview({ slot, belt, visual }: { slot: Slot; belt: Belt; visual: CosmeticDef["visual"] }) {
+  if (slot === "sensei") return <Sensei belt={belt} size={132} mood="happy" bob visual={visual} />;
+  return <BeltKnot belt={belt} size={108} visual={visual} />;
+}
+
+function SlotThumb({ slot, belt, visual }: { slot: Slot; belt: Belt; visual: CosmeticDef["visual"] }) {
+  if (slot === "sensei") return <Sensei belt={belt} size={52} mood="happy" visual={visual} />;
+  return <BeltKnot belt={belt} size={46} visual={visual} />;
+}
+
+function SlotSection({
+  slot,
+  belt,
+  lang,
+  coins,
+  owned,
+  equippedId,
+  busy,
+  tr,
+  inkSub,
+  inkFaint,
+  onBuy,
+  onEquip,
+}: {
+  slot: Slot;
+  belt: Belt;
+  lang: string;
+  coins: number;
+  owned: string[];
+  equippedId?: string;
+  busy: string | null;
+  tr: ReturnType<typeof useI18n>["t"];
+  inkSub: string;
+  inkFaint: string;
+  onBuy: (id: string) => void;
+  onEquip: (id: string) => void;
+}) {
+  const items = catalogForSlot(slot);
+  const [preview, setPreview] = useState<string>(equippedId ?? items[0]?.id);
+  const previewDef = items.find((s) => s.id === preview) ?? items[0];
+  const name = (d: CosmeticDef) => (lang === "ru" ? d.name.ru : d.name.en);
+  const blurb = (d: CosmeticDef) => (lang === "ru" ? d.blurb.ru : d.blurb.en);
+
+  return (
+    <View style={{ gap: 10 }}>
+      <Txt variant="bodyStrong" color={inkSub}>
+        {lang === "ru" ? SLOT_TITLE[slot].ru : SLOT_TITLE[slot].en}
+      </Txt>
+      <Card>
+        <View style={{ alignItems: "center", gap: 8, paddingVertical: 10 }}>
+          <SlotPreview slot={slot} belt={belt} visual={previewDef?.visual ?? {}} />
+          <Txt variant="bodyStrong">{previewDef ? name(previewDef) : ""}</Txt>
+          <Txt variant="secondary" color={inkSub} style={{ textAlign: "center" }}>
+            {previewDef ? blurb(previewDef) : tr("ward.tagline")}
+          </Txt>
+        </View>
+      </Card>
+
+      {items.map((s) => {
+        const ownedIt = isOwned(owned, s.id);
+        const worn = equippedId === s.id;
+        const check = buyCheck(coins, owned, s.id);
+        return (
+          <Pressable key={s.id} onPress={() => setPreview(s.id)}>
+            <Card>
+              <View style={styles.row}>
+                <View style={{ width: 56, alignItems: "center" }}>
+                  <SlotThumb slot={slot} belt={belt} visual={s.visual} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Txt variant="bodyStrong">{name(s)}</Txt>
+                  <Txt variant="secondary" color={inkSub}>{blurb(s)}</Txt>
+                </View>
+                {preview === s.id && <Txt variant="caption" color={inkFaint}>{tr("ward.tryOn")}</Txt>}
+              </View>
+
+              {worn ? (
+                <Button label={tr("ward.equipped")} variant="ghost" disabled onPress={() => {}} />
+              ) : ownedIt ? (
+                <Button
+                  label={busy === s.id ? tr("ward.equipping") : tr("ward.equip")}
+                  onPress={() => onEquip(s.id)}
+                  disabled={busy !== null}
+                />
+              ) : (
+                <>
+                  <Button
+                    label={busy === s.id ? tr("ward.buying") : tr("ward.buy", { price: s.price })}
+                    onPress={() => onBuy(s.id)}
+                    disabled={!check.ok || busy !== null}
+                  />
+                  {check.reason === "too_poor" && (
+                    <Txt variant="caption" color={inkFaint} style={{ textAlign: "center", marginTop: 4 }}>
+                      {tr("ward.notEnough", { coins })}
+                    </Txt>
+                  )}
+                </>
+              )}
+            </Card>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

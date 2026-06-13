@@ -54,7 +54,15 @@ def test_owned_includes_purchased_and_dedupes():
 
 
 def test_equipped_defaults_to_starter_when_unset():
-    assert cosmetics.equipped_resolved(_user())["sensei"] == "sensei_classic"
+    resolved = cosmetics.equipped_resolved(_user())
+    assert resolved["sensei"] == "sensei_classic"
+    assert resolved["knot"] == "knot_classic"  # every slot resolves to its starter
+
+
+def test_knot_slot_buy_and_equip():
+    # The service is slot-generic: a knot buys/equips exactly like a sensei skin.
+    assert cosmetics.can_buy(_user(coins=200), "knot_gold")[0] is True
+    assert "knot_classic" in cosmetics.owned_ids(_user())
 
 
 def test_equipped_falls_back_when_not_owned():

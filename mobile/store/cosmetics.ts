@@ -7,7 +7,7 @@
 //
 // Ids and prices MUST match backend services/cosmetics.py CATALOG.
 
-export type Slot = "sensei";
+export type Slot = "sensei" | "knot";
 export type Gate = "starter" | "buy" | "achievement";
 
 // Visual override for the Sensei mascot skin. Empty = the default (classic) look.
@@ -18,6 +18,14 @@ export type SenseiVisual = {
   accessory?: "beard" | "scar" | "sakura";
 };
 
+// Visual override for the belt-knot icon. Empty = the default fold.
+export type KnotVisual = {
+  foldColor?: string; // overrides the fold accent (belt colour itself stays progress-driven)
+  ornament?: "bead_gold" | "bead_jade" | "tassel";
+};
+
+export type CosmeticVisual = SenseiVisual & KnotVisual;
+
 export type CosmeticDef = {
   id: string;
   slot: Slot;
@@ -26,7 +34,7 @@ export type CosmeticDef = {
   season?: string;
   name: { en: string; ru: string };
   blurb: { en: string; ru: string };
-  visual: SenseiVisual;
+  visual: CosmeticVisual;
 };
 
 export const CATALOG: Record<string, CosmeticDef> = {
@@ -67,9 +75,46 @@ export const CATALOG: Record<string, CosmeticDef> = {
     blurb: { en: "Petals of the spring festival.", ru: "Лепестки весеннего фестиваля." },
     visual: { hair: "#3A2A30", accessory: "sakura" },
   },
+  // Belt-knot styles.
+  knot_classic: {
+    id: "knot_classic",
+    slot: "knot",
+    gate: "starter",
+    price: 0,
+    name: { en: "Classic knot", ru: "Классический узел" },
+    blurb: { en: "A plain, honest fold.", ru: "Простой честный узел." },
+    visual: {},
+  },
+  knot_gold: {
+    id: "knot_gold",
+    slot: "knot",
+    gate: "buy",
+    price: 150,
+    name: { en: "Gold bead", ru: "Золотая бусина" },
+    blurb: { en: "A glint of merit.", ru: "Блеск заслуг." },
+    visual: { foldColor: "#D8A82A", ornament: "bead_gold" },
+  },
+  knot_jade: {
+    id: "knot_jade",
+    slot: "knot",
+    gate: "buy",
+    price: 180,
+    name: { en: "Jade bead", ru: "Нефритовая бусина" },
+    blurb: { en: "Calm and rare.", ru: "Спокойствие и редкость." },
+    visual: { ornament: "bead_jade" },
+  },
+  knot_tassel: {
+    id: "knot_tassel",
+    slot: "knot",
+    gate: "buy",
+    price: 220,
+    name: { en: "Tassel", ru: "Кисть" },
+    blurb: { en: "A master's flourish.", ru: "Росчерк мастера." },
+    visual: { ornament: "tassel" },
+  },
 };
 
-export const SLOTS: Slot[] = ["sensei"];
+export const SLOTS: Slot[] = ["sensei", "knot"];
 
 export function defOf(id: string): CosmeticDef | undefined {
   return CATALOG[id];
@@ -111,5 +156,11 @@ export function buyCheck(coins: number, owned: string[] | undefined, id: string)
 /** The visual spec for the equipped Sensei skin, falling back to the classic default. */
 export function senseiVisual(equipped: Record<string, string> | undefined): SenseiVisual {
   const id = (equipped && equipped.sensei) || starterFor("sensei");
+  return CATALOG[id]?.visual ?? {};
+}
+
+/** The visual spec for the equipped belt-knot style, falling back to the classic default. */
+export function knotVisual(equipped: Record<string, string> | undefined): KnotVisual {
+  const id = (equipped && equipped.knot) || starterFor("knot");
   return CATALOG[id]?.visual ?? {};
 }

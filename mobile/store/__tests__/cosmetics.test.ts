@@ -5,7 +5,9 @@ import {
   catalogForSlot,
   defOf,
   isOwned,
+  knotVisual,
   senseiVisual,
+  SLOTS,
   starterFor,
 } from "../cosmetics";
 
@@ -49,5 +51,17 @@ describe("cosmetics pure layer", () => {
     expect(senseiVisual(undefined)).toEqual({}); // classic = no overrides
     expect(senseiVisual({ sensei: "sensei_sage" })).toEqual(defOf("sensei_sage")!.visual);
     expect(senseiVisual({ sensei: "ghost" })).toEqual({}); // unknown → classic
+  });
+
+  test("knot slot has its own starter + buyable styles", () => {
+    expect(SLOTS).toContain("knot");
+    expect(starterFor("knot")).toBe("knot_classic");
+    expect(catalogForSlot("knot").map((c) => c.id)).toContain("knot_tassel");
+    expect(buyCheck(150, [], "knot_gold")).toEqual({ ok: true, reason: "buyable" });
+  });
+
+  test("knotVisual falls back to classic and honours equipped", () => {
+    expect(knotVisual(undefined)).toEqual({});
+    expect(knotVisual({ knot: "knot_tassel" })).toEqual(defOf("knot_tassel")!.visual);
   });
 });
