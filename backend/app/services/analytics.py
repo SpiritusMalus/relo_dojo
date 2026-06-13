@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 
 from ..db.models import Event
@@ -44,6 +44,28 @@ def sanitize_props(props: Optional[dict[str, Any]]) -> dict[str, Any]:
             out[key[:MAX_NAME_LEN]] = value
         # objects / lists are dropped — events stay flat and cheap
     return out
+
+
+def retention_cutoff(now: datetime, ttl_days: int) -> Optional[datetime]:
+    """The age boundary for the events TTL purge: rows with ts < cutoff are stale.
+
+    Returns None when ttl_days <= 0 (retention disabled — keep everything). Pure so the boundary
+    math is unit-tested without a database; the actual DELETE lives in `purge_old_events`."""
+    if ttl_days <= 0:
+        return None
+    return now - timedelta(days=ttl_days)
+
+
+async def purge_old_events(db: Any, cutoff: Optional[datetime]) -> int:
+    """Delete events older than `cutoff`; no-op (returns 0) when cutoff is None. Thin DB layer —
+    the decision of WHAT is stale is `retention_cutoff`'s; this just executes it."""
+    if cutoff is None:  # pragma: no cover — guarded by retention_cutoff in the caller
+        return 0
+    from sqlalchemy import delete  # pragma: no cover — DB path, exercised live not in unit tests
+
+    result = await db.execute(delete(Event).where(Event.ts < cutoff))  # pragma: no cover
+    await db.commit()  # pragma: no cover
+    return result.rowcount or 0  # pragma: no cover
 
 
 def subject_key(user_id: Optional[uuid.UUID], anon_id: Optional[str]) -> Optional[str]:

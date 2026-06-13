@@ -106,6 +106,11 @@ class Settings(BaseSettings):
     # Ingestion (POST /events) is always on — it's how we measure the north-star (D7 retention).
     ANALYTICS_ADMIN: bool = False
 
+    # Events table TTL: rows older than this many days are purged on startup so the append-only
+    # table can't grow unbounded. 0 = keep forever (default — opt in once retention math is dialed
+    # in, so dev never loses cohort data by surprise). D7 only needs a few weeks of history.
+    EVENTS_TTL_DAYS: int = 0
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
