@@ -10,6 +10,7 @@ import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { gateKind, reviewText, type ReviewResult } from "../services/api";
+import { trackReviewSubmitted } from "../services/analytics";
 import ActivationBanner from "../components/ui/ActivationBanner";
 import { useI18n } from "../store/i18n";
 import { loadingMessageFor } from "../i18n/loading";
@@ -47,7 +48,9 @@ export default function TextReviewScreen() {
     setGated(false);
     setResult(null);
     try {
-      setResult(await reviewText(trimmed));
+      const r = await reviewText(trimmed);
+      setResult(r);
+      trackReviewSubmitted({ chars: trimmed.length, issues: r.issues?.length });
     } catch (e) {
       if (gateKind(e)) setGated(true);
       else setError(e instanceof Error ? e.message : "Failed to review the text");
