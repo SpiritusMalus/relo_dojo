@@ -13,7 +13,7 @@ different caps). Buying an "extra_pack" in the shop lowers `starter_used`, raisi
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,7 +25,9 @@ _ACTIVATE = "Activate your account (check your email) to unlock this."
 
 
 def _utc_day() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    """The calendar day used for daily resets. Applies DAY_OFFSET_MIN so the limit can roll over
+    on the users' local midnight instead of UTC (default offset 0 = plain UTC)."""
+    return (datetime.now(timezone.utc) + timedelta(minutes=settings.DAY_OFFSET_MIN)).strftime("%Y-%m-%d")
 
 
 def _normalize_day(user: User) -> None:
