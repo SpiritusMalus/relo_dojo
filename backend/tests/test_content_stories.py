@@ -67,6 +67,22 @@ def test_featured_varies_by_day():
     assert len(days) > 1  # rotates across days
 
 
+def test_every_premium_arc_unlock_exists_in_catalog():
+    # An arc with an `unlock` that isn't a real catalog id would be permanently unbuyable.
+    arc_unlocks = {s["unlock"] for s in stories.SCENARIOS if "unlock" in s}
+    assert arc_unlocks <= set(content.CATALOG)
+    # And every story-arc catalog entry should back a real arc.
+    arc_catalog = {cid for cid, item in content.CATALOG.items() if item["kind"] == "story_arc"}
+    assert arc_catalog == arc_unlocks
+
+
+def test_new_premium_arcs_are_gated_until_unlocked():
+    for sid, unlock in (("orbital-emergency", "arc_space"), ("the-verdict", "arc_courtroom")):
+        arc = stories._BY_ID[sid]
+        assert stories.is_available(arc, set()) is False
+        assert stories.is_available(arc, {unlock}) is True
+
+
 # --- content buy ------------------------------------------------------------
 def test_can_buy_rules():
     assert content.can_buy(_user(coins=999), "ghost")[0] is False

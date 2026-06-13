@@ -19,6 +19,8 @@ from ..db.models import User
 # content id -> {kind, price, title}. `kind` lets the client group catalog entries.
 CATALOG: dict[str, dict[str, Any]] = {
     "arc_detective": {"kind": "story_arc", "price": 200, "title": "The midnight case"},
+    "arc_space": {"kind": "story_arc", "price": 200, "title": "Orbital emergency"},
+    "arc_courtroom": {"kind": "story_arc", "price": 250, "title": "The verdict"},
 }
 
 _UNKNOWN = "Unknown content."

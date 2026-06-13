@@ -105,6 +105,32 @@ SCENARIOS: list[dict[str, Any]] = [
             "You ask a thoughtful question of your own to close.",
         ],
     },
+    {
+        "id": "the-recipe",
+        "title": "The recipe",
+        "intro": "Friends are coming for dinner and you're trying a new recipe for the first time. "
+        "The kitchen is warm, the timer is ticking, and the instructions are long.",
+        "context": "a person cooking a new recipe at home for friends",
+        "topics": ["gerunds & infinitives", "prepositions", "verb sequence (tense agreement)"],
+        "narration": [
+            "You read through the recipe before you start cooking.",
+            "You add the ingredients in the right order, step by step.",
+            "While the dish bakes, you set the table for your guests.",
+        ],
+    },
+    {
+        "id": "the-roadtrip",
+        "title": "The road trip",
+        "intro": "Two friends, a full tank, and a loose plan. The map is open on your knees and the "
+        "coast is somewhere at the end of the day.",
+        "context": "two friends on a long road trip with a loose plan",
+        "topics": ["modal verbs", "comparatives & superlatives", "prepositions"],
+        "narration": [
+            "You pick the route that looks more scenic than the highway.",
+            "Halfway there, you have to stop for fuel and snacks.",
+            "By evening you reach the coast and look for a place to stay.",
+        ],
+    },
     # --- Premium arcs (koku-unlocked, engagement v2 Phase 3). `unlock` = content catalog id. ---
     {
         "id": "midnight-detective",
@@ -118,6 +144,34 @@ SCENARIOS: list[dict[str, Any]] = [
             "You retrace what the witness claimed had happened.",
             "If one detail is true, the whole story changes.",
             "You lay out the order of events and name the culprit.",
+        ],
+    },
+    {
+        "id": "orbital-emergency",
+        "title": "Orbital emergency",
+        "unlock": "arc_space",
+        "intro": "Three hundred kilometres up, a warning light starts to blink. The station is quiet, "
+        "the checklist is long, and ground control is a radio call away.",
+        "context": "an astronaut handling a small emergency on a space station",
+        "topics": ["conditionals", "modal verbs", "word order"],
+        "narration": [
+            "A warning light blinks, and you check what it could mean.",
+            "If the pressure keeps dropping, you must seal the module.",
+            "You report the fix to ground control in clear, calm words.",
+        ],
+    },
+    {
+        "id": "the-verdict",
+        "title": "The verdict",
+        "unlock": "arc_courtroom",
+        "intro": "The courtroom is silent. Every eye is on you as you stand to make the final "
+        "argument that could decide the whole case.",
+        "context": "a lawyer presenting a case in a tense courtroom",
+        "topics": ["verb sequence (tense agreement)", "conditionals", "comparatives & superlatives"],
+        "narration": [
+            "You summarise what the witness had said earlier.",
+            "If the jury believes one fact, the case turns on it.",
+            "You make your strongest argument and rest your case.",
         ],
     },
 ]
