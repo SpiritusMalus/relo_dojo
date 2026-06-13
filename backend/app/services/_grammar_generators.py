@@ -122,6 +122,7 @@ async def _gen_multiple_choice(topic: str, level: str | None = None, context: st
         context,
         mistakes,
         scenario=True,
+        topic=topic,
     )
     data = await generate_json(prompt, MC_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     text = str(data.get("text") or "").strip()
@@ -156,6 +157,7 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
         context,
         mistakes,
         scenario=True,
+        topic=topic,
     )
     data = await generate_json(prompt, BUILD_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     sentence = str(data.get("sentence_en") or "").strip()
@@ -189,6 +191,7 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
         context,
         mistakes,
         scenario=True,
+        topic=topic,
     )
     data = await generate_json(prompt, MATCH_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     raw = data.get("pairs") or []
@@ -230,6 +233,7 @@ async def _gen_tap_the_error(topic: str, level: str | None = None, context: str 
         context,
         mistakes,
         scenario=True,
+        topic=topic,
     )
     data = await generate_json(prompt, ERROR_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     sentence = str(data.get("sentence") or "").strip()
@@ -267,6 +271,7 @@ async def _gen_free_text(topic: str, level: str | None = None, context: str | No
         context,
         mistakes,
         scenario=True,
+        topic=topic,
     )
     data = await generate_json(prompt, FREETEXT_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     text = str(data.get("text") or "").strip()
@@ -287,6 +292,7 @@ async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | 
         context,
         mistakes,
         scenario=True,
+        topic=topic,
     )
     data = await generate_json(prompt, ODD_ONE_OUT_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     items = [str(o).strip() for o in (data.get("items") or []) if str(o).strip()]
@@ -322,6 +328,7 @@ async def _gen_multiple_blanks(topic: str, level: str | None = None, context: st
         context,
         mistakes,
         scenario=True,
+        topic=topic,
     )
     data = await generate_json(prompt, MULTI_BLANK_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     # Normalize stray underscore runs ('____', '__') to exactly '___' so the blank count lines up.
@@ -366,6 +373,7 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
         context,
         mistakes,
         scenario=True,
+        topic=topic,
     )
     data = await generate_json(prompt, ORDER_DIALOG_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     lines = [str(line).strip() for line in (data.get("lines") or []) if str(line).strip()]
