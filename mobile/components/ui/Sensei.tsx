@@ -2,8 +2,13 @@ import { useEffect, useRef } from "react";
 import { Animated, Easing } from "react-native";
 import Svg, { Circle, G, Path, Rect } from "react-native-svg";
 import { belts, useTheme, type Belt } from "../../theme/theme";
+import { useEquippedSenseiVisual } from "../../store/cosmeticsStore";
+import type { SenseiVisual } from "../../store/cosmetics";
 
 // Friendly geometric mascot. Headband = current belt colour. Recreated from reference/dojo-core.jsx.
+// Appearance can be re-skinned by an equipped cosmetic (engagement v2): when no `visual` prop is
+// passed, the mascot reads the equipped Sensei skin from context (classic when none / logged out),
+// so the chosen skin shows everywhere the mascot appears — without touching every call site.
 export type Mood = "happy" | "cheer" | "think" | "sad";
 
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
@@ -13,13 +18,18 @@ export default function Sensei({
   size = 88,
   mood = "happy",
   bob = false,
+  visual,
 }: {
   belt?: Belt;
   size?: number;
   mood?: Mood;
   bob?: boolean;
+  /** Override the equipped skin (used by the Wardrobe try-on preview). */
+  visual?: SenseiVisual;
 }) {
   const { reduceMotion } = useTheme();
+  const equipped = useEquippedSenseiVisual();
+  const skinVisual = visual ?? equipped;
   const y = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -36,10 +46,12 @@ export default function Sensei({
 
   const band = belt.color;
   const knot = belt.knot;
-  const skin = "#F4D9B8";
-  const skinEdge = "#E7C39A";
-  const hair = "#2B2B30";
+  // Skin palette: cosmetic overrides fall back to the classic defaults.
+  const skin = skinVisual.skinTone ?? "#F4D9B8";
+  const skinEdge = skinVisual.skinEdge ?? "#E7C39A";
+  const hair = skinVisual.hair ?? "#2B2B30";
   const eye = "#23302A";
+  const accessory = skinVisual.accessory;
 
   return (
     <AnimatedSvg
@@ -68,6 +80,8 @@ export default function Sensei({
       <Circle cx="67" cy="60" r="4" fill="#F3A98F" opacity={0.5} />
       {/* mouth per mood */}
       <Mouth mood={mood} eye={eye} />
+      {/* cosmetic accessory (engagement v2 skins) */}
+      {accessory && <Accessory kind={accessory} eye={eye} hair={hair} />}
     </AnimatedSvg>
   );
 }
@@ -119,5 +133,37 @@ function Mouth({ mood, eye }: { mood: Mood; eye: string }) {
     case "happy":
     default:
       return <Path d="M42 60 q8 7 16 0" stroke={eye} strokeWidth="3" fill="none" strokeLinecap="round" />;
+  }
+}
+
+// Cosmetic accessories layered over the mascot (engagement v2 skins).
+function Accessory({ kind, eye, hair }: { kind: "beard" | "scar" | "sakura"; eye: string; hair: string }) {
+  switch (kind) {
+    case "beard":
+      return (
+        <Path d="M34 70 q16 16 32 0 q-4 12 -16 12 q-12 0 -16 -12z" fill={hair} opacity={0.92} />
+      );
+    case "scar":
+      return (
+        <G>
+          <Path d="M64 44 l4 16" stroke="#B5483B" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+          <Path d="M62 48 l8 0" stroke="#B5483B" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+        </G>
+      );
+    case "sakura":
+      return (
+        <G>
+          {[0, 72, 144, 216, 288].map((a) => (
+            <Circle
+              key={a}
+              cx={26 + 5 * Math.cos((a * Math.PI) / 180)}
+              cy={30 + 5 * Math.sin((a * Math.PI) / 180)}
+              r="3.4"
+              fill="#F7B7C9"
+            />
+          ))}
+          <Circle cx="26" cy="30" r="2" fill="#E86E94" />
+        </G>
+      );
   }
 }

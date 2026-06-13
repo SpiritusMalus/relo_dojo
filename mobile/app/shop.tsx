@@ -60,6 +60,21 @@ export default function ShopScreen() {
         contentContainerStyle={{ padding: t.spacing.pad, paddingBottom: insets.bottom + 24, gap: t.spacing.gap }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Wardrobe — the koku desire sink: dress the Sensei. Lead with it; it's what makes koku
+            worth earning beyond pain-relief items. */}
+        <Pressable onPress={() => router.push("/wardrobe")}>
+          <Card>
+            <View style={styles.row}>
+              <Txt style={{ fontSize: 36 }}>👘</Txt>
+              <View style={{ flex: 1 }}>
+                <Txt variant="bodyStrong">{tr("shop.wardrobe")}</Txt>
+                <Txt variant="secondary" color={t.c.ink2}>{tr("shop.wardrobeSub")}</Txt>
+              </View>
+              <Txt variant="bodyStrong" color={t.c.ink3}>{"›"}</Txt>
+            </View>
+          </Card>
+        </Pressable>
+
         {/* Omamori — streak insurance. Sold BEFORE it's needed: prevention is an easier sell. */}
         <Card>
           <View style={styles.row}>
