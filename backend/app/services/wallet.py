@@ -63,6 +63,11 @@ async def award_correct_check(
     for anonymous callers — `earned_total` already includes both bonuses."""
     if user is None:
         return 0, None, 0, 0
+    # Row-lock the account for the read-modify-write below (correct_run advance + once-per-day
+    # first-win check). Without it two concurrent correct answers could both see last_win_day != today
+    # and double-credit the first-win bonus, or both read the same correct_run and lose a combo step.
+    # Mirrors the lock in gating.consume_daily_exercise / rewards.grant_scroll. Released by the commit.
+    await db.refresh(user, with_for_update=True)
     if jti:
         # Insert the token's id; a PK conflict means it was already rewarded → credit nothing.
         res = await db.execute(

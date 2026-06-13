@@ -170,11 +170,6 @@ export type CheckResult = {
 export type ExplainResult = { explanation: string; tip: string };
 export type TextCheckResult = CheckResult & ExplainResult;
 
-export async function postChat(message: string): Promise<string> {
-  const data = await request<{ reply: string }>("/chat", { message });
-  return data.reply;
-}
-
 // Optional adaptive steering: topic / CEFR level / exercise type (all optional; backend falls back).
 // `mistakes` = recent items the learner got wrong on this topic, to personalize generation.
 export function getExercise(params?: {

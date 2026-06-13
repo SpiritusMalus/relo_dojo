@@ -2,7 +2,6 @@
 
 Public (no auth):
 - GET  /health       -> {"status": "ok"}
-- POST /chat         -> free chat with the model (Phase 1)
 - POST /exercise     -> generate an exercise (interactive or free-text)
 - POST /story        -> generate a themed mini-story (a sequence of linked exercises)
 - POST /check        -> deterministic grade of an interactive answer (no LLM)
@@ -42,8 +41,6 @@ from .routers import wallet as wallet_router
 from .schemas import (
     AnalyzeIn,
     AnalyzeOut,
-    ChatIn,
-    ChatOut,
     CheckIn,
     CheckOut,
     CheckTextIn,
@@ -65,7 +62,6 @@ from .schemas import (
 from .services import analytics, content, gating, grammar, learner_profile, rewards, stories, tokens
 from .services import wallet as wallet_service
 from .services.llm import LLMError as OllamaError  # one exception across providers
-from .services.llm import generate
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -129,15 +125,6 @@ def run_migrations() -> None:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
-
-
-@app.post("/chat", response_model=ChatOut)
-async def chat(payload: ChatIn) -> ChatOut:
-    try:
-        reply = await generate(payload.message)
-    except OllamaError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return ChatOut(reply=reply)
 
 
 @app.post("/exercise", response_model=ExerciseOut)

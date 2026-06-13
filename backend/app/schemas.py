@@ -16,15 +16,6 @@ MAX_OPTIONS = 10
 MAX_TOKEN = 4000  # sealed exercise token
 
 
-# --- free chat (Phase 1) ---
-class ChatIn(BaseModel):
-    message: str = Field(min_length=1, max_length=MAX_TEXT)
-
-
-class ChatOut(BaseModel):
-    reply: str
-
-
 # --- learning core (Phase 2 / 2.5) ---
 class ExerciseIn(BaseModel):
     """Optional difficulty steering from the client (adaptive difficulty). All fields optional;
