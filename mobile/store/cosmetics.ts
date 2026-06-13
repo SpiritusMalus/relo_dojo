@@ -178,6 +178,18 @@ export function buyCheck(
   return { ok: true, reason: "buyable" };
 }
 
+/** The cheapest buyable, in-season, not-yet-owned cosmetic the user can afford right now.
+ *  Drives the peak-end pitch — surface a reachable reward at the emotional high of finishing. */
+export function firstAffordableUnowned(
+  coins: number,
+  owned: string[] | undefined,
+  now: Date = new Date()
+): CosmeticDef | undefined {
+  return Object.values(CATALOG)
+    .filter((c) => buyCheck(coins, owned, c.id, now).ok)
+    .sort((a, b) => a.price - b.price)[0];
+}
+
 /** The visual spec for the equipped Sensei skin, falling back to the classic default. */
 export function senseiVisual(equipped: Record<string, string> | undefined): SenseiVisual {
   const id = (equipped && equipped.sensei) || starterFor("sensei");

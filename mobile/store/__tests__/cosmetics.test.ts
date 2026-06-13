@@ -4,6 +4,7 @@ import {
   canAfford,
   catalogForSlot,
   defOf,
+  firstAffordableUnowned,
   isOwned,
   isSeasonActive,
   knotVisual,
@@ -77,5 +78,14 @@ describe("cosmetics pure layer", () => {
     const march = new Date(2026, 2, 1);
     expect(buyCheck(999, [], "sensei_sakura", june).reason).toBe("out_of_season");
     expect(buyCheck(999, [], "sensei_sakura", march)).toEqual({ ok: true, reason: "buyable" });
+  });
+
+  test("firstAffordableUnowned picks the cheapest reachable item (peak-end pitch)", () => {
+    const june = new Date(2026, 5, 1);
+    expect(firstAffordableUnowned(0, [], june)).toBeUndefined(); // can't afford anything
+    // 150 affords only knot_gold (cheapest buyable); sakura is out of season in June.
+    expect(firstAffordableUnowned(150, [], june)?.id).toBe("knot_gold");
+    // Already owns the cheapest → next cheapest reachable.
+    expect(firstAffordableUnowned(999, ["knot_gold"], june)?.id).toBe("knot_jade");
   });
 });

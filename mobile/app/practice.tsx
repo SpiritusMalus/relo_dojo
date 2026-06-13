@@ -29,6 +29,8 @@ import Scroll from "../components/ui/Scroll";
 import { boostActive } from "../store/progress";
 import { ensureOffer } from "../store/offers";
 import { useWallet } from "../store/wallet";
+import { useCosmetics } from "../store/cosmeticsStore";
+import { firstAffordableUnowned } from "../store/cosmetics";
 
 const SESSION_LEN = 10;
 
@@ -37,7 +39,7 @@ export default function PracticeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress, updateProfile } = useProgress();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
   // Stage 2 Progress Agent: every answer of this session, pushed once at the summary screen.
   const sessionAnswersRef = useRef<SessionAnswer[]>([]);
   const summarySentRef = useRef(false);
@@ -82,7 +84,8 @@ export default function PracticeScreen() {
   const [solved, setSolved] = useState(0);
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const [showScroll, setShowScroll] = useState(false); // end-of-session summary + reward scroll
-  const { isPremium } = useWallet();
+  const { isPremium, coins } = useWallet();
+  const { owned: ownedCosmetics } = useCosmetics();
   // XP at session start — the summary shows the delta (combo/boost included automatically).
   const startXpRef = useRef<number | null>(null);
   if (startXpRef.current === null) startXpRef.current = progress.xp;
@@ -265,6 +268,20 @@ export default function PracticeScreen() {
               </View>
             </Card>
             <Scroll onDone={() => router.back()} />
+            {(() => {
+              // Peak-end pitch: at the emotional high, surface a reachable cosmetic reward.
+              const pick = firstAffordableUnowned(coins, ownedCosmetics);
+              if (!pick) return null;
+              const name = lang === "ru" ? pick.name.ru : pick.name.en;
+              return (
+                <Card>
+                  <Txt variant="secondary" color={t.c.ink2} style={{ textAlign: "center", marginBottom: 8 }}>
+                    {tr("ward.pitch", { name })}
+                  </Txt>
+                  <Button label={tr("ward.open")} variant="ghost" onPress={() => router.push("/wardrobe")} />
+                </Card>
+              );
+            })()}
             {!isPremium && (
               <Button label={tr("limit.premium")} variant="ghost" onPress={() => router.push("/premium")} />
             )}

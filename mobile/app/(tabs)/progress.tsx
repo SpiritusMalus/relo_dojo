@@ -1,4 +1,5 @@
 import { StyleSheet, View } from "react-native";
+import { useRouter } from "expo-router";
 import { ACHIEVEMENTS, levelFor, useProgress, XP_PER_LEVEL, xpInLevel } from "../../store/progress";
 import { useI18n } from "../../store/i18n";
 import { RU_ACH, RU_TOPIC_LABELS } from "../../i18n/strings";
@@ -10,6 +11,7 @@ import TopBar from "../../components/ui/TopBar";
 import ActivationBanner from "../../components/ui/ActivationBanner";
 import Card from "../../components/ui/Card";
 import JourneyPath from "../../components/ui/JourneyPath";
+import Button from "../../components/ui/Button";
 import Sensei from "../../components/ui/Sensei";
 import ProgressBar from "../../components/ui/ProgressBar";
 import Txt from "../../components/ui/Txt";
@@ -27,6 +29,7 @@ const ACH_META: Record<string, { glyph: string; sub: string }> = {
 
 export default function ProgressScreen() {
   const t = useTheme();
+  const router = useRouter();
   const { progress } = useProgress();
   const { t: tr, lang } = useI18n();
 
@@ -75,6 +78,8 @@ export default function ProgressScreen() {
             );
           })}
         </View>
+        {/* Wardrobe entry — the showcase is where you admire the Sensei, so dress it from here. */}
+        <Button label={tr("ward.dress")} variant="ghost" onPress={() => router.push("/wardrobe")} />
       </Card>
 
       {/* Belt journey — read-only progress map (launching practice lives on Home / Train) */}
