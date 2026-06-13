@@ -185,7 +185,9 @@ export function recordAnswer(
   let dailyStreak: number;
   let brokenStreak: BrokenStreak | null = prev.brokenStreak ?? null;
   if (prev.lastActiveDate === today) {
-    dailyStreak = prev.dailyStreak; // already counted today
+    // Already practiced today — keep the streak, but never below 1: a day with practice IS a streak
+    // day, even if it was reset to 0 earlier today (e.g. an unrepaired break noticed on focus).
+    dailyStreak = Math.max(prev.dailyStreak, 1);
   } else if (isYesterday(prev.lastActiveDate, now)) {
     dailyStreak = prev.dailyStreak + 1;
   } else {
@@ -261,7 +263,15 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
   }
   return {
     xp: Math.max(a.xp, b.xp),
-    dailyStreak: Math.max(a.dailyStreak, b.dailyStreak),
+    // Streak follows the side that practiced most recently — taking max would fabricate an
+    // "active" long streak (e.g. a stale 10-day streak + a current 2-day one → "10 active today").
+    // Tie on the same day → max (either snapshot is current).
+    dailyStreak:
+      a.lastActiveDate === b.lastActiveDate
+        ? Math.max(a.dailyStreak, b.dailyStreak)
+        : a.lastActiveDate > b.lastActiveDate
+        ? a.dailyStreak
+        : b.dailyStreak,
     lastActiveDate: a.lastActiveDate > b.lastActiveDate ? a.lastActiveDate : b.lastActiveDate,
     currentCorrectRun: Math.max(a.currentCorrectRun, b.currentCorrectRun),
     bestCorrectRun: Math.max(a.bestCorrectRun, b.bestCorrectRun),
