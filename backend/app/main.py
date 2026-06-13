@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .core.config import settings
 from .db.models import User
-from .deps import get_current_user, get_current_user_optional, get_db
+from .deps import get_current_user, get_current_user_optional, get_db, llm_rate_limit
 from .routers import agents as agents_router
 from .routers import auth as auth_router
 from .routers import contracts as contracts_router
@@ -127,7 +127,7 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/exercise", response_model=ExerciseOut)
+@app.post("/exercise", response_model=ExerciseOut, dependencies=[Depends(llm_rate_limit)])
 async def exercise(
     payload: ExerciseIn = ExerciseIn(),
     user: Optional[User] = Depends(get_current_user_optional),
@@ -150,7 +150,7 @@ async def exercise(
     return ExerciseOut(**data)
 
 
-@app.post("/story", response_model=StoryOut)
+@app.post("/story", response_model=StoryOut, dependencies=[Depends(llm_rate_limit)])
 async def story(
     payload: StoryIn = StoryIn(),
     user: Optional[User] = Depends(get_current_user_optional),
@@ -250,7 +250,7 @@ async def check(
     )
 
 
-@app.post("/check-answer", response_model=CheckTextOut)
+@app.post("/check-answer", response_model=CheckTextOut, dependencies=[Depends(llm_rate_limit)])
 async def check_answer(
     payload: CheckTextIn,
     user: Optional[User] = Depends(get_current_user_optional),
@@ -271,7 +271,7 @@ async def check_answer(
     return CheckTextOut(**data)
 
 
-@app.post("/explain", response_model=ExplainOut)
+@app.post("/explain", response_model=ExplainOut, dependencies=[Depends(llm_rate_limit)])
 async def explain(
     payload: ExplainIn,
     user: Optional[User] = Depends(get_current_user_optional),
@@ -294,7 +294,7 @@ async def explain(
     return ExplainOut(**data)
 
 
-@app.post("/review-text", response_model=ReviewOut)
+@app.post("/review-text", response_model=ReviewOut, dependencies=[Depends(llm_rate_limit)])
 async def review_text(
     payload: ReviewIn,
     user: Optional[User] = Depends(get_current_user_optional),
@@ -344,7 +344,7 @@ async def dev_premium_toggle(
     return {"is_premium": user.is_premium}
 
 
-@app.post("/profile/analyze", response_model=AnalyzeOut)
+@app.post("/profile/analyze", response_model=AnalyzeOut, dependencies=[Depends(llm_rate_limit)])
 async def analyze(
     payload: AnalyzeIn,
     user: Optional[User] = Depends(get_current_user_optional),

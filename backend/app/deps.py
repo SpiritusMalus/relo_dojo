@@ -5,10 +5,12 @@ from __future__ import annotations
 import uuid
 from typing import AsyncIterator, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .core.config import settings
+from .core.ratelimit import SlidingWindowLimiter
 from .core.security import decode_token
 from .db.base import SessionLocal
 from .db.models import User
@@ -64,3 +66,44 @@ async def get_current_user_optional(
     except ValueError:
         return None
     return await db.get(User, user_id)
+
+
+# --- rate limiting (abuse / cost guard) ------------------------------------------------------
+# Two process-local buckets. Built once at import from settings; a limit of <= 0 disables a bucket.
+_auth_limiter = SlidingWindowLimiter(settings.AUTH_RATE_LIMIT, settings.AUTH_RATE_WINDOW_S)
+_llm_limiter = SlidingWindowLimiter(settings.LLM_RATE_LIMIT, settings.LLM_RATE_WINDOW_S)
+
+
+def _client_ip(request: Request) -> str:
+    """Best-effort client IP. Trusts X-Forwarded-For's first hop ONLY when TRUST_FORWARDED_FOR is on
+    (set it solely behind a proxy you control — the header is otherwise client-spoofable)."""
+    if settings.TRUST_FORWARDED_FOR:
+        xff = request.headers.get("x-forwarded-for")
+        if xff:
+            return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _enforce(limiter: SlidingWindowLimiter, request: Request, bucket: str) -> None:
+    """Count one request against `limiter`, keyed by bucket+IP; 429 (with Retry-After) when over."""
+    if not settings.RATE_LIMIT_ENABLED:
+        return
+    key = f"{bucket}:{_client_ip(request)}"
+    if not limiter.allow(key):
+        retry = int(limiter.retry_after(key)) + 1
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many requests — slow down a moment and try again.",
+            headers={"Retry-After": str(retry)},
+        )
+
+
+async def auth_rate_limit(request: Request) -> None:
+    """Brute-force guard for the auth endpoints (per client IP)."""
+    _enforce(_auth_limiter, request, "auth")
+
+
+async def llm_rate_limit(request: Request) -> None:
+    """Cost guard for the model-backed endpoints (per client IP — anonymous abuse is the concern;
+    authed practice is already bounded by the daily exercise quota)."""
+    _enforce(_llm_limiter, request, "llm")

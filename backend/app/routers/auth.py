@@ -17,7 +17,7 @@ from ..core.security import (
     verify_password,
 )
 from ..db.models import User
-from ..deps import get_current_user, get_db
+from ..deps import auth_rate_limit, get_current_user, get_db
 from ..schemas import LoginIn, MessageOut, RegisterIn, TokenOut, UserOut
 from ..services import cosmetics as cosmetics_service
 from ..services.email import send_verification_email
@@ -41,7 +41,12 @@ async def _send_activation(user: User) -> None:
     await send_verification_email(user.email, _verify_link(str(user.id)))
 
 
-@router.post("/register", response_model=TokenOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=TokenOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(auth_rate_limit)],
+)
 async def register(payload: RegisterIn, db: AsyncSession = Depends(get_db)) -> TokenOut:
     email = payload.email.lower()
     if is_blocked_email(email):
@@ -57,7 +62,7 @@ async def register(payload: RegisterIn, db: AsyncSession = Depends(get_db)) -> T
     return TokenOut(access_token=create_access_token(str(user.id)))
 
 
-@router.post("/login", response_model=TokenOut)
+@router.post("/login", response_model=TokenOut, dependencies=[Depends(auth_rate_limit)])
 async def login(payload: LoginIn, db: AsyncSession = Depends(get_db)) -> TokenOut:
     if is_blocked_email(payload.email):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=BLOCKED_EMAIL_MESSAGE)
