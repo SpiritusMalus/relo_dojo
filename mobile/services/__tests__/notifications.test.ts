@@ -3,11 +3,20 @@ import {
   LATEST_ESCALATION_HOUR,
   RECAP_DOW,
   RECAP_HOUR,
+  contractsReminder,
   nextWeekday,
   plannedHours,
   recapHasContent,
 } from "../notifications";
 import type { DiaryRecap } from "../../store/diary";
+
+describe("contractsReminder", () => {
+  test("names the count in both languages", () => {
+    expect(contractsReminder("en", 3)).toContain("3");
+    expect(contractsReminder("ru", 2)).toContain("2");
+    expect(contractsReminder("ru", 1)).toContain("Сэнсэя");
+  });
+});
 
 describe("plannedHours", () => {
   it("defaults to 19:00 / 21:30", () => {
