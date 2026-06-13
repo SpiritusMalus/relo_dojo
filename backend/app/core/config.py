@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # Koku awarded per correct /check answer for authenticated users (server-authoritative;
     # variable bonus arrives with the variable-rewards branch).
     COIN_REWARD_CORRECT: int = 2
+    # First-win-of-day bonus koku (engagement v2): a one-time daily anchor on the first correct
+    # answer each UTC day — "come back daily" reward. 0 disables it.
+    FIRST_WIN_BONUS: int = 10
     # Shop prices, in koku.
     PRICE_OMAMORI: int = 150  # streak-freeze charm
     PRICE_OMAMORI_PROMO: int = 75  # starter offer: half-price charm (24h client window)

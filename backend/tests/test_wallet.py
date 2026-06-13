@@ -47,15 +47,19 @@ class _FakeDB:
 
 
 def _user() -> SimpleNamespace:
+    # last_win_day = today so the base-award tests aren't perturbed by the first-win bonus.
+    from app.services.gating import _utc_day
+
     return SimpleNamespace(
-        id=uuid.uuid4(), coins=0, freezes=0, is_premium=False, starter_day="", starter_used=0
+        id=uuid.uuid4(), coins=0, freezes=0, is_premium=False, starter_day="", starter_used=0,
+        last_win_day=_utc_day(),
     )
 
 
 async def test_award_anonymous_is_zero():
     db = _FakeDB()
-    earned, balance = await wallet.award_correct_check(None, db)
-    assert (earned, balance) == (0, None)
+    earned, balance, bonus = await wallet.award_correct_check(None, db)
+    assert (earned, balance, bonus) == (0, None, 0)
     assert db.commits == 0  # nothing written for anonymous callers
 
 
@@ -63,21 +67,22 @@ async def test_award_doubles_for_premium():
     db = _FakeDB(scalar=4)
     u = _user()
     u.is_premium = True
-    earned, _ = await wallet.award_correct_check(u, db)
-    assert earned == settings.COIN_REWARD_CORRECT * 2  # Black Belt perk
+    earned, _, _ = await wallet.award_correct_check(u, db)
+    assert earned == settings.COIN_REWARD_CORRECT * 2  # Black Belt perk (already won today)
 
 
 async def test_award_credits_and_returns_new_balance():
     db = _FakeDB(scalar=42)
-    earned, balance = await wallet.award_correct_check(_user(), db)
+    earned, balance, bonus = await wallet.award_correct_check(_user(), db)
     assert earned == settings.COIN_REWARD_CORRECT
+    assert bonus == 0  # already won today
     assert balance == 42  # the post-update balance comes from the DB, not the stale ORM object
     assert db.commits == 1
 
 
 async def test_award_credits_once_for_a_new_token():
     db = _FakeDB(rowcount=1, scalar=12)  # jti insert succeeds; UPDATE returns new balance 12
-    earned, balance = await wallet.award_correct_check(_user(), db, jti="newhash")
+    earned, balance, _ = await wallet.award_correct_check(_user(), db, jti="newhash")
     assert earned == settings.COIN_REWARD_CORRECT
     assert balance == 12
     assert db.commits == 1
@@ -85,10 +90,23 @@ async def test_award_credits_once_for_a_new_token():
 
 async def test_award_is_idempotent_on_token_replay():
     db = _FakeDB(rowcount=0, scalar=7)  # jti already present (PK conflict) → already rewarded
-    earned, balance = await wallet.award_correct_check(_user(), db, jti="seenhash")
+    earned, balance, bonus = await wallet.award_correct_check(_user(), db, jti="seenhash")
     assert earned == 0  # replay credits nothing
+    assert bonus == 0
     assert balance == 7  # but reports the current balance
     assert db.commits == 0  # no write
+
+
+async def test_first_win_of_day_adds_bonus_once_and_stamps_day():
+    from app.services.gating import _utc_day
+
+    db = _FakeDB(scalar=99)
+    u = _user()
+    u.last_win_day = ""  # hasn't won today yet
+    earned, _, bonus = await wallet.award_correct_check(u, db)
+    assert bonus == settings.FIRST_WIN_BONUS
+    assert earned == settings.COIN_REWARD_CORRECT + settings.FIRST_WIN_BONUS
+    assert u.last_win_day == _utc_day()  # stamped → won't fire again today
 
 
 async def test_spend_unknown_item_is_400():
