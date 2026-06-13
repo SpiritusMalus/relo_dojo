@@ -54,6 +54,9 @@ def _utc_day() -> str:
 
 async def grant_scroll(user: User, db: AsyncSession, rng: _Rng = random) -> dict:
     """Roll and credit one scroll for the user; 403 {code: scroll_limit} past the daily cap."""
+    # Row-lock the account: the daily cap is the farm guard, so two concurrent /rewards/scroll
+    # calls must not both pass the cap check and both credit koku. Released by the commit below.
+    await db.refresh(user, with_for_update=True)
     today = _utc_day()
     if user.scroll_day != today:
         user.scroll_day = today

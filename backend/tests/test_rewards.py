@@ -12,12 +12,14 @@ from app.services import rewards
 class _FakeDB:
     def __init__(self) -> None:
         self.commits = 0
+        self.locked = 0
 
     async def commit(self) -> None:
         self.commits += 1
 
-    async def refresh(self, obj) -> None:  # noqa: ANN001
-        pass
+    async def refresh(self, obj, **kw) -> None:  # noqa: ANN001
+        if kw.get("with_for_update"):
+            self.locked += 1
 
 
 class _FixedRng:
@@ -111,6 +113,12 @@ async def test_premium_doubles_koku_amounts_but_not_rares():
     assert out2["kind"] == "omamori"
     assert out2["amount"] == 1
     assert u.freezes == 1
+
+
+async def test_grant_scroll_takes_a_row_lock():
+    db = _FakeDB()
+    await rewards.grant_scroll(_user(), db, rng=_FixedRng(0.0))
+    assert db.locked == 1  # SELECT ... FOR UPDATE so concurrent scrolls can't both beat the cap
 
 
 async def test_cap_resets_on_new_day(monkeypatch):

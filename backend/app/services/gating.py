@@ -60,6 +60,10 @@ async def consume_daily_exercise(user: User | None, db: AsyncSession) -> None:
     No-op for anonymous and premium callers."""
     if user is None or user.is_premium:
         return
+    # Row-lock the account for the read-modify-write below so two concurrent exercise requests
+    # can't both pass the cap check and both increment (which would over-serve the daily quota).
+    # The lock is released by the commit at the end of this function.
+    await db.refresh(user, with_for_update=True)
     _normalize_day(user)
     limit = daily_limit_for(user)
     assert limit is not None  # premium returned above

@@ -11,9 +11,14 @@ from app.services import gating
 class _FakeDB:
     def __init__(self) -> None:
         self.commits = 0
+        self.locked = 0
 
     async def commit(self) -> None:
         self.commits += 1
+
+    async def refresh(self, obj, **kw) -> None:  # noqa: ANN001 — row-lock no-op in tests
+        if kw.get("with_for_update"):
+            self.locked += 1
 
 
 def _user(
@@ -67,6 +72,13 @@ async def test_free_quota_counts_and_blocks_verified(monkeypatch):
         await gating.consume_daily_exercise(u, db)
     assert getattr(exc.value, "status_code", None) == 403
     assert _code(exc.value) == "daily_limit"
+
+
+async def test_metered_consume_takes_a_row_lock(monkeypatch):
+    monkeypatch.setattr(settings, "STARTER_DAILY_LIMIT", 5)
+    db = _FakeDB()
+    await gating.consume_daily_exercise(_user(False), db)
+    assert db.locked == 1  # SELECT ... FOR UPDATE serializes concurrent requests
 
 
 async def test_quota_resets_on_new_day(monkeypatch):
