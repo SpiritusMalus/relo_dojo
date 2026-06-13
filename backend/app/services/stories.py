@@ -14,6 +14,7 @@ Grading is unchanged: every beat carries its own Fernet-sealed token graded by `
 
 from __future__ import annotations
 
+import hashlib
 import random
 from typing import Any
 
@@ -78,18 +79,90 @@ SCENARIOS: list[dict[str, Any]] = [
             "You agree on the safer option and note what to do next.",
         ],
     },
+    {
+        "id": "market-day",
+        "title": "Market day",
+        "intro": "The Saturday market is loud and full. You have a short list, a little cash, and a "
+        "stallholder who loves to bargain.",
+        "context": "a person shopping and bargaining at a busy street market",
+        "topics": ["articles", "comparatives & superlatives", "prepositions"],
+        "narration": [
+            "You compare two stalls selling the same fruit.",
+            "The seller offers a better price if you buy more.",
+            "You pack your bag and head for the last item on the list.",
+        ],
+    },
+    {
+        "id": "the-interview",
+        "title": "The interview",
+        "intro": "A job you really want. You arrive early, rehearse your answers one last time, and "
+        "wait for your name to be called.",
+        "context": "a candidate at a job interview for a role they want",
+        "topics": ["verb sequence (tense agreement)", "modal verbs", "gerunds & infinitives"],
+        "narration": [
+            "You explain what you did in your last role.",
+            "They ask how you would handle a tricky situation.",
+            "You ask a thoughtful question of your own to close.",
+        ],
+    },
+    # --- Premium arcs (koku-unlocked, engagement v2 Phase 3). `unlock` = content catalog id. ---
+    {
+        "id": "midnight-detective",
+        "title": "The midnight case",
+        "unlock": "arc_detective",
+        "intro": "Rain on the window, a cold cup of coffee, and a case that won't close. Tonight the "
+        "last clue finally surfaces.",
+        "context": "a detective working a mysterious case late at night",
+        "topics": ["verb sequence (tense agreement)", "conditionals", "word order"],
+        "narration": [
+            "You retrace what the witness claimed had happened.",
+            "If one detail is true, the whole story changes.",
+            "You lay out the order of events and name the culprit.",
+        ],
+    },
 ]
 
+# id -> scenario, for O(1) lookup.
+_BY_ID = {s["id"]: s for s in SCENARIOS}
 
-async def build_story(level: str | None = None, context_override: str | None = None) -> dict[str, Any]:
+# Free scenarios are always available; arcs with an `unlock` need that content id owned.
+FREE_IDS = [s["id"] for s in SCENARIOS if "unlock" not in s]
+
+
+def is_available(scenario: dict[str, Any], owned_unlocks: set[str]) -> bool:
+    """A scenario is playable if it's free or its unlock has been bought."""
+    unlock = scenario.get("unlock")
+    return unlock is None or unlock in owned_unlocks
+
+
+def available_ids(owned_unlocks: set[str]) -> list[str]:
+    return [s["id"] for s in SCENARIOS if is_available(s, owned_unlocks)]
+
+
+def featured_story_id(subject: str, day: str, owned_unlocks: set[str]) -> str:
+    """Deterministic "today's story" pick from the available pool — stable per (subject, day), so the
+    Home screen can show a different featured arc each day ("today's different"). Pure."""
+    pool = available_ids(owned_unlocks) or FREE_IDS
+    ranked = sorted(pool, key=lambda sid: hashlib.sha256(f"{subject}:{day}:{sid}".encode()).hexdigest())
+    return ranked[0]
+
+
+async def build_story(
+    level: str | None = None,
+    context_override: str | None = None,
+    scenario_id: str | None = None,
+) -> dict[str, Any]:
     """Assemble a mini-story: pick a curated scenario, then generate one exercise per beat.
 
     Each exercise is produced by `grammar.generate_exercise` (its own 3-retry + multiple-choice
     fallback), so a single bad generation degrades to a simpler card rather than breaking the set.
     `level` is locked across the whole story; the per-beat topic varies across the scenario's topics
     so the set isn't monotonous. `context_override`, if given, replaces the scenario's flavor context.
+    `scenario_id` selects a specific arc (availability is enforced by the caller); omitted → random.
     """
-    scenario = random.choice(SCENARIOS)
+    scenario = _BY_ID.get(scenario_id) if scenario_id else None
+    if scenario is None:
+        scenario = random.choice(SCENARIOS)
     context = context_override or scenario["context"]
     topics = scenario["topics"]
 

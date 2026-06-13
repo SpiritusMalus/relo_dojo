@@ -9,7 +9,16 @@ import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, 
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { gateKind, getStory, type ResponseValue, type StorySet } from "../services/api";
+import {
+  buyContent,
+  gateKind,
+  getStory,
+  getStoryCatalog,
+  type ResponseValue,
+  type StoryArc,
+  type StorySet,
+} from "../services/api";
+import { useWallet } from "../store/wallet";
 import ActivationBanner from "../components/ui/ActivationBanner";
 import ExerciseCard from "../components/ExerciseCard";
 import ResultPanel from "../components/ResultPanel";
@@ -37,7 +46,10 @@ export default function StoryScreen() {
   const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
     useExerciseCheck();
 
+  const { coins, refresh: refreshWallet } = useWallet();
   const [story, setStory] = useState<StorySet | null>(null);
+  const [arcs, setArcs] = useState<StoryArc[] | null>(null); // chooser list (null until fetched)
+  const [buying, setBuying] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [gated, setGated] = useState(false); // 403: account gate → activation prompt, not an error
@@ -50,7 +62,7 @@ export default function StoryScreen() {
 
   const shake = useRef(new Animated.Value(0)).current;
 
-  const loadStory = useCallback(async () => {
+  const loadStory = useCallback(async (id?: string) => {
     setLoading(true);
     setLoadError(null);
     setGated(false);
@@ -66,7 +78,7 @@ export default function StoryScreen() {
       // (universal story frame, field-specific examples). Empty context falls back to the scenario.
       const level = beltProgress(progress).cefr;
       const context = buildContext(progress.profile);
-      setStory(await getStory({ level, context }));
+      setStory(await getStory({ level, context, id }));
     } catch (e) {
       // Stories are verified-only on the server; any 403 here is an account gate, not an error.
       if (gateKind(e)) setGated(true);
@@ -78,9 +90,36 @@ export default function StoryScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reset]);
 
-  useEffect(() => {
-    loadStory();
+  // Show the arc chooser first ("today's different" + unlockable premium arcs). Falls back to a
+  // straight random story if the catalog can't be fetched (offline / old backend).
+  const loadCatalog = useCallback(async () => {
+    setLoadError(null);
+    setGated(false);
+    try {
+      setArcs((await getStoryCatalog()).arcs);
+    } catch {
+      void loadStory(); // no catalog → just start a story
+    }
   }, [loadStory]);
+
+  useEffect(() => {
+    loadCatalog();
+  }, [loadCatalog]);
+
+  // Unlock a premium arc with koku, then start it.
+  async function unlockAndPlay(arc: StoryArc) {
+    if (buying) return;
+    setBuying(arc.id);
+    try {
+      await buyContent(arc.id);
+      await refreshWallet();
+      await loadStory(arc.id);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Unlock failed");
+    } finally {
+      setBuying(null);
+    }
+  }
 
   function onChange(value: ResponseValue | null, display: string) {
     setResponse(value);
@@ -171,7 +210,7 @@ export default function StoryScreen() {
             <Txt variant="secondary" color={t.c.ink3} style={{ textAlign: "center" }}>
               {tr("activate.lockedMsg")}
             </Txt>
-            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadStory} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={() => loadCatalog()} />
           </View>
         )}
 
@@ -180,7 +219,38 @@ export default function StoryScreen() {
             <Txt variant="body" color={t.c.bad} style={{ textAlign: "center" }}>
               {error}
             </Txt>
-            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadStory} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={() => loadCatalog()} />
+          </View>
+        )}
+
+        {/* Arc chooser — "today's different" featured pick + free/premium arcs. */}
+        {arcs && !story && !loading && !gated && !error && (
+          <View style={{ gap: 10, marginTop: 8 }}>
+            <Txt variant="cardTitle">{tr("story.chooseTitle")}</Txt>
+            {[...arcs].sort((a, b) => Number(b.featured) - Number(a.featured)).map((arc) => (
+              <Pressable
+                key={arc.id}
+                onPress={() => (arc.owned ? loadStory(arc.id) : unlockAndPlay(arc))}
+                disabled={buying !== null || (!arc.owned && coins < arc.price)}
+              >
+                <Card>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Txt variant="bodyStrong">{arc.title}</Txt>
+                        {arc.featured && <Txt variant="caption" color={t.c.gold}>{tr("story.featured")}</Txt>}
+                      </View>
+                      <Txt variant="secondary" color={t.c.ink2} numberOfLines={2}>{arc.intro}</Txt>
+                    </View>
+                    {!arc.owned && (
+                      <Txt variant="bodyStrong" color={coins >= arc.price ? t.c.gold : t.c.ink3}>
+                        {buying === arc.id ? "…" : `🔒 ${arc.price} 🌾`}
+                      </Txt>
+                    )}
+                  </View>
+                </Card>
+              </Pressable>
+            ))}
           </View>
         )}
 

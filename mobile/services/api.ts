@@ -197,10 +197,32 @@ export type StorySet = {
   beats: StoryBeat[];
 };
 
-// Generate a mini-story. `level` locks CEFR across the set; `context` overrides scenario flavor.
-// Three exercises are generated server-side in sequence, so this needs a longer timeout.
-export function getStory(params?: { level?: string; context?: string }): Promise<StorySet> {
+// Generate a mini-story. `level` locks CEFR across the set; `context` overrides scenario flavor;
+// `id` selects a specific arc (premium arcs require an unlock → 403). Three exercises are generated
+// server-side in sequence, so this needs a longer timeout.
+export function getStory(params?: { level?: string; context?: string; id?: string }): Promise<StorySet> {
   return request<StorySet>("/story", params ?? {}, "POST", STORY_TIMEOUT_MS);
+}
+
+// --- story arcs / content unlocks (engagement v2 Phase 3) ---
+export type StoryArc = {
+  id: string;
+  title: string;
+  intro: string;
+  locked: boolean;
+  owned: boolean;
+  price: number;
+  featured: boolean;
+};
+export type StoryCatalog = { featured_id: string; arcs: StoryArc[] };
+
+export function getStoryCatalog(): Promise<StoryCatalog> {
+  return request<StoryCatalog>("/story/catalog", undefined, "GET");
+}
+
+// Unlock premium content (e.g., a story arc) with koku. Throws ApiError 409 (not enough) / 400.
+export function buyContent(id: string): Promise<{ owned: string[]; coins: number }> {
+  return request<{ owned: string[]; coins: number }>("/content/buy", { id });
 }
 
 // Goal intake: map a free-text goal / "what's hard for me" to canonical grammar topics.
