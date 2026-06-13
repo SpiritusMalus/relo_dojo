@@ -81,6 +81,7 @@ class StoryIn(BaseModel):
 
     level: Optional[str] = Field(default=None, max_length=4)  # CEFR: A1..C1
     context: Optional[str] = Field(default=None, max_length=300)
+    id: Optional[str] = Field(default=None, max_length=40)  # specific arc; omitted → random/featured
 
 
 class StoryBeat(BaseModel):
@@ -98,6 +99,31 @@ class StoryOut(BaseModel):
     intro: str = ""
     level: str = ""  # effective CEFR served across the set
     beats: list[StoryBeat] = []
+
+
+# --- story arcs / content unlocks (engagement v2 Phase 3) ---
+class StoryArcOut(BaseModel):
+    id: str
+    title: str
+    intro: str = ""
+    locked: bool = False  # premium arc not yet owned
+    owned: bool = True  # free arcs and bought ones
+    price: int = 0  # koku to unlock (0 for free)
+    featured: bool = False  # today's rotating pick
+
+
+class StoryCatalogOut(BaseModel):
+    featured_id: str
+    arcs: list[StoryArcOut] = Field(default_factory=list)
+
+
+class ContentIn(BaseModel):
+    id: str = Field(min_length=1, max_length=40)
+
+
+class ContentBuyOut(BaseModel):
+    owned: list[str] = Field(default_factory=list)
+    coins: int = 0
 
 
 # --- deterministic interactive check (Phase 2.5) ---

@@ -58,6 +58,8 @@ export const STRINGS = {
     "story.writing": "Writing your story…",
     "story.done": "{title} — done!",
     "story.correctOfTotal": "{c} / {t} correct",
+    "story.chooseTitle": "Choose your story",
+    "story.featured": "★ Today",
     "story.backHome": "Back to home",
 
     "ch.title": "Daily Challenge",
@@ -332,6 +334,8 @@ export const STRINGS = {
     "story.writing": "Сочиняем историю…",
     "story.done": "{title} — готово!",
     "story.correctOfTotal": "{c} / {t} верно",
+    "story.chooseTitle": "Выбери историю",
+    "story.featured": "★ Сегодня",
     "story.backHome": "На главную",
 
     "ch.title": "Челлендж дня",

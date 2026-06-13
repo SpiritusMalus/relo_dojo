@@ -53,12 +53,16 @@ from .schemas import (
     ExplainIn,
     ExplainOut,
     ReviewIn,
+    ContentBuyOut,
+    ContentIn,
     ReviewOut,
     ScrollOut,
+    StoryArcOut,
+    StoryCatalogOut,
     StoryIn,
     StoryOut,
 )
-from .services import analytics, gating, grammar, learner_profile, rewards, stories, tokens
+from .services import analytics, content, gating, grammar, learner_profile, rewards, stories, tokens
 from .services import wallet as wallet_service
 from .services.llm import LLMError as OllamaError  # one exception across providers
 from .services.llm import generate
@@ -167,13 +171,61 @@ async def story(
     """Themed mini-story (a sequence of linked exercises). Blocked for unverified accounts.
 
     Each beat's answer stays sealed in its own `token` and is graded by the existing /check.
+    A specific `id` selects an arc; premium arcs require the matching content unlock (403 otherwise).
     """
     gating.require_verified(user)
+    owned = set(content.owned_ids(user)) if user is not None else set()
+    if payload.id:
+        scenario = stories._BY_ID.get(payload.id)
+        if scenario is None:
+            raise HTTPException(status_code=404, detail="Unknown story.")
+        if not stories.is_available(scenario, owned):
+            raise HTTPException(status_code=403, detail="This arc is locked. Unlock it with koku.")
     try:
-        data = await stories.build_story(level=payload.level, context_override=payload.context)
+        data = await stories.build_story(
+            level=payload.level, context_override=payload.context, scenario_id=payload.id
+        )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return StoryOut(**data)
+
+
+@app.get("/story/catalog", response_model=StoryCatalogOut)
+async def story_catalog(
+    user: Optional[User] = Depends(get_current_user_optional),
+) -> StoryCatalogOut:
+    """Story arcs with lock/own/price + today's featured pick (the "today's different" rotation)."""
+    owned = set(content.owned_ids(user)) if user is not None else set()
+    subject = str(user.id) if user is not None else "anon"
+    featured = stories.featured_story_id(subject, gating._utc_day(), owned)
+    arcs = []
+    for s in stories.SCENARIOS:
+        unlock = s.get("unlock")
+        is_owned = unlock is None or unlock in owned
+        price = content.CATALOG.get(unlock, {}).get("price", 0) if unlock else 0
+        arcs.append(
+            StoryArcOut(
+                id=s["id"],
+                title=s["title"],
+                intro=s["intro"],
+                locked=not is_owned,
+                owned=is_owned,
+                price=price,
+                featured=s["id"] == featured,
+            )
+        )
+    return StoryCatalogOut(featured_id=featured, arcs=arcs)
+
+
+@app.post("/content/buy", response_model=ContentBuyOut)
+async def content_buy(
+    payload: ContentIn,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ContentBuyOut:
+    """Unlock premium content with koku. 400 unknown; 409 insufficient koku."""
+    user = await content.buy(user, db, payload.id)
+    return ContentBuyOut(owned=content.owned_ids(user), coins=user.coins)
 
 
 @app.post("/check", response_model=CheckOut)

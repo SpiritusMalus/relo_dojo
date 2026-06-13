@@ -55,6 +55,9 @@ class User(Base):
     cosmetics: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     # Equipped cosmetic per slot, e.g. {"sensei": "sensei_sage"}. Unset slot → the starter default.
     equipped: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
+    # Unlocked content ids (engagement v2 Phase 3): koku-bought story arcs / packs. Free content is
+    # never stored here. Server-authoritative — the client can't grant itself an unlock.
+    unlocks: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
