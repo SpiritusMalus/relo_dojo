@@ -89,6 +89,19 @@ async def test_quota_resets_on_new_day(monkeypatch):
     assert u.starter_used == 1  # reset, then counted today
 
 
+def test_day_offset_shifts_the_billing_day(monkeypatch):
+    from datetime import date, timedelta
+
+    monkeypatch.setattr(settings, "DAY_OFFSET_MIN", 0)
+    base = gating._utc_day()
+    monkeypatch.setattr(settings, "DAY_OFFSET_MIN", 1440)  # +24h → next calendar day
+    assert gating._utc_day() == (date.fromisoformat(base) + timedelta(days=1)).isoformat()
+    # rewards shares the exact same day function (single source of truth)
+    from app.services import rewards
+
+    assert rewards._utc_day is gating._utc_day
+
+
 def test_left_today_tiers(monkeypatch):
     monkeypatch.setattr(settings, "FREE_DAILY_LIMIT", 20)
     assert gating.left_today(None) is None  # anonymous: unmetered

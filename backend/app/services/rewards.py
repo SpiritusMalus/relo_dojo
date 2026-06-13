@@ -11,7 +11,6 @@ Abuse guard: SCROLLS_PER_DAY per account (UTC day), tracked in users.scroll_day 
 from __future__ import annotations
 
 import random
-from datetime import datetime, timezone
 from typing import Protocol
 
 from fastapi import HTTPException, status
@@ -19,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
 from ..db.models import User
+# Single source of truth for the daily-reset calendar day (honors DAY_OFFSET_MIN).
+from .gating import _utc_day
 
 
 class _Rng(Protocol):
@@ -46,10 +47,6 @@ def roll_scroll(rng: _Rng = random) -> tuple[str, int]:
         if pick < acc:
             return kind, amount
     return SCROLL_TABLE[-1][0], SCROLL_TABLE[-1][1]  # float edge — give the last row
-
-
-def _utc_day() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
 async def grant_scroll(user: User, db: AsyncSession, rng: _Rng = random) -> dict:

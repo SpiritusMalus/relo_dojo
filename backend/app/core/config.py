@@ -84,6 +84,11 @@ class Settings(BaseSettings):
     REPAIR_MAX: int = 300
     # Scroll rewards (variable reinforcement): how many scrolls an account may open per UTC day.
     SCROLLS_PER_DAY: int = 3
+    # Minutes added to UTC before taking the calendar day for daily resets (exercise quota, scroll
+    # cap). 0 = UTC (default). Set to the users' local offset so the daily limit and the client's
+    # streak (which uses the LOCAL day) roll over together — e.g. 180 for MSK (UTC+3).
+    DAY_OFFSET_MIN: int = 0
+
     # Run `alembic upgrade head` automatically on backend startup, so the schema always matches
     # the code (single-instance deploys; disable if migrations are ever run by a pipeline).
     AUTO_MIGRATE: bool = True
