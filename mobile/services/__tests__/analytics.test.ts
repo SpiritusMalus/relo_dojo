@@ -6,6 +6,7 @@ import {
   MAX_QUEUE,
   pending,
   track,
+  trackContractClaimed,
   trackExerciseAnswered,
   trackPaywallView,
   trackReviewSubmitted,
@@ -128,5 +129,12 @@ describe("named funnel events (D7 contract)", () => {
     const [e] = await captured();
     expect(e.props).toEqual({ chars: 10 });
     expect("issues" in e.props).toBe(false);
+  });
+
+  test("contract_claimed carries the id and reward", async () => {
+    trackContractClaimed({ id: "warmup", reward: 15 });
+    const [e] = await captured();
+    expect(e.name).toBe("contract_claimed");
+    expect(e.props).toEqual({ id: "warmup", reward: 15 });
   });
 });

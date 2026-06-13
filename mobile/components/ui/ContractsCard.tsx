@@ -5,13 +5,16 @@ import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { claimContract, getContracts, type Contract } from "../../services/api";
+import { trackContractClaimed } from "../../services/analytics";
 import { useAuth } from "../../store/auth";
 import { useI18n } from "../../store/i18n";
 import { useWallet } from "../../store/wallet";
+import { contractsSummary } from "../../store/contracts";
 import { useTheme } from "../../theme/theme";
 import Button from "./Button";
 import Card from "./Card";
 import ProgressBar from "./ProgressBar";
+import Ring from "./Ring";
 import Txt from "./Txt";
 
 export default function ContractsCard() {
@@ -43,7 +46,8 @@ export default function ContractsCard() {
     if (busy) return;
     setBusy(id);
     try {
-      await claimContract(id);
+      const res = await claimContract(id);
+      if (res.claimed) trackContractClaimed({ id, reward: res.reward });
       await refreshWallet(); // koku credited server-side
       await load();
     } catch {
@@ -55,12 +59,20 @@ export default function ContractsCard() {
 
   if (!token || contracts.length === 0) return null;
 
+  const summary = contractsSummary(contracts);
+
   return (
     <Card>
-      <Txt variant="bodyStrong">{tr("contract.title")}</Txt>
-      <Txt variant="secondary" color={t.c.ink2} style={{ marginBottom: 10 }}>
-        {tr("contract.sub")}
-      </Txt>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10 }}>
+        {/* Daily-goal ring — the at-a-glance "how close am I today" anchor. */}
+        <Ring pct={summary.pct} size={52} stroke={6} color={summary.claimable ? t.c.gold : undefined}>
+          <Txt variant="caption">{`${summary.done}/${summary.total}`}</Txt>
+        </Ring>
+        <View style={{ flex: 1 }}>
+          <Txt variant="bodyStrong">{tr("contract.title")}</Txt>
+          <Txt variant="secondary" color={t.c.ink2}>{tr("contract.sub")}</Txt>
+        </View>
+      </View>
       <View style={{ gap: 12 }}>
         {contracts.map((c) => (
           <View key={c.id} style={{ gap: 6 }}>
