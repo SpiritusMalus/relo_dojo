@@ -44,6 +44,50 @@ export function pending(): number {
   return queue.length;
 }
 
+// ---------------------------------------------------------------------------
+// Named funnel events — the D7-retention contract in one place.
+//
+// Screens never spell event names by hand; they call these helpers. That keeps the analytics
+// namespace stable (no "paywallView" vs "paywall_view" drift) and the prop shape consistent, so
+// the funnel stays queryable. Undefined props are dropped so the event bag stays flat and clean.
+// Each helper is pure over `track`, so the contract is unit-tested without any screen mounting.
+
+function clean(props: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(props)) if (v !== undefined) out[k] = v;
+  return out;
+}
+
+/** A single graded answer (the core engagement signal; finer-grained than session_complete). */
+export function trackExerciseAnswered(p: {
+  topic: string;
+  correct: boolean;
+  level?: string;
+  mode?: string;
+}): void {
+  track("exercise_answered", clean({ topic: p.topic, correct: p.correct, level: p.level, mode: p.mode ?? "practice" }));
+}
+
+/** A monetization surface was shown (limit sheet / shop / premium pitch) — top of the pay funnel. */
+export function trackPaywallView(p: { kind: "limit" | "shop" | "premium"; belt?: string }): void {
+  track("paywall_view", clean({ kind: p.kind, belt: p.belt }));
+}
+
+/** The streak just snapped (loss-aversion moment; precedes the repair offer). */
+export function trackStreakBreak(p: { streak: number }): void {
+  track("streak_break", clean({ streak: p.streak }));
+}
+
+/** The end-of-session reward scroll was opened (variable-reward engagement). */
+export function trackScrollOpen(p: { mode?: string } = {}): void {
+  track("scroll_open", clean({ mode: p.mode ?? "practice" }));
+}
+
+/** "Review my text" was submitted — a high-intent feature-adoption signal. */
+export function trackReviewSubmitted(p: { chars: number; issues?: number }): void {
+  track("review_submitted", clean({ chars: p.chars, issues: p.issues }));
+}
+
 /** Flush buffered events in one batch. Best-effort: on failure the batch is re-queued for later. */
 export async function flush(): Promise<void> {
   if (flushing || queue.length === 0 || sender === null) return;

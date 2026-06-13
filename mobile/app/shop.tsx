@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { trackPaywallView } from "../services/analytics";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import { EXTRA_PACK_SIZE, PRICE_EXTRA_PACK, useWallet } from "../store/wallet";
@@ -25,6 +26,10 @@ export default function ShopScreen() {
   const { coins, freezes, leftToday, isPremium, spend } = useWallet();
   const [busy, setBusy] = useState<SpendItem | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    trackPaywallView({ kind: "shop" });
+  }, []);
 
   async function buy(item: SpendItem) {
     if (busy) return;

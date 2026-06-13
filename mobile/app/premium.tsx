@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { trackPaywallView } from "../services/analytics";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import { useProgress } from "../store/progress";
@@ -25,6 +27,10 @@ export default function PremiumScreen() {
   const { progress } = useProgress();
   const { isPremium } = useWallet();
   const belt = beltProgress(progress).belt;
+
+  useEffect(() => {
+    trackPaywallView({ kind: "premium", belt: belt.id });
+  }, [belt.id]);
 
   // Every perk listed here is already enforced server-side — the pitch contains no fiction.
   const perks = [

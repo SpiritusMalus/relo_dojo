@@ -6,8 +6,22 @@ import {
   MAX_QUEUE,
   pending,
   track,
+  trackExerciseAnswered,
+  trackPaywallView,
+  trackReviewSubmitted,
+  trackScrollOpen,
+  trackStreakBreak,
+  type AnalyticsEvent,
   type EventBatch,
 } from "../analytics";
+
+// Drain the queue through a capturing sender so tests can assert the event contract (name + props).
+async function captured(): Promise<AnalyticsEvent[]> {
+  const sent: EventBatch[] = [];
+  configure({ sender: async (b) => void sent.push(b), anonId: null });
+  await flush();
+  return sent.flatMap((b) => b.events);
+}
 
 describe("analytics buffered tracker", () => {
   beforeEach(() => _reset());
@@ -67,5 +81,52 @@ describe("analytics buffered tracker", () => {
     track("app_open");
     await expect(flush()).resolves.toBeUndefined();
     expect(pending()).toBe(1);
+  });
+});
+
+describe("named funnel events (D7 contract)", () => {
+  beforeEach(() => _reset());
+
+  test("exercise_answered carries topic/correct/level and defaults mode", async () => {
+    trackExerciseAnswered({ topic: "tenses", correct: true, level: "B1" });
+    const [e] = await captured();
+    expect(e.name).toBe("exercise_answered");
+    expect(e.props).toEqual({ topic: "tenses", correct: true, level: "B1", mode: "practice" });
+  });
+
+  test("paywall_view records the surface kind and drops undefined belt", async () => {
+    trackPaywallView({ kind: "shop" });
+    const [e] = await captured();
+    expect(e.name).toBe("paywall_view");
+    expect(e.props).toEqual({ kind: "shop" });
+    expect("belt" in e.props).toBe(false);
+  });
+
+  test("streak_break carries the lost streak length", async () => {
+    trackStreakBreak({ streak: 12 });
+    const [e] = await captured();
+    expect(e.name).toBe("streak_break");
+    expect(e.props).toEqual({ streak: 12 });
+  });
+
+  test("scroll_open defaults the mode", async () => {
+    trackScrollOpen();
+    const [e] = await captured();
+    expect(e.name).toBe("scroll_open");
+    expect(e.props).toEqual({ mode: "practice" });
+  });
+
+  test("review_submitted carries chars and issue count", async () => {
+    trackReviewSubmitted({ chars: 240, issues: 3 });
+    const [e] = await captured();
+    expect(e.name).toBe("review_submitted");
+    expect(e.props).toEqual({ chars: 240, issues: 3 });
+  });
+
+  test("undefined props are stripped so the event bag stays flat", async () => {
+    trackReviewSubmitted({ chars: 10 });
+    const [e] = await captured();
+    expect(e.props).toEqual({ chars: 10 });
+    expect("issues" in e.props).toBe(false);
   });
 });

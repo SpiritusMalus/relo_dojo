@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Animated, Pressable, View } from "react-native";
 import { openScroll, type ScrollReward } from "../../services/api";
+import { trackScrollOpen } from "../../services/analytics";
 import { useI18n } from "../../store/i18n";
 import { useProgress } from "../../store/progress";
 import { useWallet } from "../../store/wallet";
@@ -25,6 +26,7 @@ export default function Scroll({ onDone }: { onDone: () => void }) {
   async function open() {
     if (phase !== "sealed") return;
     setPhase("opening");
+    trackScrollOpen({ mode: "practice" });
     try {
       const r = await openScroll();
       // The anticipation beat: hold the sealed scroll a moment before the reveal.

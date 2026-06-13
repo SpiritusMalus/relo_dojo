@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
+import { trackStreakBreak } from "../../services/analytics";
 import { useI18n } from "../../store/i18n";
 import { useProgress } from "../../store/progress";
 import { useWallet } from "../../store/wallet";
@@ -23,7 +24,14 @@ export default function StreakRepairSheet({ belt }: { belt: Belt }) {
   const [error, setError] = useState<string | null>(null);
 
   const broken = progress.brokenStreak;
-  if (!broken || !repairOpen(broken, new Date())) return null;
+  const visible = !!broken && repairOpen(broken, new Date());
+
+  // The streak snapped and the repair window is open — fire once per broken streak length.
+  useEffect(() => {
+    if (visible && broken) trackStreakBreak({ streak: broken.streak });
+  }, [visible, broken?.streak]);
+
+  if (!visible || !broken) return null;
 
   const price = repairPrice(broken.streak);
   const canAfford = coins >= price;

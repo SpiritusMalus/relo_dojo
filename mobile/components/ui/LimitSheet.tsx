@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
+import { trackPaywallView } from "../../services/analytics";
 import { useI18n } from "../../store/i18n";
 import { EXTRA_PACK_SIZE, PRICE_EXTRA_PACK, useWallet } from "../../store/wallet";
 import { useTheme } from "../../theme/theme";
@@ -20,6 +21,11 @@ export default function LimitSheet({ belt, onUnlocked }: { belt: Belt; onUnlocke
   const { coins, spend } = useWallet();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Top of the pay funnel: the free-tier squeeze sheet became visible.
+  useEffect(() => {
+    trackPaywallView({ kind: "limit", belt: belt.id });
+  }, [belt.id]);
 
   const canAfford = coins >= PRICE_EXTRA_PACK;
 

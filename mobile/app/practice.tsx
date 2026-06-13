@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { gateKind, postSessionSummary, type Exercise, type ResponseValue, type SessionAnswer } from "../services/api";
-import { track } from "../services/analytics";
+import { track, trackExerciseAnswered } from "../services/analytics";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ActivationBanner from "../components/ui/ActivationBanner";
 import LimitSheet from "../components/ui/LimitSheet";
@@ -152,6 +152,7 @@ export default function PracticeScreen() {
       setSolved((s) => s + 1);
       if (res.correct) setSessionCorrect((c) => c + 1);
       sessionAnswersRef.current.push({ topic: exercise.topic, correct: res.correct, level: exercise.level });
+      trackExerciseAnswered({ topic: exercise.topic, correct: res.correct, level: exercise.level, mode: "practice" });
     }
   }
 
