@@ -60,6 +60,13 @@ describe("recordAnswer", () => {
     const d2 = recordAnswer(d1b, "articles", true, at("2026-06-05"));
     expect(d2.todayCount).toBe(1);
   });
+
+  it("counts today's practice as a streak even if it was reset to 0 earlier today", () => {
+    // Simulate an unrepaired break noticed on focus: lastActiveDate is today but streak is 0.
+    const reset = progressWith({ lastActiveDate: DAY, dailyStreak: 0 });
+    const next = recordAnswer(reset, "articles", true, at(DAY));
+    expect(next.dailyStreak).toBe(1); // a day with practice is at least a 1-day streak
+  });
 });
 
 describe("mergeProgress", () => {
@@ -95,5 +102,19 @@ describe("mergeProgress", () => {
     const a = progressWith({ achievements: ["first-correct"] });
     const b = progressWith({ achievements: ["streak-3"] });
     expect(mergeProgress(a, b).achievements.sort()).toEqual(["first-correct", "streak-3"]);
+  });
+
+  it("takes the streak from the most recently active side (never fabricates an active streak)", () => {
+    const stale = progressWith({ dailyStreak: 10, lastActiveDate: "2026-06-01" });
+    const current = progressWith({ dailyStreak: 2, lastActiveDate: "2026-06-08" });
+    const m = mergeProgress(stale, current);
+    expect(m.dailyStreak).toBe(2); // the current side wins — not max(10, 2)
+    expect(m.lastActiveDate).toBe("2026-06-08");
+  });
+
+  it("uses max streak when both sides are from the same day", () => {
+    const a = progressWith({ dailyStreak: 5, lastActiveDate: "2026-06-08" });
+    const b = progressWith({ dailyStreak: 7, lastActiveDate: "2026-06-08" });
+    expect(mergeProgress(a, b).dailyStreak).toBe(7);
   });
 });
