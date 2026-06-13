@@ -88,6 +88,11 @@ export function trackReviewSubmitted(p: { chars: number; issues?: number }): voi
   track("review_submitted", clean({ chars: p.chars, issues: p.issues }));
 }
 
+/** A daily contract was claimed — the daily-return + earning signal (engagement v2). */
+export function trackContractClaimed(p: { id: string; reward: number }): void {
+  track("contract_claimed", clean({ id: p.id, reward: p.reward }));
+}
+
 /** Flush buffered events in one batch. Best-effort: on failure the batch is re-queued for later. */
 export async function flush(): Promise<void> {
   if (flushing || queue.length === 0 || sender === null) return;
