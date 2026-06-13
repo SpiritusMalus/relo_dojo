@@ -2,6 +2,7 @@
 
 from app.schemas import LearnerProfileData
 from app.services import grammar
+from app.services import _grammar_feedback
 from app.services.grammar import REVIEW_MAX_ISSUES, TONE_LINES, _review_prompt
 from app.services.learner_profile import apply_review
 
@@ -27,7 +28,8 @@ async def test_review_text_sanitizes_output(monkeypatch):
             + [{"quote": f"q{i}", "better": "b", "topic": "articles", "note": ""} for i in range(10)],
         }
 
-    monkeypatch.setattr(grammar, "generate_json", fake_generate_json)
+    # review_text calls generate_json inside the feedback module — patch it where it is used.
+    monkeypatch.setattr(_grammar_feedback, "generate_json", fake_generate_json)
     result = await grammar.review_text("text", lang="en")
     assert result["summary"] == "Good start!"
     assert len(result["issues"]) == REVIEW_MAX_ISSUES  # capped
