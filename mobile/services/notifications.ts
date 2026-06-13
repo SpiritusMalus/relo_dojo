@@ -61,6 +61,17 @@ const ESCALATION: Record<Lang, (n: number) => string> = {
   en: (n) => `🔥 Your ${n}-day streak burns out at midnight. Sensei believes you'll make it.`,
 };
 
+// Contracts-aware daily nudge (engagement v2): when contracts are still open, name them — a concrete
+// reason to return beats a generic "come practice". Pure + exported so it's unit-testable.
+const CONTRACTS: Record<Lang, (n: number) => string> = {
+  ru: (n) => `📜 ${n} контракт(а) от Сэнсэя ждут сегодня. Выходи на мат.`,
+  en: (n) => `📜 ${n} contract(s) from Sensei await today. Step onto the mat.`,
+};
+
+export function contractsReminder(lang: Lang, n: number): string {
+  return CONTRACTS[lang](n);
+}
+
 const WINBACK: Record<Lang, Record<number, string>> = {
   ru: {
     3: "Сэнсэй всё ещё ждёт. Мат не тронут уже три дня.",
@@ -140,6 +151,7 @@ export type ScheduleState = {
   dailyStreak: number;
   remindHour?: number; // learner-chosen reminder hour (0..23); default DAILY_HOUR
   recap?: DiaryRecap | null; // last finished week's diary recap → Sunday summary notification
+  contractsLeft?: number; // open daily contracts → the daily nudge names them instead of a generic line
 };
 
 /** Cancel everything and re-plan the future from the current state. Safe to call often. */
@@ -152,7 +164,11 @@ export async function rescheduleAll(state: ScheduleState, now: Date = new Date()
   const { daily, escalation } = plannedHours(state.remindHour);
 
   if (!state.trainedToday) {
-    plans.push({ date: at(0, daily, now), body: pick(GENTLE[state.lang], seed) });
+    const todayBody =
+      state.contractsLeft && state.contractsLeft > 0
+        ? contractsReminder(state.lang, state.contractsLeft)
+        : pick(GENTLE[state.lang], seed);
+    plans.push({ date: at(0, daily, now), body: todayBody });
     if (state.dailyStreak > 0) {
       plans.push({ date: at(0, escalation, now), body: ESCALATION[state.lang](state.dailyStreak) });
     }

@@ -10,7 +10,7 @@ import { CosmeticsProvider } from "../store/cosmeticsStore";
 import { I18nProvider, useI18n } from "../store/i18n";
 import { localDate } from "../store/streak";
 import { ensurePermission, rescheduleAll } from "../services/notifications";
-import { postEvents } from "../services/api";
+import { getContracts, postEvents } from "../services/api";
 import * as analytics from "../services/analytics";
 import { ThemeProvider, fontMap } from "../theme/theme";
 
@@ -59,12 +59,21 @@ function RootNav() {
     const timer = setTimeout(() => {
       void (async () => {
         if (!(await ensurePermission())) return;
+        // Best-effort: count today's open contracts so the daily nudge can name them.
+        let contractsLeft: number | undefined;
+        try {
+          const c = await getContracts();
+          contractsLeft = c.contracts.filter((x) => !x.done).length;
+        } catch {
+          // offline / old backend — fall back to the generic gentle line
+        }
         await rescheduleAll({
           lang,
           trainedToday,
           dailyStreak: progress.dailyStreak,
           remindHour: progress.profile?.remindHour,
           recap: progress.profile?.diary?.last,
+          contractsLeft,
         });
       })();
     }, 2000); // debounce: recordAnswer fires per card; one re-plan per burst is plenty
