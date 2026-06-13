@@ -16,6 +16,7 @@
 
 import { Platform } from "react-native";
 import type { Lang } from "../i18n/strings";
+import type { DiaryRecap } from "../store/diary";
 
 // Conditional import: skip if notifications aren't available (e.g., Expo Go on Android SDK 53+)
 let Notifications: typeof import("expo-notifications") | null = null;
@@ -30,6 +31,8 @@ export const ESCALATION_GAP_H = 2.5; // escalation follows the gentle call by 2.
 export const LATEST_ESCALATION_HOUR = 23.5; // never past 23:30 — it must land before midnight
 export const WINBACK_DAYS = [3, 7] as const;
 export const WINBACK_HOUR = 12;
+export const RECAP_DOW = 0; // Sunday (JS getDay(): 0 = Sun) — the week's results land as a reason to return
+export const RECAP_HOUR = 11; // late Sunday morning, clear of the 19:00 daily call
 
 /** Pure: the two daily hours for a chosen reminder time (default 19:00 → escalation 21:30).
  *  The escalation is capped so a late reminder still names the streak BEFORE it burns. */
@@ -68,6 +71,18 @@ const WINBACK: Record<Lang, Record<number, string>> = {
     7: "The dojo has been empty for a week. One lesson resumes the path.",
   },
 };
+
+// Weekly recap (student diary). The summary is built from the finished week's DiaryRecap; same
+// in-character Sensei voice, fired Sunday late-morning — a celebratory reason to return, not a nag.
+const RECAP: Record<Lang, (r: DiaryRecap) => string> = {
+  ru: (r) => `📜 Итоги недели: ${r.correct} чистых ответов, +${r.xp} XP. Новая неделя открыта — выходи на мат.`,
+  en: (r) => `📜 Your week: ${r.correct} clean answers, +${r.xp} XP. A fresh week opens — step onto the mat.`,
+};
+
+/** A recap is worth announcing only if the week saw real practice (mirrors diary's idle-week guard). */
+export function recapHasContent(recap?: DiaryRecap | null): recap is DiaryRecap {
+  return !!recap && recap.correct + recap.slips > 0;
+}
 
 let configured = false;
 
@@ -112,11 +127,19 @@ function pick(pool: string[], seed: number): string {
   return pool[seed % pool.length];
 }
 
+/** Pure: the next occurrence of weekday `dow` (0=Sun..6=Sat) at `hour`, strictly in the future. */
+export function nextWeekday(dow: number, hour: number, now: Date): Date {
+  const delta = (dow - now.getDay() + 7) % 7;
+  const candidate = at(delta, hour, now);
+  return candidate.getTime() > now.getTime() ? candidate : at(delta + 7, hour, now);
+}
+
 export type ScheduleState = {
   lang: Lang;
   trainedToday: boolean; // practiced today → today's nags are off
   dailyStreak: number;
   remindHour?: number; // learner-chosen reminder hour (0..23); default DAILY_HOUR
+  recap?: DiaryRecap | null; // last finished week's diary recap → Sunday summary notification
 };
 
 /** Cancel everything and re-plan the future from the current state. Safe to call often. */
@@ -139,6 +162,10 @@ export async function rescheduleAll(state: ScheduleState, now: Date = new Date()
   // Win-back ladder — only fires after genuine silence (every open re-plans it away).
   for (const days of WINBACK_DAYS) {
     plans.push({ date: at(days, WINBACK_HOUR, now), body: WINBACK[state.lang][days] });
+  }
+  // Weekly recap — Sunday summary of the finished week (re-planned to the latest recap on each open).
+  if (recapHasContent(state.recap)) {
+    plans.push({ date: nextWeekday(RECAP_DOW, RECAP_HOUR, now), body: RECAP[state.lang](state.recap) });
   }
 
   await Promise.all(
