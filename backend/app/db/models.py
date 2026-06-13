@@ -118,3 +118,24 @@ class Event(Base):
         Index("ix_events_subject_ts", "subject", "ts"),
         Index("ix_events_name_ts", "name", "ts"),
     )
+
+
+class AwardedToken(Base):
+    """One-time-use guard for /check koku awards (anti-replay).
+
+    `jti` is the SHA-256 of the sealed exercise token string — unique per issued exercise. The first
+    correct /check for a token inserts the row and credits koku; a replay of the SAME token hits the
+    PK conflict and credits nothing. Rows older than EXERCISE_TOKEN_TTL_S can be pruned (the token
+    itself has expired by then). `user_id` is informational (SET NULL on user delete)."""
+
+    __tablename__ = "awarded_tokens"
+
+    jti: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (Index("ix_awarded_tokens_created_at", "created_at"),)

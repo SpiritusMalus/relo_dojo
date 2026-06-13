@@ -17,6 +17,7 @@ The LLM is routed by LLM_PROVIDER (.env): ollama (local dev, default) | anthropi
 """
 
 import asyncio
+import hashlib
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -176,7 +177,10 @@ async def check(
     result = grammar.grade(sealed, payload.response)
     coins_earned, coins = 0, None
     if result.get("correct"):
-        coins_earned, coins = await wallet_service.award_correct_check(user, db)
+        # One-time-use: key the koku award on the token's hash so resubmitting the same correct
+        # token can't farm coins (anti-replay; see wallet.award_correct_check).
+        jti = hashlib.sha256(payload.token.encode()).hexdigest()
+        coins_earned, coins = await wallet_service.award_correct_check(user, db, jti=jti)
     return CheckOut(**result, coins_earned=coins_earned, coins=coins)
 
 
