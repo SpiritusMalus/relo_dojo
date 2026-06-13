@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { AppState } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { AuthProvider, useAuth } from "../store/auth";
@@ -7,7 +9,15 @@ import { WalletProvider } from "../store/wallet";
 import { I18nProvider, useI18n } from "../store/i18n";
 import { localDate } from "../store/streak";
 import { ensurePermission, rescheduleAll } from "../services/notifications";
+import { postEvents } from "../services/api";
+import * as analytics from "../services/analytics";
 import { ThemeProvider, fontMap } from "../theme/theme";
+
+// Stable anonymous id for pre-login retention attribution (persisted across launches).
+const ANON_KEY = "gd.analytics.anon";
+function newAnonId(): string {
+  return `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 // Redirect between login, onboarding, and the tabs based on auth + onboarding state.
 function RootNav() {
@@ -59,6 +69,30 @@ function RootNav() {
     }, 2000); // debounce: recordAnswer fires per card; one re-plan per burst is plenty
     return () => clearTimeout(timer);
   }, [authReady, progressReady, token, progress.onboarded, trainedToday, progress.dailyStreak, lang, progress.profile?.remindHour, progress.profile?.diary?.last]);
+
+  // Analytics: wire the buffered tracker once (north-star = Day-7 retention). The bearer token,
+  // when present, attributes events to the account server-side; the anon id covers pre-login.
+  // Flush when the app leaves the foreground so buffered events aren't lost.
+  useEffect(() => {
+    let sub: { remove: () => void } | undefined;
+    void (async () => {
+      let id = await AsyncStorage.getItem(ANON_KEY).catch(() => null);
+      if (!id) {
+        id = newAnonId();
+        AsyncStorage.setItem(ANON_KEY, id).catch(() => {});
+      }
+      analytics.configure({
+        sender: (batch) => postEvents(batch.anon_id, batch.events).then(() => {}),
+        anonId: id,
+      });
+      analytics.track("app_open");
+      void analytics.flush();
+      sub = AppState.addEventListener("change", (state) => {
+        if (state !== "active") void analytics.flush();
+      });
+    })();
+    return () => sub?.remove();
+  }, []);
 
   if (!authReady) return null; // brief splash while we read stored token
 

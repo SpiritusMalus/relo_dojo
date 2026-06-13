@@ -367,3 +367,31 @@ class TopicStatsIn(BaseModel):
 class PlanIn(BaseModel):
     stats: dict[str, TopicStatsIn] = Field(default_factory=dict)
     lang: Optional[str] = Field(default=None, max_length=8)  # UI language for the note
+
+
+# --- analytics events (north-star Day-7 retention instrumentation) ---
+MAX_EVENT_NAME = 64
+MAX_ANON_ID = 64
+MAX_EVENTS_PER_BATCH = 50
+
+
+class EventIn(BaseModel):
+    """One tracked action. `name` is a short event key (e.g. "session_complete"); `props` is a
+    small free-form bag of context. `ts` is the client timestamp (epoch ms, advisory only — the
+    server stamps its own canonical time). Tight caps keep a batch cheap and reject junk at 422."""
+
+    name: str = Field(min_length=1, max_length=MAX_EVENT_NAME)
+    props: dict[str, Union[str, int, float, bool, None]] = Field(default_factory=dict)
+    ts: Optional[int] = Field(default=None, ge=0)  # client epoch ms (advisory)
+
+
+class EventBatchIn(BaseModel):
+    """Events are sent in batches (the client buffers and flushes) to save round-trips/battery.
+    `anon_id` attributes pre-login activity; once authenticated the server uses the user id."""
+
+    anon_id: Optional[str] = Field(default=None, max_length=MAX_ANON_ID)
+    events: list[EventIn] = Field(min_length=1, max_length=MAX_EVENTS_PER_BATCH)
+
+
+class EventAck(BaseModel):
+    accepted: int
