@@ -53,11 +53,12 @@ function RootNav() {
           trainedToday,
           dailyStreak: progress.dailyStreak,
           remindHour: progress.profile?.remindHour,
+          recap: progress.profile?.diary?.last,
         });
       })();
     }, 2000); // debounce: recordAnswer fires per card; one re-plan per burst is plenty
     return () => clearTimeout(timer);
-  }, [authReady, progressReady, token, progress.onboarded, trainedToday, progress.dailyStreak, lang, progress.profile?.remindHour]);
+  }, [authReady, progressReady, token, progress.onboarded, trainedToday, progress.dailyStreak, lang, progress.profile?.remindHour, progress.profile?.diary?.last]);
 
   if (!authReady) return null; // brief splash while we read stored token
 
