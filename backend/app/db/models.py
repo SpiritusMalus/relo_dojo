@@ -145,3 +145,22 @@ class AwardedToken(Base):
     )
 
     __table_args__ = (Index("ix_awarded_tokens_created_at", "created_at"),)
+
+
+class ClaimedContract(Base):
+    """One-time-per-day guard for daily-contract koku payouts (engagement v2, Phase 2).
+
+    PK is (user_id, day, contract_id): the first claim inserts the row and credits koku; a second
+    claim of the same contract on the same day hits the PK conflict and pays nothing. `day` is the
+    UTC contract day string (shared with gating._utc_day)."""
+
+    __tablename__ = "claimed_contracts"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    day: Mapped[str] = mapped_column(String(10), primary_key=True)
+    contract_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

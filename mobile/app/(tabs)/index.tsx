@@ -16,6 +16,7 @@ import OfferBanner from "../../components/ui/OfferBanner";
 import { ensureOffer } from "../../store/offers";
 import LockGate from "../../components/ui/LockGate";
 import DailyMixButton from "../../components/ui/DailyMixButton";
+import ContractsCard from "../../components/ui/ContractsCard";
 import StoryButton from "../../components/ui/StoryButton";
 import ChallengeButton from "../../components/ui/ChallengeButton";
 import ReviewButton from "../../components/ui/ReviewButton";
@@ -257,6 +258,10 @@ export default function HomeScreen() {
           {tr("home.leftToday", { n: leftToday })}
         </Txt>
       )}
+
+      {/* Daily contracts (engagement v2): the come-back-every-day + earn-varied hook. */}
+      <ContractsCard />
+
       <LockGate locked={locked}>
         <StoryButton onPress={() => router.push("/story")} />
       </LockGate>

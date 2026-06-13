@@ -362,6 +362,28 @@ export function equipCosmetic(id: string): Promise<Cosmetics> {
   return request<Cosmetics>("/cosmetics/equip", { id });
 }
 
+// --- daily contracts (engagement v2, Phase 2): server-verified koku earning ---
+export type Contract = {
+  id: string;
+  metric: string;
+  target: number;
+  reward: number;
+  progress: number;
+  done: boolean;
+  claimed: boolean;
+};
+export type Contracts = { day: string; contracts: Contract[]; coins: number };
+export type ContractClaim = { claimed: boolean; reward: number; coins: number };
+
+export function getContracts(): Promise<Contracts> {
+  return request<Contracts>("/contracts", undefined, "GET");
+}
+
+// Claim a completed contract's koku. Throws ApiError 409 if not completed.
+export function claimContract(id: string): Promise<ContractClaim> {
+  return request<ContractClaim>("/contracts/claim", { id });
+}
+
 // --- scroll rewards (variable reinforcement) ---
 // One opened scroll: what dropped + post-credit balances. kind "kensei" = client-side x2-XP timer.
 export type ScrollReward = { kind: "koku" | "omamori" | "kensei"; amount: number; coins: number; freezes: number };

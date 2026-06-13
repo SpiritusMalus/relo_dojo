@@ -192,6 +192,33 @@ class CosmeticIn(BaseModel):
     id: str = Field(min_length=1, max_length=40)
 
 
+# --- daily contracts (engagement v2, Phase 2) ---
+class ContractOut(BaseModel):
+    id: str
+    metric: str
+    target: int
+    reward: int
+    progress: int
+    done: bool
+    claimed: bool
+
+
+class ContractsOut(BaseModel):
+    day: str
+    contracts: list[ContractOut] = Field(default_factory=list)
+    coins: int = 0
+
+
+class ContractClaimIn(BaseModel):
+    id: str = Field(min_length=1, max_length=40)
+
+
+class ContractClaimOut(BaseModel):
+    claimed: bool
+    reward: int = 0
+    coins: int = 0
+
+
 # --- economy: koku wallet ---
 class WalletOut(BaseModel):
     coins: int = 0
