@@ -6,6 +6,7 @@ import { useFonts } from "expo-font";
 import { AuthProvider, useAuth } from "../store/auth";
 import { ProgressProvider, useProgress } from "../store/progress";
 import { WalletProvider } from "../store/wallet";
+import { CosmeticsProvider } from "../store/cosmeticsStore";
 import { I18nProvider, useI18n } from "../store/i18n";
 import { localDate } from "../store/streak";
 import { ensurePermission, rescheduleAll } from "../services/notifications";
@@ -106,6 +107,7 @@ function RootNav() {
       <Stack.Screen name="challenge" options={{ headerShown: false }} />
       <Stack.Screen name="review" options={{ headerShown: false }} />
       <Stack.Screen name="shop" options={{ headerShown: false }} />
+      <Stack.Screen name="wardrobe" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="premium" options={{ headerShown: false }} />
     </Stack>
@@ -124,9 +126,11 @@ export default function RootLayout() {
       <I18nProvider>
         <AuthProvider>
           <WalletProvider>
-            <ProgressProvider>
-              <RootNav />
-            </ProgressProvider>
+            <CosmeticsProvider>
+              <ProgressProvider>
+                <RootNav />
+              </ProgressProvider>
+            </CosmeticsProvider>
           </WalletProvider>
         </AuthProvider>
       </I18nProvider>
