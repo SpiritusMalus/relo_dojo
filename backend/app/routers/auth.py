@@ -51,8 +51,17 @@ async def register(payload: RegisterIn, db: AsyncSession = Depends(get_db)) -> T
     email = payload.email.lower()
     if is_blocked_email(email):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=BLOCKED_EMAIL_MESSAGE)
-    if await _get_by_email(db, email) is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered.")
+    existing = await _get_by_email(db, email)
+    if existing is not None:
+        # Don't disclose that the email is already taken (account enumeration). Instead behave like
+        # a login: correct password → log in; wrong password → the same generic 401 as /login. Either
+        # way the response is indistinguishable from a normal sign-in, so probing can't confirm which
+        # emails exist. (A genuine new address still creates the account below.)
+        if not verify_password(payload.password, existing.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password."
+            )
+        return TokenOut(access_token=create_access_token(str(existing.id)))
     user = User(email=email, password_hash=hash_password(payload.password))
     db.add(user)
     await db.commit()
@@ -64,8 +73,8 @@ async def register(payload: RegisterIn, db: AsyncSession = Depends(get_db)) -> T
 
 @router.post("/login", response_model=TokenOut, dependencies=[Depends(auth_rate_limit)])
 async def login(payload: LoginIn, db: AsyncSession = Depends(get_db)) -> TokenOut:
-    if is_blocked_email(payload.email):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=BLOCKED_EMAIL_MESSAGE)
+    # Note: the Gmail block lives on /register only. Login must stay open so any pre-existing account
+    # (e.g. created before the block, or via another path) is never locked out of its own data.
     user = await _get_by_email(db, payload.email.lower())
     # Verify even when the user is missing to keep timing uniform isn't trivial here; a generic
     # 401 avoids leaking which emails exist.

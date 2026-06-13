@@ -22,7 +22,8 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const isRegister = mode === "register";
-  const gmailBlocked = isBlockedEmail(email);
+  // Gmail is blocked for NEW sign-ups only; existing accounts must still be able to log in.
+  const gmailBlocked = isRegister && isBlockedEmail(email);
   const canSubmit = email.includes("@") && password.length >= 8 && !busy && !gmailBlocked;
 
   async function onSubmit() {
