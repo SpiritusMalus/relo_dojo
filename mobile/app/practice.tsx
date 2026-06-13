@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { gateKind, postSessionSummary, type Exercise, type ResponseValue, type SessionAnswer } from "../services/api";
+import { track } from "../services/analytics";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ActivationBanner from "../components/ui/ActivationBanner";
 import LimitSheet from "../components/ui/LimitSheet";
@@ -159,6 +160,12 @@ export default function PracticeScreen() {
   function pushSessionSummary() {
     if (summarySentRef.current || sessionAnswersRef.current.length === 0) return;
     summarySentRef.current = true;
+    // North-star instrumentation: a completed practice session is the core retention signal.
+    track("session_complete", {
+      items: sessionAnswersRef.current.length,
+      correct: sessionCorrect,
+      mode: "practice",
+    });
     postSessionSummary(sessionAnswersRef.current)
       .then((r) => {
         if (r.wins) updateProfile({ wins: r.wins });

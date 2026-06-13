@@ -350,6 +350,17 @@ export function openScroll(): Promise<ScrollReward> {
   return request<ScrollReward>("/rewards/scroll", {});
 }
 
+// --- analytics events (north-star Day-7 retention) ---
+// Best-effort batch upload. Open to anonymous callers; the bearer token (if set) attributes the
+// events to the account server-side. `anon_id` carries pre-login identity.
+export type AnalyticsEventPayload = { name: string; props: Record<string, unknown>; ts: number };
+export function postEvents(
+  anonId: string | null,
+  events: AnalyticsEventPayload[]
+): Promise<{ accepted: number }> {
+  return request<{ accepted: number }>("/events", { anon_id: anonId, events });
+}
+
 export function getProgress(): Promise<Progress> {
   return request<Progress>("/progress", undefined, "GET");
 }

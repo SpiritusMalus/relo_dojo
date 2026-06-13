@@ -31,6 +31,7 @@ from .db.models import User
 from .deps import get_current_user, get_current_user_optional, get_db
 from .routers import agents as agents_router
 from .routers import auth as auth_router
+from .routers import events as events_router
 from .routers import profile as profile_router
 from .routers import progress as progress_router
 from .routers import wallet as wallet_router
@@ -85,6 +86,7 @@ app.add_middleware(
 
 app.include_router(agents_router.router)
 app.include_router(auth_router.router)
+app.include_router(events_router.router)
 app.include_router(profile_router.router)
 app.include_router(progress_router.router)
 app.include_router(wallet_router.router)

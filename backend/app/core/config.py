@@ -92,6 +92,10 @@ class Settings(BaseSettings):
     # MUST stay false in prod — the real flag will be set by a payment provider (Phase 7/8).
     DEV_PREMIUM_TOGGLE: bool = False
 
+    # Analytics readout gate: when true, GET /events/retention is exposed (404 otherwise).
+    # Ingestion (POST /events) is always on — it's how we measure the north-star (D7 retention).
+    ANALYTICS_ADMIN: bool = False
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]

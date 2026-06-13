@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid, func, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -88,3 +88,33 @@ class LearnerProfile(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="learner_profile")
+
+
+class Event(Base):
+    """Analytics event — the instrumentation behind the north-star metric (Day-7 retention).
+
+    Append-only, one row per tracked action. `subject` is the retention identity: the user id for
+    logged-in callers, else the client-generated anonymous id — so a learner who later signs in is
+    still trackable pre-account. `user_id` is the FK when known (nullable: events fire before login).
+    `props` is free-form JSONB so new events need no migration. No PII beyond what the client sends.
+    """
+
+    __tablename__ = "events"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    # Retention identity: user.id when logged in, else the anonymous client id. Always present.
+    subject: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    props: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    # Server receipt time — the canonical timestamp for cohorting (client clocks are untrusted).
+    ts: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_events_subject_ts", "subject", "ts"),
+        Index("ix_events_name_ts", "name", "ts"),
+    )
