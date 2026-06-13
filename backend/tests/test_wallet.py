@@ -42,7 +42,7 @@ class _FakeDB:
     async def rollback(self) -> None:
         self.rollbacks += 1
 
-    async def refresh(self, obj) -> None:  # noqa: ANN001
+    async def refresh(self, obj, **kw) -> None:  # noqa: ANN001 — row-lock no-op in tests
         self.refreshed = True
 
 
