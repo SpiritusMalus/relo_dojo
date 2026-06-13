@@ -183,6 +183,7 @@ export const STRINGS = {
     "ward.owned": "Owned",
     "ward.notEnough": "Not enough koku ({coins})",
     "ward.tryOn": "Trying on",
+    "ward.outOfSeason": "Out of season — comes back in {season}",
 
     "limit.premium": "Black Belt — unlimited",
     "premium.title": "Black Belt",
@@ -444,6 +445,7 @@ export const STRINGS = {
     "ward.owned": "В наличии",
     "ward.notEnough": "Не хватает коку ({coins})",
     "ward.tryOn": "Примеряем",
+    "ward.outOfSeason": "Не сезон — вернётся: {season}",
 
     "limit.premium": "Чёрный пояс — безлимит",
     "premium.title": "Чёрный пояс",

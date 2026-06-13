@@ -18,6 +18,7 @@ Gates:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -25,6 +26,25 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.models import User
+
+# Seasonal windows (northern-hemisphere months) — a scarcity/urgency mechanic: a seasonal cosmetic
+# can only be bought while its season is active, giving a recurring reason to return and spend.
+SEASON_MONTHS: dict[str, set[int]] = {
+    "spring": {3, 4, 5},
+    "summer": {6, 7, 8},
+    "autumn": {9, 10, 11},
+    "winter": {12, 1, 2},
+}
+
+
+def is_season_active(season: str | None, now: datetime | None = None) -> bool:
+    """True when `season` is None (always available) or the current month falls in its window."""
+    if not season:
+        return True
+    months = SEASON_MONTHS.get(season)
+    if not months:
+        return True  # unknown season tag → don't lock out (fail open)
+    return (now or datetime.now(timezone.utc)).month in months
 
 # id -> {slot, gate, price, season?}. Single source of truth for price + gate.
 CATALOG: dict[str, dict[str, Any]] = {
@@ -44,6 +64,7 @@ _UNKNOWN = "Unknown cosmetic."
 _NOT_FOR_SALE = "This cosmetic can't be bought."
 _NOT_ENOUGH = "Not enough koku."
 _NOT_OWNED = "You don't own this cosmetic."
+_OUT_OF_SEASON = "This cosmetic is out of season."
 
 
 def starter_ids() -> set[str]:
@@ -91,6 +112,8 @@ def can_buy(user: User, cosmetic_id: str) -> tuple[bool, str]:
         return False, _NOT_FOR_SALE
     if cosmetic_id in owned_ids(user):
         return False, "Already owned."
+    if not is_season_active(item.get("season")):
+        return False, _OUT_OF_SEASON
     if user.coins < item["price"]:
         return False, _NOT_ENOUGH
     return True, ""
@@ -109,6 +132,8 @@ async def buy(user: User, db: AsyncSession, cosmetic_id: str) -> User:
     if cosmetic_id in owned_ids(user):
         # Idempotent: already owned → return current state, charge nothing.
         return user
+    if not is_season_active(item.get("season")):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_OUT_OF_SEASON)
     price = item["price"]
     res = await db.execute(
         update(User).where(User.id == user.id, User.coins >= price).values(coins=User.coins - price)
