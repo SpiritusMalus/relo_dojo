@@ -14,6 +14,7 @@ answer. Free-text remains the one type the LLM still grades (`check_answer`), pl
 from __future__ import annotations
 
 import random
+import re
 from typing import Any
 
 from ..core.config import CHECK_TEMPERATURE, EXERCISE_TEMPERATURE
@@ -159,6 +160,34 @@ def _norm(s: Any) -> str:
     return " ".join(str(s).strip().lower().split())
 
 
+# --- generation repair helpers (repair-before-reject) ------------------------
+# Small models violate strict structural gates often (wrong underscore count, a paraphrased
+# "odd" item, an over-long sentence) while the exercise itself is fine. These deterministic
+# repairs salvage such outputs instead of discarding them, which would force a retry → 503.
+# They can only ever turn a near-miss into a usable item; an already-valid output is untouched.
+
+# Multiple-choice sentences may run a little past the CEFR word cap — the cap is a readability
+# preference, not a correctness rule, so we keep a slack instead of rejecting the whole exercise.
+MC_LEN_SLACK = 6
+
+
+def _normalize_blanks(text: str) -> str:
+    """Collapse any run of 2+ underscores to exactly '___' so the blank count is countable.
+    Models often emit '____' or '__'; this makes the literal-'___' count reliable."""
+    return re.sub(r"_{2,}", "___", text)
+
+
+def _resolve_odd(odd: str, items: list[str]) -> str | None:
+    """Map the model's 'odd' value to the matching item even when it isn't verbatim.
+    Exact (normalized) match first; else a unique substring match either way. None if unresolvable."""
+    nodd = _norm(odd)
+    for it in items:
+        if _norm(it) == nodd:
+            return it
+    hits = [it for it in items if nodd and (nodd in _norm(it) or _norm(it) in nodd)]
+    return hits[0] if len(hits) == 1 else None
+
+
 def _strip_word(w: str) -> str:
     return w.strip(".,!?;:'\"()").lower()
 
@@ -279,8 +308,9 @@ async def _gen_multiple_choice(topic: str, level: str | None = None, context: st
     text = str(data.get("text") or "").strip()
     options = [str(o).strip() for o in (data.get("options") or []) if str(o).strip()]
     answer = str(data.get("answer") or "").strip()
-    # Need a real choice set with the answer present, and a sentence within the level's word cap.
-    if not text or len(options) < 2 or not answer or len(text.split()) > _max_words(level):
+    # Need a real choice set with the answer present. The word cap is a readability preference,
+    # not correctness — allow a slack so a slightly long sentence isn't thrown away (and retried).
+    if not text or len(options) < 2 or not answer or len(text.split()) > _max_words(level) + MC_LEN_SLACK:
         return None
     if _norm(answer) not in {_norm(o) for o in options}:
         options.append(answer)  # model forgot to include the answer — add it
@@ -442,9 +472,15 @@ async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | 
     data = await generate_json(prompt, ODD_ONE_OUT_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     items = [str(o).strip() for o in (data.get("items") or []) if str(o).strip()]
     odd = str(data.get("odd") or "").strip()
-    # Need a real set with the odd item present and the rest as plausible distractors.
-    if len(items) < 3 or not odd or _norm(odd) not in {_norm(i) for i in items}:
+    # Need a real set; the 'odd' value must resolve to one of the items (verbatim or a unique
+    # near-match — the model often paraphrases it). Re-pin to the matched item so the sealed
+    # answer is exactly an option.
+    if len(items) < 3 or not odd:
         return None
+    matched = _resolve_odd(odd, items)
+    if matched is None:
+        return None
+    odd = matched
     items = items[:6]
     random.shuffle(items)
     return {
@@ -469,7 +505,8 @@ async def _gen_multiple_blanks(topic: str, level: str | None = None, context: st
         scenario=True,
     )
     data = await generate_json(prompt, MULTI_BLANK_SCHEMA, temperature=EXERCISE_TEMPERATURE)
-    text = str(data.get("text") or "").strip()
+    # Normalize stray underscore runs ('____', '__') to exactly '___' so the blank count lines up.
+    text = _normalize_blanks(str(data.get("text") or "").strip())
     raw = data.get("blanks") or []
     blank_options: list[list[str]] = []
     answers: list[str] = []
