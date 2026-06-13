@@ -46,6 +46,9 @@ class User(Base):
     # First-win-of-day bonus (engagement v2): the UTC day the last daily bonus was granted, so the
     # bonus fires once per day on the first correct answer.
     last_win_day: Mapped[str] = mapped_column(String(10), nullable=False, server_default="")
+    # Current run of consecutive correct answers (engagement v2 combo koku). Server-tracked: +1 per
+    # genuine correct /check, reset to 0 on a wrong one — so the combo bonus can't be client-faked.
+    correct_run: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     # --- Cosmetics (engagement v2): koku desire sink. Server-authoritative ownership. ---
     # Owned cosmetic ids (the starter skin is implicit — always owned, not stored here). Bought via
     # /cosmetics/buy (price validated server-side); the client can never grant itself an item.

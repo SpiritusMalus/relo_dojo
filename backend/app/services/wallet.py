@@ -32,18 +32,37 @@ _NOT_ENOUGH = "Not enough koku."
 _NO_FREEZES = "No omamori left."
 
 
+def combo_bonus_for(run: int) -> int:
+    """Combo koku for reaching `run` consecutive correct answers. Non-zero only when run is a
+    multiple of COMBO_EVERY; diminishing by tier (BASE − (tier−1)·STEP), floored at MIN. Pure."""
+    if run <= 0 or settings.COMBO_EVERY <= 0 or run % settings.COMBO_EVERY != 0:
+        return 0
+    tier = run // settings.COMBO_EVERY
+    return max(settings.COMBO_BONUS_BASE - (tier - 1) * settings.COMBO_BONUS_STEP, settings.COMBO_BONUS_MIN)
+
+
+async def reset_correct_run(user: User | None, db: AsyncSession) -> None:
+    """Reset the consecutive-correct run after a wrong answer (no-op if already 0 / anonymous)."""
+    if user is None or user.correct_run == 0:
+        return
+    await db.execute(update(User).where(User.id == user.id).values(correct_run=0))
+    user.correct_run = 0
+    await db.commit()
+
+
 async def award_correct_check(
     user: User | None, db: AsyncSession, jti: str | None = None
-) -> tuple[int, int | None, int]:
+) -> tuple[int, int | None, int, int]:
     """Credit koku for one correct interactive answer.
 
     `jti` (a hash of the sealed exercise token) makes the award one-time-use: replaying the SAME
     token credits nothing (idempotent), so a patched client can't farm koku by resubmitting a known
-    correct answer. The FIRST correct answer of each UTC day also adds a one-time first-win bonus
-    (engagement v2 daily anchor). Returns (earned_total, new_balance, first_win_bonus); (0, None, 0)
-    for anonymous callers — `earned_total` already includes the bonus."""
+    correct answer. The FIRST correct answer of each UTC day adds a one-time first-win bonus, and
+    every COMBO_EVERY consecutive correct answers adds a diminishing combo bonus (the run is tracked
+    server-side). Returns (earned_total, new_balance, first_win_bonus, combo_bonus); (0, None, 0, 0)
+    for anonymous callers — `earned_total` already includes both bonuses."""
     if user is None:
-        return 0, None, 0
+        return 0, None, 0, 0
     if jti:
         # Insert the token's id; a PK conflict means it was already rewarded → credit nothing.
         res = await db.execute(
@@ -53,13 +72,16 @@ async def award_correct_check(
         )
         if res.rowcount == 0:
             balance = (await db.execute(select(User.coins).where(User.id == user.id))).scalar_one()
-            return 0, balance, 0  # replay — idempotent no-op
+            return 0, balance, 0, 0  # replay — idempotent no-op
     # Black Belt perk: double koku per correct answer.
     base = settings.COIN_REWARD_CORRECT * (2 if user.is_premium else 1)
     # First-win-of-day bonus: once per UTC day, on the first genuine correct answer.
     today = _utc_day()
     first_win = settings.FIRST_WIN_BONUS if user.last_win_day != today else 0
-    values: dict = {"coins": User.coins + base + first_win}
+    # Combo bonus: advance the server-tracked run, reward each COMBO_EVERY milestone.
+    new_run = user.correct_run + 1
+    combo = combo_bonus_for(new_run)
+    values: dict = {"coins": User.coins + base + first_win + combo, "correct_run": new_run}
     if first_win:
         values["last_win_day"] = today
     res = await db.execute(
@@ -68,8 +90,9 @@ async def award_correct_check(
     balance = res.scalar_one()
     if first_win:
         user.last_win_day = today
+    user.correct_run = new_run
     await db.commit()
-    return base + first_win, balance, first_win
+    return base + first_win + combo, balance, first_win, combo
 
 
 async def spend(user: User, db: AsyncSession, item: str, qty: int) -> User:
