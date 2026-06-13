@@ -71,7 +71,7 @@ export default function LoginScreen() {
           )}
 
           {!!error && (
-            <Txt variant="secondary" color={t.c.bad} style={{ textAlign: "center" }}>
+            <Txt variant="secondary" color={t.c.bad} style={{ textAlign: "center" }} accessibilityRole="alert">
               {error}
             </Txt>
           )}
@@ -84,6 +84,8 @@ export default function LoginScreen() {
               setError(null);
             }}
             disabled={busy}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: busy }}
             style={{ alignItems: "center", paddingVertical: 8 }}
           >
             <Txt variant="bodyStrong" color={t.c.accent}>
@@ -132,6 +134,7 @@ function Field({
         }}
         value={value}
         onChangeText={onChangeText}
+        accessibilityLabel={label}
         placeholder={placeholder}
         placeholderTextColor={t.c.ink3}
         editable={editable}

@@ -80,6 +80,8 @@ function PathRow({
       <Pressable
         onPress={onPress}
         disabled={!onPress}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !onPress, selected: node.state === "current" }}
         style={({ pressed }) => [
           styles.card,
           {

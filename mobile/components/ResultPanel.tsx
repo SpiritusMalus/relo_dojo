@@ -63,7 +63,7 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
       {!!result.tip && <Txt variant="secondary" color={t.c.ink2}>{result.tip}</Txt>}
 
       {canExplain && (
-        <Pressable onPress={onExplain} disabled={explainLoading} style={{ paddingVertical: 6 }}>
+        <Pressable onPress={onExplain} disabled={explainLoading} accessibilityRole="button" accessibilityLabel={tr("result.explain")} accessibilityState={{ disabled: explainLoading, busy: explainLoading }} style={{ paddingVertical: 6 }}>
           {explainLoading ? (
             <ActivityIndicator color={t.c.accent} />
           ) : (

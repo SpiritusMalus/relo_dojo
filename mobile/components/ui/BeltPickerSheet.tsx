@@ -20,8 +20,9 @@ export default function BeltPickerSheet({
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
         <Pressable
+          accessibilityViewIsModal
           style={[
             styles.sheet,
             { backgroundColor: t.c.surface, paddingBottom: insets.bottom + 16, borderColor: t.c.line },
