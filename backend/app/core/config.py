@@ -41,6 +41,22 @@ class Settings(BaseSettings):
     # Comma-separated allowed CORS origins. Explicit on purpose — no "*" default in prod.
     ALLOWED_ORIGINS: str = ""
 
+    # --- Rate limiting (abuse / cost guard; in-process, single-instance) ---
+    # Master switch. Per-bucket: a limit of <= 0 disables that bucket individually.
+    RATE_LIMIT_ENABLED: bool = True
+    # Auth bucket (brute-force guard) — keyed by client IP, covers /auth/login + /auth/register.
+    AUTH_RATE_LIMIT: int = 10
+    AUTH_RATE_WINDOW_S: int = 60
+    # LLM bucket (cost guard) — keyed by user id when authed, else client IP; covers the
+    # model-backed endpoints (/exercise, /story, /check-answer, /explain, /profile/analyze,
+    # /review-text). Sized generously so a real practice session never trips it.
+    LLM_RATE_LIMIT: int = 40
+    LLM_RATE_WINDOW_S: int = 60
+    # Trust the first hop of X-Forwarded-For for the client IP. Enable ONLY behind a proxy you
+    # control (nginx/Caddy on the VPS) — otherwise the header is client-spoofable and defeats the
+    # IP keying. Off by default (direct connect on the Mac uses request.client.host).
+    TRUST_FORWARDED_FOR: bool = False
+
     # --- Email confirmation (account activation) ---
     # Base URL the verification link points at (the backend, e.g. https://api.grammardojo.ru). The
     # link is {APP_BASE_URL}/auth/verify?token=...; empty in dev → we log the link instead of erroring.
