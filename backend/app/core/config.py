@@ -71,6 +71,13 @@ class Settings(BaseSettings):
     # First-win-of-day bonus koku (engagement v2): a one-time daily anchor on the first correct
     # answer each UTC day — "come back daily" reward. 0 disables it.
     FIRST_WIN_BONUS: int = 10
+    # Combo koku (engagement v2): a bonus every COMBO_EVERY consecutive correct answers, with
+    # diminishing returns (BASE − (tier−1)·STEP, floored at MIN). The run is tracked SERVER-side
+    # (User.correct_run, reset on a wrong answer), so it can't be farmed via a patched client.
+    COMBO_EVERY: int = 5
+    COMBO_BONUS_BASE: int = 10
+    COMBO_BONUS_STEP: int = 2
+    COMBO_BONUS_MIN: int = 4
     # Shop prices, in koku.
     PRICE_OMAMORI: int = 150  # streak-freeze charm
     PRICE_OMAMORI_PROMO: int = 75  # starter offer: half-price charm (24h client window)

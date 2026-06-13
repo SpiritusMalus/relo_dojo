@@ -52,14 +52,14 @@ def _user() -> SimpleNamespace:
 
     return SimpleNamespace(
         id=uuid.uuid4(), coins=0, freezes=0, is_premium=False, starter_day="", starter_used=0,
-        last_win_day=_utc_day(),
+        last_win_day=_utc_day(), correct_run=0,
     )
 
 
 async def test_award_anonymous_is_zero():
     db = _FakeDB()
-    earned, balance, bonus = await wallet.award_correct_check(None, db)
-    assert (earned, balance, bonus) == (0, None, 0)
+    earned, balance, bonus, combo = await wallet.award_correct_check(None, db)
+    assert (earned, balance, bonus, combo) == (0, None, 0, 0)
     assert db.commits == 0  # nothing written for anonymous callers
 
 
@@ -67,22 +67,22 @@ async def test_award_doubles_for_premium():
     db = _FakeDB(scalar=4)
     u = _user()
     u.is_premium = True
-    earned, _, _ = await wallet.award_correct_check(u, db)
-    assert earned == settings.COIN_REWARD_CORRECT * 2  # Black Belt perk (already won today)
+    earned, _, _, _ = await wallet.award_correct_check(u, db)
+    assert earned == settings.COIN_REWARD_CORRECT * 2  # Black Belt perk (run 1 → no combo)
 
 
 async def test_award_credits_and_returns_new_balance():
     db = _FakeDB(scalar=42)
-    earned, balance, bonus = await wallet.award_correct_check(_user(), db)
+    earned, balance, bonus, combo = await wallet.award_correct_check(_user(), db)
     assert earned == settings.COIN_REWARD_CORRECT
-    assert bonus == 0  # already won today
+    assert bonus == 0 and combo == 0  # already won today; run 1 → no combo
     assert balance == 42  # the post-update balance comes from the DB, not the stale ORM object
     assert db.commits == 1
 
 
 async def test_award_credits_once_for_a_new_token():
     db = _FakeDB(rowcount=1, scalar=12)  # jti insert succeeds; UPDATE returns new balance 12
-    earned, balance, _ = await wallet.award_correct_check(_user(), db, jti="newhash")
+    earned, balance, _, _ = await wallet.award_correct_check(_user(), db, jti="newhash")
     assert earned == settings.COIN_REWARD_CORRECT
     assert balance == 12
     assert db.commits == 1
@@ -90,9 +90,9 @@ async def test_award_credits_once_for_a_new_token():
 
 async def test_award_is_idempotent_on_token_replay():
     db = _FakeDB(rowcount=0, scalar=7)  # jti already present (PK conflict) → already rewarded
-    earned, balance, bonus = await wallet.award_correct_check(_user(), db, jti="seenhash")
+    earned, balance, bonus, combo = await wallet.award_correct_check(_user(), db, jti="seenhash")
     assert earned == 0  # replay credits nothing
-    assert bonus == 0
+    assert bonus == 0 and combo == 0
     assert balance == 7  # but reports the current balance
     assert db.commits == 0  # no write
 
@@ -103,10 +103,44 @@ async def test_first_win_of_day_adds_bonus_once_and_stamps_day():
     db = _FakeDB(scalar=99)
     u = _user()
     u.last_win_day = ""  # hasn't won today yet
-    earned, _, bonus = await wallet.award_correct_check(u, db)
+    earned, _, bonus, _ = await wallet.award_correct_check(u, db)
     assert bonus == settings.FIRST_WIN_BONUS
     assert earned == settings.COIN_REWARD_CORRECT + settings.FIRST_WIN_BONUS
     assert u.last_win_day == _utc_day()  # stamped → won't fire again today
+
+
+def test_combo_bonus_for_diminishes_by_tier():
+    e = settings.COMBO_EVERY
+    assert wallet.combo_bonus_for(1) == 0  # only on multiples of COMBO_EVERY
+    assert wallet.combo_bonus_for(e) == settings.COMBO_BONUS_BASE
+    assert wallet.combo_bonus_for(2 * e) == settings.COMBO_BONUS_BASE - settings.COMBO_BONUS_STEP
+    assert wallet.combo_bonus_for(100 * e) == settings.COMBO_BONUS_MIN  # floored
+
+
+async def test_award_adds_combo_at_milestone_and_advances_run():
+    db = _FakeDB(scalar=50)
+    u = _user()
+    u.correct_run = settings.COMBO_EVERY - 1  # this correct answer hits the milestone
+    earned, _, _, combo = await wallet.award_correct_check(u, db)
+    assert combo == settings.COMBO_BONUS_BASE
+    assert earned == settings.COIN_REWARD_CORRECT + settings.COMBO_BONUS_BASE
+    assert u.correct_run == settings.COMBO_EVERY  # run advanced
+
+
+async def test_reset_correct_run_clears_after_wrong():
+    db = _FakeDB()
+    u = _user()
+    u.correct_run = 4
+    await wallet.reset_correct_run(u, db)
+    assert u.correct_run == 0
+    assert db.commits == 1
+
+
+async def test_reset_correct_run_noop_when_zero():
+    db = _FakeDB()
+    u = _user()  # correct_run = 0
+    await wallet.reset_correct_run(u, db)
+    assert db.commits == 0  # nothing to write
 
 
 async def test_spend_unknown_item_is_400():
