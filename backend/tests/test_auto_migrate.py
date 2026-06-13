@@ -1,4 +1,4 @@
-"""Auto-migrate on startup (app.main.startup_migrate / run_migrations)."""
+"""Auto-migrate on startup (app.main.lifespan / run_migrations)."""
 
 from pathlib import Path
 
@@ -10,7 +10,8 @@ async def test_startup_skips_when_disabled(monkeypatch):
     monkeypatch.setattr(settings, "AUTO_MIGRATE", False)
     called = []
     monkeypatch.setattr(main, "run_migrations", lambda: called.append(1))
-    await main.startup_migrate()
+    async with main.lifespan(main.app):
+        pass
     assert called == []  # gate respected
 
 
@@ -22,7 +23,8 @@ async def test_startup_runs_upgrade_head(monkeypatch):
         seen["ran"] = True
 
     monkeypatch.setattr(main, "run_migrations", fake_run)
-    await main.startup_migrate()
+    async with main.lifespan(main.app):
+        pass
     assert seen.get("ran") is True
 
 
