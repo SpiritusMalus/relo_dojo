@@ -2,12 +2,26 @@
 and the Day-N retention computation. Fake DB for the ingest path (no real Postgres)."""
 
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
 import pytest
 
 from app.services import analytics
+
+
+# --- events TTL boundary (retention_cutoff) ----------------------------------
+def test_retention_cutoff_disabled_returns_none():
+    now = datetime(2026, 6, 13, tzinfo=timezone.utc)
+    assert analytics.retention_cutoff(now, 0) is None
+    assert analytics.retention_cutoff(now, -5) is None
+
+
+def test_retention_cutoff_subtracts_ttl_days():
+    now = datetime(2026, 6, 13, 12, 0, tzinfo=timezone.utc)
+    cutoff = analytics.retention_cutoff(now, 30)
+    assert cutoff == datetime(2026, 5, 14, 12, 0, tzinfo=timezone.utc)
+    assert cutoff.tzinfo is timezone.utc
 
 
 # --- name + prop sanitizing --------------------------------------------------

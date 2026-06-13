@@ -20,6 +20,7 @@ import asyncio
 import hashlib
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncIterator, Optional
 
@@ -55,7 +56,7 @@ from .schemas import (
     StoryIn,
     StoryOut,
 )
-from .services import gating, grammar, learner_profile, rewards, stories, tokens
+from .services import analytics, gating, grammar, learner_profile, rewards, stories, tokens
 from .services import wallet as wallet_service
 from .services.llm import LLMError as OllamaError  # one exception across providers
 from .services.llm import generate
@@ -72,6 +73,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logging.getLogger("uvicorn.error").exception(
                 "Auto-migrate failed — run `alembic upgrade head` manually."
             )
+    # Events TTL: bound the append-only analytics table so it can't grow without limit.
+    cutoff = analytics.retention_cutoff(datetime.now(timezone.utc), settings.EVENTS_TTL_DAYS)
+    if cutoff is not None:  # pragma: no cover — opt-in, exercised live not in unit tests
+        try:
+            from .db.base import SessionLocal
+
+            async with SessionLocal() as db:
+                purged = await analytics.purge_old_events(db, cutoff)
+            logging.getLogger("uvicorn.error").info("Events TTL purge: removed %d row(s).", purged)
+        except Exception:  # never block startup on a cleanup hiccup
+            logging.getLogger("uvicorn.error").exception("Events TTL purge failed — skipping.")
     yield
 
 
