@@ -11,6 +11,7 @@ declare module "react-test-renderer" {
 
   export interface ReactTestRenderer {
     root: ReactTestInstance;
+    toJSON(): unknown;
     unmount(): void;
   }
 
