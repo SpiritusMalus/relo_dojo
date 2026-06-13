@@ -119,6 +119,9 @@ class CheckOut(BaseModel):
     # 0 / None for anonymous callers — fully backward compatible.
     coins_earned: int = 0
     coins: Optional[int] = None
+    # Portion of coins_earned that was the once-per-day first-win bonus (0 otherwise) — lets the
+    # client celebrate the daily anchor distinctly.
+    first_win_bonus: int = 0
 
 
 # --- free-text check (LLM) ---

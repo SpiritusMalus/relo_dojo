@@ -191,13 +191,13 @@ async def check(
     except tokens.TokenError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     result = grammar.grade(sealed, payload.response)
-    coins_earned, coins = 0, None
+    coins_earned, coins, first_win_bonus = 0, None, 0
     if result.get("correct"):
         # One-time-use: key the koku award on the token's hash so resubmitting the same correct
         # token can't farm coins (anti-replay; see wallet.award_correct_check).
         jti = hashlib.sha256(payload.token.encode()).hexdigest()
-        coins_earned, coins = await wallet_service.award_correct_check(user, db, jti=jti)
-    return CheckOut(**result, coins_earned=coins_earned, coins=coins)
+        coins_earned, coins, first_win_bonus = await wallet_service.award_correct_check(user, db, jti=jti)
+    return CheckOut(**result, coins_earned=coins_earned, coins=coins, first_win_bonus=first_win_bonus)
 
 
 @app.post("/check-answer", response_model=CheckTextOut)

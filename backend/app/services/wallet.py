@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
 from ..db.models import AwardedToken, User
+from .gating import _utc_day
 
 _UNKNOWN_ITEM = "Unknown shop item."
 _NOT_ENOUGH = "Not enough koku."
@@ -33,14 +34,16 @@ _NO_FREEZES = "No omamori left."
 
 async def award_correct_check(
     user: User | None, db: AsyncSession, jti: str | None = None
-) -> tuple[int, int | None]:
+) -> tuple[int, int | None, int]:
     """Credit koku for one correct interactive answer.
 
     `jti` (a hash of the sealed exercise token) makes the award one-time-use: replaying the SAME
     token credits nothing (idempotent), so a patched client can't farm koku by resubmitting a known
-    correct answer. Returns (earned, new_balance); (0, None) for anonymous callers."""
+    correct answer. The FIRST correct answer of each UTC day also adds a one-time first-win bonus
+    (engagement v2 daily anchor). Returns (earned_total, new_balance, first_win_bonus); (0, None, 0)
+    for anonymous callers — `earned_total` already includes the bonus."""
     if user is None:
-        return 0, None
+        return 0, None, 0
     if jti:
         # Insert the token's id; a PK conflict means it was already rewarded → credit nothing.
         res = await db.execute(
@@ -50,18 +53,23 @@ async def award_correct_check(
         )
         if res.rowcount == 0:
             balance = (await db.execute(select(User.coins).where(User.id == user.id))).scalar_one()
-            return 0, balance  # replay — idempotent no-op
+            return 0, balance, 0  # replay — idempotent no-op
     # Black Belt perk: double koku per correct answer.
-    earned = settings.COIN_REWARD_CORRECT * (2 if user.is_premium else 1)
+    base = settings.COIN_REWARD_CORRECT * (2 if user.is_premium else 1)
+    # First-win-of-day bonus: once per UTC day, on the first genuine correct answer.
+    today = _utc_day()
+    first_win = settings.FIRST_WIN_BONUS if user.last_win_day != today else 0
+    values: dict = {"coins": User.coins + base + first_win}
+    if first_win:
+        values["last_win_day"] = today
     res = await db.execute(
-        update(User)
-        .where(User.id == user.id)
-        .values(coins=User.coins + earned)
-        .returning(User.coins)
+        update(User).where(User.id == user.id).values(**values).returning(User.coins)
     )
     balance = res.scalar_one()
+    if first_win:
+        user.last_win_day = today
     await db.commit()
-    return earned, balance
+    return base + first_win, balance, first_win
 
 
 async def spend(user: User, db: AsyncSession, item: str, qty: int) -> User:
