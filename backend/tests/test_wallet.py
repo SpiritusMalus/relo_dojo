@@ -75,6 +75,22 @@ async def test_award_credits_and_returns_new_balance():
     assert db.commits == 1
 
 
+async def test_award_credits_once_for_a_new_token():
+    db = _FakeDB(rowcount=1, scalar=12)  # jti insert succeeds; UPDATE returns new balance 12
+    earned, balance = await wallet.award_correct_check(_user(), db, jti="newhash")
+    assert earned == settings.COIN_REWARD_CORRECT
+    assert balance == 12
+    assert db.commits == 1
+
+
+async def test_award_is_idempotent_on_token_replay():
+    db = _FakeDB(rowcount=0, scalar=7)  # jti already present (PK conflict) → already rewarded
+    earned, balance = await wallet.award_correct_check(_user(), db, jti="seenhash")
+    assert earned == 0  # replay credits nothing
+    assert balance == 7  # but reports the current balance
+    assert db.commits == 0  # no write
+
+
 async def test_spend_unknown_item_is_400():
     db = _FakeDB()
     with pytest.raises(Exception) as exc:

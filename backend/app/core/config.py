@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     # streak (which uses the LOCAL day) roll over together — e.g. 180 for MSK (UTC+3).
     DAY_OFFSET_MIN: int = 0
 
+    # Sealed interactive-exercise tokens expire after this many seconds (defense-in-depth; also lets
+    # the awarded-tokens dedup table be pruned safely past this age). 0 = no expiry. Generous so a
+    # slow session never false-expires mid-answer.
+    EXERCISE_TOKEN_TTL_S: int = 86400
+
     # Run `alembic upgrade head` automatically on backend startup, so the schema always matches
     # the code (single-instance deploys; disable if migrations are ever run by a pipeline).
     AUTO_MIGRATE: bool = True

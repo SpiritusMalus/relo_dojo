@@ -19,7 +19,7 @@ from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from ..core.config import CHECK_SECRET
+from ..core.config import CHECK_SECRET, settings
 
 
 class TokenError(Exception):
@@ -50,7 +50,8 @@ def seal(data: dict[str, Any]) -> str:
 def unseal(token: str) -> dict[str, Any]:
     """Decrypt a token back into its dict. Raises TokenError on any failure."""
     try:
-        raw = _fernet.decrypt(token.encode())
+        ttl = settings.EXERCISE_TOKEN_TTL_S or None  # 0 → no expiry
+        raw = _fernet.decrypt(token.encode(), ttl=ttl)
     except (InvalidToken, ValueError, TypeError) as exc:
         raise TokenError("This exercise has expired. Fetch a new one.") from exc
     try:

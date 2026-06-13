@@ -19,23 +19,38 @@ Catalog items:
 from __future__ import annotations
 
 from fastapi import HTTPException, status
-from sqlalchemy import update
+from sqlalchemy import select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
-from ..db.models import User
+from ..db.models import AwardedToken, User
 
 _UNKNOWN_ITEM = "Unknown shop item."
 _NOT_ENOUGH = "Not enough koku."
 _NO_FREEZES = "No omamori left."
 
 
-async def award_correct_check(user: User | None, db: AsyncSession) -> tuple[int, int | None]:
+async def award_correct_check(
+    user: User | None, db: AsyncSession, jti: str | None = None
+) -> tuple[int, int | None]:
     """Credit koku for one correct interactive answer.
 
-    Returns (earned, new_balance); (0, None) for anonymous callers."""
+    `jti` (a hash of the sealed exercise token) makes the award one-time-use: replaying the SAME
+    token credits nothing (idempotent), so a patched client can't farm koku by resubmitting a known
+    correct answer. Returns (earned, new_balance); (0, None) for anonymous callers."""
     if user is None:
         return 0, None
+    if jti:
+        # Insert the token's id; a PK conflict means it was already rewarded → credit nothing.
+        res = await db.execute(
+            pg_insert(AwardedToken)
+            .values(jti=jti, user_id=user.id)
+            .on_conflict_do_nothing(index_elements=["jti"])
+        )
+        if res.rowcount == 0:
+            balance = (await db.execute(select(User.coins).where(User.id == user.id))).scalar_one()
+            return 0, balance  # replay — idempotent no-op
     # Black Belt perk: double koku per correct answer.
     earned = settings.COIN_REWARD_CORRECT * (2 if user.is_premium else 1)
     res = await db.execute(
