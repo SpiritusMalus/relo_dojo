@@ -1,12 +1,35 @@
 """Cosmetics service (app.services.cosmetics) — pure layer + buy/equip on a fake DB (no Postgres)."""
 
 import uuid
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
 
 from app.services import cosmetics
+
+
+# --- seasonal availability ---------------------------------------------------
+def test_is_season_active():
+    march = datetime(2026, 3, 15, tzinfo=timezone.utc)
+    june = datetime(2026, 6, 15, tzinfo=timezone.utc)
+    assert cosmetics.is_season_active(None, june) is True  # no season = always
+    assert cosmetics.is_season_active("spring", march) is True
+    assert cosmetics.is_season_active("spring", june) is False
+    assert cosmetics.is_season_active("mystery", june) is True  # unknown tag fails open
+
+
+async def test_buy_rejects_out_of_season(monkeypatch):
+    # Force "now" to summer so the spring-only sakura skin is locked.
+    monkeypatch.setattr(
+        cosmetics, "datetime",
+        SimpleNamespace(now=lambda tz=None: datetime(2026, 7, 1, tzinfo=timezone.utc)),
+    )
+    db = _FakeDB()
+    with pytest.raises(HTTPException) as ei:
+        await cosmetics.buy(_user(coins=999), db, "sensei_sakura")
+    assert ei.value.status_code == 400
 
 
 class _FakeResult:

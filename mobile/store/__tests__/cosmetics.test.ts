@@ -5,6 +5,7 @@ import {
   catalogForSlot,
   defOf,
   isOwned,
+  isSeasonActive,
   knotVisual,
   senseiVisual,
   SLOTS,
@@ -63,5 +64,18 @@ describe("cosmetics pure layer", () => {
   test("knotVisual falls back to classic and honours equipped", () => {
     expect(knotVisual(undefined)).toEqual({});
     expect(knotVisual({ knot: "knot_tassel" })).toEqual(defOf("knot_tassel")!.visual);
+  });
+
+  test("isSeasonActive gates by month", () => {
+    expect(isSeasonActive(undefined, new Date(2026, 5, 1))).toBe(true); // no season
+    expect(isSeasonActive("spring", new Date(2026, 2, 1))).toBe(true); // March (month idx 2)
+    expect(isSeasonActive("spring", new Date(2026, 5, 1))).toBe(false); // June
+  });
+
+  test("buyCheck blocks an out-of-season skin", () => {
+    const june = new Date(2026, 5, 1);
+    const march = new Date(2026, 2, 1);
+    expect(buyCheck(999, [], "sensei_sakura", june).reason).toBe("out_of_season");
+    expect(buyCheck(999, [], "sensei_sakura", march)).toEqual({ ok: true, reason: "buyable" });
   });
 });

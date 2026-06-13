@@ -116,6 +116,22 @@ export const CATALOG: Record<string, CosmeticDef> = {
 
 export const SLOTS: Slot[] = ["sensei", "knot"];
 
+// Seasonal windows (northern-hemisphere months) — mirrors backend services/cosmetics.py. A scarcity
+// mechanic: seasonal items are only buyable while their season is active. Server enforces too.
+export const SEASON_MONTHS: Record<string, number[]> = {
+  spring: [3, 4, 5],
+  summer: [6, 7, 8],
+  autumn: [9, 10, 11],
+  winter: [12, 1, 2],
+};
+
+export function isSeasonActive(season: string | undefined, now: Date = new Date()): boolean {
+  if (!season) return true;
+  const months = SEASON_MONTHS[season];
+  if (!months) return true; // unknown tag → fail open
+  return months.includes(now.getMonth() + 1);
+}
+
 export function defOf(id: string): CosmeticDef | undefined {
   return CATALOG[id];
 }
@@ -141,14 +157,23 @@ export function canAfford(coins: number, id: string): boolean {
   return !!def && coins >= def.price;
 }
 
-export type BuyCheck = { ok: boolean; reason: "buyable" | "owned" | "not_for_sale" | "too_poor" | "unknown" };
+export type BuyCheck = {
+  ok: boolean;
+  reason: "buyable" | "owned" | "not_for_sale" | "too_poor" | "out_of_season" | "unknown";
+};
 
 /** Pure UI precheck mirroring the server's buy rules (the server still enforces). */
-export function buyCheck(coins: number, owned: string[] | undefined, id: string): BuyCheck {
+export function buyCheck(
+  coins: number,
+  owned: string[] | undefined,
+  id: string,
+  now: Date = new Date()
+): BuyCheck {
   const def = CATALOG[id];
   if (!def) return { ok: false, reason: "unknown" };
   if (def.gate !== "buy") return { ok: false, reason: "not_for_sale" };
   if (isOwned(owned, id)) return { ok: false, reason: "owned" };
+  if (!isSeasonActive(def.season, now)) return { ok: false, reason: "out_of_season" };
   if (coins < def.price) return { ok: false, reason: "too_poor" };
   return { ok: true, reason: "buyable" };
 }

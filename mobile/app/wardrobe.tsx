@@ -27,6 +27,18 @@ const SLOT_TITLE: Record<Slot, { en: string; ru: string }> = {
   knot: { en: "Belt knot", ru: "Узел пояса" },
 };
 
+const SEASON_LABEL: Record<string, { en: string; ru: string }> = {
+  spring: { en: "spring", ru: "весной" },
+  summer: { en: "summer", ru: "летом" },
+  autumn: { en: "autumn", ru: "осенью" },
+  winter: { en: "winter", ru: "зимой" },
+};
+
+function seasonLabel(season: string, lang: string): string {
+  const s = SEASON_LABEL[season];
+  return s ? (lang === "ru" ? s.ru : s.en) : season;
+}
+
 export default function WardrobeScreen() {
   const t = useTheme();
   const { t: tr, lang } = useI18n();
@@ -210,6 +222,11 @@ function SlotSection({
                   {check.reason === "too_poor" && (
                     <Txt variant="caption" color={inkFaint} style={{ textAlign: "center", marginTop: 4 }}>
                       {tr("ward.notEnough", { coins })}
+                    </Txt>
+                  )}
+                  {check.reason === "out_of_season" && s.season && (
+                    <Txt variant="caption" color={inkFaint} style={{ textAlign: "center", marginTop: 4 }}>
+                      {tr("ward.outOfSeason", { season: seasonLabel(s.season, lang) })}
                     </Txt>
                   )}
                 </>
