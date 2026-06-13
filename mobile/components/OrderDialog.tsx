@@ -44,6 +44,10 @@ export default function OrderDialog({ exercise, locked, onChange }: ExerciseProp
               key={i}
               onPress={() => remove(i)}
               disabled={locked}
+              accessibilityRole="button"
+              accessibilityLabel={`Position ${pos + 1}: ${tiles[i]}`}
+              accessibilityHint="Tap to remove this line from your order"
+              accessibilityState={{ disabled: locked }}
               style={[styles.placed, { backgroundColor: t.c.accentSoft, borderColor: t.c.accent }]}
             >
               <View style={[styles.num, { backgroundColor: t.c.accent }]}>
@@ -65,6 +69,10 @@ export default function OrderDialog({ exercise, locked, onChange }: ExerciseProp
             key={i}
             onPress={() => place(i)}
             disabled={locked}
+            accessibilityRole="button"
+            accessibilityLabel={tiles[i]}
+            accessibilityHint="Tap to add this line next in the order"
+            accessibilityState={{ disabled: locked }}
             style={[styles.bank, { backgroundColor: t.c.surface, borderColor: t.c.line2 }]}
           >
             <Txt variant="body">{tiles[i]}</Txt>

@@ -28,6 +28,9 @@ export default function MultipleChoice({ exercise, locked, onChange }: ExerciseP
               key={opt}
               onPress={() => pick(opt)}
               disabled={locked}
+              accessibilityRole="button"
+              accessibilityLabel={opt}
+              accessibilityState={{ selected: on, disabled: locked }}
               style={{
                 borderWidth: on ? 2 : 1,
                 borderColor: on ? t.c.accent : t.c.line2,

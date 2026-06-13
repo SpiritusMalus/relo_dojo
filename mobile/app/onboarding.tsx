@@ -107,6 +107,7 @@ function Input({
       }}
       placeholder={placeholder}
       placeholderTextColor={t.c.ink3}
+      accessibilityLabel={placeholder}
       value={value}
       onChangeText={onChangeText}
       onFocus={() => setFocused(true)}
@@ -193,7 +194,7 @@ function Calibration({
       <Txt variant="body" color={t.c.ink2}>
         {tr("ob.calProgress", { n: Math.min(count + 1, CALIBRATION_ITEMS), total: CALIBRATION_ITEMS })}
       </Txt>
-      <Pressable onPress={finish} hitSlop={8}>
+      <Pressable onPress={finish} hitSlop={8} accessibilityRole="button" accessibilityLabel={tr("ob.calSkip")}>
         <Txt variant="secondary" color={t.c.ink3}>
           {tr("ob.calSkip")}
         </Txt>
@@ -347,13 +348,13 @@ export default function OnboardingScreen() {
 
       {/* Header: back + progress + skip */}
       <View style={styles.header}>
-        <Pressable onPress={() => setStep((s) => Math.max(0, s - 1))} hitSlop={8} style={styles.hBtn} disabled={step === 0}>
+        <Pressable onPress={() => setStep((s) => Math.max(0, s - 1))} hitSlop={8} style={styles.hBtn} disabled={step === 0} accessibilityRole="button" accessibilityLabel="Back" accessibilityState={{ disabled: step === 0 }}>
           {step > 0 && <Icon name="back" size={24} color={t.c.ink2} />}
         </Pressable>
         <View style={{ flex: 1, marginHorizontal: 12 }}>
           <ProgressBar pct={(step / LAST_STEP) * 100} height={8} />
         </View>
-        <Pressable onPress={skip} hitSlop={8} style={styles.hBtn} disabled={step >= LAST_STEP}>
+        <Pressable onPress={skip} hitSlop={8} style={styles.hBtn} disabled={step >= LAST_STEP} accessibilityRole="button" accessibilityLabel={tr("ob.skip")} accessibilityState={{ disabled: step >= LAST_STEP }}>
           {step < LAST_STEP && (
             <Txt variant="bodyStrong" color={t.c.ink3}>
               {tr("ob.skip")}

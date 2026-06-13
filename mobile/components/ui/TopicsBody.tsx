@@ -32,6 +32,8 @@ export default function TopicsBody() {
         <Pressable
           key={r.id}
           onPress={() => goPractice(r.id)}
+          accessibilityRole="button"
+          accessibilityLabel={topicLabel(r.id, r.label)}
           style={({ pressed }) => [
             styles.card,
             { backgroundColor: t.c.surface, borderColor: t.c.line, opacity: pressed ? 0.85 : 1, ...t.shadows.sm },

@@ -28,6 +28,10 @@ export default function TapError({ exercise, locked, onChange }: ExerciseProps) 
               key={`${i}-${word}`}
               onPress={() => tap(i)}
               disabled={locked}
+              accessibilityRole="button"
+              accessibilityLabel={`Word: ${word}`}
+              accessibilityHint="Tap if this word is the mistake"
+              accessibilityState={{ selected: on, disabled: locked }}
               style={{
                 borderWidth: on ? 2 : 1,
                 borderColor: on ? t.c.bad : t.c.line2,

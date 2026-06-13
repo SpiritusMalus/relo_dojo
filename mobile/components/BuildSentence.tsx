@@ -97,6 +97,10 @@ function Tile({
       <Pressable
         onPress={onPress}
         disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint={placed ? "Tap to remove this word from your answer" : "Tap to add this word to your answer"}
+        accessibilityState={{ disabled: !!disabled }}
         style={{
           backgroundColor: placed ? t.c.accentSoft : t.c.surface,
           borderWidth: placed ? 1 : 2,

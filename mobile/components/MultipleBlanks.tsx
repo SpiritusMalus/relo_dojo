@@ -46,6 +46,9 @@ export default function MultipleBlanks({ exercise, locked, onChange }: ExerciseP
                   key={opt}
                   onPress={() => choose(bi, opt)}
                   disabled={locked}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Blank ${bi + 1}, option ${opt}`}
+                  accessibilityState={{ selected: on, disabled: locked }}
                   style={{
                     borderWidth: on ? 2 : 1,
                     borderColor: on ? t.c.accent : t.c.line2,

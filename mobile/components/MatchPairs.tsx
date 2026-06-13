@@ -58,7 +58,15 @@ export default function MatchPairs({ exercise, locked, onChange }: ExerciseProps
             const linked = map[l.id] != null;
             const active = pendingLeft === l.id;
             return (
-              <Pressable key={l.id} style={itemStyle(active, linked)} onPress={() => tapLeft(l.id)} disabled={locked}>
+              <Pressable
+                key={l.id}
+                style={itemStyle(active, linked)}
+                onPress={() => tapLeft(l.id)}
+                disabled={locked}
+                accessibilityRole="button"
+                accessibilityLabel={l.text}
+                accessibilityState={{ selected: active, disabled: locked }}
+              >
                 <Txt variant="bodyStrong">{l.text}</Txt>
                 {linked && (
                   <Txt variant="secondary" color={t.c.accent}>{`→ ${rightText(map[l.id])}`}</Txt>
@@ -71,7 +79,15 @@ export default function MatchPairs({ exercise, locked, onChange }: ExerciseProps
           {right.map((r) => {
             const used = usedRight.has(r.id);
             return (
-              <Pressable key={r.id} style={itemStyle(false, used)} onPress={() => tapRight(r.id)} disabled={locked || pendingLeft == null}>
+              <Pressable
+                key={r.id}
+                style={itemStyle(false, used)}
+                onPress={() => tapRight(r.id)}
+                disabled={locked || pendingLeft == null}
+                accessibilityRole="button"
+                accessibilityLabel={r.text}
+                accessibilityState={{ selected: used, disabled: locked || pendingLeft == null }}
+              >
                 <Txt variant="bodyStrong">{r.text}</Txt>
               </Pressable>
             );
