@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from typing import Any, Iterable, Optional
 
 from ..db.models import Event
@@ -25,9 +25,12 @@ MAX_PROP_STR = 200
 
 
 def normalize_name(name: str) -> str:
-    """Lowercase, collapse illegal chars to '_', trim. Returns '' if nothing usable remains."""
+    """Lowercase, collapse illegal chars to '_', trim. Returns '' if nothing usable remains.
+
+    The length cap is applied before a final separator-trim so truncation can't leave a dangling
+    '_'/'.' (which would split the analytics namespace on a half-segment)."""
     cleaned = _NAME_RE.sub("_", name.strip().lower()).strip("_")
-    return cleaned[:MAX_NAME_LEN]
+    return cleaned[:MAX_NAME_LEN].strip("_.")
 
 
 def sanitize_props(props: Optional[dict[str, Any]]) -> dict[str, Any]:

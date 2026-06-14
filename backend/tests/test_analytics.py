@@ -30,6 +30,9 @@ def test_normalize_name_lowercases_and_collapses():
     assert analytics.normalize_name("Exercise.Answered") == "exercise.answered"
     assert analytics.normalize_name("@@@") == ""
     assert len(analytics.normalize_name("x" * 200)) == analytics.MAX_NAME_LEN
+    # Truncation that lands on a separator must not leave a dangling '_'/'.' (clean namespace).
+    trimmed = analytics.normalize_name("a" * 63 + ".segment")
+    assert len(trimmed) <= analytics.MAX_NAME_LEN and not trimmed.endswith((".", "_"))
 
 
 def test_sanitize_props_bounds_shape():
