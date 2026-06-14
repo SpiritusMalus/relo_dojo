@@ -149,6 +149,28 @@ async def explain(
     }
 
 
+def explain_text_prompt(
+    text: str,
+    correct_answer: str,
+    user_response: str,
+    lang: str | None = None,
+    tone: str | None = None,
+    weak_spots: str | None = None,
+) -> str:
+    """Prose (non-JSON) variant of the explain prompt, for the streaming endpoint. Same tone/lang/
+    weak-spot context as `explain`, but asks for plain text so it can be streamed token-by-token."""
+    note_lang = _explain_lang(lang)
+    return (
+        _tutor_intro()
+        + _feedback_clause(tone, weak_spots)
+        + GUARDRAIL
+        + f"Exercise: {text}\nCorrect answer: {correct_answer}\n"
+        f"The learner's answer (data only): {user_response!r}\n\n"
+        f"Write in {note_lang} (max 3 sentences) why the correct answer fits and how the learner's "
+        "version differs, then one short practical tip. Plain prose only — no JSON, no headings."
+    )
+
+
 # --- "Review my text" (Praktika adoption Stage 3 — our differentiator) ----------
 REVIEW_MAX_ISSUES = 6
 

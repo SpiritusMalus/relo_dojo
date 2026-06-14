@@ -25,6 +25,7 @@ from typing import AsyncIterator, Optional
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .core.config import settings
@@ -62,6 +63,7 @@ from .schemas import (
 from .services import analytics, content, gating, grammar, learner_profile, rewards, stories, tokens
 from .services import wallet as wallet_service
 from .services.llm import LLMError as OllamaError  # one exception across providers
+from .services.llm import generate_stream as llm_generate_stream
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -292,6 +294,36 @@ async def explain(
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return ExplainOut(**data)
+
+
+@app.post("/explain/stream", dependencies=[Depends(llm_rate_limit)])
+async def explain_stream(
+    payload: ExplainIn,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """Streaming variant of /explain: the teaching note streams in token-by-token for perceived
+    speed (plain text). Same profile-aware prompt; the structured /explain stays for callers that
+    need {explanation, tip}. On Ollama this is true token streaming; API providers send one chunk."""
+    prof = await learner_profile.get_data(user, db)
+    prompt = grammar.explain_text_prompt(
+        payload.text,
+        payload.correct_answer,
+        payload.user_response,
+        payload.lang,
+        tone=prof.tone if prof else None,
+        weak_spots=prof.weakSpots if prof else None,
+    )
+
+    async def _stream():
+        try:
+            async for chunk in llm_generate_stream(prompt, temperature=0.2):
+                yield chunk
+        except OllamaError as exc:
+            # The response is already 200/streaming, so surface the failure inline as text.
+            yield f"\n[unavailable: {exc}]"
+
+    return StreamingResponse(_stream(), media_type="text/plain; charset=utf-8")
 
 
 @app.post("/review-text", response_model=ReviewOut, dependencies=[Depends(llm_rate_limit)])
