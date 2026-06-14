@@ -7,6 +7,7 @@
 // Fallback IP is used if the host can't be detected (e.g. tunnel mode or a production build) —
 // update it, or set EXPO_PUBLIC_API_URL, when needed.
 import Constants from "expo-constants";
+import { fetch as expoFetch } from "expo/fetch";
 import type { Progress } from "../store/progress";
 
 const FALLBACK_HOST = "192.168.1.9";
@@ -309,6 +310,58 @@ export function explain(
     user_response: userResponse,
     lang: apiLang,
   });
+}
+
+// Minimal reader shape (a ReadableStream<Uint8Array> default reader) so this is testable with a fake.
+type Uint8StreamReader = { read(): Promise<{ done: boolean; value?: Uint8Array }> };
+
+// Drain a plain-text byte stream, invoking `onText` with the FULL accumulated text on every chunk
+// (so callers just render the latest string). Returns the final text. Throws on an empty stream or
+// the backend's inline "[unavailable: …]" failure marker, so the caller can fall back to /explain.
+// Exported for unit testing; the global TextDecoder exists on Hermes (RN) and Node (jest).
+export async function consumeTextStream(
+  reader: Uint8StreamReader,
+  onText: (full: string) => void
+): Promise<string> {
+  const decoder = new TextDecoder();
+  let full = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value && value.length) {
+      full += decoder.decode(value, { stream: true });
+      onText(full);
+    }
+  }
+  full += decoder.decode(); // flush any trailing multi-byte sequence
+  if (!full.trim()) throw new Error("Empty explanation stream");
+  if (full.includes("[unavailable:")) throw new Error("Explanation unavailable");
+  return full;
+}
+
+// Streaming variant of /explain: the teaching note arrives token-by-token (plain text) for perceived
+// speed. Uses expo/fetch (SDK 54) which exposes a real ReadableStream body in RN. `onText` fires with
+// the full text so far on every chunk. Returns the final text. Throws on transport/stream failure —
+// useExerciseCheck catches it and falls back to the non-streaming explain().
+export async function explainStream(
+  text: string,
+  correctAnswer: string,
+  userResponse: string,
+  onText: (full: string) => void,
+  signal?: AbortSignal
+): Promise<string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+  const res = await expoFetch(`${BASE_URL}/explain/stream`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ text, correct_answer: correctAnswer, user_response: userResponse, lang: apiLang }),
+    signal,
+  });
+  if (!res.ok) throw new ApiError(`Backend error ${res.status}`, res.status);
+  const body = res.body;
+  if (!body || typeof body.getReader !== "function") throw new Error("Streaming not supported");
+  return consumeTextStream(body.getReader(), onText);
 }
 
 // --- accounts & progress sync (Phase 4) ---

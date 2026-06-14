@@ -9,6 +9,7 @@ import {
   checkFreeText,
   checkInteractive,
   explain,
+  explainStream,
   type Exercise,
   type ExplainResult,
   type ResponseValue,
@@ -44,6 +45,8 @@ export function useExerciseCheck() {
   const [levelUp, setLevelUp] = useState<string | null>(null);
   const [explained, setExplained] = useState<ExplainResult | null>(null);
   const [explainLoading, setExplainLoading] = useState(false);
+  // In-flight explanation stream, so a new card (reset) can cancel a half-streamed note.
+  const explainAbort = useRef<AbortController | null>(null);
 
   // Grade `response` for `exercise`, record the answer, and return the result (or null on error).
   // `onWrong` lets the caller trigger UI feedback (e.g. a shake) without re-deriving correctness.
@@ -85,21 +88,49 @@ export function useExerciseCheck() {
     [recordAnswer, applyCheckReward]
   );
 
-  // On-demand teaching note for an interactive miss.
+  // On-demand teaching note for an interactive miss. Streams token-by-token (/explain/stream) so the
+  // note appears as it's written; on any stream failure (old server, network, "unavailable") it falls
+  // back to the one-shot structured /explain so the feature degrades, never breaks.
   const doExplain = useCallback(async (exercise: Exercise, responseDisplay: string) => {
     if (!result || explainLoading) return;
     setExplainLoading(true);
+    const correct = result.correct_answer;
+    const controller = new AbortController();
+    explainAbort.current = controller;
     try {
-      setExplained(await explain(exercise.text, result.correct_answer, responseDisplay));
+      let started = false;
+      const finalText = await explainStream(
+        exercise.text,
+        correct,
+        responseDisplay,
+        (full) => {
+          // First token in: drop the spinner and start showing the growing note.
+          if (!started) {
+            started = true;
+            setExplainLoading(false);
+          }
+          setExplained({ explanation: full, tip: "" });
+        },
+        controller.signal
+      );
+      setExplained({ explanation: finalText, tip: "" });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to explain");
+      if (controller.signal.aborted) return; // cancelled by the next card — stay silent
+      try {
+        setExplained(await explain(exercise.text, correct, responseDisplay));
+      } catch (e2) {
+        setError(e2 instanceof Error ? e2.message : "Failed to explain");
+      }
     } finally {
+      if (explainAbort.current === controller) explainAbort.current = null;
       setExplainLoading(false);
     }
   }, [result, explainLoading]);
 
   // Clear all per-card state before showing the next exercise.
   const reset = useCallback(() => {
+    explainAbort.current?.abort();
+    explainAbort.current = null;
     setResult(null);
     setError(null);
     setLevelUp(null);

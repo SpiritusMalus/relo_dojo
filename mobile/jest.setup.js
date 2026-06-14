@@ -4,6 +4,11 @@ jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock")
 );
 
+// expo/fetch ships a native "winter" runtime that jest can't load; api.ts imports it for streaming.
+// Stub it so any suite that loads services/api.ts (directly or via store/*) doesn't crash on import.
+// Tests that exercise streaming provide their own per-file behavior.
+jest.mock("expo/fetch", () => ({ fetch: jest.fn() }), { virtual: true });
+
 // Google-font asset packages (pulled in transitively via theme/theme.ts when a component renders).
 // They ship native font assets jest can't resolve; the values are only used as fontFamily *keys*,
 // so a string stub per export is enough for render tests. `virtual: true` → no real module needed.
