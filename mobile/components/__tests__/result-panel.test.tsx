@@ -66,6 +66,14 @@ describe("ResultPanel", () => {
     expect(onExplain).toHaveBeenCalledTimes(1);
   });
 
+  it("celebrates the first-win and combo koku bonuses on a correct answer", () => {
+    const result: Result = { correct: true, correct_answer: "ok", first_win_bonus: 10, combo_bonus: 8 };
+    const r = render(<ResultPanel {...base} result={result} onExplain={jest.fn()} />);
+    const out = JSON.stringify(r.toJSON());
+    expect(out).toContain("result.firstWin"); // i18n key (mock passes keys through)
+    expect(out).toContain("result.combo");
+  });
+
   it("on a correct answer shows no Explain affordance", () => {
     const result: Result = { correct: true, correct_answer: "I go home" };
     const r = render(<ResultPanel {...base} result={result} onExplain={jest.fn()} />);

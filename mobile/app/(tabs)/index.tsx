@@ -34,7 +34,7 @@ import BeltKnot from "../../components/ui/BeltKnot";
 import { TOPIC_LABELS } from "../../store/onboarding";
 import { RU_TOPIC_LABELS } from "../../i18n/strings";
 import { isoDay } from "../../store/adaptive";
-import { requestPlan } from "../../services/api";
+import { requestPlan, getStoryCatalog } from "../../services/api";
 import Sensei from "../../components/ui/Sensei";
 import ProgressBar from "../../components/ui/ProgressBar";
 import Txt from "../../components/ui/Txt";
@@ -80,6 +80,8 @@ export default function HomeScreen() {
 
   // Refresh the mistake count whenever Home regains focus (e.g. returning from Review/Practice).
   const [mistakes, setMistakes] = useState(0);
+  // Today's featured story arc ("today's different" rotation), surfaced on the Story button.
+  const [featuredArc, setFeaturedArc] = useState<string | null>(null);
 
   // Trigger: onboarding done → open the one-shot 24h starter offer (no-op if it ever existed).
   // In an effect, not the render body — render must stay side-effect-free.
@@ -122,6 +124,14 @@ export default function HomeScreen() {
       // Refresh the wallet too: koku earned and the daily allowance spent in Practice should be
       // visible the moment the learner lands back on Home (the shrinking counter is the point).
       void refresh();
+      // Today's featured arc — best-effort; a failure just falls back to the default Story subtitle.
+      getStoryCatalog()
+        .then((c) => {
+          if (!active) return;
+          const arc = c.arcs.find((a) => a.id === c.featured_id);
+          setFeaturedArc(arc ? arc.title : null);
+        })
+        .catch(() => {});
       return () => {
         active = false;
       };
@@ -263,7 +273,10 @@ export default function HomeScreen() {
       <ContractsCard />
 
       <LockGate locked={locked}>
-        <StoryButton onPress={() => router.push("/story")} />
+        <StoryButton
+          onPress={() => router.push("/story")}
+          subtitle={featuredArc ? tr("home.featuredStory", { title: featuredArc }) : undefined}
+        />
       </LockGate>
       <LockGate locked={locked}>
         <ChallengeButton onPress={() => router.push("/challenge")} />

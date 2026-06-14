@@ -166,6 +166,8 @@ export type CheckResult = {
   detail?: string; // e.g. "2/3" for multi-element answers; "" otherwise
   coins_earned?: number; // koku earned for this answer (authenticated + correct only)
   coins?: number | null; // new server balance after the award; null/absent for anonymous
+  first_win_bonus?: number; // portion of coins_earned that was the once-per-day first-win bonus
+  combo_bonus?: number; // portion of coins_earned from the consecutive-correct combo
 };
 export type ExplainResult = { explanation: string; tip: string };
 export type TextCheckResult = CheckResult & ExplainResult;

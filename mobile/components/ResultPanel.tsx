@@ -58,6 +58,13 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
       {result.correct && progress.currentCorrectRun >= 3 && (
         <Txt variant="bodyStrong" color={t.c.fire}>{tr("result.streak", { n: progress.currentCorrectRun })}</Txt>
       )}
+      {/* Server-awarded koku bonuses (engagement v2): celebrate the daily first win and combo milestones. */}
+      {result.correct && (result.first_win_bonus ?? 0) > 0 && (
+        <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.firstWin", { n: result.first_win_bonus ?? 0 })}</Txt>
+      )}
+      {result.correct && (result.combo_bonus ?? 0) > 0 && (
+        <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.combo", { n: result.combo_bonus ?? 0 })}</Txt>
+      )}
       {!!levelUp && <Txt variant="bodyStrong" color={t.c.accent}>{`⬆ ${levelUp}`}</Txt>}
       {!!result.explanation && <Txt variant="body" color={t.c.ink2}>{`💡 ${result.explanation}`}</Txt>}
       {!!result.tip && <Txt variant="secondary" color={t.c.ink2}>{result.tip}</Txt>}
