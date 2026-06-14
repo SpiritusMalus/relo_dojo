@@ -85,6 +85,7 @@ from ._grammar_feedback import (
     analyze_pain,
     check_answer,
     explain,
+    explain_text_prompt,
     review_text,
 )
 

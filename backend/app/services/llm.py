@@ -16,7 +16,7 @@ eval set against the target model (`python -m evals.run_eval --provider anthropi
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, AsyncIterator
 
 import httpx
 
@@ -24,6 +24,7 @@ from ..core.config import settings
 from .ollama_client import OllamaError
 from .ollama_client import generate as _ollama_generate
 from .ollama_client import generate_json as _ollama_generate_json
+from .ollama_client import generate_stream as _ollama_generate_stream
 
 # One exception type across providers; old name kept so existing imports/handlers still work.
 LLMError = OllamaError
@@ -162,6 +163,20 @@ async def generate_json(
     if p == "openai":
         return await _openai(prompt, schema, temperature)
     return await _ollama_generate_json(prompt, schema, temperature=temperature)
+
+
+async def generate_stream(prompt: str, *, temperature: float | None = None) -> AsyncIterator[str]:
+    """Stream a free-text reply as deltas, routed by provider.
+
+    Ollama streams natively (token-by-token). The API providers don't have incremental SSE wired
+    here yet, so they fall back to a single full-reply chunk — the endpoint surface still works on
+    every provider; richer SSE for Anthropic/OpenAI is a follow-up. Same LLMError contract."""
+    p = _provider()
+    if p == "ollama":
+        async for chunk in _ollama_generate_stream(prompt, temperature=temperature):
+            yield chunk
+        return
+    yield await generate(prompt, temperature=temperature)
 
 
 def active_model() -> str:
