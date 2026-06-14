@@ -54,6 +54,8 @@ export const STRINGS = {
     "result.explain": "Explain",
     "result.streak": "🔥 {n} correct in a row!",
     "result.xp": "+{n} XP",
+    "result.firstWin": "🌅 First win today +{n} koku",
+    "result.combo": "🎯 Combo +{n} koku",
 
     "story.writing": "Writing your story…",
     "story.done": "{title} — done!",
@@ -147,6 +149,7 @@ export const STRINGS = {
     "limit.notEnough": "Not enough koku ({coins} 🌾). Earn more with correct answers.",
     "limit.premiumSoon": "Black Belt — unlimited (soon)",
     "home.leftToday": "{n} exercises left today",
+    "home.featuredStory": "Today's arc: {title}",
 
     "streak.brokenTitle": "Your {n}-day streak has snapped",
     "streak.brokenSub": "Sensei: discipline slipped for a day. An extra practice with me can restore the path.",
@@ -330,6 +333,8 @@ export const STRINGS = {
     "result.explain": "Объяснить",
     "result.streak": "🔥 {n} верных подряд!",
     "result.xp": "+{n} XP",
+    "result.firstWin": "🌅 Первая победа дня +{n} коку",
+    "result.combo": "🎯 Комбо +{n} коку",
 
     "story.writing": "Сочиняем историю…",
     "story.done": "{title} — готово!",
@@ -423,6 +428,7 @@ export const STRINGS = {
     "limit.notEnough": "Не хватает коку ({coins} 🌾). Заработай их верными ответами.",
     "limit.premiumSoon": "Чёрный пояс — безлимит (скоро)",
     "home.leftToday": "Осталось сегодня: {n}",
+    "home.featuredStory": "Арка дня: {title}",
 
     "streak.brokenTitle": "Серия из {n} дней оборвалась",
     "streak.brokenSub": "Сэнсэй: дисциплина дрогнула на один день. Отработка со мной может восстановить путь.",

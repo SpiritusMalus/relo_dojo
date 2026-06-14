@@ -6,7 +6,7 @@ import Txt from "./Txt";
 
 // Full-width chunky button for a themed mini-story. Warm (fire) sibling to DailyMixButton so the two
 // pair visually on the Home tab while staying clearly distinct.
-export default function StoryButton({ onPress }: { onPress: () => void }) {
+export default function StoryButton({ onPress, subtitle }: { onPress: () => void; subtitle?: string }) {
   const t = useTheme();
   const { t: tr } = useI18n();
   return (
@@ -34,7 +34,7 @@ export default function StoryButton({ onPress }: { onPress: () => void }) {
           {tr("btn.story.title")}
         </Txt>
         <Txt variant="secondary" color="rgba(255,255,255,0.85)">
-          {tr("btn.story.sub")}
+          {subtitle || tr("btn.story.sub")}
         </Txt>
       </View>
       <Icon name="chevron" size={22} color="#FFFFFF" />

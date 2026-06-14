@@ -27,6 +27,8 @@ export type Result = {
   tip?: string;
   coins_earned?: number; // koku earned (authenticated + correct only)
   coins?: number | null; // new server koku balance after the award
+  first_win_bonus?: number; // once-per-day first-win bonus included in coins_earned
+  combo_bonus?: number; // consecutive-correct combo bonus included in coins_earned
 };
 
 export function useExerciseCheck() {
