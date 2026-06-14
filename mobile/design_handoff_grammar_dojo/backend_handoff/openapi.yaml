@@ -1,0 +1,524 @@
+openapi: 3.1.0
+info:
+  title: Grammar Dojo API
+  version: 1.0.0
+  description: >
+    Server-authoritative contract for the Grammar Dojo client (see BACKEND_PROMPT.md).
+    The server is the only source of truth for XP, level, streak, belt/CEFR, lesson unlock
+    state, and the email-verification gate. Client values are untrusted. Promotion is
+    server-decided; gating is enforced in the API (403/409), not just the UI.
+    NOTE: this mirrors the brief's greenfield contract; the repo's existing FastAPI backend
+    uses different routes — reconcile before adopting.
+servers:
+  - url: /api/v1
+tags:
+  - name: auth
+  - name: onboarding
+  - name: core
+  - name: content
+  - name: practice
+  - name: prefs
+  - name: social
+  - name: push
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string }
+      description: Dedupe key so a replayed attempt never double-awards XP.
+  responses:
+    Unauthorized:
+      description: Missing/invalid access token
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Forbidden:
+      description: Lesson locked or account unverified (gate enforced server-side)
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    Conflict:
+      description: Attempt against a locked/unverified lesson, or idempotency replay conflict
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+    TooManyRequests:
+      description: Rate limited (auth/feedback)
+      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, example: lesson_locked }
+        message: { type: string }
+    Tokens:
+      type: object
+      required: [access_token, refresh_token]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, example: bearer }
+    Belt:
+      type: object
+      properties:
+        id: { type: string, example: white }
+        cefr: { type: string, example: A1 }
+        name: { type: string, example: White belt }
+        order_index: { type: integer, example: 0 }
+    DailyGoal:
+      type: object
+      properties:
+        done: { type: integer, example: 3 }
+        target: { type: integer, example: 6 }
+    PathNode:
+      type: object
+      properties:
+        id: { type: string }
+        label: { type: string }
+        state: { type: string, enum: [locked, next, current, done] }
+        topic: { type: string, nullable: true }
+        accuracy: { type: integer, nullable: true, example: 74 }
+    Proverb:
+      type: object
+      properties:
+        id: { type: string }
+        jp: { type: string }
+        romaji: { type: string }
+        en: { type: string }
+        seal: { type: string }
+        tier: { type: string, enum: [normal, gold] }
+    Me:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        email_verified_at: { type: string, format: date-time, nullable: true }
+        display_name: { type: string, nullable: true }
+        belt: { $ref: "#/components/schemas/Belt" }
+        cefr: { type: string }
+        xp_total: { type: integer }
+        level: { type: integer }
+        xp_to_next: { type: integer }
+        streak_count: { type: integer }
+        streak_best: { type: integer }
+        color_belt: { type: string, description: "'auto' or an earned belt_id" }
+        theme: { type: string, enum: [light, dark, system] }
+        ui_lang: { type: string }
+        training_lang: { type: string }
+        sound: { type: boolean }
+        haptics: { type: boolean }
+        daily_reminder: { type: boolean }
+    Home:
+      type: object
+      properties:
+        belt: { $ref: "#/components/schemas/Belt" }
+        streak: { type: integer }
+        xp: { type: integer }
+        level: { type: integer }
+        daily_goal: { $ref: "#/components/schemas/DailyGoal" }
+        path:
+          type: array
+          items: { $ref: "#/components/schemas/PathNode" }
+        verified: { type: boolean }
+        proverb: { $ref: "#/components/schemas/Proverb" }
+    Exercise:
+      type: object
+      properties:
+        id: { type: string }
+        lesson_id: { type: string }
+        type: { type: string, example: build_sentence }
+        prompt: { type: string }
+        tokens:
+          type: array
+          items: { type: string }
+          description: answer_tokens + distractor_tokens, shuffled
+        audio_text: { type: string, nullable: true }
+        difficulty: { type: integer }
+    AttemptRequest:
+      type: object
+      required: [exercise_id, answer_tokens]
+      properties:
+        exercise_id: { type: string }
+        lesson_id: { type: string }
+        answer_tokens: { type: array, items: { type: string } }
+        duration_ms: { type: integer }
+    AttemptResult:
+      type: object
+      properties:
+        is_correct: { type: boolean }
+        correct_answer: { type: string }
+        xp_awarded: { type: integer }
+        streak: { type: integer }
+        level: { type: integer }
+        lesson_state: { type: string, enum: [locked, next, current, done] }
+        promotion:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/Promotion" }]
+    Promotion:
+      type: object
+      properties:
+        belt: { $ref: "#/components/schemas/Belt" }
+        cefr: { type: string }
+        unlocked_color: { type: string }
+    Preferences:
+      type: object
+      properties:
+        theme: { type: string, enum: [light, dark, system] }
+        ui_lang: { type: string }
+        color_belt: { type: string }
+        sound: { type: boolean }
+        haptics: { type: boolean }
+        daily_reminder: { type: boolean }
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ----------------------------- AUTH -----------------------------
+  /auth/register:
+    post:
+      tags: [auth]
+      security: []
+      summary: Register. Sends a verification email; account starts unverified.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Tokens" } } } }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /auth/login:
+    post:
+      tags: [auth]
+      security: []
+      summary: Log in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Tokens" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /auth/refresh:
+    post:
+      tags: [auth]
+      security: []
+      summary: Exchange a refresh token for a new access token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [refresh_token], properties: { refresh_token: { type: string } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Tokens" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke the current refresh token.
+      responses:
+        "204": { description: No Content }
+  /auth/verify-email:
+    post:
+      tags: [auth]
+      security: []
+      summary: Confirm email with a token from the verification link.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [token], properties: { token: { type: string } } }
+      responses:
+        "200": { description: Verified, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        "400": { description: Invalid/expired token, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+  /auth/resend-verification:
+    post:
+      tags: [auth]
+      summary: Resend the verification email (VerifyBanner / Settings "Confirm email").
+      responses:
+        "202": { description: Accepted }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /auth/forgot-password:
+    post:
+      tags: [auth]
+      security: []
+      summary: Start password reset. Always 202 (no email-existence leak).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [email], properties: { email: { type: string, format: email } } }
+      responses:
+        "202": { description: Accepted }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /auth/reset-password:
+    post:
+      tags: [auth]
+      security: []
+      summary: Complete password reset with the emailed token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token: { type: string }
+                password: { type: string, minLength: 8 }
+      responses:
+        "200": { description: OK }
+        "400": { description: Invalid/expired token }
+
+  # --------------------------- ONBOARDING -------------------------
+  /onboarding:
+    post:
+      tags: [onboarding]
+      summary: Finish onboarding ("Get started"). Skip defaults white/A1.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                domain: { type: string }
+                goals: { type: array, items: { type: string } }
+                goal_text: { type: string, description: free-text goal (north star) }
+                skip: { type: boolean, default: false }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+  /onboarding/placement:
+    post:
+      tags: [onboarding]
+      summary: Warm-up placement; assigns the starting belt/CEFR.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  type: array
+                  items: { type: object, properties: { exercise_id: { type: string }, is_correct: { type: boolean } } }
+      responses:
+        "200":
+          description: Assigned belt
+          content: { application/json: { schema: { type: object, properties: { belt: { $ref: "#/components/schemas/Belt" }, cefr: { type: string } } } } }
+  /onboarding/reset:
+    post:
+      tags: [onboarding]
+      summary: Redo onboarding (Settings "Redo onboarding").
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+
+  # ------------------------------ CORE ----------------------------
+  /me:
+    get:
+      tags: [core]
+      summary: Current account + profile + prefs.
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /home:
+    get:
+      tags: [core]
+      summary: Everything HomePath needs in one call.
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Home" } } } }
+  /progress:
+    get:
+      tags: [core]
+      summary: Stats + per-topic accuracy + achievements (Progress screen).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  xp_total: { type: integer }
+                  level: { type: integer }
+                  streak_count: { type: integer }
+                  streak_best: { type: integer }
+                  topics:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        label: { type: string }
+                        accuracy_pct: { type: integer }
+                        attempts: { type: integer }
+                  achievements:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        slug: { type: string }
+                        label: { type: string }
+                        glyph: { type: string }
+                        unlocked: { type: boolean }
+                        progress_pct: { type: integer }
+
+  # ---------------------------- CONTENT ---------------------------
+  /topics:
+    get:
+      tags: [content]
+      summary: All topics (Browse all topics).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { type: object, properties: { id: { type: string }, slug: { type: string }, label: { type: string }, cefr: { type: string } } } }
+  /topics/{id}:
+    get:
+      tags: [content]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK }
+        "404": { description: Not found }
+  /lessons/{id}:
+    get:
+      tags: [content]
+      summary: Lesson detail. 403 if locked or account unverified.
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: OK }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  # ---------------------------- PRACTICE --------------------------
+  /practice/next:
+    get:
+      tags: [practice]
+      summary: Next exercise (Daily Mix or a chosen topic).
+      parameters:
+        - { name: topic, in: query, schema: { type: string } }
+        - { name: mode, in: query, schema: { type: string, enum: [daily_mix] } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Exercise" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /tts:
+    get:
+      tags: [practice]
+      summary: Text-to-speech audio for the "Listen" button.
+      parameters: [{ name: text, in: query, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Audio, content: { audio/mpeg: { schema: { type: string, format: binary } } } }
+  /attempts:
+    post:
+      tags: [practice]
+      summary: Submit an answer. Server scores, awards XP, updates streak, may promote.
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/AttemptRequest" } } }
+      responses:
+        "200": { description: Scored, content: { application/json: { schema: { $ref: "#/components/schemas/AttemptResult" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /sessions:
+    post:
+      tags: [practice]
+      summary: Close a practice session (summary screen).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                started_at: { type: string, format: date-time }
+                correct: { type: integer }
+                total: { type: integer }
+      responses:
+        "201":
+          description: Created
+          content: { application/json: { schema: { type: object, properties: { correct: { type: integer }, total: { type: integer }, xp_earned: { type: integer } } } } }
+
+  # ----------------------------- PREFS ----------------------------
+  /me/preferences:
+    patch:
+      tags: [prefs]
+      summary: Update prefs. color_belt must be an earned belt; daily_reminder also (de)schedules notifications.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/Preferences" } } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Me" } } } }
+        "422": { description: color_belt not earned / unsupported value }
+  /languages:
+    get:
+      tags: [prefs]
+      summary: Shipped-content languages settable as training_lang.
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { type: array, items: { type: object, properties: { code: { type: string }, label: { type: string }, shipped: { type: boolean } } } } } }
+
+  # ----------------------------- SOCIAL ---------------------------
+  /feedback:
+    post:
+      tags: [social]
+      summary: Talk-to-Sensei / training-language request (kind=lang_request).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                text: { type: string }
+                kind: { type: string, enum: [lang_request, general] }
+                requested_lang: { type: string }
+                context: { type: object, additionalProperties: true }
+      responses:
+        "201": { description: Created }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /proverbs/today:
+    get:
+      tags: [social]
+      summary: Daily proverb. Gold deck unlocks at streak >= 7.
+      parameters: [{ name: streak, in: query, schema: { type: integer } }]
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Proverb" } } } }
+
+  # ------------------------------ PUSH ----------------------------
+  /devices:
+    post:
+      tags: [push]
+      summary: Register a device push token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, platform]
+              properties:
+                token: { type: string }
+                platform: { type: string, enum: [ios, android] }
+      responses:
+        "201": { description: Registered }
