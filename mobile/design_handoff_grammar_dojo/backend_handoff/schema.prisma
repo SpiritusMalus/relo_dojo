@@ -1,0 +1,282 @@
+// Grammar Dojo — data model for the Backend Build Brief.
+// This mirrors the brief's "Data model (Prisma-ish; adapt)" section, fleshed out into valid Prisma.
+// Stack is the executor's choice — if you build on FastAPI/SQLAlchemy, treat this as the ER contract.
+// NOTE: the brief targets a GREENFIELD server. The repo already ships a FastAPI backend whose routes
+// differ (auth/profile/progress/contracts/cosmetics/events/wallet/agents). Reconcile before adopting.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// Auth / identity
+// ----------------------------------------------------------------------------
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String    @map("password_hash")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  timezone        String    @default("UTC") // IANA tz; streak math depends on it
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  profile         Profile?
+  attempts        Attempt[]
+  lessonProgress  LessonProgress[]
+  topicProgress   TopicProgress[]
+  achievements    UserAchievement[]
+  sessions        Session[]
+  wishes          Wish[]
+  emailTokens     EmailToken[]
+  refreshTokens   RefreshToken[]
+  deviceTokens    DeviceToken[]
+
+  @@map("users")
+}
+
+model Profile {
+  userId          String   @id @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  displayName     String?  @map("display_name")
+  beltId          String   @default("white") @map("belt_id")
+  belt            Belt     @relation(fields: [beltId], references: [id])
+  cefr            String   @default("A1")
+
+  xpTotal         Int      @default(0) @map("xp_total")
+  level           Int      @default(1)
+  streakCount     Int      @default(0) @map("streak_count")
+  streakBest      Int      @default(0) @map("streak_best")
+  lastActiveDate  DateTime? @map("last_active_date") @db.Date
+  dailyGoalTarget Int      @default(6) @map("daily_goal_target")
+
+  // Cosmetics + prefs. colorBelt is the chosen skin: 'auto' tracks the earned belt,
+  // otherwise it must be an EARNED belt_id (validated server-side).
+  colorBelt       String   @default("auto") @map("color_belt")
+  theme           String   @default("light") // 'light' | 'dark' | 'system'
+  uiLang          String   @default("en") @map("ui_lang")
+  trainingLang    String   @default("en") @map("training_lang") // only a shipped-content language
+  sound           Boolean  @default(true)
+  haptics         Boolean  @default(true)
+  dailyReminder   Boolean  @default(true) @map("daily_reminder")
+
+  @@map("profiles")
+}
+
+// ----------------------------------------------------------------------------
+// Content (seeded)
+// ----------------------------------------------------------------------------
+
+model Belt {
+  id         String  @id // 'white'..'black'
+  cefr       String  // A1..C2
+  orderIndex Int     @map("order_index")
+  name       String
+
+  profiles   Profile[]
+  topics     Topic[]
+  lessons    Lesson[]
+
+  @@map("belts")
+}
+
+model Topic {
+  id         String  @id @default(cuid())
+  slug       String  @unique
+  label      String
+  cefr       String
+  orderIndex Int     @map("order_index")
+  lang       String  @default("en")
+
+  belt       Belt?   @relation(fields: [cefr], references: [cefr])
+  lessons    Lesson[]
+  progress   TopicProgress[]
+
+  @@map("topics")
+}
+
+model Lesson {
+  id         String  @id @default(cuid())
+  topicId    String  @map("topic_id")
+  topic      Topic   @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  label      String
+  orderIndex Int     @map("order_index")
+  kind       String  @default("lesson") // 'lesson' | 'belt_test'
+  cefr       String
+
+  belt       Belt?   @relation(fields: [cefr], references: [cefr])
+  exercises  Exercise[]
+  attempts   Attempt[]
+  progress   LessonProgress[]
+
+  @@map("lessons")
+}
+
+model Exercise {
+  id               String   @id @default(cuid())
+  lessonId         String   @map("lesson_id")
+  lesson           Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  type             String   // 'build_sentence' | ...
+  prompt           String
+  answerTokens     String[] @map("answer_tokens")
+  distractorTokens String[] @map("distractor_tokens")
+  audioText        String?  @map("audio_text")
+  difficulty       Int      @default(1) // XP = 10 * difficulty
+
+  attempts         Attempt[]
+
+  @@map("exercises")
+}
+
+// ----------------------------------------------------------------------------
+// Gameplay / progress
+// ----------------------------------------------------------------------------
+
+model Attempt {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exerciseId  String   @map("exercise_id")
+  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+  lessonId    String   @map("lesson_id")
+  lesson      Lesson   @relation(fields: [lessonId], references: [id])
+  isCorrect   Boolean  @map("is_correct")
+  answerTokens String[] @map("answer_tokens")
+  durationMs  Int?     @map("duration_ms")
+  xpAwarded   Int      @default(0) @map("xp_awarded")
+  // Idempotency-Key dedupe so a replayed POST /attempts never double-awards XP.
+  idempotencyKey String? @map("idempotency_key")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, idempotencyKey])
+  @@map("attempts")
+}
+
+model LessonProgress {
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId   String   @map("lesson_id")
+  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  state      String   @default("locked") // 'locked' | 'next' | 'current' | 'done'
+  accuracyPct Int     @default(0) @map("accuracy_pct")
+  masteredAt DateTime? @map("mastered_at")
+
+  @@id([userId, lessonId])
+  @@map("lesson_progress")
+}
+
+model TopicProgress {
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicId         String   @map("topic_id")
+  topic           Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  accuracyPct     Int      @default(0) @map("accuracy_pct")
+  attempts        Int      @default(0)
+  lastPracticedAt DateTime? @map("last_practiced_at")
+
+  @@id([userId, topicId])
+  @@map("topic_progress")
+}
+
+model Achievement {
+  id           String  @id @default(cuid())
+  slug         String  @unique
+  label        String
+  description  String
+  glyph        String
+  criteriaJson Json    @map("criteria_json")
+
+  users        UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String   @map("achievement_id")
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  unlockedAt    DateTime? @map("unlocked_at")
+  progressPct   Int      @default(0) @map("progress_pct")
+
+  @@id([userId, achievementId])
+  @@map("user_achievements")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt DateTime @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+  correct   Int      @default(0)
+  total     Int      @default(0)
+  xpEarned  Int      @default(0) @map("xp_earned")
+
+  @@map("sessions")
+}
+
+model Wish {
+  id            String  @id @default(cuid())
+  userId        String  @map("user_id")
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text          String
+  kind          String  // 'lang_request' | 'general'
+  requestedLang String? @map("requested_lang")
+  contextJson   Json?   @map("context_json")
+  status        String  @default("open")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("wishes")
+}
+
+model Proverb {
+  id     String @id @default(cuid())
+  jp     String
+  romaji String
+  en     String
+  seal   String
+  tier   String @default("normal") // 'normal' | 'gold' (gold unlocks at streak >= 7)
+  lang   String @default("en")
+
+  @@map("proverbs")
+}
+
+model EmailToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  purpose   String   // 'verify' | 'reset'
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("email_tokens")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  @@map("refresh_tokens")
+}
+
+model DeviceToken {
+  id       String @id @default(cuid())
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token    String
+  platform String // 'ios' | 'android'
+
+  @@unique([userId, token])
+  @@map("device_tokens")
+}
