@@ -103,7 +103,55 @@ def parse_openai_response(data: dict[str, Any], expect_json: bool) -> Any:
         raise LLMError(f"Model returned invalid JSON: {content[:200]}") from exc
 
 
+# --- streaming line parsers (SSE; unit-tested offline, mirror the Ollama NDJSON parser) ----------
+def parse_anthropic_sse_line(line: str) -> str:
+    """Text delta from one Anthropic Messages-stream SSE line, or "" for any non-text/control line.
+    Anthropic emits `data: {...}` frames; only `content_block_delta` with a `text_delta` carries text."""
+    line = line.strip()
+    if not line.startswith("data:"):
+        return ""
+    raw = line[len("data:"):].strip()
+    if not raw or raw == "[DONE]":
+        return ""
+    try:
+        evt = json.loads(raw)
+    except json.JSONDecodeError:
+        return ""
+    if isinstance(evt, dict) and evt.get("type") == "content_block_delta":
+        delta = evt.get("delta") or {}
+        if isinstance(delta, dict) and delta.get("type") == "text_delta":
+            return str(delta.get("text") or "")
+    return ""
+
+
+def parse_openai_sse_line(line: str) -> str:
+    """Text delta from one OpenAI Chat-Completions-stream SSE line, or "" for control/[DONE] lines."""
+    line = line.strip()
+    if not line.startswith("data:"):
+        return ""
+    raw = line[len("data:"):].strip()
+    if not raw or raw == "[DONE]":
+        return ""
+    try:
+        evt = json.loads(raw)
+    except json.JSONDecodeError:
+        return ""
+    try:
+        return str(evt["choices"][0]["delta"].get("content") or "")
+    except (KeyError, IndexError, TypeError):
+        return ""
+
+
 # --- transport ----------------------------------------------------------------
+def _raise_for_status(status: int, name: str, text: str = "") -> None:
+    if status in (401, 403):
+        raise LLMError(f"{name} API key missing or rejected — check the key in .env.")
+    if status == 429:
+        raise LLMError(f"{name} rate limit hit — try again shortly.")
+    if status >= 400:
+        raise LLMError(f"{name} API error {status}: {text[:200]}")
+
+
 async def _post(url: str, headers: dict[str, str], payload: dict[str, Any], name: str) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
@@ -112,13 +160,26 @@ async def _post(url: str, headers: dict[str, str], payload: dict[str, Any], name
         raise LLMError(f"Cannot reach the {name} API — check the network.") from exc
     except httpx.TimeoutException as exc:
         raise LLMError(f"The {name} API timed out.") from exc
-    if resp.status_code in (401, 403):
-        raise LLMError(f"{name} API key missing or rejected — check the key in .env.")
-    if resp.status_code == 429:
-        raise LLMError(f"{name} rate limit hit — try again shortly.")
-    if resp.status_code >= 400:
-        raise LLMError(f"{name} API error {resp.status_code}: {resp.text[:200]}")
+    _raise_for_status(resp.status_code, name, resp.text)
     return resp.json()
+
+
+async def _stream_lines(
+    url: str, headers: dict[str, str], payload: dict[str, Any], name: str
+) -> AsyncIterator[str]:
+    """POST and yield raw SSE lines, with the same LLMError mapping as _post."""
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+            async with client.stream("POST", url, json=payload, headers=headers) as resp:
+                if resp.status_code >= 400:
+                    body = (await resp.aread()).decode("utf-8", errors="replace")
+                    _raise_for_status(resp.status_code, name, body)
+                async for line in resp.aiter_lines():
+                    yield line
+    except httpx.ConnectError as exc:
+        raise LLMError(f"Cannot reach the {name} API — check the network.") from exc
+    except httpx.TimeoutException as exc:
+        raise LLMError(f"The {name} API timed out.") from exc
 
 
 def _require_key(key: str, env_name: str, provider: str) -> str:
@@ -142,6 +203,31 @@ async def _openai(prompt: str, schema: dict[str, Any] | None, temperature: float
     }
     data = await _post(OPENAI_URL, headers, build_openai_payload(prompt, schema, temperature), "OpenAI")
     return parse_openai_response(data, expect_json=schema is not None)
+
+
+async def _anthropic_stream(prompt: str, temperature: float | None) -> AsyncIterator[str]:
+    headers = {
+        "x-api-key": _require_key(settings.ANTHROPIC_API_KEY, "ANTHROPIC_API_KEY", "anthropic"),
+        "anthropic-version": ANTHROPIC_VERSION,
+    }
+    payload = build_anthropic_payload(prompt, None, temperature)
+    payload["stream"] = True
+    async for line in _stream_lines(ANTHROPIC_URL, headers, payload, "Anthropic"):
+        delta = parse_anthropic_sse_line(line)
+        if delta:
+            yield delta
+
+
+async def _openai_stream(prompt: str, temperature: float | None) -> AsyncIterator[str]:
+    headers = {
+        "Authorization": f"Bearer {_require_key(settings.OPENAI_API_KEY, 'OPENAI_API_KEY', 'openai')}"
+    }
+    payload = build_openai_payload(prompt, None, temperature)
+    payload["stream"] = True
+    async for line in _stream_lines(OPENAI_URL, headers, payload, "OpenAI"):
+        delta = parse_openai_sse_line(line)
+        if delta:
+            yield delta
 
 
 # --- public surface (same signatures the app used with ollama_client) ---------
@@ -168,15 +254,20 @@ async def generate_json(
 async def generate_stream(prompt: str, *, temperature: float | None = None) -> AsyncIterator[str]:
     """Stream a free-text reply as deltas, routed by provider.
 
-    Ollama streams natively (token-by-token). The API providers don't have incremental SSE wired
-    here yet, so they fall back to a single full-reply chunk — the endpoint surface still works on
-    every provider; richer SSE for Anthropic/OpenAI is a follow-up. Same LLMError contract."""
+    All three providers now stream incrementally: Ollama via NDJSON, Anthropic via the Messages
+    stream, OpenAI via Chat-Completions SSE. Each yields text deltas (control frames filtered out).
+    Same LLMError contract as the non-streaming surface."""
     p = _provider()
-    if p == "ollama":
-        async for chunk in _ollama_generate_stream(prompt, temperature=temperature):
-            yield chunk
+    if p == "anthropic":
+        async for delta in _anthropic_stream(prompt, temperature):
+            yield delta
         return
-    yield await generate(prompt, temperature=temperature)
+    if p == "openai":
+        async for delta in _openai_stream(prompt, temperature):
+            yield delta
+        return
+    async for chunk in _ollama_generate_stream(prompt, temperature=temperature):
+        yield chunk
 
 
 def active_model() -> str:
