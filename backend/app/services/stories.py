@@ -131,6 +131,266 @@ SCENARIOS: list[dict[str, Any]] = [
             "By evening you reach the coast and look for a place to stay.",
         ],
     },
+    {
+        "id": "the-garden",
+        "title": "The garden",
+        "intro": "First warm weekend of spring. The soil is soft, the seed packets are spread on the "
+        "step, and you finally have a free afternoon to plant something.",
+        "context": "a person starting a small garden on a spring weekend",
+        "topics": ["gerunds & infinitives", "prepositions", "modal verbs"],
+        "narration": [
+            "You decide which seeds to plant along the back fence.",
+            "You dig the beds and water the soil before sundown.",
+            "You should label each row, or you'll forget what's where.",
+        ],
+    },
+    {
+        "id": "the-power-cut",
+        "title": "The power cut",
+        "intro": "The lights flicker once, then everything goes dark. The fridge hums to silence and "
+        "you reach for your phone to see what's going on.",
+        "context": "a person dealing with a sudden blackout at home",
+        "topics": ["conditionals", "modal verbs", "word order"],
+        "narration": [
+            "You feel your way to the drawer where the candles are.",
+            "If the power stays off, the food in the freezer will spoil.",
+            "You check on the neighbours and share a spare torch.",
+        ],
+    },
+    {
+        "id": "the-lost-dog",
+        "title": "The lost dog",
+        "intro": "The back gate was left open and now the dog is gone. You grab the lead and a handful "
+        "of treats and start asking everyone on the street.",
+        "context": "a person searching the neighbourhood for a lost dog",
+        "topics": ["verb sequence (tense agreement)", "prepositions", "articles"],
+        "narration": [
+            "You describe the dog to a jogger near the park.",
+            "Someone says they saw a small dog by the river an hour ago.",
+            "You follow the trail and call its name down every lane.",
+        ],
+    },
+    {
+        "id": "the-new-phone",
+        "title": "The new phone",
+        "intro": "A shiny box, a tiny screwdriver for the SIM, and a setup screen that asks you a "
+        "hundred questions. You settle in to move everything across.",
+        "context": "a person setting up a brand-new phone",
+        "topics": ["phrasal verbs", "modal verbs", "prepositions"],
+        "narration": [
+            "You set up the new phone and sign in to your account.",
+            "You back up the old photos before you wipe the old device.",
+            "You should turn on two-factor login to keep it safe.",
+        ],
+    },
+    {
+        "id": "the-late-train",
+        "title": "The late train",
+        "intro": "The platform clock ticks past the departure time and the board still says 'delayed'. "
+        "A small crowd waits, coffee in hand, watching the empty track.",
+        "context": "a commuter waiting for a delayed train at the station",
+        "topics": ["comparatives & superlatives", "prepositions", "verb sequence (tense agreement)"],
+        "narration": [
+            "The next train is slower but it leaves from a closer platform.",
+            "You ask the guard which service will arrive first.",
+            "You decide to wait, since the express had already left.",
+        ],
+    },
+    {
+        "id": "the-birthday-surprise",
+        "title": "The surprise party",
+        "intro": "Balloons hidden in the closet, a cake in the boot of the car, and twelve people who "
+        "must stay quiet. You're in charge of keeping the secret until eight o'clock.",
+        "context": "a person organising a surprise birthday party",
+        "topics": ["modal verbs", "conditionals", "punctuation"],
+        "narration": [
+            "Everyone must arrive before the guest of honour does.",
+            "If she suspects anything, the whole surprise is ruined.",
+            "You text the group: \"Lights off, stay quiet, she's coming!\"",
+        ],
+    },
+    {
+        "id": "the-flat-tyre",
+        "title": "The flat tyre",
+        "intro": "A loud thump, then a steady wobble. You pull onto the gravel shoulder, switch on the "
+        "hazards, and open the boot to find the spare.",
+        "context": "a driver changing a flat tyre on the roadside",
+        "topics": ["word order", "modal verbs", "prepositions"],
+        "narration": [
+            "You loosen the bolts before you lift the car with the jack.",
+            "You must place the warning triangle behind the car.",
+            "You fit the spare and tighten each bolt in turn.",
+        ],
+    },
+    {
+        "id": "the-library",
+        "title": "The quiet hour",
+        "intro": "Rows of tall shelves, a stamped card in your pocket, and one book you've been "
+        "meaning to find for weeks. The reading room is warm and very, very quiet.",
+        "context": "a person looking for a book in a busy public library",
+        "topics": ["articles", "prepositions", "comparatives & superlatives"],
+        "narration": [
+            "You search the shelves for the book on the top floor.",
+            "The librarian points you to a quieter corner to read.",
+            "You find an older edition that's far better than the reprint.",
+        ],
+    },
+    {
+        "id": "the-haircut",
+        "title": "The haircut",
+        "intro": "The chair spins to face the mirror, scissors click somewhere behind you, and you try "
+        "to explain exactly how short 'just a little' really means.",
+        "context": "a person getting a haircut and chatting with the stylist",
+        "topics": ["comparatives & superlatives", "modal verbs", "verb sequence (tense agreement)"],
+        "narration": [
+            "You explain that you'd like it shorter than last time.",
+            "The stylist asks how you usually style it in the morning.",
+            "You agree the fringe could be a little neater on top.",
+        ],
+    },
+    {
+        "id": "the-check-up",
+        "title": "The check-up",
+        "intro": "A clipboard of questions, a cold stethoscope, and a doctor who actually listens. It's "
+        "just a routine visit, but you've saved up a few small worries to ask about.",
+        "context": "a person at a routine medical check-up",
+        "topics": ["verb sequence (tense agreement)", "modal verbs", "prepositions"],
+        "narration": [
+            "You describe how you've been feeling over the past month.",
+            "The doctor asks whether the pain comes and goes.",
+            "You should drink more water and sleep a little earlier.",
+        ],
+    },
+    {
+        "id": "the-bake-sale",
+        "title": "The bake sale",
+        "intro": "Trays of cooling muffins, a hand-painted price sign, and a charity jar that needs "
+        "filling by noon. The school hall smells of cinnamon and burnt sugar.",
+        "context": "a person running a stall at a charity bake sale",
+        "topics": ["articles", "comparatives & superlatives", "prepositions"],
+        "narration": [
+            "You arrange the cakes so the best ones face the crowd.",
+            "A customer asks which slice is the largest for the price.",
+            "By noon the jar is fuller than you ever hoped.",
+        ],
+    },
+    {
+        "id": "the-camping-trip",
+        "title": "The camping trip",
+        "intro": "A tent that fought back, a campfire that finally caught, and a sky with more stars "
+        "than you've seen in years. The nearest town is an hour down the valley.",
+        "context": "two friends on a weekend camping trip in the hills",
+        "topics": ["conditionals", "prepositions", "modal verbs"],
+        "narration": [
+            "You pitch the tent on the flat ground beside the stream.",
+            "If it rains tonight, you'll need to move the firewood inside.",
+            "You should hang the food high, away from the animals.",
+        ],
+    },
+    {
+        "id": "the-job-offer",
+        "title": "The offer",
+        "intro": "An email you've read four times, a salary line that looks good, and a start date "
+        "that's sooner than you expected. You make a coffee and weigh it all up.",
+        "context": "a person weighing up a new job offer",
+        "topics": ["conditionals", "comparatives & superlatives", "modal verbs"],
+        "narration": [
+            "You compare the new role with the one you have now.",
+            "If you accept, you'd have to move closer to the city.",
+            "You decide to ask whether the start date could shift.",
+        ],
+    },
+    {
+        "id": "the-flat-hunt",
+        "title": "The flat hunt",
+        "intro": "Three viewings in one afternoon, a folder of floor plans, and an agent who's always "
+        "five minutes late. You're hunting for somewhere that finally feels right.",
+        "context": "a person viewing flats to rent in the city",
+        "topics": ["comparatives & superlatives", "prepositions", "articles"],
+        "narration": [
+            "The first flat is brighter but smaller than the second.",
+            "You ask the agent how far it is from the station.",
+            "You decide the top-floor flat is the best of the three.",
+        ],
+    },
+    {
+        "id": "the-snow-day",
+        "title": "The snow day",
+        "intro": "You wake to a white street, a silent road, and a message that everything's closed. "
+        "A rare free day has landed in your lap, and the kettle is already on.",
+        "context": "a person enjoying an unexpected snow day at home",
+        "topics": ["modal verbs", "conditionals", "word order"],
+        "narration": [
+            "You decide you might as well stay in and read all day.",
+            "If the snow keeps falling, the roads will close by evening.",
+            "You make hot chocolate and watch the flakes drift down.",
+        ],
+    },
+    {
+        "id": "the-wedding",
+        "title": "The big day",
+        "intro": "A seating chart that won't stay still, flowers arriving any minute, and a hundred "
+        "small jobs before the guests appear. You're helping pull it all together.",
+        "context": "a person helping organise a friend's wedding",
+        "topics": ["verb sequence (tense agreement)", "modal verbs", "punctuation"],
+        "narration": [
+            "You check that the caterer had confirmed the final numbers.",
+            "The flowers must be on every table before the guests arrive.",
+            "You read the schedule aloud: \"Vows at two, photos at three.\"",
+        ],
+    },
+    {
+        "id": "the-first-workout",
+        "title": "The first workout",
+        "intro": "A new gym pass, shoes still squeaky-clean, and a wall of machines you don't quite "
+        "recognise. A trainer waves you over to show you the ropes.",
+        "context": "a person starting their first week at the gym",
+        "topics": ["gerunds & infinitives", "modal verbs", "comparatives & superlatives"],
+        "narration": [
+            "You start by warming up before you lift anything heavy.",
+            "The trainer says you should rest between the harder sets.",
+            "By the end you feel stronger than when you walked in.",
+        ],
+    },
+    {
+        "id": "the-language-class",
+        "title": "The first lesson",
+        "intro": "A circle of nervous strangers, a teacher who only speaks the new language, and a "
+        "name badge you can barely pronounce. Your first evening class begins.",
+        "context": "a person on their first evening at a language class",
+        "topics": ["articles", "verb sequence (tense agreement)", "prepositions"],
+        "narration": [
+            "You introduce yourself and say where you come from.",
+            "The teacher asks why you decided to learn the language.",
+            "You practise a few phrases with the person beside you.",
+        ],
+    },
+    {
+        "id": "the-farmers-market",
+        "title": "The farmers' market",
+        "intro": "Crates of muddy carrots, a queue for fresh bread, and a tote bag that's already too "
+        "heavy. You've a short list and a soft spot for the cheese stall.",
+        "context": "a person shopping at a weekend farmers' market",
+        "topics": ["comparatives & superlatives", "articles", "prepositions"],
+        "narration": [
+            "You pick the ripest tomatoes from the corner stall.",
+            "The baker asks whether you'd like the larger loaf.",
+            "You squeeze past the crowd toward the cheese at the end.",
+        ],
+    },
+    {
+        "id": "the-museum-visit",
+        "title": "The museum",
+        "intro": "Marble floors, a map you keep folding wrong, and three hours to see far too much. "
+        "You decide to start with the gallery everyone says you can't miss.",
+        "context": "a person spending an afternoon at a large museum",
+        "topics": ["prepositions", "articles", "verb sequence (tense agreement)"],
+        "narration": [
+            "You head for the painting hanging at the top of the stairs.",
+            "A guide explains how the artist had worked for years on it.",
+            "You wander through the hall toward the ancient coins.",
+        ],
+    },
     # --- Premium arcs (koku-unlocked, engagement v2 Phase 3). `unlock` = content catalog id. ---
     {
         "id": "midnight-detective",
