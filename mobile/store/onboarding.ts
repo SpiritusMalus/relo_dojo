@@ -58,6 +58,11 @@ export const DOMAINS = SOFTWARE_ROLES;
 // See NICHE_PIVOT_IT_RELOCATION.md.
 export const DEFAULT_SPHERE = SOFTWARE_SPHERE;
 
+// Narrowing toggle: when true, onboarding leads with the IT sphere only and tucks the other spheres
+// behind a "not in tech?" disclosure (still reachable, nothing deleted). Set to false to show every
+// sphere up front again. Fully reversible.
+export const COLLAPSE_NON_IT_SPHERES = true;
+
 export const DAILY_MINUTES = [5, 10, 15, 30, 60];
 
 // Short phrases used to flavor generated examples toward the learner's goal.

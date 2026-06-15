@@ -15,6 +15,7 @@ import ExerciseCard from "../components/ExerciseCard";
 import { useProgress, type Profile } from "../store/progress";
 import { levelToCefr } from "../store/adaptive";
 import {
+  COLLAPSE_NON_IT_SPHERES,
   DAILY_MINUTES,
   DEFAULT_SPHERE,
   DEFAULT_TONE,
@@ -295,6 +296,8 @@ export default function OnboardingScreen() {
   const [dailyMinutes, setDailyMinutes] = useState(0);
   // Pre-seeded to the IT-relocation niche default; the user can still pick any other sphere.
   const [sphere, setSphere] = useState(DEFAULT_SPHERE);
+  // Niche narrowing: non-IT spheres stay tucked behind a disclosure until the learner asks for them.
+  const [showAllSpheres, setShowAllSpheres] = useState(false);
   const [domains, setDomains] = useState<string[]>([]);
   const [tone, setTone] = useState(DEFAULT_TONE);
   const [goalOther, setGoalOther] = useState("");
@@ -442,7 +445,7 @@ export default function OnboardingScreen() {
         {step === 7 && (
           <StepView title={tr("ob.areaTitle")} subtitle={tr("ob.areaSub")}>
             <View style={styles.wrap}>
-              {SPHERES.map((s) => (
+              {(COLLAPSE_NON_IT_SPHERES && !showAllSpheres ? [SOFTWARE_SPHERE] : SPHERES).map((s) => (
                 <Chip
                   key={s}
                   label={s}
@@ -453,6 +456,9 @@ export default function OnboardingScreen() {
                   }}
                 />
               ))}
+              {COLLAPSE_NON_IT_SPHERES && !showAllSpheres && (
+                <Chip label={tr("ob.areaOtherField")} selected={false} onPress={() => setShowAllSpheres(true)} />
+              )}
             </View>
             {sphere === SOFTWARE_SPHERE && (
               <View style={styles.wrap}>
