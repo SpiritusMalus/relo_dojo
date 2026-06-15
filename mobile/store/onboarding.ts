@@ -3,12 +3,16 @@ import type { Profile } from "./progress";
 import { LEVEL_MAX, LEVEL_MIN, START_LEVEL, TOPIC_PRIORS } from "./adaptive";
 
 // --- survey option data (canonical topic keys match backend grammar.py TOPICS) ---
-// Cross-field goals (not software-specific) so the survey fits any sphere.
+// Cross-field goals (not software-specific) so the survey fits any sphere. The
+// interviews → relocation_life → work_comms trio frames the IT-relocation arc
+// (pre-move → arrival → ongoing), but each goal is useful for any field too.
 export const GOALS: { id: string; label: string }[] = [
   { id: "emails", label: "Write clearer emails & messages" },
   { id: "meetings", label: "Speak up in meetings" },
   { id: "reading", label: "Read articles & documents" },
   { id: "interviews", label: "Job interviews" },
+  { id: "relocation_life", label: "Settle in after moving abroad" },
+  { id: "work_comms", label: "Daily work communication" },
   { id: "customers", label: "Talk with clients & customers" },
   { id: "travel", label: "Travel & everyday talk" },
 ];
@@ -43,6 +47,13 @@ export const SOFTWARE_ROLES = [
 ];
 // Back-compat alias (older code referenced DOMAINS).
 export const DOMAINS = SOFTWARE_ROLES;
+
+// Niche go-to-market default ("English for IT relocation"): the survey pre-selects this
+// sphere so SOFTWARE_ROLES surface up front. Every other sphere in SPHERES stays selectable
+// — set this back to "" to drop the default. Fully reversible, no data removed.
+// See NICHE_PIVOT_IT_RELOCATION.md.
+export const DEFAULT_SPHERE = SOFTWARE_SPHERE;
+
 export const DAILY_MINUTES = [5, 10, 15, 30, 60];
 
 // Short phrases used to flavor generated examples toward the learner's goal.
@@ -51,6 +62,8 @@ export const GOAL_PHRASES: Record<string, string> = {
   meetings: "speaking in meetings",
   reading: "reading articles and documents",
   interviews: "job interviews",
+  relocation_life: "settling in abroad — banking, renting, appointments, small talk",
+  work_comms: "everyday work communication — standups, code reviews, chat messages",
   customers: "talking with clients and customers",
   travel: "travelling and everyday conversation",
 };

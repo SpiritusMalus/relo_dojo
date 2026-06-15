@@ -613,6 +613,8 @@ export const RU_GOAL_LABELS: Record<string, string> = {
   meetings: "Высказываться на встречах",
   reading: "Читать статьи и документы",
   interviews: "Проходить собеседования",
+  relocation_life: "Обустроиться после переезда",
+  work_comms: "Ежедневное рабочее общение",
   customers: "Общаться с клиентами",
   travel: "Путешествия и бытовое общение",
 };
