@@ -8,6 +8,7 @@ import {
   track,
   trackContractClaimed,
   trackExerciseAnswered,
+  trackJourneyAdvanced,
   trackPaywallView,
   trackReviewSubmitted,
   trackScrollOpen,
@@ -136,5 +137,12 @@ describe("named funnel events (D7 contract)", () => {
     const [e] = await captured();
     expect(e.name).toBe("contract_claimed");
     expect(e.props).toEqual({ id: "warmup", reward: 15 });
+  });
+
+  test("journey_advanced carries the from/to relocation stages", async () => {
+    trackJourneyAdvanced({ from: "arrived", to: "settled" });
+    const [e] = await captured();
+    expect(e.name).toBe("journey_advanced");
+    expect(e.props).toEqual({ from: "arrived", to: "settled" });
   });
 });

@@ -93,6 +93,12 @@ export function trackContractClaimed(p: { id: string; reward: number }): void {
   track("contract_claimed", clean({ id: p.id, reward: p.reward }));
 }
 
+/** The learner advanced their relocation-journey stage — the niche's retention signal (does the
+ *  event-need → recurring-need hand-off actually happen?). Pairs with D7 for relocation cohorts. */
+export function trackJourneyAdvanced(p: { from: string; to: string }): void {
+  track("journey_advanced", clean({ from: p.from, to: p.to }));
+}
+
 /** Flush buffered events in one batch. Best-effort: on failure the batch is re-queued for later. */
 export async function flush(): Promise<void> {
   if (flushing || queue.length === 0 || sender === null) return;

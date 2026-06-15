@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useI18n } from "../../store/i18n";
+import { trackJourneyAdvanced } from "../../services/analytics";
 import { useTheme } from "../../theme/theme";
 import Card from "./Card";
 import Txt from "./Txt";
@@ -70,7 +71,12 @@ export default function JourneyStageCard({ goals }: { goals?: string[] | null })
           </Txt>
           <Button
             label={tr("prog.journeyAdvance", { stage: stageLabel(nextStage(journey.stage)) })}
-            onPress={async () => setJourney(await advanceAndSave(journey))}
+            onPress={async () => {
+              const from = journey.stage;
+              const next = await advanceAndSave(journey);
+              trackJourneyAdvanced({ from, to: next.stage });
+              setJourney(next);
+            }}
           />
         </View>
       )}
