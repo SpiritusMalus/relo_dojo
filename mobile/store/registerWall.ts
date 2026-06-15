@@ -56,6 +56,15 @@ export async function saveWall(s: WallState): Promise<void> {
   }
 }
 
+/** Clear the counter (called on logout so a fresh guest doesn't inherit the previous user's count). */
+export async function resetWall(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 /** Convenience: load → countLesson → save, returning the new state. Used at session finish. */
 export async function recordLessonFinished(): Promise<WallState> {
   const next = countLesson(await loadWall());

@@ -11,21 +11,25 @@ import Sensei from "./Sensei";
 export default function RegisterWall({
   onCreate,
   onDismiss,
+  reason = "save",
 }: {
   onCreate: () => void;
   onDismiss: () => void;
+  /** "save" = soft after-N-lessons nudge; "limit" = guest hit today's exercise cap. */
+  reason?: "save" | "limit";
 }) {
   const t = useTheme();
   const { t: tr } = useI18n();
+  const limit = reason === "limit";
   return (
     <Card>
       <View style={{ alignItems: "center", gap: 6, paddingVertical: 2 }}>
-        <Sensei size={64} mood="cheer" />
+        <Sensei size={64} mood={limit ? "think" : "cheer"} />
         <Txt variant="cardTitle" style={{ textAlign: "center" }}>
-          {tr("wall.title")}
+          {tr(limit ? "wall.limitTitle" : "wall.title")}
         </Txt>
         <Txt variant="secondary" color={t.c.ink2} style={{ textAlign: "center", marginBottom: 6 }}>
-          {tr("wall.body")}
+          {tr(limit ? "wall.limitBody" : "wall.body")}
         </Txt>
         <Button label={tr("wall.create")} onPress={onCreate} />
         <Button label={tr("wall.later")} variant="ghost" onPress={onDismiss} />

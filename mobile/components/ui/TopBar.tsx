@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useAuth } from "../../store/auth";
 import { useTheme, type Belt } from "../../theme/theme";
 import BeltKnot from "./BeltKnot";
 import BeltPickerSheet from "./BeltPickerSheet";
@@ -14,6 +15,7 @@ import Txt from "./Txt";
 export default function TopBar({ belt, streak, xp }: { belt: Belt; streak: number; xp: number }) {
   const t = useTheme();
   const router = useRouter();
+  const { token } = useAuth();
   const [sheet, setSheet] = useState(false);
   return (
     <View style={styles.bar}>
@@ -32,7 +34,8 @@ export default function TopBar({ belt, streak, xp }: { belt: Belt; streak: numbe
 
       <View style={styles.right}>
         <PremiumBadge />
-        <CoinBadge />
+        {/* Koku economy is account-only (server-authoritative). Hide the balance for guests. */}
+        {!!token && <CoinBadge />}
         <View style={[styles.badge, { backgroundColor: t.c.fireSoft }]}>
           <Txt variant="caption" color={t.c.fire}>{`🔥 ${streak}`}</Txt>
         </View>

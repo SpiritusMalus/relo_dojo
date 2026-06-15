@@ -95,6 +95,8 @@ export const STRINGS = {
     "wall.body": "Create a free account so your belt, streak and koku follow you on every device.",
     "wall.create": "Create free account",
     "wall.later": "Maybe later",
+    "wall.limitTitle": "Today's training is complete",
+    "wall.limitBody": "You've done today's free set. Create a free account to keep training — and your progress syncs across devices.",
 
     "settings.title": "Settings",
     "settings.account": "Account",
@@ -379,6 +381,8 @@ export const STRINGS = {
     "wall.body": "Создай бесплатный аккаунт — пояс, серия и коку будут с тобой на любом устройстве.",
     "wall.create": "Создать бесплатный аккаунт",
     "wall.later": "Позже",
+    "wall.limitTitle": "На сегодня тренировка окончена",
+    "wall.limitBody": "Ты прошёл сегодняшний бесплатный набор. Создай бесплатный аккаунт, чтобы продолжить — и прогресс будет синхронизирован между устройствами.",
 
     "settings.title": "Настройки",
     "settings.account": "Аккаунт",

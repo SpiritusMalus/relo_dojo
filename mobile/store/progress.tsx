@@ -16,6 +16,8 @@ import {
 } from "react";
 import { getProgress, putProgress, syncLearnerProfile } from "../services/api";
 import { useAuth } from "./auth";
+import { resetWall } from "./registerWall";
+import { resetGuestLimit } from "./guestLimit";
 import { useWallet } from "./wallet";
 import { updateSkill } from "./adaptive";
 import {
@@ -408,9 +410,13 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     }
     if (!token) {
       syncedToken.current = null;
-      setSynced(true); // logged-out state is settled (gate falls through to /login)
+      setSynced(true); // logged-out: settled, the user is now an anonymous guest
       setProgress(DEFAULT_PROGRESS);
       void save(DEFAULT_PROGRESS);
+      // Reset the anon-funnel counters so a fresh guest doesn't inherit the previous user's state
+      // (register-wall lesson count + guest daily cap).
+      void resetWall();
+      void resetGuestLimit();
       return;
     }
     syncedToken.current = token;
