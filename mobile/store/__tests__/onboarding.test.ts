@@ -40,4 +40,20 @@ describe("IT-relocation niche onboarding defaults", () => {
     expect(ctx).toContain("settling in abroad");
     expect(ctx).toContain("everyday work communication");
   });
+
+  test("buildContext never exceeds the 300-char server cap, even with every goal + a long field", () => {
+    const profile: Profile = {
+      goals: GOALS.map((g) => g.id), // all goals → many long phrases (the journey arc included)
+      focusTopics: [],
+      selfLevel: "advanced",
+      dailyMinutes: 60,
+      sphere: "Science & engineering",
+      domains: ["backend", "frontend", "data / ML", "devops", "security", "embedded"],
+      painText: "",
+      tone: "balanced",
+    };
+    const ctx = buildContext(profile, () => 0);
+    expect(ctx.length).toBeLessThanOrEqual(300);
+    expect(ctx).toContain("Science & engineering"); // the most specific part is preserved
+  });
 });

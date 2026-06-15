@@ -159,8 +159,25 @@ export function buildContext(
   } else if (domains.length) {
     parts.push(domains.join(", "));
   }
-  if (goals.length) parts.push(`goals: ${goals.join(", ")}`);
-  const base = parts.join("; ");
+  // Add goal phrases greedily up to the server cap — many long phrases (e.g. the whole journey arc:
+  // interviews + relocation_life + work_comms) could otherwise push `context` past 300 chars and 422
+  // the generation request. The field part (short, most specific) is kept first.
+  if (goals.length) {
+    const head = parts.join("; ");
+    const budget = CONTEXT_MAX_LEN - (head ? head.length + 2 : 0) - "goals: ".length;
+    const kept: string[] = [];
+    let used = 0;
+    for (const g of goals) {
+      const cost = (kept.length ? 2 : 0) + g.length; // ", " separator + phrase
+      if (used + cost > budget) break;
+      kept.push(g);
+      used += cost;
+    }
+    if (kept.length) parts.push(`goals: ${kept.join(", ")}`);
+  }
+  let base = parts.join("; ");
+  // Belt-and-suspenders: even a huge free-text field/role can't blow the cap.
+  if (base.length > CONTEXT_MAX_LEN) base = base.slice(0, CONTEXT_MAX_LEN).trimEnd();
   // Weave in a concrete journey scenario when one applies and it still fits the server cap; bias it
   // toward the learner's current journey stage when the caller passes one.
   const scenario = pickScenario(profile.goals, rng, preferGoal);
