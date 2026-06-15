@@ -45,7 +45,7 @@ describe("Login screen (smoke)", () => {
 
   it("renders the brand + both fields without throwing", () => {
     const r = render(<LoginScreen />);
-    expect(JSON.stringify(r.toJSON())).toContain("Grammar Dojo");
+    expect(JSON.stringify(r.toJSON())).toContain("Relo Dojo");
     expect(inputByLabel(r, "login.email")).toBeTruthy();
     expect(inputByLabel(r, "login.password")).toBeTruthy();
   });

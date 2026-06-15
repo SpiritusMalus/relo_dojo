@@ -1,18 +1,18 @@
-# Terms of Use — Grammar Dojo
+# Terms of Use — Relo Dojo
 
 **Effective date:** [INSERT DATE]
-**Operator ("we", "us"):** [INSERT LEGAL NAME / SOLE PROPRIETOR] ("Grammar Dojo")
+**Operator ("we", "us"):** [INSERT LEGAL NAME / SOLE PROPRIETOR] ("Relo Dojo")
 **Contact:** [INSERT CONTACT EMAIL]
 
 > Draft prepared for the app stores. Complete the bracketed fields and the governing-law section, and
 > have a qualified lawyer review before publication. This is not legal advice.
 
-By creating an account or using Grammar Dojo (the "App"), you agree to these Terms. If you do not
+By creating an account or using Relo Dojo (the "App"), you agree to these Terms. If you do not
 agree, do not use the App.
 
 ## 1. The service
 
-Grammar Dojo provides English-learning exercises, automated feedback, progress tracking, and
+Relo Dojo provides English-learning exercises, automated feedback, progress tracking, and
 gamification features (experience points, streaks, a virtual in-app currency called "koku", and
 cosmetic items). The App is provided for personal, non-commercial educational use.
 

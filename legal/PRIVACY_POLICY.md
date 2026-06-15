@@ -1,7 +1,7 @@
-# Privacy Policy — Grammar Dojo
+# Privacy Policy — Relo Dojo
 
 **Effective date:** [INSERT DATE]
-**Operator ("we", "us"):** [INSERT LEGAL NAME / SOLE PROPRIETOR] ("Grammar Dojo")
+**Operator ("we", "us"):** [INSERT LEGAL NAME / SOLE PROPRIETOR] ("Relo Dojo")
 **Contact:** [INSERT CONTACT EMAIL]
 
 > Draft prepared for the app stores. The factual descriptions below match how the app actually
@@ -9,7 +9,7 @@
 > the whole document should be reviewed by a qualified lawyer before publication. This is not legal
 > advice.
 
-Grammar Dojo is a mobile app for learning English through short daily grammar exercises. This policy
+Relo Dojo is a mobile app for learning English through short daily grammar exercises. This policy
 explains what we collect, why, and your choices.
 
 ## Summary
@@ -105,7 +105,7 @@ device settings.
 
 ## Children
 
-Grammar Dojo is not directed to children under [13 / 16 — choose per your markets]. We do not
+Relo Dojo is not directed to children under [13 / 16 — choose per your markets]. We do not
 knowingly collect data from children under that age. If you believe a child has provided us data,
 contact us and we will delete it.
 

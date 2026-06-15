@@ -1,25 +1,26 @@
-# Store Listing — Grammar Dojo
+# Store Listing — Relo Dojo
 
 Draft copy for Google Play and the Apple App Store. Trim to each store's character limits (noted
 below). Keep claims truthful — avoid promising features that aren't shipped (e.g. voice, payments).
 
 ## App name
-**Grammar Dojo — Learn English**
-(Play title ≤ 30 chars: "Grammar Dojo: Learn English" — 27. App Store name ≤ 30 chars: "Grammar Dojo".)
+**Relo Dojo — English for IT relocation**
+(Play title ≤ 30 chars: "Relo Dojo: IT relocation" — 24. App Store name ≤ 30 chars: "Relo Dojo".)
 
 ## Subtitle / short description
-- **App Store subtitle (≤ 30):** Daily English grammar
-- **Google Play short description (≤ 80):** Short daily English grammar workouts, tailored to your field. Train like a dojo.
+- **App Store subtitle (≤ 30):** English for IT relocation
+- **Google Play short description (≤ 80):** English for devs moving abroad — interview prep, life abroad, workplace English.
 
 ## Promotional text (App Store, ≤ 170)
-Five minutes a day. Bite-size grammar drills built around your world — work, travel, study — with
-instant, friendly feedback. Keep your streak, earn your belt.
+Moving abroad in tech? Get interview-ready, handle life after the move, and speak up in standups —
+five minutes a day, examples built from your own role. Keep your streak, earn your belt.
 
 ## Full description (Google Play ≤ 4000; App Store description ≤ 4000)
 
-Grammar Dojo turns English grammar into a five-minute daily habit. Instead of dry textbook drills,
-you get short, tappable exercises generated around your own field and goals — so the examples feel
-like your real life, whether that's work emails, travel, meetings, or study.
+Relo Dojo is English for your IT relocation, built as a five-minute daily habit. Whether you're
+prepping for interviews, settling into life abroad, or finding your voice in standups and code
+reviews, you get short, tappable exercises generated around your own role and goals — so the
+examples match the move you're actually making, not a textbook.
 
 **How it works**
 - Quick onboarding finds your level and what you want to improve.
@@ -33,9 +34,10 @@ like your real life, whether that's work emails, travel, meetings, or study.
 - Daily contracts, reward scrolls, and a friendly Sensei keep practice fun.
 - Collect koku and customize your dojo as you train.
 
-**Made for any field**
-You don't need to be a developer or a student — tell the app your sphere and goals, and the
-exercises follow. Positioning is broad; the personalization happens under the hood.
+**Built for IT relocation — works for any field**
+The focus is developers moving abroad: interview prep, life after the move, and everyday workplace
+English. But the engine is domain-parametric — tell the app your sphere and goals and the exercises
+follow, so it works just as well for any field. The personalization happens under the hood.
 
 **Private by design**
 We collect the minimum to run your account and lessons. We don't show ads and we don't sell your
@@ -44,7 +46,7 @@ data. See our Privacy Policy.
 Start your first session today — keep the streak, earn the belt.
 
 ## Keywords (App Store, ≤ 100 chars, comma-separated)
-english,grammar,learn english,esl,vocabulary,language,practice,daily,exercises,tutor,speaking,study
+english,it relocation,relocate,developer,tech english,interview,workplace,esl,grammar,expat,standup
 
 ## Category
 - Primary: **Education**
