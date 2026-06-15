@@ -291,8 +291,9 @@ export default function HomeScreen() {
         </Txt>
       )}
 
-      {/* Daily contracts (engagement v2): the come-back-every-day + earn-varied hook. */}
-      <ContractsCard />
+      {/* Daily contracts (engagement v2): the come-back-every-day + earn-varied hook.
+          Account-only — the koku economy is server-authoritative, so guests don't see it. */}
+      {access.sync && <ContractsCard />}
 
       <LockGate locked={!access.story}>
         <StoryButton
@@ -311,9 +312,9 @@ export default function HomeScreen() {
           <ReviewButton count={mistakes} onPress={() => router.push("/review")} />
         </LockGate>
       )}
-      {/* Named entry to the Lavka — the CoinBadge alone (a tappable balance) was too implicit.
-          Not gated: the server allows unverified accounts to spend koku they've earned. */}
-      <ShopButton onPress={() => router.push("/shop")} />
+      {/* Named entry to the Lavka. Account-only: koku is earned/spent server-side, so a guest's
+          shop would be inert (0 koku, 401 on buy). Shown once there's an account. */}
+      {access.sync && <ShopButton onPress={() => router.push("/shop")} />}
     </Screen>
   );
 }

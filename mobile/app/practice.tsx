@@ -33,6 +33,9 @@ import { useCosmetics } from "../store/cosmeticsStore";
 import { firstAffordableUnowned } from "../store/cosmetics";
 import { useAuth } from "../store/auth";
 import { recordLessonFinished } from "../store/registerWall";
+import { consumeGuestExercise } from "../store/guestLimit";
+import { localDate } from "../store/streak";
+import RegisterWall from "../components/ui/RegisterWall";
 
 const SESSION_LEN = 10;
 
@@ -84,6 +87,7 @@ export default function PracticeScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [gated, setGated] = useState(false); // 403: account not activated / starter limit reached
   const [limited, setLimited] = useState(false); // 403 "daily_limit": free-tier cap → upsell sheet
+  const [guestLimited, setGuestLimited] = useState(false); // anon hit today's client-side cap → register wall
   const [solved, setSolved] = useState(0);
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const [showScroll, setShowScroll] = useState(false); // end-of-session summary + reward scroll
@@ -101,10 +105,19 @@ export default function PracticeScreen() {
     setLoadError(null);
     setGated(false);
     setLimited(false);
+    setGuestLimited(false);
     reset();
     setResponse(null);
     setResponseDisplay("");
     setExercise(null);
+    // Guests get the same daily allowance as a free account (store/guestLimit.ts). On exhaustion we
+    // show the register wall instead of fetching — registering lifts the cap and adds sync. (The
+    // server doesn't meter anonymous callers; this is the client-side incentive fix.)
+    if (!token && !(await consumeGuestExercise(localDate(new Date())))) {
+      setGuestLimited(true);
+      setLoading(false);
+      return;
+    }
     try {
       // Refresh the local miss list so freshly-refilled cards can target the latest weak points.
       mistakesRef.current = await loadMistakes();
@@ -125,7 +138,7 @@ export default function PracticeScreen() {
     } finally {
       setLoading(false);
     }
-  }, [reset]);
+  }, [reset, token]);
 
   useEffect(() => {
     // On mount, or when the drilled topic changes, drop any buffered cards (they may be off-topic)
@@ -234,6 +247,16 @@ export default function PracticeScreen() {
         {limited && !loading && (
           <View style={{ marginTop: 20 }}>
             <LimitSheet belt={beltProgress(progress).belt} onUnlocked={loadExercise} />
+          </View>
+        )}
+
+        {guestLimited && !loading && (
+          <View style={{ marginTop: 20 }}>
+            <RegisterWall
+              reason="limit"
+              onCreate={() => router.push("/login")}
+              onDismiss={() => router.back()}
+            />
           </View>
         )}
 
