@@ -189,7 +189,7 @@ export async function rescheduleAll(state: ScheduleState, now: Date = new Date()
       .filter((p) => p.date.getTime() > now.getTime())
       .map((p) =>
         Notifications.scheduleNotificationAsync({
-          content: { title: "Grammar Dojo", body: p.body },
+          content: { title: "Relo Dojo", body: p.body },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: p.date },
         })
       )

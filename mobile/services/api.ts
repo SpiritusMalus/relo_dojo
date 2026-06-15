@@ -1,4 +1,4 @@
-// API client for the Grammar Dojo backend.
+// API client for the Relo Dojo backend.
 //
 // The backend runs on the same machine (Mac) that serves the Expo bundle, on port 8000.
 // To avoid hardcoding the Mac's LAN IP (it changes between networks), we derive it from the

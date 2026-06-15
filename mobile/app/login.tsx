@@ -53,7 +53,7 @@ export default function LoginScreen() {
         <View style={styles.hero}>
           <Sensei size={120} mood="cheer" bob />
           <Txt variant="hero" style={{ fontSize: 34, marginTop: 8 }}>
-            Grammar Dojo
+            Relo Dojo
           </Txt>
           <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center", maxWidth: 280 }}>
             {tr("login.tagline")}
