@@ -200,6 +200,8 @@ class UserOut(BaseModel):
     # Cosmetics (engagement v2): everything the user can equip + what's equipped per slot.
     cosmetics: list[str] = Field(default_factory=list)
     equipped: dict[str, str] = Field(default_factory=dict)
+    # Feature capability map (services/access.py): the client reads booleans, never re-derives gating.
+    access: dict[str, bool] = Field(default_factory=dict)
 
 
 # --- cosmetics (engagement v2) ---

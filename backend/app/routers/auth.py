@@ -19,7 +19,7 @@ from ..core.security import (
 from ..db.models import User
 from ..deps import auth_rate_limit, get_current_user, get_db
 from ..schemas import LoginIn, MessageOut, RegisterIn, TokenOut, UserOut
-from ..services import cosmetics as cosmetics_service
+from ..services import access, cosmetics as cosmetics_service
 from ..services.email import send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -96,6 +96,7 @@ async def me(user: User = Depends(get_current_user)) -> UserOut:
         freezes=user.freezes,
         cosmetics=cosmetics_service.owned_ids(user),
         equipped=cosmetics_service.equipped_resolved(user),
+        access=access.access_map(user),
     )
 
 

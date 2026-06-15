@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useProgress } from "../../store/progress";
 import { useAuth } from "../../store/auth";
+import { useAccess } from "../../store/access";
 import { useWallet } from "../../store/wallet";
 import { useI18n } from "../../store/i18n";
 import { beltProgress } from "../../store/dojo";
@@ -75,8 +76,10 @@ export default function HomeScreen() {
   })();
 
   const bp = beltProgress(progress);
-  // Until the account is verified, only the starter (Daily Mix) is open; other modes are locked.
-  const locked = !!user && !user.is_verified;
+  // Feature gating is data-driven (store/access.ts → backend services/access.py). Content modes are
+  // open to everyone (incl. anonymous); these flags stay false today but auto-lock if a feature is
+  // ever moved behind an account/premium gate — no screen rewrite needed.
+  const access = useAccess();
 
   // Refresh the mistake count whenever Home regains focus (e.g. returning from Review/Practice).
   const [mistakes, setMistakes] = useState(0);
@@ -272,20 +275,20 @@ export default function HomeScreen() {
       {/* Daily contracts (engagement v2): the come-back-every-day + earn-varied hook. */}
       <ContractsCard />
 
-      <LockGate locked={locked}>
+      <LockGate locked={!access.story}>
         <StoryButton
           onPress={() => router.push("/story")}
           subtitle={featuredArc ? tr("home.featuredStory", { title: featuredArc }) : undefined}
         />
       </LockGate>
-      <LockGate locked={locked}>
+      <LockGate locked={!access.challenge}>
         <ChallengeButton onPress={() => router.push("/challenge")} />
       </LockGate>
-      <LockGate locked={locked}>
+      <LockGate locked={!access.review_text}>
         <TextReviewButton onPress={() => router.push("/text-review")} />
       </LockGate>
       {mistakes > 0 && (
-        <LockGate locked={locked}>
+        <LockGate locked={!access.review}>
           <ReviewButton count={mistakes} onPress={() => router.push("/review")} />
         </LockGate>
       )}
