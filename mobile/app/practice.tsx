@@ -33,6 +33,7 @@ import { useCosmetics } from "../store/cosmeticsStore";
 import { firstAffordableUnowned } from "../store/cosmetics";
 import { useAuth } from "../store/auth";
 import { recordLessonFinished } from "../store/registerWall";
+import { recordJourneySession, loadJourney, stageFromGoals, STAGE_GOAL } from "../store/journey";
 import { consumeGuestExercise } from "../store/guestLimit";
 import { localDate } from "../store/streak";
 import RegisterWall from "../components/ui/RegisterWall";
@@ -58,6 +59,21 @@ export default function PracticeScreen() {
   progressRef.current = progress;
   const forcedTopicRef = useRef(forcedTopic);
   forcedTopicRef.current = forcedTopic;
+  // Current relocation-journey emphasis (a journey goal id) → biases generated scenarios toward the
+  // learner's stage. Loaded once; seeded from goals until a journey is persisted. Ref keeps
+  // selectParams sync.
+  const journeyGoalRef = useRef<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    loadJourney().then((j) => {
+      if (!active) return;
+      const stage = j?.stage ?? stageFromGoals(progressRef.current.profile?.goals);
+      journeyGoalRef.current = STAGE_GOAL[stage];
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Pre-generation buffer: while the learner solves a card, the next ones are fetched in the
   // background so "Next" is instant. Params are resolved from the freshest learner model per fetch.
@@ -73,7 +89,7 @@ export default function PracticeScreen() {
           topic,
           level: cefr,
           type,
-          context: buildContext(progressRef.current.profile),
+          context: buildContext(progressRef.current.profile, undefined, journeyGoalRef.current),
           mistakes: mistakeHintsForTopic(mistakesRef.current, topic),
         };
       },
@@ -347,6 +363,8 @@ export default function PracticeScreen() {
                   // Anon-first funnel: count finished lessons so Home can surface the soft
                   // save-progress wall after a few. No-op effect for signed-in users.
                   if (!token) void recordLessonFinished();
+                  // Relocation journey: count a finished session so we can nudge to the next stage.
+                  void recordJourneySession(progressRef.current.profile?.goals);
                   setShowScroll(true);
                 }}
               />

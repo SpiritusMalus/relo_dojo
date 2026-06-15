@@ -135,9 +135,14 @@ export function seedSkillFromProfile(profile: Profile): Record<string, number> {
 // --- functional effects of the profile ---
 
 /** A hint string for example generation: the learner's sphere + sub-roles/interests + goals, plus one
- *  curated journey scenario when a relocation goal is set (see scenarioPacks). `rng` is injectable for
+ *  curated journey scenario when a relocation goal is set (see scenarioPacks). `preferGoal` biases the
+ *  scenario toward the learner's current journey stage (see store/journey.ts). `rng` is injectable for
  *  deterministic tests; production uses Math.random so the scenario rotates for variety. */
-export function buildContext(profile: Profile | null, rng: () => number = Math.random): string {
+export function buildContext(
+  profile: Profile | null,
+  rng: () => number = Math.random,
+  preferGoal?: string | null
+): string {
   if (!profile) return "";
   const sphere = (profile.sphere ?? "").trim();
   const domains = (profile.domains ?? []).filter((d) => d && d !== "other");
@@ -151,8 +156,9 @@ export function buildContext(profile: Profile | null, rng: () => number = Math.r
   }
   if (goals.length) parts.push(`goals: ${goals.join(", ")}`);
   const base = parts.join("; ");
-  // Weave in a concrete journey scenario when one applies and it still fits the server cap.
-  const scenario = pickScenario(profile.goals, rng);
+  // Weave in a concrete journey scenario when one applies and it still fits the server cap; bias it
+  // toward the learner's current journey stage when the caller passes one.
+  const scenario = pickScenario(profile.goals, rng, preferGoal);
   if (scenario) {
     const withScenario = base ? `${base}; e.g. ${scenario}` : `e.g. ${scenario}`;
     if (withScenario.length <= CONTEXT_MAX_LEN) return withScenario;
