@@ -16,6 +16,8 @@ import StreakRepairSheet from "../../components/ui/StreakRepairSheet";
 import OfferBanner from "../../components/ui/OfferBanner";
 import { ensureOffer } from "../../store/offers";
 import LockGate from "../../components/ui/LockGate";
+import RegisterWall from "../../components/ui/RegisterWall";
+import { dismiss as dismissWall, loadWall, saveWall, shouldShowWall, DEFAULT_WALL, type WallState } from "../../store/registerWall";
 import DailyMixButton from "../../components/ui/DailyMixButton";
 import ContractsCard from "../../components/ui/ContractsCard";
 import StoryButton from "../../components/ui/StoryButton";
@@ -85,6 +87,8 @@ export default function HomeScreen() {
   const [mistakes, setMistakes] = useState(0);
   // Today's featured story arc ("today's different" rotation), surfaced on the Story button.
   const [featuredArc, setFeaturedArc] = useState<string | null>(null);
+  // Soft register wall (anon-first funnel): lesson count is bumped in practice; we just read it here.
+  const [wall, setWall] = useState<WallState>(DEFAULT_WALL);
 
   // Trigger: onboarding done → open the one-shot 24h starter offer (no-op if it ever existed).
   // In an effect, not the render body — render must stay side-effect-free.
@@ -124,6 +128,8 @@ export default function HomeScreen() {
     useCallback(() => {
       let active = true;
       mistakeCount().then((n) => active && setMistakes(n));
+      // Re-read the anon lesson count (bumped at each session finish in practice.tsx).
+      loadWall().then((w) => active && setWall(w));
       // Refresh the wallet too: koku earned and the daily allowance spent in Practice should be
       // visible the moment the learner lands back on Home (the shrinking counter is the point).
       void refresh();
@@ -152,6 +158,19 @@ export default function HomeScreen() {
 
       {/* One-shot timed offer (FOMO with an honest clock) */}
       <OfferBanner />
+
+      {/* Soft save-progress wall: after a few anonymous lessons, offer (never force) an account to
+          sync progress. Driven by access.sync (false only for anonymous users). */}
+      {shouldShowWall(wall, access.sync) && (
+        <RegisterWall
+          onCreate={() => router.push("/login")}
+          onDismiss={() => {
+            const next = dismissWall(wall);
+            setWall(next);
+            void saveWall(next);
+          }}
+        />
+      )}
 
       {/* Belt hero — background is the current belt colour */}
       <LinearGradient

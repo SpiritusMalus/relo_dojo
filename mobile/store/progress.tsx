@@ -400,7 +400,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   // React to login/logout: merge-on-login (server canonical), clear-on-logout (avoid mixing accounts).
   useEffect(() => {
     if (!ready || !authReady) return;
-    if (token === syncedToken.current) return;
+    if (token === syncedToken.current) {
+      // No token transition. Anonymous-first: with no token there's nothing to reconcile, so settle
+      // the routing gate immediately (otherwise `synced` would stay false and block onboarding).
+      if (!token) setSynced(true);
+      return;
+    }
     if (!token) {
       syncedToken.current = null;
       setSynced(true); // logged-out state is settled (gate falls through to /login)
