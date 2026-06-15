@@ -31,6 +31,8 @@ import { ensureOffer } from "../store/offers";
 import { useWallet } from "../store/wallet";
 import { useCosmetics } from "../store/cosmeticsStore";
 import { firstAffordableUnowned } from "../store/cosmetics";
+import { useAuth } from "../store/auth";
+import { recordLessonFinished } from "../store/registerWall";
 
 const SESSION_LEN = 10;
 
@@ -39,6 +41,7 @@ export default function PracticeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress, updateProfile } = useProgress();
+  const { token } = useAuth();
   const { t: tr, lang } = useI18n();
   // Stage 2 Progress Agent: every answer of this session, pushed once at the summary screen.
   const sessionAnswersRef = useRef<SessionAnswer[]>([]);
@@ -318,6 +321,9 @@ export default function PracticeScreen() {
                 label={tr("action.finish")}
                 onPress={() => {
                   pushSessionSummary();
+                  // Anon-first funnel: count finished lessons so Home can surface the soft
+                  // save-progress wall after a few. No-op effect for signed-in users.
+                  if (!token) void recordLessonFinished();
                   setShowScroll(true);
                 }}
               />

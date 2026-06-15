@@ -32,18 +32,18 @@ function RootNav() {
     const onLogin = segments[0] === "login";
     const onOnboarding = segments[0] === "onboarding";
 
-    if (!token) {
-      if (!onLogin) router.replace("/login");
-      return;
-    }
-    if (onLogin) {
+    // Anonymous-first funnel (P1): a missing token no longer forces /login. Anonymous and
+    // authenticated users both flow onboarding → tabs; the account ask is deferred to the soft
+    // save-progress wall (store/registerWall.ts). /login is reachable on demand ("Save progress").
+    if (token && onLogin) {
       router.replace("/");
       return;
     }
     // Decide onboarding only once progress is loaded AND the post-login server snapshot has merged
-    // in — otherwise an existing account briefly shows onboarding on the reset local default.
+    // in — otherwise an existing account briefly shows onboarding on the reset local default. For
+    // anonymous users there's nothing to reconcile, so `synced` settles immediately (progress store).
     if (!progressReady || !synced) return;
-    if (!progress.onboarded && !onOnboarding) {
+    if (!progress.onboarded && !onOnboarding && !onLogin) {
       router.replace("/onboarding");
     } else if (progress.onboarded && onOnboarding) {
       router.replace("/");

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../store/auth";
 import { useI18n } from "../store/i18n";
@@ -14,7 +15,8 @@ export default function LoginScreen() {
   const t = useTheme();
   const { t: tr } = useI18n();
   const insets = useSafeAreaInsets();
-  const { login, register } = useAuth();
+  const router = useRouter();
+  const { login, register, token } = useAuth();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -93,6 +95,21 @@ export default function LoginScreen() {
               {isRegister ? tr("login.haveAccount") : tr("login.newHere")}
             </Txt>
           </Pressable>
+
+          {/* Anon-first: registration is optional. Let anonymous users keep learning without it. */}
+          {!token && (
+            <Pressable
+              onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={tr("login.skip")}
+              style={{ alignItems: "center", paddingVertical: 6 }}
+            >
+              <Txt variant="secondary" color={t.c.ink3}>
+                {tr("login.skip")}
+              </Txt>
+            </Pressable>
+          )}
         </View>
       </View>
     </KeyboardAvoidingView>

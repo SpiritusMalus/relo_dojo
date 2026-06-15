@@ -90,6 +90,11 @@ export const STRINGS = {
     "login.haveAccount": "Have an account? Log in",
     "login.newHere": "New here? Create an account",
     "login.gmailBlocked": "Sorry, Gmail isn't allowed for sign-up in Russia.",
+    "login.skip": "Continue without an account",
+    "wall.title": "Save your progress",
+    "wall.body": "Create a free account so your belt, streak and koku follow you on every device.",
+    "wall.create": "Create free account",
+    "wall.later": "Maybe later",
 
     "settings.title": "Settings",
     "settings.account": "Account",
@@ -369,6 +374,11 @@ export const STRINGS = {
     "login.haveAccount": "Уже есть аккаунт? Войти",
     "login.newHere": "Впервые здесь? Создать аккаунт",
     "login.gmailBlocked": "Извините, gmail запрещён в России для регистрации",
+    "login.skip": "Продолжить без аккаунта",
+    "wall.title": "Сохрани свой прогресс",
+    "wall.body": "Создай бесплатный аккаунт — пояс, серия и коку будут с тобой на любом устройстве.",
+    "wall.create": "Создать бесплатный аккаунт",
+    "wall.later": "Позже",
 
     "settings.title": "Настройки",
     "settings.account": "Аккаунт",
