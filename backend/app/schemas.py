@@ -333,6 +333,14 @@ class ScrollOut(BaseModel):
     freezes: int
 
 
+class AdRewardOut(BaseModel):
+    """Result of a completed rewarded ad: koku granted + new balance + grants left today."""
+
+    amount: int
+    coins: int
+    left_today: int
+
+
 # --- onboarding free-text analysis (Phase: onboarding) ---
 class AnalyzeIn(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_TEXT)

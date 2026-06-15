@@ -468,6 +468,15 @@ export function openScroll(): Promise<ScrollReward> {
   return request<ScrollReward>("/rewards/scroll", {});
 }
 
+// --- rewarded ads (koku grant; server-authoritative, daily-capped) ---
+export type AdReward = { amount: number; coins: number; left_today: number };
+
+// Credit koku for a completed rewarded ad. Requires an account. 403 "ads_disabled" until the
+// feature is enabled server-side (ADS_REWARDS_PER_DAY > 0); 403 "ads_limit" past the daily cap.
+export function postAdReward(): Promise<AdReward> {
+  return request<AdReward>("/ads/reward", {});
+}
+
 // --- analytics events (north-star Day-7 retention) ---
 // Best-effort batch upload. Open to anonymous callers; the bearer token (if set) attributes the
 // events to the account server-side. `anon_id` carries pre-login identity.

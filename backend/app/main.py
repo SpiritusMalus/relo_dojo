@@ -54,13 +54,14 @@ from .schemas import (
     ContentBuyOut,
     ContentIn,
     ReviewOut,
+    AdRewardOut,
     ScrollOut,
     StoryArcOut,
     StoryCatalogOut,
     StoryIn,
     StoryOut,
 )
-from .services import analytics, content, gating, grammar, learner_profile, rewards, stories, tokens
+from .services import ads, analytics, content, gating, grammar, learner_profile, rewards, stories, tokens
 from .services import wallet as wallet_service
 from .services.llm import LLMError as OllamaError  # one exception across providers
 from .services.llm import generate_stream as llm_generate_stream
@@ -359,6 +360,17 @@ async def open_scroll(
     """Open one reward scroll (end of a session). Server-rolled and server-credited — the variable
     prize is the comeback hook, the daily cap is the farm guard."""
     return ScrollOut(**await rewards.grant_scroll(user, db))
+
+
+@app.post("/ads/reward", response_model=AdRewardOut)
+async def ad_reward(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AdRewardOut:
+    """Credit koku for a completed rewarded ad (server-authoritative, daily-capped). Disabled by
+    default (ADS_REWARDS_PER_DAY=0) until the ad SDK + server-side verification are wired — see
+    services/ads.py. Requires an account (anonymous users have no wallet to credit)."""
+    return AdRewardOut(**await ads.grant_rewarded(user, db))
 
 
 @app.post("/dev/premium")

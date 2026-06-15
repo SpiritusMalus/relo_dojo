@@ -43,6 +43,9 @@ class User(Base):
     # Scroll rewards (variable reinforcement): daily cap tracking (UTC day).
     scroll_day: Mapped[str] = mapped_column(String(10), nullable=False, server_default="")
     scrolls_used: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    # Rewarded-ad koku grants: daily cap tracking (UTC day). Server-authoritative, like scrolls.
+    ad_reward_day: Mapped[str] = mapped_column(String(10), nullable=False, server_default="")
+    ad_rewards_used: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     # First-win-of-day bonus (engagement v2): the UTC day the last daily bonus was granted, so the
     # bonus fires once per day on the first correct answer.
     last_win_day: Mapped[str] = mapped_column(String(10), nullable=False, server_default="")
