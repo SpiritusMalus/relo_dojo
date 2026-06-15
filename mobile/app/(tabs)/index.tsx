@@ -19,6 +19,8 @@ import LockGate from "../../components/ui/LockGate";
 import RegisterWall from "../../components/ui/RegisterWall";
 import { dismiss as dismissWall, loadWall, saveWall, shouldShowWall, DEFAULT_WALL, type WallState } from "../../store/registerWall";
 import DailyMixButton from "../../components/ui/DailyMixButton";
+import CoachCard from "../../components/ui/CoachCard";
+import DailyGoalRing from "../../components/ui/DailyGoalRing";
 import ContractsCard from "../../components/ui/ContractsCard";
 import StoryButton from "../../components/ui/StoryButton";
 import ChallengeButton from "../../components/ui/ChallengeButton";
@@ -30,11 +32,11 @@ import { buildStats, planPatch, shouldReplan } from "../../store/planner";
 import { bonusDue, bonusPaidPatch, buildQuests, questBaseline, QUEST_BONUS_XP } from "../../store/quest";
 import { tickDiary } from "../../store/diary";
 import ProgressBarUi from "../../components/ui/ProgressBar";
-import { senseiGreeting } from "../../store/greeting";
+import { senseiGreeting, weakestTopic } from "../../store/greeting";
 import { canAttemptToday, examOffer } from "../../store/exam";
 import { beltByIndex } from "../../theme/theme";
 import BeltKnot from "../../components/ui/BeltKnot";
-import { TOPIC_LABELS } from "../../store/onboarding";
+import { TOPIC_LABELS, minutesToGoal } from "../../store/onboarding";
 import { RU_TOPIC_LABELS } from "../../i18n/strings";
 import { isoDay } from "../../store/adaptive";
 import { requestPlan, getStoryCatalog } from "../../services/api";
@@ -78,6 +80,13 @@ export default function HomeScreen() {
   })();
 
   const bp = beltProgress(progress);
+  // Restored designer Home hooks (reference/dojo-home.jsx): the shakiest topic as a one-tap coach CTA
+  // + today's goal as a ring. Pure reads of local state — no backend, no logic change.
+  const weakTopic = weakestTopic(progress);
+  const weakLabel = weakTopic ? (lang === "ru" ? RU_TOPIC_LABELS[weakTopic] ?? weakTopic : TOPIC_LABELS[weakTopic] ?? weakTopic) : "";
+  const weakStat = weakTopic ? progress.topics[weakTopic] : undefined;
+  const weakAccPct = weakStat && weakStat.attempts > 0 ? Math.round((weakStat.correct / weakStat.attempts) * 100) : 0;
+  const goalTarget = minutesToGoal(progress.profile?.dailyMinutes ?? 0);
   // Feature gating is data-driven (store/access.ts → backend services/access.py). Content modes are
   // open to everyone (incl. anonymous); these flags stay false today but auto-lock if a feature is
   // ever moved behind an account/premium gate — no screen rewrite needed.
@@ -282,6 +291,16 @@ export default function HomeScreen() {
           </Pressable>
         );
       })()}
+
+      {/* Today's goal as a ring + the shakiest-topic coach card — restored designer Home hooks. */}
+      {goalTarget > 0 && <DailyGoalRing done={progress.todayCount} target={goalTarget} />}
+      {weakTopic && (
+        <CoachCard
+          topicLabel={weakLabel}
+          accPct={weakAccPct}
+          onPress={() => router.push({ pathname: "/practice", params: { topic: weakTopic } })}
+        />
+      )}
 
       {/* Recommended daily action (starter — always open) + special modes (locked until verified) */}
       <DailyMixButton onPress={() => router.push("/practice")} />
