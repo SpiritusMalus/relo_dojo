@@ -110,6 +110,13 @@ class Settings(BaseSettings):
     REPAIR_MAX: int = 300
     # Scroll rewards (variable reinforcement): how many scrolls an account may open per UTC day.
     SCROLLS_PER_DAY: int = 3
+    # --- Rewarded ads (monetization: rewarded video feeds koku; Black Belt removes interstitials) ---
+    # Koku granted per completed rewarded video. SERVER-credited (services/ads.py), like scrolls.
+    ADS_REWARD_KOKU: int = 5
+    # Rewarded grants allowed per account per UTC day. 0 = DISABLED (default): the feature is off
+    # until the real ad SDK + server-side verification (SSV) are wired in a dev build. Raising this
+    # above 0 without SSV makes the reward client-farmable — see services/ads.py.
+    ADS_REWARDS_PER_DAY: int = 0
     # Minutes added to UTC before taking the calendar day for daily resets (exercise quota, scroll
     # cap). 0 = UTC (default). Set to the users' local offset so the daily limit and the client's
     # streak (which uses the LOCAL day) roll over together — e.g. 180 for MSK (UTC+3).
