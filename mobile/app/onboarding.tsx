@@ -16,6 +16,7 @@ import { useProgress, type Profile } from "../store/progress";
 import { levelToCefr } from "../store/adaptive";
 import {
   DAILY_MINUTES,
+  DEFAULT_SPHERE,
   DEFAULT_TONE,
   GOALS,
   SELF_LEVELS,
@@ -292,7 +293,8 @@ export default function OnboardingScreen() {
   const [painText, setPainText] = useState("");
   const [selfLevel, setSelfLevel] = useState("");
   const [dailyMinutes, setDailyMinutes] = useState(0);
-  const [sphere, setSphere] = useState("");
+  // Pre-seeded to the IT-relocation niche default; the user can still pick any other sphere.
+  const [sphere, setSphere] = useState(DEFAULT_SPHERE);
   const [domains, setDomains] = useState<string[]>([]);
   const [tone, setTone] = useState(DEFAULT_TONE);
   const [goalOther, setGoalOther] = useState("");
