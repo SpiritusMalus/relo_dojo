@@ -380,7 +380,7 @@ export default function OnboardingScreen() {
         )}
 
         {step === 1 && (
-          <StepView title={tr("ob.goalsTitle")} subtitle={tr("ob.pickAny")}>
+          <StepView title={tr("ob.goalsTitle")} subtitle={tr("ob.goalsSub")}>
             {GOALS.map((g) => (
               <Chip key={g.id} label={lang === "ru" ? RU_GOAL_LABELS[g.id] ?? g.label : g.label} selected={goals.includes(g.id)} onPress={() => toggleGoal(g.id)} />
             ))}
