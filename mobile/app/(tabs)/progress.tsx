@@ -4,7 +4,7 @@ import { ACHIEVEMENTS, levelFor, useProgress, XP_PER_LEVEL, xpInLevel } from "..
 import { useI18n } from "../../store/i18n";
 import { RU_ACH, RU_TOPIC_LABELS } from "../../i18n/strings";
 import { TOPIC_LABELS } from "../../store/onboarding";
-import { beltProgress, topicRows } from "../../store/dojo";
+import { beltProgress, topicRows, type PathNode } from "../../store/dojo";
 import { belts, useTheme } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
@@ -82,8 +82,14 @@ export default function ProgressScreen() {
         <Button label={tr("ward.dress")} variant="ghost" onPress={() => router.push("/wardrobe")} />
       </Card>
 
-      {/* Belt journey — read-only progress map (launching practice lives on Home / Train) */}
-      <JourneyPath />
+      {/* Belt journey — interactive map: tap a node to train that topic, or the belt-test node to
+          take the exam. Locked nodes (further along the path) stay non-tappable. */}
+      <JourneyPath
+        onSelect={(node: PathNode) => {
+          if (node.state === "test") router.push("/belt-exam");
+          else if (node.topic) router.push({ pathname: "/practice", params: { topic: node.topic.id } });
+        }}
+      />
 
       {/* Level + XP */}
       <Card>
