@@ -11,6 +11,7 @@ import TopBar from "../../components/ui/TopBar";
 import ActivationBanner from "../../components/ui/ActivationBanner";
 import Card from "../../components/ui/Card";
 import JourneyPath from "../../components/ui/JourneyPath";
+import JourneyStageCard from "../../components/ui/JourneyStageCard";
 import Button from "../../components/ui/Button";
 import Sensei from "../../components/ui/Sensei";
 import ProgressBar from "../../components/ui/ProgressBar";
@@ -81,6 +82,10 @@ export default function ProgressScreen() {
         {/* Wardrobe entry — the showcase is where you admire the Sensei, so dress it from here. */}
         <Button label={tr("ward.dress")} variant="ghost" onPress={() => router.push("/wardrobe")} />
       </Card>
+
+      {/* Relocation journey — the niche arc (pre-move → arrived → settled). Shows only for learners
+          on the niche; gently nudges them onward (the event-need → recurring-need retention hook). */}
+      <JourneyStageCard goals={progress.profile?.goals} />
 
       {/* Belt journey — interactive map: tap a node to train that topic, or the belt-test node to
           take the exam. Locked nodes (further along the path) stay non-tappable. */}

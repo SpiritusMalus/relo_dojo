@@ -43,12 +43,19 @@ export const JOURNEY_GOALS = ["interviews", "relocation_life", "work_comms"] as 
  * are selected, a stage is chosen first (so each gets airtime), then a scenario within it. Returns
  * null when no journey goal is selected — callers then fall back to the generic context.
  *
- * `rng` is injectable purely for deterministic tests; production uses Math.random for variety.
+ * `preferGoal` (a journey goal id, e.g. from the learner's current journey stage) biases the pick to
+ * that goal's pack when it has one, so content follows where the learner is on the arc. `rng` is
+ * injectable purely for deterministic tests; production uses Math.random for variety.
  */
 export function pickScenario(
   goals: string[] | null | undefined,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
+  preferGoal?: string | null
 ): string | null {
+  if (preferGoal) {
+    const pref = SCENARIO_PACKS[preferGoal];
+    if (pref && pref.length > 0) return pref[Math.floor(rng() * pref.length) % pref.length];
+  }
   const selected = (goals ?? []).filter((g) => (JOURNEY_GOALS as readonly string[]).includes(g));
   if (selected.length === 0) return null;
   const stage = selected[Math.floor(rng() * selected.length) % selected.length];

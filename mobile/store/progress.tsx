@@ -18,6 +18,7 @@ import { getProgress, putProgress, syncLearnerProfile } from "../services/api";
 import { useAuth } from "./auth";
 import { resetWall } from "./registerWall";
 import { resetGuestLimit } from "./guestLimit";
+import { resetJourney } from "./journey";
 import { useWallet } from "./wallet";
 import { updateSkill } from "./adaptive";
 import {
@@ -414,9 +415,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       setProgress(DEFAULT_PROGRESS);
       void save(DEFAULT_PROGRESS);
       // Reset the anon-funnel counters so a fresh guest doesn't inherit the previous user's state
-      // (register-wall lesson count + guest daily cap).
+      // (register-wall lesson count + guest daily cap + relocation-journey stage).
       void resetWall();
       void resetGuestLimit();
+      void resetJourney();
       return;
     }
     syncedToken.current = token;
