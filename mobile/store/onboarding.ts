@@ -1,6 +1,10 @@
 // Onboarding survey data + level seeding (pure, no React/RN imports → unit-testable).
 import type { Profile } from "./progress";
 import { LEVEL_MAX, LEVEL_MIN, START_LEVEL, TOPIC_PRIORS } from "./adaptive";
+import { pickScenario } from "./scenarioPacks";
+
+// Generation `context` is capped server-side (schemas.py: max_length=300) — keep the whole hint within it.
+const CONTEXT_MAX_LEN = 300;
 
 // --- survey option data (canonical topic keys match backend grammar.py TOPICS) ---
 // Cross-field goals (not software-specific) so the survey fits any sphere. The
@@ -130,8 +134,10 @@ export function seedSkillFromProfile(profile: Profile): Record<string, number> {
 
 // --- functional effects of the profile ---
 
-/** A hint string for example generation: the learner's sphere + sub-roles/interests + goals. */
-export function buildContext(profile: Profile | null): string {
+/** A hint string for example generation: the learner's sphere + sub-roles/interests + goals, plus one
+ *  curated journey scenario when a relocation goal is set (see scenarioPacks). `rng` is injectable for
+ *  deterministic tests; production uses Math.random so the scenario rotates for variety. */
+export function buildContext(profile: Profile | null, rng: () => number = Math.random): string {
   if (!profile) return "";
   const sphere = (profile.sphere ?? "").trim();
   const domains = (profile.domains ?? []).filter((d) => d && d !== "other");
@@ -144,7 +150,14 @@ export function buildContext(profile: Profile | null): string {
     parts.push(domains.join(", "));
   }
   if (goals.length) parts.push(`goals: ${goals.join(", ")}`);
-  return parts.join("; ");
+  const base = parts.join("; ");
+  // Weave in a concrete journey scenario when one applies and it still fits the server cap.
+  const scenario = pickScenario(profile.goals, rng);
+  if (scenario) {
+    const withScenario = base ? `${base}; e.g. ${scenario}` : `e.g. ${scenario}`;
+    if (withScenario.length <= CONTEXT_MAX_LEN) return withScenario;
+  }
+  return base;
 }
 
 export const EXERCISES_PER_MINUTE = 1.5; // soft pace estimate (tunable)
