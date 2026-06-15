@@ -4,7 +4,10 @@ Mirrors the client lock so it can't be bypassed by calling the API directly. Tie
 - anonymous        unmetered (no account to gate)
 - premium          unmetered ("Black Belt" — the upsell is exactly this)
 - verified free    FREE_DAILY_LIMIT exercises / UTC day, then 403 {code: "daily_limit"}
-- unverified       STARTER_DAILY_LIMIT / UTC day, then 403 {code: "starter_limit"}; no stories
+- unverified       STARTER_DAILY_LIMIT / UTC day, then 403 {code: "starter_limit"}
+
+Feature-level access (which modes need an account/premium) lives in services/access.py — this
+module only meters the daily exercise quota.
 
 The 403 detail is a dict so the client can route the paywall (buy an extra pack / go premium)
 vs the activation prompt. `starter_day`/`starter_used` columns meter BOTH free tiers (one counter,
@@ -20,8 +23,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
 from ..db.models import User
-
-_ACTIVATE = "Activate your account (check your email) to unlock this."
 
 
 def _utc_day() -> str:
@@ -82,9 +83,3 @@ async def consume_daily_exercise(user: User | None, db: AsyncSession) -> None:
         )
     user.starter_used += 1
     await db.commit()
-
-
-def require_verified(user: User | None) -> None:
-    """Block a feature for unverified accounts (e.g. stories). No-op for anonymous/verified."""
-    if user is not None and not user.is_verified:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_ACTIVATE)

@@ -375,6 +375,9 @@ export type AuthUser = {
   // Cosmetics (engagement v2): owned ids (incl. implicit starters) + equipped id per slot.
   cosmetics?: string[];
   equipped?: Record<string, string>;
+  // Feature capability map (services/access.py). The client mirror in store/access.ts is the
+  // fallback for anonymous/offline; when present this is the server-authoritative truth.
+  access?: Record<string, boolean>;
 };
 type TokenResp = { access_token: string; token_type: string };
 

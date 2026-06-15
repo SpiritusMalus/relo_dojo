@@ -34,14 +34,6 @@ def _code(exc_value) -> str | None:
     return detail.get("code") if isinstance(detail, dict) else None
 
 
-def test_require_verified_blocks_only_unverified():
-    gating.require_verified(None)  # anonymous: allowed
-    gating.require_verified(_user(True))  # verified: allowed
-    with pytest.raises(Exception) as exc:
-        gating.require_verified(_user(False))
-    assert getattr(exc.value, "status_code", None) == 403
-
-
 async def test_quota_noop_for_anonymous_and_premium():
     db = _FakeDB()
     await gating.consume_daily_exercise(None, db)

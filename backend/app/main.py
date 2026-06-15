@@ -157,12 +157,12 @@ async def story(
     payload: StoryIn = StoryIn(),
     user: Optional[User] = Depends(get_current_user_optional),
 ) -> StoryOut:
-    """Themed mini-story (a sequence of linked exercises). Blocked for unverified accounts.
+    """Themed mini-story (a sequence of linked exercises). Open to everyone, incl. anonymous users
+    (Duo-style generous taste — content gating lives in services/access.py, and stories are open).
 
     Each beat's answer stays sealed in its own `token` and is graded by the existing /check.
     A specific `id` selects an arc; premium arcs require the matching content unlock (403 otherwise).
     """
-    gating.require_verified(user)
     owned = set(content.owned_ids(user)) if user is not None else set()
     if payload.id:
         scenario = stories._BY_ID.get(payload.id)
@@ -333,9 +333,8 @@ async def review_text(
     db: AsyncSession = Depends(get_db),
 ) -> ReviewOut:
     """"Review my text" (Stage 3): the learner pastes their REAL email/message → graded breakdown
-    vs their weak spots. Verified accounts only (LLM-heavy, like /story). Findings feed the
-    learner profile's weak-spot summary so future feedback remembers them."""
-    gating.require_verified(user)
+    vs their weak spots. Open to everyone; the analysis is returned to anonymous callers too, but
+    findings are only persisted to the learner profile when the request is authenticated."""
     prof = await learner_profile.get_data(user, db)
     try:
         data = await grammar.review_text(
