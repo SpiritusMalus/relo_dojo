@@ -20,11 +20,11 @@ logger = logging.getLogger("grammar_dojo.email")
 
 def _build_message(to: str, link: str) -> EmailMessage:
     msg = EmailMessage()
-    msg["Subject"] = "Activate your Grammar Dojo account"
+    msg["Subject"] = "Activate your Relo Dojo account"
     msg["From"] = formataddr((settings.EMAIL_FROM_NAME, settings.EMAIL_FROM))
     msg["To"] = to
     msg.set_content(
-        "Welcome to Grammar Dojo!\n\n"
+        "Welcome to Relo Dojo!\n\n"
         "Confirm your email to unlock all lessons:\n"
         f"{link}\n\n"
         f"The link is valid for {settings.VERIFY_TOKEN_EXPIRE_H} hours. "
@@ -33,7 +33,7 @@ def _build_message(to: str, link: str) -> EmailMessage:
     msg.add_alternative(
         f"""\
 <div style="font-family:system-ui,Arial,sans-serif;max-width:480px">
-  <h2 style="margin:0 0 12px">Welcome to Grammar Dojo</h2>
+  <h2 style="margin:0 0 12px">Welcome to Relo Dojo</h2>
   <p>Confirm your email to unlock all lessons.</p>
   <p><a href="{link}"
         style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;

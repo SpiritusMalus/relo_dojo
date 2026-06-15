@@ -1,4 +1,4 @@
-"""Grammar Dojo backend — Phase 4.
+"""Relo Dojo backend — Phase 4.
 
 Public (no auth):
 - GET  /health       -> {"status": "ok"}
@@ -92,7 +92,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="Grammar Dojo API", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="Relo Dojo API", version="0.4.0", lifespan=lifespan)
 
 # CORS origins are explicit (configured via ALLOWED_ORIGINS) — no wildcard in production.
 app.add_middleware(
