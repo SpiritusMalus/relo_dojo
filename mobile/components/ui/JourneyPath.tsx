@@ -148,10 +148,10 @@ function NodeCard({ node, interactive }: { node: PathNode; interactive: boolean 
   }
   const topic = node.topic!;
   const sub: Record<Exclude<NodeState, "test">, string> = {
-    done: `Mastered · ${topic.belt.name}`,
-    current: interactive ? "Continue →" : "In progress",
-    next: interactive ? "Up next · tap to start" : "Up next",
-    locked: "Locked",
+    done: `${tr("jp.mastered")} · ${topic.belt.name}`,
+    current: interactive ? tr("jp.continue") : tr("jp.inProgress"),
+    next: interactive ? tr("jp.upNextTap") : tr("jp.upNext"),
+    locked: tr("jp.locked"),
   };
   return (
     <View style={styles.cardInner}>
