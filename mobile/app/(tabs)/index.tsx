@@ -40,7 +40,8 @@ import { TOPIC_LABELS, minutesToGoal } from "../../store/onboarding";
 import { RU_TOPIC_LABELS } from "../../i18n/strings";
 import { isoDay } from "../../store/adaptive";
 import { requestPlan, getStoryCatalog } from "../../services/api";
-import Sensei from "../../components/ui/Sensei";
+import Sensei, { type Mood } from "../../components/ui/Sensei";
+import SenseiBubble from "../../components/ui/SenseiBubble";
 import ProgressBar from "../../components/ui/ProgressBar";
 import Txt from "../../components/ui/Txt";
 
@@ -78,6 +79,9 @@ export default function HomeScreen() {
         return tr((["greet.d0", "greet.d1", "greet.d2"] as const)[greeting.idx] ?? "greet.d0");
     }
   })();
+  // Sensei's mood matches what he's saying (think when nudging a weak topic, cheer when you're done).
+  const greetingMood: Mood =
+    greeting?.kind === "weakTopic" ? "think" : greeting?.kind === "doneToday" ? "cheer" : "happy";
 
   const bp = beltProgress(progress);
   // Restored designer Home hooks (reference/dojo-home.jsx): the shakiest topic as a one-tap coach CTA
@@ -205,21 +209,8 @@ export default function HomeScreen() {
         <ProgressBar pct={bp.atMax ? 100 : bp.pctToNext} color={bp.belt.ink} track="rgba(0,0,0,0.16)" />
       </LinearGradient>
 
-      {/* Sensei's line: proof the dojo remembers you. Quiet styling — a remark, not a banner. */}
-      {!!greetingText && (
-        <View
-          style={{
-            backgroundColor: t.c.surface3,
-            borderRadius: t.spacing.radius,
-            paddingVertical: 10,
-            paddingHorizontal: 14,
-          }}
-        >
-          <Txt variant="secondary" color={t.c.ink2} style={{ fontStyle: "italic" }}>
-            🥋 {greetingText}
-          </Txt>
-        </View>
-      )}
+      {/* Sensei's line, spoken: the mascot + a speech bubble (the memory layer, made personal). */}
+      {!!greetingText && <SenseiBubble belt={bp.belt} mood={greetingMood} text={greetingText} />}
 
       {/* Weekly quest scroll: the Planner's focus as three visible goals (store/quest.ts). */}
       {quests.length > 0 && (
