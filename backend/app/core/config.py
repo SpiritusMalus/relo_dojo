@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     # Stories are blocked entirely until verified. 0 = unverified users get no exercises.
     STARTER_DAILY_LIMIT: int = 15
     EMAIL_FROM: str = "dojo@grammardojo.ru"
-    EMAIL_FROM_NAME: str = "Grammar Dojo"
+    EMAIL_FROM_NAME: str = "Relo Dojo"
     # SMTP transport. If SMTP_HOST is empty, email sending is disabled and the link is logged (dev).
     # For grammardojo.ru this is your mail provider's SMTP (e.g. Yandex 360 smtp.yandex.ru:465 SSL,
     # or Mail.ru biz smtp.mail.ru:465). Set SMTP_SSL=true for port 465, or keep STARTTLS for 587.
