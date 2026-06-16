@@ -319,8 +319,9 @@ async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | 
 
 async def _gen_multiple_blanks(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
-        f"Create ONE fill-the-gaps exercise with 2 or 3 blanks to practice: {topic}.\n"
-        "'text' is a single sentence; show each blank as '___' (use the literal three underscores). "
+        f"Create ONE fill-the-gaps exercise with 2 to 5 blanks to practice: {topic}.\n"
+        "'text' is one short sentence (or two for 4-5 blanks) — use more blanks only if it stays "
+        "natural; show each blank as '___' (use the literal three underscores). "
         "'blanks' has one entry PER blank, in left-to-right order: 'options' is 2-3 short choices and "
         "'answer' is the correct one (it MUST be one of the options). The number of '___' in 'text' "
         "MUST equal the number of blanks. Use the learner's field when given, else everyday. Reply ONLY as JSON.",
@@ -348,8 +349,8 @@ async def _gen_multiple_blanks(topic: str, level: str | None = None, context: st
         random.shuffle(opts)
         blank_options.append(opts[:4])
         answers.append(ans)
-    # Need 2-3 blanks and the '___' count in the sentence to match exactly (so the UI lines up).
-    if not (2 <= len(answers) <= 3) or text.count("___") != len(answers):
+    # Need 2-5 blanks and the '___' count in the sentence to match exactly (so the UI lines up).
+    if not (2 <= len(answers) <= 5) or text.count("___") != len(answers):
         return None
     if len(text.split()) > _max_words(level) + len(answers):
         return None
