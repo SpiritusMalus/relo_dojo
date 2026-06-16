@@ -138,7 +138,10 @@ async def exercise(
 ) -> ExerciseOut:
     """Adaptive exercise. Daily quota is server-enforced per tier: unverified = starter,
     verified free = FREE_DAILY_LIMIT, premium/anonymous = unmetered."""
-    await gating.consume_daily_exercise(user, db)
+    # Reject a capped caller up front (cheap, read-only) so we never spend an LLM call on a request
+    # that can't be served; meter only AFTER a successful generation, so a 503 / retried generation
+    # never burns the user's daily quota.
+    gating.ensure_daily_quota(user)
     try:
         data = await grammar.generate_exercise(
             topic=payload.topic,
@@ -149,6 +152,7 @@ async def exercise(
         )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    await gating.consume_daily_exercise(user, db)
     # grammar guarantees keys; the answer stays sealed in `token`, never in plaintext here.
     return ExerciseOut(**data)
 

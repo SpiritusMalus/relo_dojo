@@ -104,3 +104,19 @@ def test_left_today_tiers(monkeypatch):
     assert gating.left_today(_user(True, day=today, used=99)) == 0  # never negative
     # extra_pack drives used negative → headroom above the base limit
     assert gating.left_today(_user(True, day=today, used=-10)) == 30
+
+
+def test_ensure_daily_quota_is_a_readonly_precheck(monkeypatch):
+    # The pre-check raises for a capped caller WITHOUT incrementing, so the endpoint can reject the
+    # request before spending an LLM call — and a later failed generation never burns the quota.
+    monkeypatch.setattr(settings, "FREE_DAILY_LIMIT", 2)
+    today = gating._utc_day()
+    gating.ensure_daily_quota(None)  # anonymous: no-op
+    gating.ensure_daily_quota(_user(True, premium=True))  # premium: no-op
+    gating.ensure_daily_quota(_user(True, day=today, used=1))  # 1 left: no raise
+    u = _user(True, day=today, used=2)  # at the cap
+    with pytest.raises(Exception) as exc:
+        gating.ensure_daily_quota(u)
+    assert getattr(exc.value, "status_code", None) == 403
+    assert _code(exc.value) == "daily_limit"
+    assert u.starter_used == 2  # read-only: the counter was NOT incremented
