@@ -57,6 +57,34 @@ def left_today(user: User | None) -> int | None:
     return max(0, limit - used)
 
 
+def _limit_error(user: User) -> HTTPException:
+    """The structured 403 for a free-tier caller at their daily cap. Shared by the read-only
+    pre-check and the authoritative consume so the client routes the paywall (verified → buy an
+    extra pack / go premium) vs the activation prompt (unverified) identically either way."""
+    code = "daily_limit" if user.is_verified else "starter_limit"
+    message = (
+        "Daily limit reached — buy an extra pack in the shop or go premium for unlimited practice."
+        if user.is_verified
+        else "Activate your account to keep practicing — the daily starter limit is reached."
+    )
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={"code": code, "left": 0, "message": message},
+    )
+
+
+def ensure_daily_quota(user: User | None) -> None:
+    """Read-only pre-check: raise 403 if the caller is already at their daily cap — WITHOUT
+    incrementing. Lets an endpoint reject a capped request before spending a slow, costly LLM call;
+    the authoritative metering is `consume_daily_exercise`, called only AFTER the work succeeds (so
+    a failed or retried generation never burns the user's quota). No-op for anonymous/premium."""
+    if user is None or user.is_premium:
+        return
+    remaining = left_today(user)
+    if remaining is not None and remaining <= 0:
+        raise _limit_error(user)
+
+
 async def consume_daily_exercise(user: User | None, db: AsyncSession) -> None:
     """Count one exercise against the account's daily quota; 403 when exhausted.
 
@@ -71,15 +99,6 @@ async def consume_daily_exercise(user: User | None, db: AsyncSession) -> None:
     limit = daily_limit_for(user)
     assert limit is not None  # premium returned above
     if user.starter_used >= limit:
-        code = "daily_limit" if user.is_verified else "starter_limit"
-        message = (
-            "Daily limit reached — buy an extra pack in the shop or go premium for unlimited practice."
-            if user.is_verified
-            else "Activate your account to keep practicing — the daily starter limit is reached."
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={"code": code, "left": 0, "message": message},
-        )
+        raise _limit_error(user)
     user.starter_used += 1
     await db.commit()
