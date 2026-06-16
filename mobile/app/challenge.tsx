@@ -13,10 +13,14 @@ import { gateKind, type Exercise, type ResponseValue } from "../services/api";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ActivationBanner from "../components/ui/ActivationBanner";
 import LimitSheet from "../components/ui/LimitSheet";
+import RegisterWall from "../components/ui/RegisterWall";
 import ExerciseCard from "../components/ExerciseCard";
 import { beltProgress } from "../store/dojo";
 import { ensureOffer } from "../store/offers";
 import { useProgress } from "../store/progress";
+import { useAuth } from "../store/auth";
+import { consumeGuestExercise } from "../store/guestLimit";
+import { localDate } from "../store/streak";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
 import { loadingMessageFor } from "../i18n/loading";
@@ -46,6 +50,7 @@ export default function ChallengeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
+  const { token } = useAuth();
   const { t: tr } = useI18n();
   const { result, checking, error: checkError, check, reset } = useExerciseCheck();
 
@@ -70,6 +75,7 @@ export default function ChallengeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [limited, setLimited] = useState(false); // 403 "daily_limit": free-tier cap → upsell sheet
   const [gated, setGated] = useState(false); // 403 starter/activation → activation prompt
+  const [guestLimited, setGuestLimited] = useState(false); // anon hit today's shared client cap → register wall
 
   const [timeLeft, setTimeLeft] = useState(CHALLENGE_SECONDS);
   const [score, setScore] = useState(0);
@@ -95,9 +101,18 @@ export default function ChallengeScreen() {
     setError(null);
     setLimited(false);
     setGated(false);
+    setGuestLimited(false);
     reset();
     setResponse(null);
     setExercise(null);
+    // Guests get the same daily allowance as Practice (store/guestLimit.ts). The Challenge draws from
+    // the same LLM-backed queue, so it must consume the SHARED cap too — otherwise it's a free,
+    // unmetered way for anon users to burn model calls. On exhaustion: pause the run, show the wall.
+    if (!token && !(await consumeGuestExercise(localDate(new Date())))) {
+      setGuestLimited(true);
+      setLoading(false);
+      return;
+    }
     try {
       setExercise(await queueRef.current!.next());
       setRound((r) => r + 1);
@@ -114,17 +129,17 @@ export default function ChallengeScreen() {
     } finally {
       setLoading(false);
     }
-  }, [reset]);
+  }, [reset, token]);
 
   // Countdown: only ticks while the learner is actively solving / reading feedback, so a slow fetch
   // (cold model), an error, or a gate sheet doesn't eat the clock. Hitting zero ends the run.
   useEffect(() => {
     if (phase !== "solving" && phase !== "feedback") return;
-    if (loading || error || limited || gated) return;
+    if (loading || error || limited || gated || guestLimited) return;
     if (timeLeft <= 0) return;
     const id = setTimeout(() => setTimeLeft((s) => s - 1), 1000);
     return () => clearTimeout(id);
-  }, [phase, timeLeft, loading, error, limited, gated]);
+  }, [phase, timeLeft, loading, error, limited, gated, guestLimited]);
 
   const finish = useCallback(async () => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
@@ -276,6 +291,17 @@ export default function ChallengeScreen() {
         {limited && !loading && (
           <View style={{ gap: 12, marginTop: 20 }}>
             <LimitSheet belt={beltProgress(progress).belt} onUnlocked={loadExercise} />
+            <Button label={tr("ch.backHome")} variant="ghost" onPress={() => router.back()} />
+          </View>
+        )}
+
+        {guestLimited && !loading && (
+          <View style={{ gap: 12, marginTop: 20 }}>
+            <RegisterWall
+              reason="limit"
+              onCreate={() => router.push("/login")}
+              onDismiss={() => router.back()}
+            />
             <Button label={tr("ch.backHome")} variant="ghost" onPress={() => router.back()} />
           </View>
         )}

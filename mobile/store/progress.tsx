@@ -490,6 +490,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const repairStreak = useCallback(async () => {
     const broken = progressRef.current.brokenStreak;
     if (!broken || !repairOpen(broken, new Date())) return;
+    // Flush the snapshot first so the server prices the repair off ITS copy of brokenStreak.streak
+    // (server-authoritative — a patched client can't understate the lost streak to pay less).
+    // Best-effort: if the push fails the server falls back to the qty below, so repair never blocks.
+    await putProgress(progressRef.current).catch(() => {});
     // Server charges koku (price scales with the lost streak); throws ApiError 409 if short.
     await spend("streak_repair", broken.streak);
     const now = new Date();
