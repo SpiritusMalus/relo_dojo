@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { gateKind, type Exercise, type ResponseValue } from "../services/api";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
+import { trackExerciseAnswered } from "../services/analytics";
 import ActivationBanner from "../components/ui/ActivationBanner";
 import LimitSheet from "../components/ui/LimitSheet";
 import RegisterWall from "../components/ui/RegisterWall";
@@ -180,6 +181,9 @@ export default function ChallengeScreen() {
     if (!exercise || response === null || checking || phase !== "solving") return;
     const res = await check(exercise, response);
     if (!res) return; // network error — surfaced via checkError
+    // Funnel + daily contracts: a Challenge answer is an answered exercise too (mode tags it), so it
+    // counts toward the "answer N / N correct" contracts exactly like Practice (same event).
+    trackExerciseAnswered({ topic: exercise.topic, correct: res.correct, level: exercise.level, mode: "challenge" });
     const step = scoreAnswer(combo, res.correct, res.score ?? (res.correct ? 1 : 0));
     setScore((s) => s + step.points);
     setCombo(step.combo);
