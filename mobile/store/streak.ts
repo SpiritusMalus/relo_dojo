@@ -50,9 +50,10 @@ export function daysSinceActive(lastActiveDate: string, now: Date): number {
 
 export type StreakStatus =
   | { kind: "ok" } // active today/yesterday, or nothing to protect
-  | { kind: "freezable" } // gap detected AND a charm could bridge it (caller checks ownership)
   | { kind: "broken"; streak: number }; // gap detected, streak worth a repair offer
-// (short streaks fall through to "ok" — recordAnswer will quietly restart them at 1)
+// (short streaks fall through to "ok" — recordAnswer quietly restarts them at 1. An owned omamori
+// bridges a gap in the reconciliation effect in store/progress.tsx — not here, which is why this
+// classifier only returns "ok" | "broken".)
 
 /** Classify the streak situation on app focus. Pure: charm ownership is the caller's business. */
 export function streakStatus(dailyStreak: number, lastActiveDate: string, now: Date): StreakStatus {
