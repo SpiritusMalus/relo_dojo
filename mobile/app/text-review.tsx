@@ -3,15 +3,15 @@
 // The learner pastes a REAL text of their own (an email, a message, a post) and gets a graded
 // breakdown: each issue quoted, rephrased correctly, tied to a grammar topic, with a short note in
 // the UI language. Server-side the findings also update the learner profile's weak-spot memory, so
-// future feedback remembers what tripped them here. Verified accounts only (LLM-heavy, like /story).
+// future feedback remembers what tripped them here. Open to everyone (anonymous included); findings
+// are only persisted to the learner profile when signed in.
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { gateKind, reviewText, type ReviewResult } from "../services/api";
+import { reviewText, type ReviewResult } from "../services/api";
 import { trackReviewSubmitted } from "../services/analytics";
-import ActivationBanner from "../components/ui/ActivationBanner";
 import { useI18n } from "../store/i18n";
 import { loadingMessageFor } from "../i18n/loading";
 import { RU_TOPIC_LABELS } from "../i18n/strings";
@@ -35,7 +35,6 @@ export default function TextReviewScreen() {
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [gated, setGated] = useState(false); // 403 → account gate, not an error
 
   const topicLabel = (topic: string) =>
     lang === "ru" ? RU_TOPIC_LABELS[topic] ?? topic : TOPIC_LABELS[topic] ?? topic;
@@ -45,15 +44,13 @@ export default function TextReviewScreen() {
     if (!trimmed || loading) return;
     setLoading(true);
     setError(null);
-    setGated(false);
     setResult(null);
     try {
       const r = await reviewText(trimmed);
       setResult(r);
       trackReviewSubmitted({ chars: trimmed.length, issues: r.issues?.length });
     } catch (e) {
-      if (gateKind(e)) setGated(true);
-      else setError(e instanceof Error ? e.message : "Failed to review the text");
+      setError(e instanceof Error ? e.message : "Failed to review the text");
     } finally {
       setLoading(false);
     }
@@ -80,8 +77,6 @@ export default function TextReviewScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {gated && <ActivationBanner />}
-
         {!result && (
           <Card>
             <View style={{ alignItems: "center", marginBottom: 10 }}>

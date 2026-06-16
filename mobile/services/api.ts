@@ -234,8 +234,8 @@ export function analyzePain(text: string): Promise<{ topics: string[]; saved?: b
 export type ReviewIssue = { quote: string; better: string; topic: string; note: string };
 export type ReviewResult = { summary: string; issues: ReviewIssue[]; topics: string[] };
 
-// Verified accounts only (403 otherwise — route via gateKind like /story). Notes come back in
-// the UI language; findings also update the server-side weak-spot memory.
+// Open to everyone (anonymous included). Notes come back in the UI language; findings also update
+// the server-side weak-spot memory, but only when the caller is signed in.
 export function reviewText(text: string): Promise<ReviewResult> {
   return request<ReviewResult>("/review-text", { text, lang: apiLang });
 }
