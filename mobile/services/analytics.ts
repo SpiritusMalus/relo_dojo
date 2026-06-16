@@ -88,6 +88,12 @@ export function trackReviewSubmitted(p: { chars: number; issues?: number }): voi
   track("review_submitted", clean({ chars: p.chars, issues: p.issues }));
 }
 
+/** The weekly "Review my text" hook card was tapped — top of the killer-feature funnel (which
+ *  rotating prompt drove the tap → review_submitted). */
+export function trackReviewHookTap(p: { prompt: string }): void {
+  track("review_hook_tap", clean({ prompt: p.prompt }));
+}
+
 /** A daily contract was claimed — the daily-return + earning signal (engagement v2). */
 export function trackContractClaimed(p: { id: string; reward: number }): void {
   track("contract_claimed", clean({ id: p.id, reward: p.reward }));

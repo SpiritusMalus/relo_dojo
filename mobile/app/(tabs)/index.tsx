@@ -18,6 +18,7 @@ import { ensureOffer } from "../../store/offers";
 import LockGate from "../../components/ui/LockGate";
 import RegisterWall from "../../components/ui/RegisterWall";
 import { dismiss as dismissWall, loadWall, saveWall, shouldShowWall, DEFAULT_WALL, type WallState } from "../../store/registerWall";
+import { loadReviewHook, saveReviewHook, dismissForWeek, shouldShowHook, promptForWeek, DEFAULT_REVIEW_HOOK, type ReviewHookState } from "../../store/reviewHook";
 import DailyMixButton from "../../components/ui/DailyMixButton";
 import CoachCard from "../../components/ui/CoachCard";
 import DailyGoalRing from "../../components/ui/DailyGoalRing";
@@ -26,6 +27,7 @@ import StoryButton from "../../components/ui/StoryButton";
 import ChallengeButton from "../../components/ui/ChallengeButton";
 import ReviewButton from "../../components/ui/ReviewButton";
 import TextReviewButton from "../../components/ui/TextReviewButton";
+import ReviewHookCard from "../../components/ui/ReviewHookCard";
 import ShopButton from "../../components/ui/ShopButton";
 import { mistakeCount } from "../../store/mistakes";
 import { buildStats, planPatch, shouldReplan } from "../../store/planner";
@@ -40,6 +42,7 @@ import { TOPIC_LABELS, minutesToGoal } from "../../store/onboarding";
 import { RU_TOPIC_LABELS } from "../../i18n/strings";
 import { isoDay } from "../../store/adaptive";
 import { requestPlan, getStoryCatalog } from "../../services/api";
+import { trackReviewHookTap } from "../../services/analytics";
 import Sensei, { type Mood } from "../../components/ui/Sensei";
 import SenseiBubble from "../../components/ui/SenseiBubble";
 import ProgressBar from "../../components/ui/ProgressBar";
@@ -102,6 +105,8 @@ export default function HomeScreen() {
   const [featuredArc, setFeaturedArc] = useState<string | null>(null);
   // Soft register wall (anon-first funnel): lesson count is bumped in practice; we just read it here.
   const [wall, setWall] = useState<WallState>(DEFAULT_WALL);
+  // "Review my text" weekly hook (the killer free taste, surfaced + rotated weekly).
+  const [reviewHook, setReviewHook] = useState<ReviewHookState>(DEFAULT_REVIEW_HOOK);
 
   // Trigger: onboarding done → open the one-shot 24h starter offer (no-op if it ever existed).
   // In an effect, not the render body — render must stay side-effect-free.
@@ -143,6 +148,8 @@ export default function HomeScreen() {
       mistakeCount().then((n) => active && setMistakes(n));
       // Re-read the anon lesson count (bumped at each session finish in practice.tsx).
       loadWall().then((w) => active && setWall(w));
+      // Re-read the review-hook dismissal so a fresh week re-surfaces the card.
+      loadReviewHook().then((s) => active && s && setReviewHook(s));
       // Refresh the wallet too: koku earned and the daily allowance spent in Practice should be
       // visible the moment the learner lands back on Home (the shrinking counter is the point).
       void refresh();
@@ -159,6 +166,11 @@ export default function HomeScreen() {
       };
     }, [refresh])
   );
+
+  // Weekly "Review my text" hook: a fresh, job-relevant prompt each week; dismissable for the week.
+  const now = new Date();
+  const showReviewHook = shouldShowHook(reviewHook, now);
+  const weekPrompt = promptForWeek(now);
 
   return (
     <Screen>
@@ -305,6 +317,28 @@ export default function HomeScreen() {
           Account-only — the koku economy is server-authoritative, so guests don't see it. */}
       {access.sync && <ContractsCard />}
 
+      {/* Killer free taste: "Review my text" surfaced as a prominent weekly hook (open to anon).
+          Dismiss it for the week → it falls back to the compact button below; next week it returns
+          with the next rotating prompt. */}
+      {showReviewHook ? (
+        <ReviewHookCard
+          prompt={weekPrompt}
+          onPress={() => {
+            trackReviewHookTap({ prompt: weekPrompt });
+            router.push("/text-review");
+          }}
+          onDismiss={() => {
+            const next = dismissForWeek(reviewHook, new Date());
+            setReviewHook(next);
+            void saveReviewHook(next);
+          }}
+        />
+      ) : (
+        <LockGate locked={!access.review_text}>
+          <TextReviewButton onPress={() => router.push("/text-review")} />
+        </LockGate>
+      )}
+
       <LockGate locked={!access.story}>
         <StoryButton
           onPress={() => router.push("/story")}
@@ -313,9 +347,6 @@ export default function HomeScreen() {
       </LockGate>
       <LockGate locked={!access.challenge}>
         <ChallengeButton onPress={() => router.push("/challenge")} />
-      </LockGate>
-      <LockGate locked={!access.review_text}>
-        <TextReviewButton onPress={() => router.push("/text-review")} />
       </LockGate>
       {mistakes > 0 && (
         <LockGate locked={!access.review}>
