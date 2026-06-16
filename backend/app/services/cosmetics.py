@@ -22,7 +22,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.models import User
@@ -120,27 +119,30 @@ def can_buy(user: User, cosmetic_id: str) -> tuple[bool, str]:
 
 
 async def buy(user: User, db: AsyncSession, cosmetic_id: str) -> User:
-    """Purchase a cosmetic: validate gate/price, debit koku, grant ownership — atomically.
+    """Purchase a cosmetic: validate gate/season/price, debit koku, grant ownership — atomically.
 
-    The coin debit is a guarded UPDATE (coins >= price), so two concurrent buys can't overspend; on
-    a lost race rowcount==0 → 409, nothing granted."""
+    Row-locks the account (SELECT … FOR UPDATE) so concurrent buys serialize. Without the lock two
+    buys of the SAME item could both pass the ownership check and double-charge, and two DIFFERENT
+    buys could clobber each other's `cosmetics` append (a read-modify-write on the JSONB array).
+    409 when too poor (re-checked under the lock)."""
     item = CATALOG.get(cosmetic_id)
     if item is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_UNKNOWN)
     if item["gate"] != "buy":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_NOT_FOR_SALE)
+    # Lock the row for the read-modify-write below (ownership re-check + debit + array append).
+    await db.refresh(user, with_for_update=True)
     if cosmetic_id in owned_ids(user):
-        # Idempotent: already owned → return current state, charge nothing.
+        await db.rollback()  # idempotent: already owned → release the lock, charge nothing
         return user
     if not is_season_active(item.get("season")):
+        await db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_OUT_OF_SEASON)
     price = item["price"]
-    res = await db.execute(
-        update(User).where(User.id == user.id, User.coins >= price).values(coins=User.coins - price)
-    )
-    if res.rowcount == 0:
+    if user.coins < price:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_NOT_ENOUGH)
+    user.coins -= price
     user.cosmetics = list(user.cosmetics or []) + [cosmetic_id]
     await db.commit()
     await db.refresh(user)

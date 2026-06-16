@@ -32,19 +32,14 @@ async def test_buy_rejects_out_of_season(monkeypatch):
     assert ei.value.status_code == 400
 
 
-class _FakeResult:
-    def __init__(self, rowcount: int = 1) -> None:
-        self.rowcount = rowcount
-
-
 class _FakeDB:
-    def __init__(self, rowcount: int = 1) -> None:
-        self.rowcount = rowcount
+    """Minimal async session: counts commits/rollbacks and FOR UPDATE locks. The buy path now uses
+    a row lock + in-Python check (no Core UPDATE), so there's no execute()/rowcount to fake."""
+
+    def __init__(self) -> None:
         self.commits = 0
         self.rollbacks = 0
-
-    async def execute(self, stmt):  # noqa: ANN001
-        return _FakeResult(self.rowcount)
+        self.locked = 0
 
     async def commit(self) -> None:
         self.commits += 1
@@ -52,8 +47,9 @@ class _FakeDB:
     async def rollback(self) -> None:
         self.rollbacks += 1
 
-    async def refresh(self, obj) -> None:  # noqa: ANN001
-        pass
+    async def refresh(self, obj, **kw) -> None:  # noqa: ANN001 — row-lock no-op in tests
+        if kw.get("with_for_update"):
+            self.locked += 1
 
 
 def _user(coins: int = 0, cosmetics=None, equipped=None) -> SimpleNamespace:
@@ -110,19 +106,20 @@ def test_can_buy_rules():
 
 # --- buy ---------------------------------------------------------------------
 async def test_buy_grants_and_debits_on_success():
-    db = _FakeDB(rowcount=1)  # guarded debit succeeds
+    db = _FakeDB()
     u = _user(coins=300)
-    out = await cosmetics.buy(u, db, "sensei_sage")
+    out = await cosmetics.buy(u, db, "sensei_sage")  # price 200
     assert "sensei_sage" in out.cosmetics
-    assert db.commits == 1
+    assert out.coins == 100  # koku debited
+    assert db.commits == 1 and db.locked == 1  # debit + grant under SELECT … FOR UPDATE
 
 
-async def test_buy_409_when_insufficient_after_race():
-    db = _FakeDB(rowcount=0)  # coins>=price guard failed → lost race / too poor
+async def test_buy_409_when_insufficient():
+    db = _FakeDB()
     with pytest.raises(HTTPException) as ei:
-        await cosmetics.buy(_user(coins=300), db, "sensei_sage")
+        await cosmetics.buy(_user(coins=10), db, "sensei_sage")  # price 200 → too poor
     assert ei.value.status_code == 409
-    assert db.rollbacks == 1
+    assert db.commits == 0 and db.rollbacks == 1
 
 
 async def test_buy_rejects_starter_and_unknown():
@@ -140,6 +137,14 @@ async def test_buy_is_idempotent_when_already_owned():
     u = _user(coins=300, cosmetics=["sensei_sage"])
     out = await cosmetics.buy(u, db, "sensei_sage")
     assert out.coins == 300 and db.commits == 0  # charged nothing
+
+
+async def test_buy_serializes_under_a_row_lock():
+    # The debit + ownership grant run under SELECT … FOR UPDATE, so two concurrent buys can't
+    # double-charge the same item or clobber each other's cosmetics array.
+    db = _FakeDB()
+    await cosmetics.buy(_user(coins=300), db, "sensei_sage")
+    assert db.locked == 1
 
 
 # --- equip -------------------------------------------------------------------

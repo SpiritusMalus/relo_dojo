@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.models import User
@@ -44,19 +43,24 @@ def can_buy(user: User, content_id: str) -> tuple[bool, str]:
 
 
 async def buy(user: User, db: AsyncSession, content_id: str) -> User:
-    """Unlock content with koku — validate, debit (guarded), grant ownership, atomically."""
+    """Unlock content with koku — validate, lock, debit, grant ownership, atomically.
+
+    Row-locks the account (SELECT … FOR UPDATE) so concurrent buys serialize. Without the lock two
+    buys of the same id could double-charge, and two different buys could clobber each other's
+    `unlocks` append (a read-modify-write on the JSONB array). 409 when too poor."""
     item = CATALOG.get(content_id)
     if item is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_UNKNOWN)
+    # Lock the row for the read-modify-write below (ownership re-check + debit + array append).
+    await db.refresh(user, with_for_update=True)
     if content_id in owned_ids(user):
-        return user  # idempotent — already owned, charge nothing
+        await db.rollback()  # idempotent: already owned → release the lock, charge nothing
+        return user
     price = item["price"]
-    res = await db.execute(
-        update(User).where(User.id == user.id, User.coins >= price).values(coins=User.coins - price)
-    )
-    if res.rowcount == 0:
+    if user.coins < price:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_NOT_ENOUGH)
+    user.coins -= price
     user.unlocks = list(user.unlocks or []) + [content_id]
     await db.commit()
     await db.refresh(user)

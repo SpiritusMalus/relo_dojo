@@ -9,19 +9,14 @@ from fastapi import HTTPException
 from app.services import content, stories
 
 
-class _FakeResult:
-    def __init__(self, rowcount: int = 1) -> None:
-        self.rowcount = rowcount
-
-
 class _FakeDB:
-    def __init__(self, rowcount: int = 1) -> None:
-        self.rowcount = rowcount
+    """Minimal async session: counts commits/rollbacks and FOR UPDATE locks. The buy path now uses
+    a row lock + in-Python check (no Core UPDATE), so there's no execute()/rowcount to fake."""
+
+    def __init__(self) -> None:
         self.commits = 0
         self.rollbacks = 0
-
-    async def execute(self, stmt):  # noqa: ANN001
-        return _FakeResult(self.rowcount)
+        self.locked = 0
 
     async def commit(self):
         self.commits += 1
@@ -29,8 +24,9 @@ class _FakeDB:
     async def rollback(self):
         self.rollbacks += 1
 
-    async def refresh(self, obj):  # noqa: ANN001
-        pass
+    async def refresh(self, obj, **kw):  # noqa: ANN001 — row-lock no-op in tests
+        if kw.get("with_for_update"):
+            self.locked += 1
 
 
 def _user(coins: int = 0, unlocks=None):
@@ -92,18 +88,20 @@ def test_can_buy_rules():
 
 
 async def test_buy_grants_and_debits():
-    db = _FakeDB(rowcount=1)
+    db = _FakeDB()
     u = _user(coins=200)
-    out = await content.buy(u, db, "arc_detective")
+    out = await content.buy(u, db, "arc_detective")  # price 200
     assert "arc_detective" in out.unlocks
-    assert db.commits == 1
+    assert out.coins == 0  # koku debited
+    assert db.commits == 1 and db.locked == 1  # debit + grant under SELECT … FOR UPDATE
 
 
 async def test_buy_409_when_insufficient():
-    db = _FakeDB(rowcount=0)
+    db = _FakeDB()
     with pytest.raises(HTTPException) as ei:
-        await content.buy(_user(coins=200), db, "arc_detective")
+        await content.buy(_user(coins=10), db, "arc_detective")  # price 200 → too poor
     assert ei.value.status_code == 409
+    assert db.commits == 0 and db.rollbacks == 1
 
 
 async def test_buy_unknown_is_400():
