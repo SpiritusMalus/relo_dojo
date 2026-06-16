@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Тест: английский для IT-релокации · Relo Dojo</title>
+<meta name="description" content="2 минуты, 9 ситуаций — собеседование, банк, первый стендап. Узнай, готов ли твой английский к переезду, и какой у тебя пояс." />
+
+<!-- Open Graph: Telegram/VK/Twitter render this card when the link is forwarded.
+     [YOU] export a real 1200×630 og-image.png into this folder before sharing. -->
+<meta property="og:title" content="Сдашь ли ты small-talk на релокейте?" />
+<meta property="og:description" content="9 ситуаций из реального переезда айтишника — собеседование, банк, первый стендап. Проверь английский за 2 минуты." />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="./og-image.png" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<style>
+  :root {
+    /* Pulled from the app theme (mobile/theme/theme.ts) so the quiz, the landing and the product match. */
+    --accent:#0E8A30; --accent-press:#0B6E26; --accent-soft:#E0F0E4;
+    --fire:#F0801F; --fire-soft:#FDECDD; --gold:#E3A52C;
+    --ink:#15201A; --ink2:#586A60; --ink3:#8A988F;
+    --screen:#FBFDFB; --surface:#FFFFFF; --surface2:#F2F7F3;
+    --line:#E7EDE8; --line2:#DDE6E0;
+    --bad:#C2402F; --bad-soft:#FBE7E3;
+    --maxw:560px; --radius:18px;
+    --shadow:0 1px 2px rgba(21,32,26,.04), 0 12px 32px rgba(21,32,26,.06);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    margin:0; font-family:var(--font); color:var(--ink); background:var(--screen);
+    line-height:1.55; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  .belt { height:6px; background:linear-gradient(90deg,var(--accent) 0 60%,var(--gold) 60% 80%,var(--fire) 80% 100%); }
+  .wrap { max-width:var(--maxw); margin:0 auto; padding:0 18px 48px; }
+
+  /* header */
+  header.top { display:flex; align-items:center; gap:10px; padding:18px 0 4px; }
+  .brand { display:flex; align-items:center; gap:9px; font-weight:800; font-size:17px; letter-spacing:-.02em; }
+  .brand .mark { width:28px; height:28px; flex:0 0 auto; }
+  .brand small { font-weight:600; color:var(--ink3); font-size:13px; letter-spacing:0; }
+
+  /* progress */
+  .progress { display:none; align-items:center; gap:12px; margin:14px 0 18px; }
+  .progress.show { display:flex; }
+  .bar { flex:1; height:8px; background:var(--surface2); border-radius:999px; overflow:hidden; }
+  .bar > i { display:block; height:100%; width:0; background:var(--accent); border-radius:999px; transition:width .35s cubic-bezier(.4,0,.2,1); }
+  .count { font-weight:700; font-size:13px; color:var(--ink3); white-space:nowrap; }
+
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:22px; box-shadow:var(--shadow); }
+
+  /* intro */
+  .eyebrow { display:inline-block; font-weight:700; font-size:12px; letter-spacing:.05em; text-transform:uppercase;
+             color:var(--accent-press); background:var(--accent-soft); padding:6px 12px; border-radius:999px; }
+  h1 { font-size:clamp(26px,7vw,34px); line-height:1.1; letter-spacing:-.03em; margin:16px 0 10px; }
+  h1 .hl { color:var(--accent); }
+  .lead { color:var(--ink2); font-size:17px; margin:0; }
+  .meta { display:flex; gap:18px; flex-wrap:wrap; margin:20px 0 4px; color:var(--ink3); font-size:14px; font-weight:600; }
+  .meta b { color:var(--ink); }
+
+  /* buttons */
+  .btn { display:block; width:100%; font-family:inherit; font-weight:700; font-size:17px; padding:15px 20px;
+         border-radius:14px; border:1px solid transparent; cursor:pointer; text-align:center; text-decoration:none; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:active { background:var(--accent-press); }
+  .btn-ghost { background:var(--surface); color:var(--ink); border-color:var(--line2); }
+  .btn-ghost:active { border-color:var(--accent); color:var(--accent-press); }
+  .btn + .btn { margin-top:10px; }
+  .btn[disabled] { opacity:.45; cursor:default; }
+
+  /* question */
+  .stage { display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:12px; letter-spacing:.04em;
+           text-transform:uppercase; color:var(--ink3); }
+  .stage .dot { width:8px; height:8px; border-radius:999px; background:var(--gold); }
+  .scenario { color:var(--ink2); font-size:15px; margin:12px 0 2px; }
+  .q { font-weight:700; font-size:19px; letter-spacing:-.01em; margin:6px 0 16px; }
+  .opt { display:block; width:100%; text-align:left; font-family:inherit; font-size:16px; color:var(--ink);
+         background:var(--surface); border:1.5px solid var(--line2); border-radius:13px; padding:13px 16px;
+         margin-top:10px; cursor:pointer; transition:border-color .12s, background .12s; }
+  .opt:hover { border-color:var(--accent); }
+  .opt.correct { border-color:var(--accent); background:var(--accent-soft); color:var(--accent-press); font-weight:700; }
+  .opt.wrong   { border-color:var(--bad); background:var(--bad-soft); color:var(--bad); font-weight:700; }
+  .opt.muted   { opacity:.5; }
+  .opt[disabled] { cursor:default; }
+
+  /* explanation — "in your language", matching the app's promise */
+  .explain { display:none; margin-top:16px; padding:14px 16px; border-radius:13px; background:var(--surface2);
+             border:1px solid var(--line); font-size:15px; color:var(--ink2); }
+  .explain.show { display:block; animation:fade .25s ease; }
+  .explain .tag { font-weight:800; font-size:12px; letter-spacing:.03em; text-transform:uppercase; }
+  .explain.ok  .tag { color:var(--accent-press); }
+  .explain.no  .tag { color:var(--bad); }
+  .explain b { color:var(--ink); }
+  @keyframes fade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+
+  .next-row { margin-top:18px; }
+
+  /* result */
+  .result-belt { font-size:54px; line-height:1; }
+  .score { font-size:46px; font-weight:800; letter-spacing:-.03em; margin:8px 0 2px; }
+  .score small { font-size:22px; color:var(--ink3); font-weight:700; }
+  .belt-name { font-weight:800; font-size:20px; letter-spacing:-.01em; margin:10px 0 6px; }
+  .breakdown { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:20px 0; }
+  .bd { background:var(--surface2); border-radius:12px; padding:12px 8px; text-align:center; }
+  .bd .n { font-weight:800; font-size:18px; }
+  .bd .l { font-size:11px; color:var(--ink3); font-weight:600; margin-top:2px; }
+  .copied { text-align:center; font-size:13px; color:var(--accent-press); font-weight:700; height:18px; margin-top:8px; }
+  .pitch { color:var(--ink2); font-size:16px; margin:4px 0 18px; }
+
+  footer { text-align:center; color:var(--ink3); font-size:13px; padding:26px 0 0; }
+  footer a { color:var(--ink2); }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<div class="belt"></div>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><use href="#torii"/></svg>
+      Relo Dojo <small>· тест</small>
+    </div>
+  </header>
+
+  <div class="progress" id="progress">
+    <div class="bar"><i id="barFill"></i></div>
+    <div class="count" id="count">1 / 9</div>
+  </div>
+
+  <!-- INTRO -->
+  <main id="intro" class="card">
+    <span class="eyebrow">Английский для IT-релокации</span>
+    <h1>Сдашь ли ты <span class="hl">small-talk на релокейте</span>?</h1>
+    <p class="lead">9 ситуаций из реального переезда айтишника — собеседование на английском, банк в новой стране, первый стендап в команде. Где-то поймаешь себя на ошибке.</p>
+    <div class="meta">
+      <span>⏱ <b>2 минуты</b></span>
+      <span>🎯 <b>9 вопросов</b></span>
+      <span>🥋 <b>узнаешь свой пояс</b></span>
+    </div>
+    <div style="margin-top:22px">
+      <button class="btn btn-primary" id="start">Начать тест</button>
+    </div>
+    <p style="text-align:center;color:var(--ink3);font-size:13px;margin:14px 0 0">Без регистрации · ответы с разбором на русском</p>
+  </main>
+
+  <!-- QUESTION (rendered by JS) -->
+  <main id="quiz" class="card hidden"></main>
+
+  <!-- RESULT (rendered by JS) -->
+  <main id="result" class="card hidden"></main>
+
+  <footer>
+    Relo Dojo — английский для IT-релокации.<br/>
+    <!-- [YOU] point this at the live landing / store listing once published. -->
+    <a href="../landing/index.html">О приложении →</a>
+  </footer>
+</div>
+
+<!-- Shared torii mark: a gateway (relocation = passage), drawn dojo-clean. Mirrors the landing + app icon. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="torii" viewBox="0 0 64 64">
+    <rect width="64" height="64" rx="15" fill="#0E8A30"/>
+    <g fill="none" stroke="#FFFFFF" stroke-width="4.6" stroke-linecap="round">
+      <path d="M13 22 q19 -7 38 0" />
+      <path d="M12 30 h40" />
+      <path d="M20 30 v22" />
+      <path d="M44 30 v22" />
+    </g>
+    <path d="M27 30 h10 v7 h-10 z" fill="#E3A52C"/>
+  </symbol>
+</svg>
+
+<script>
+/* ----------------------------------------------------------------------------
+ * Relo Dojo — IT-relocation English mini-quiz (lead magnet).
+ * Fully static: no backend, no LLM cost on anonymous web traffic. Test content
+ * is English (we're testing their English); framing + explanations are Russian
+ * (the RU/CIS IT-relocation cohort). Scenarios mirror mobile/store/scenarioPacks.ts.
+ * Each question has exactly one correct option; distractors include the classic
+ * RU-speaker mistake (tenses / prepositions / conditionals / collocations).
+ * -------------------------------------------------------------------------- */
+
+// [YOU] when the app ships, point this at the store/app URL; the share link uses it too.
+var APP_URL = "../landing/index.html";
+var SHARE_URL = "https://relodojo.app/quiz"; // [YOU] real public URL of THIS quiz, for the share text.
+
+var STAGES = {
+  interview: "Собеседование",
+  life:      "Жизнь за границей",
+  work:      "Работа в команде"
+};
+
+var QUESTIONS = [
+  // ── Stage 1: interview ────────────────────────────────────────────────────
+  {
+    stage: "interview",
+    scenario: "Интервьюер спрашивает про твой опыт:",
+    prompt: "“I ___ at a fintech startup for three years.”",
+    options: ["have been working", "am working", "work", "working"],
+    answer: 0,
+    why: "После <b>for + период</b>, который длится до сих пор → Present Perfect Continuous: <b>have been working</b>. «I work… for three years» — самая частая ошибка."
+  },
+  {
+    stage: "interview",
+    scenario: "Рекрутер: «When could you start?»",
+    prompt: "“I need to ___ one month’s notice.”",
+    options: ["give", "make", "do", "take"],
+    answer: 0,
+    why: "Устойчивое <b>to give notice</b> — предупредить об уходе с текущей работы. Не make/do notice."
+  },
+  {
+    stage: "interview",
+    scenario: "Вопрос про развитие:",
+    prompt: "“Right now I’m working ___ my public-speaking skills.”",
+    options: ["on", "at", "for", "with"],
+    answer: 0,
+    why: "<b>to work on something</b> — работать над чем-то. Предлог <b>on</b>, не at/for."
+  },
+  // ── Stage 2: life abroad ──────────────────────────────────────────────────
+  {
+    stage: "life",
+    scenario: "Первый поход в банк в новой стране:",
+    prompt: "“Hi, I’d like to ___ a bank account, please.”",
+    options: ["open", "make", "start", "create"],
+    answer: 0,
+    why: "Счёт по-английски <b>open</b> (открыть). Make/create a bank account — калька с русского, так не говорят."
+  },
+  {
+    stage: "life",
+    scenario: "Звонишь арендодателю — сломалось отопление:",
+    prompt: "“If the heater ___ by tomorrow, I’ll call a technician myself.”",
+    options: ["isn’t fixed", "won’t be fixed", "doesn’t fixed", "isn’t fix"],
+    answer: 0,
+    why: "First conditional: <b>If + Present Simple, … will …</b>. В части с «if» нет will → <b>isn’t fixed</b>. «If it won’t be…» — типичная ошибка."
+  },
+  {
+    stage: "life",
+    scenario: "Записываешься к врачу рядом с домом:",
+    prompt: "“I’d like to register ___ a doctor near my flat.”",
+    options: ["with", "to", "at", "on"],
+    answer: 0,
+    why: "<b>register with a doctor</b> (прикрепиться к врачу). Предлог <b>with</b>, не to/at."
+  },
+  // ── Stage 3: workplace ────────────────────────────────────────────────────
+  {
+    stage: "work",
+    scenario: "Твой первый стендап в команде:",
+    prompt: "“Yesterday I ___ the auth bug; today I’ll start on the API.”",
+    options: ["fixed", "have fixed", "am fixing", "fix"],
+    answer: 0,
+    why: "Со словом <b>yesterday</b> → Past Simple: <b>fixed</b>. Present Perfect (have fixed) с конкретным «вчера» не сочетается."
+  },
+  {
+    stage: "work",
+    scenario: "Код-ревью: у коллеги в PR забыт null-кейс. Самый вежливый комментарий —",
+    prompt: "Как лучше написать?",
+    options: [
+      "“Did you consider handling the null case here?”",
+      "“You forgot the null case.”",
+      "“This is wrong, fix the null case.”",
+      "“Null case missing. Bad.”"
+    ],
+    answer: 0,
+    why: "В ревью вопрос-предложение звучит мягче прямого указания. <b>“Did you consider…?”</b> — норма англоязычной команды; прямое «You forgot / This is wrong» читается резко."
+  },
+  {
+    stage: "work",
+    scenario: "Пишешь в Slack — застрял на деплое:",
+    prompt: "“Can you help me ___? I’m blocked on the deploy.”",
+    options: ["out", "up", "over", "through"],
+    answer: 0,
+    why: "<b>help me out</b> — выручить, помочь. Phrasal verb; help me up/over/through здесь не подходят."
+  }
+];
+
+var BELTS = [
+  { min: 0, max: 3, icon: "⚪️", name: "Белый пояс", line: "Самое начало пути — и это нормально: в додзё все начинают отсюда. Релокейт подсветит пробелы, но приложение их закроет по 5 минут в день." },
+  { min: 4, max: 6, icon: "🟢", name: "Зелёный пояс", line: "Крепкая база. На переезде всплывут нюансы — предлоги, времена, рабочая лексика. Как раз то, что Relo Dojo тренирует на твоих же ситуациях." },
+  { min: 7, max: 8, icon: "🟤", name: "Коричневый пояс", line: "Сильно. Останется отполировать рабочие мелочи — стендапы, ревью, переписку. Доводи до автоматизма, чтобы не думать на созвонах." },
+  { min: 9, max: 9, icon: "⚫️", name: "Чёрный пояс", line: "Впечатляет — ты готов к переезду. Заходи поддерживать форму: язык без практики ржавеет быстрее, чем кажется." }
+];
+
+// ── state + elements ────────────────────────────────────────────────────────
+var i = 0, score = 0;
+var perStage = { interview: 0, life: 0, work: 0 };
+var els = {
+  intro:    document.getElementById("intro"),
+  quiz:     document.getElementById("quiz"),
+  result:   document.getElementById("result"),
+  progress: document.getElementById("progress"),
+  bar:      document.getElementById("barFill"),
+  count:    document.getElementById("count")
+};
+
+document.getElementById("start").addEventListener("click", function () {
+  els.intro.classList.add("hidden");
+  els.quiz.classList.remove("hidden");
+  els.progress.classList.add("show");
+  render();
+});
+
+function render() {
+  var q = QUESTIONS[i];
+  els.bar.style.width = (i / QUESTIONS.length * 100) + "%";
+  els.count.textContent = (i + 1) + " / " + QUESTIONS.length;
+
+  var html =
+    '<div class="stage"><span class="dot"></span>' + STAGES[q.stage] + '</div>' +
+    '<p class="scenario">' + q.scenario + '</p>' +
+    '<p class="q">' + q.prompt + '</p>' +
+    '<div id="opts">';
+  for (var k = 0; k < q.options.length; k++) {
+    html += '<button class="opt" data-k="' + k + '">' + q.options[k] + '</button>';
+  }
+  html += '</div>' +
+    '<div class="explain" id="explain"><span class="tag"></span> <span id="whyText"></span></div>' +
+    '<div class="next-row hidden" id="nextRow">' +
+      '<button class="btn btn-primary" id="next">' +
+        (i === QUESTIONS.length - 1 ? "Узнать результат →" : "Дальше →") +
+      '</button>' +
+    '</div>';
+  els.quiz.innerHTML = html;
+
+  var opts = els.quiz.querySelectorAll(".opt");
+  for (var m = 0; m < opts.length; m++) {
+    opts[m].addEventListener("click", onAnswer);
+  }
+  els.quiz.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function onAnswer(e) {
+  var q = QUESTIONS[i];
+  var chosen = +e.currentTarget.getAttribute("data-k");
+  var correct = chosen === q.answer;
+  if (correct) { score++; perStage[q.stage]++; }
+
+  var opts = els.quiz.querySelectorAll(".opt");
+  for (var k = 0; k < opts.length; k++) {
+    opts[k].disabled = true;
+    if (k === q.answer) opts[k].classList.add("correct");
+    else if (k === chosen) opts[k].classList.add("wrong");
+    else opts[k].classList.add("muted");
+  }
+
+  var ex = document.getElementById("explain");
+  ex.classList.add("show", correct ? "ok" : "no");
+  ex.querySelector(".tag").textContent = correct ? "Верно" : "Не совсем";
+  document.getElementById("whyText").innerHTML = q.why;
+
+  document.getElementById("nextRow").classList.remove("hidden");
+  document.getElementById("next").addEventListener("click", function () {
+    i++;
+    if (i < QUESTIONS.length) render();
+    else showResult();
+  });
+}
+
+function showResult() {
+  els.bar.style.width = "100%";
+  els.quiz.classList.add("hidden");
+  els.progress.classList.remove("show");
+
+  var belt = BELTS.find(function (b) { return score >= b.min && score <= b.max; });
+  els.result.innerHTML =
+    '<div style="text-align:center">' +
+      '<div class="result-belt">' + belt.icon + '</div>' +
+      '<div class="score">' + score + '<small> / ' + QUESTIONS.length + '</small></div>' +
+      '<div class="belt-name">' + belt.name + '</div>' +
+    '</div>' +
+    '<div class="breakdown">' +
+      bd("Собеседование", perStage.interview) +
+      bd("Жизнь", perStage.life) +
+      bd("Работа", perStage.work) +
+    '</div>' +
+    '<p class="pitch">' + belt.line + '</p>' +
+    '<a class="btn btn-primary" href="' + APP_URL + '">Тренироваться в Relo Dojo →</a>' +
+    '<button class="btn btn-ghost" id="share">Поделиться результатом</button>' +
+    '<div class="copied" id="copied"></div>' +
+    '<button class="btn btn-ghost" id="restart" style="margin-top:6px">Пройти заново</button>';
+  els.result.classList.remove("hidden");
+  els.result.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  document.getElementById("share").addEventListener("click", share);
+  document.getElementById("restart").addEventListener("click", function () {
+    i = 0; score = 0; perStage = { interview: 0, life: 0, work: 0 };
+    els.result.classList.add("hidden");
+    els.quiz.classList.remove("hidden");
+    els.progress.classList.add("show");
+    render();
+  });
+}
+
+function bd(label, n) {
+  return '<div class="bd"><div class="n">' + n + '/3</div><div class="l">' + label + '</div></div>';
+}
+
+function share() {
+  var belt = BELTS.find(function (b) { return score >= b.min && score <= b.max; });
+  var text = "Прошёл тест «Английский для IT-релокации» от Relo Dojo: " +
+    score + "/9, " + belt.name.toLowerCase() + " " + belt.icon +
+    ". А ты сдашь small-talk на релокейте? " + SHARE_URL;
+  if (navigator.share) {
+    navigator.share({ title: "Тест: английский для IT-релокации", text: text, url: SHARE_URL })
+      .catch(function () {});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function () {
+      var c = document.getElementById("copied");
+      c.textContent = "Скопировано — кидай в чат 👍";
+      setTimeout(function () { c.textContent = ""; }, 2600);
+    });
+  }
+}
+</script>
+</body>
+</html>
