@@ -195,6 +195,8 @@ class UserOut(BaseModel):
     email: EmailStr
     is_verified: bool = False
     is_premium: bool = False
+    # ISO-8601 paid-subscription expiry (null = no paid sub; is_premium may still be true if comped).
+    premium_until: Optional[str] = None
     coins: int = 0
     freezes: int = 0
     # Cosmetics (engagement v2): everything the user can equip + what's equipped per slot.
@@ -469,3 +471,33 @@ class EventBatchIn(BaseModel):
 
 class EventAck(BaseModel):
     accepted: int
+
+
+# --- web-checkout billing (premium "Black Belt": YooKassa + crypto) ---
+class BillingPlanOut(BaseModel):
+    id: str
+    days: int
+    price_rub: int
+    price_usd: int
+    label_en: str
+    label_ru: str
+
+
+class PlansOut(BaseModel):
+    """The plan catalog for the web checkout to render (prices in both rails)."""
+
+    plans: list[BillingPlanOut] = Field(default_factory=list)
+
+
+class CheckoutIn(BaseModel):
+    """Start a purchase: which plan, over which rail. The buyer is the authenticated caller — never
+    taken from the request body — so a checkout can only ever top up your OWN account."""
+
+    plan: str = Field(min_length=1, max_length=40)
+    method: str = Field(pattern="^(yookassa|crypto)$")
+
+
+class CheckoutOut(BaseModel):
+    """Where to send the buyer next — the provider's hosted checkout / invoice page."""
+
+    url: str

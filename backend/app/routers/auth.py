@@ -92,6 +92,7 @@ async def me(user: User = Depends(get_current_user)) -> UserOut:
         email=user.email,
         is_verified=user.is_verified,
         is_premium=user.is_premium,
+        premium_until=user.premium_until.isoformat() if user.premium_until else None,
         coins=user.coins,
         freezes=user.freezes,
         cosmetics=cosmetics_service.owned_ids(user),

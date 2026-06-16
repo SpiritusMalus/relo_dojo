@@ -1,11 +1,13 @@
 import { useEffect } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { trackPaywallView } from "../services/analytics";
+import { billingEnabled, buildCheckoutUrl } from "../services/billing";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
+import { useAuth } from "../store/auth";
 import { useProgress } from "../store/progress";
 import { useWallet } from "../store/wallet";
 import { beltProgress } from "../store/dojo";
@@ -21,9 +23,10 @@ import Txt from "../components/ui/Txt";
 // everything, so flipping it is the only integration left.
 export default function PremiumScreen() {
   const t = useTheme();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { token } = useAuth();
   const { progress } = useProgress();
   const { isPremium } = useWallet();
   const belt = beltProgress(progress).belt;
@@ -80,6 +83,16 @@ export default function PremiumScreen() {
           <Txt variant="bodyStrong" color={t.c.gold} style={{ textAlign: "center" }}>
             {tr("premium.active")}
           </Txt>
+        ) : billingEnabled() ? (
+          <>
+            <Button
+              label={tr("premium.ctaBuy")}
+              onPress={() => Linking.openURL(buildCheckoutUrl(token, lang))}
+            />
+            <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center" }}>
+              {tr("premium.ctaNote")}
+            </Txt>
+          </>
         ) : (
           <>
             <Button label={tr("premium.ctaSoon")} disabled />

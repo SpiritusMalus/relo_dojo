@@ -33,6 +33,7 @@ from .db.models import User
 from .deps import get_current_user, get_current_user_optional, get_db, llm_rate_limit
 from .routers import agents as agents_router
 from .routers import auth as auth_router
+from .routers import billing as billing_router
 from .routers import contracts as contracts_router
 from .routers import cosmetics as cosmetics_router
 from .routers import events as events_router
@@ -104,6 +105,7 @@ app.add_middleware(
 
 app.include_router(agents_router.router)
 app.include_router(auth_router.router)
+app.include_router(billing_router.router)
 app.include_router(contracts_router.router)
 app.include_router(cosmetics_router.router)
 app.include_router(events_router.router)
@@ -382,11 +384,13 @@ async def dev_premium_toggle(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, bool]:
-    """DEV ONLY: flip the caller's premium flag (guarded by DEV_PREMIUM_TOGGLE, off by default).
-    In prod the flag is owned by the payment provider integration (Phase 7/8)."""
+    """DEV ONLY: flip the caller's comp ("Black Belt forever") flag (guarded by DEV_PREMIUM_TOGGLE,
+    off by default). Toggles the manual override; paid subscriptions (premium_until) come from the
+    billing webhooks instead. `is_premium` in the response is the effective property (override OR a
+    live paid sub)."""
     if not settings.DEV_PREMIUM_TOGGLE:
         raise HTTPException(status_code=404, detail="Not found.")
-    user.is_premium = not user.is_premium
+    user.premium_override = not user.premium_override
     await db.commit()
     return {"is_premium": user.is_premium}
 

@@ -164,9 +164,34 @@ class Settings(BaseSettings):
     # page / landing / deep-link you want returning users to open.
     RETURN_EMAIL_CTA_URL: str = ""
 
+    # --- Web-checkout billing (premium "Black Belt": YooKassa for RU cards + crypto/USDT) ---
+    # Apple/Google forbid third-party payment for in-app digital goods, so premium is sold on the
+    # web (relodojo.app) and the account unlocks via these provider webhooks. OFF by default (like
+    # rewarded ads / return emails): /billing/* 404s until a provider is configured and this flips.
+    BILLING_ENABLED: bool = False
+    # Public base URL of the web checkout's result page — where the provider returns the buyer after
+    # pay/cancel (e.g. https://relodojo.app/checkout/done). Falls back to APP_BASE_URL.
+    BILLING_RETURN_URL: str = ""
+    # YooKassa (ИП acquiring: RU cards + SBP). shopId + secret key from the YooKassa dashboard.
+    # Webhook → POST {APP_BASE_URL}/billing/yookassa/webhook, verified by re-fetching the payment
+    # from the API (YooKassa notifications carry no shared signature — the re-fetch is the check).
+    YOOKASSA_SHOP_ID: str = ""
+    YOOKASSA_SECRET_KEY: str = ""
+    YOOKASSA_API_URL: str = "https://api.yookassa.ru/v3"
+    # Crypto (USDT etc.) via a Cryptomus merchant — fits relocants who've left RU banking. merchant
+    # uuid + API key. Webhook → POST {APP_BASE_URL}/billing/crypto/webhook (HMAC-signed; verified
+    # against the raw request body). Swappable behind services/crypto_pay.py.
+    CRYPTO_MERCHANT_ID: str = ""
+    CRYPTO_API_KEY: str = ""
+    CRYPTO_API_URL: str = "https://api.cryptomus.com/v1"
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def billing_return_url(self) -> str:
+        return (self.BILLING_RETURN_URL or self.APP_BASE_URL or "").rstrip("/")
 
 
 settings = Settings()  # raises at startup if a required secret is missing

@@ -7,7 +7,7 @@ mobile/store/progress.tsx — which matches the snapshot-sync model and stays fa
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid, func, Index
@@ -31,9 +31,15 @@ class User(Base):
     starter_day: Mapped[str] = mapped_column(String(10), nullable=False, server_default="")
     starter_used: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     # --- Economy (monetization plan, branch 1) ---
-    # Premium ("Black Belt") entitlement. Set manually / by a payment provider later — the flag is
-    # the single source of truth the rest of the gating reads.
-    is_premium: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # Premium ("Black Belt") entitlement. Effective premium is the `is_premium` property below: true
+    # while a PAID subscription is live (premium_until in the future) OR when manually comped
+    # (premium_override = "Black Belt forever", flipped by /dev/premium or an admin). Paid grants come
+    # from the billing webhooks (services/billing.py) and only ever EXTEND premium_until — they never
+    # touch the override. Everything else reads `user.is_premium`, so subscription expiry is automatic.
+    premium_override: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    premium_until: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # Soft currency ("koku"). Server-authoritative: earned only via /check on a correct answer,
     # spent only via /wallet/spend — the client can never set a balance directly.
     coins: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
@@ -64,6 +70,15 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+    @property
+    def is_premium(self) -> bool:
+        """Effective Black Belt status: a manual comp (override) OR a live paid subscription. Read
+        everywhere instead of a raw column so a lapsed subscription downgrades automatically."""
+        if self.premium_override:
+            return True
+        until = self.premium_until
+        return until is not None and until > datetime.now(timezone.utc)
 
     progress: Mapped["Progress"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
@@ -193,5 +208,29 @@ class SentEmail(Base):
     )
     kind: Mapped[str] = mapped_column(String(40), primary_key=True)
     sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ProcessedPayment(Base):
+    """Idempotency guard for billing webhooks (web-checkout premium: YooKassa + crypto/USDT).
+
+    PK is (provider, external_id): the first successful payment notification inserts the row and
+    extends the buyer's premium_until; a replay or retried webhook for the SAME payment hits the PK
+    conflict and grants nothing. Same claim-before-grant pattern as AwardedToken / SentEmail —
+    payment webhooks are at-least-once, so the grant MUST be idempotent. `user_id` is the buyer (SET
+    NULL on delete: the receipt outlives the account); `plan`/`days` record what was granted for
+    support/audit/refunds."""
+
+    __tablename__ = "processed_payments"
+
+    provider: Mapped[str] = mapped_column(String(20), primary_key=True)  # "yookassa" | "crypto"
+    external_id: Mapped[str] = mapped_column(String(128), primary_key=True)  # provider's payment id
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    plan: Mapped[str] = mapped_column(String(40), nullable=False)
+    days: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

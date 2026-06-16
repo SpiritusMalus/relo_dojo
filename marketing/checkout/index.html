@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Чёрный пояс · Relo Dojo</title>
+<!--
+  Web checkout for the premium "Black Belt" subscription.
+
+  WHY web (not in-app): Apple/Google forbid third-party payment for in-app digital goods, so the
+  app opens this page with the buyer's session in the URL FRAGMENT (#api=...&token=...&lang=...).
+  The fragment is read by JS and never sent to a server / kept in access logs, unlike a query
+  string. This page just calls the backend:
+    GET  {api}/billing/plans      -> render plan + price (RUB via card, USD via crypto)
+    POST {api}/billing/checkout   -> {url}, then we redirect the buyer to the provider's page
+  The backend grants premium on the provider webhook (server-authoritative). Static, zero build.
+-->
+<style>
+  :root {
+    /* Pulled from the app theme (mobile/theme/theme.ts) so checkout matches the quiz + landing. */
+    --accent:#0E8A30; --accent-press:#0B6E26; --accent-soft:#E0F0E4;
+    --fire:#F0801F; --gold:#E3A52C;
+    --ink:#15201A; --ink2:#586A60; --ink3:#8A988F;
+    --screen:#FBFDFB; --surface:#FFFFFF; --surface2:#F2F7F3;
+    --line:#E7EDE8; --line2:#DDE6E0; --bad:#C2402F; --bad-soft:#FBE7E3;
+    --maxw:480px; --radius:18px;
+    --shadow:0 1px 2px rgba(21,32,26,.04), 0 12px 32px rgba(21,32,26,.06);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,system-ui,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:var(--font); color:var(--ink); background:var(--screen);
+         line-height:1.55; -webkit-font-smoothing:antialiased; }
+  .belt { height:6px; background:linear-gradient(90deg,var(--accent) 0 60%,var(--gold) 60% 80%,var(--fire) 80% 100%); }
+  .wrap { max-width:var(--maxw); margin:0 auto; padding:0 18px 48px; }
+  header.top { display:flex; align-items:center; gap:9px; padding:18px 0 6px; font-weight:800; font-size:17px; letter-spacing:-.02em; }
+  header.top .mark { width:26px; height:26px; }
+  header.top small { font-weight:600; color:var(--ink3); font-size:13px; }
+  h1 { font-size:clamp(24px,6.5vw,30px); line-height:1.12; letter-spacing:-.03em; margin:18px 0 6px; }
+  .lead { color:var(--ink2); font-size:16px; margin:0 0 18px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px; box-shadow:var(--shadow); }
+
+  /* method toggle */
+  .seg { display:flex; gap:6px; background:var(--surface2); padding:5px; border-radius:14px; margin-bottom:16px; }
+  .seg button { flex:1; font-family:inherit; font-weight:700; font-size:15px; padding:11px 8px; border:0;
+                border-radius:10px; background:transparent; color:var(--ink2); cursor:pointer; }
+  .seg button[aria-selected="true"] { background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
+
+  /* plans */
+  .plan { display:flex; align-items:center; gap:13px; width:100%; text-align:left; font-family:inherit;
+          background:var(--surface); border:1.5px solid var(--line2); border-radius:14px; padding:14px 16px;
+          cursor:pointer; margin-bottom:10px; }
+  .plan[aria-selected="true"] { border-color:var(--accent); background:var(--accent-soft); }
+  .plan .tick { width:20px; height:20px; flex:0 0 auto; border-radius:50%; border:2px solid var(--line2); }
+  .plan[aria-selected="true"] .tick { border-color:var(--accent); background:var(--accent); box-shadow:inset 0 0 0 3px var(--surface); }
+  .plan .name { font-weight:700; }
+  .plan .sub { color:var(--ink3); font-size:13px; }
+  .plan .price { margin-left:auto; font-weight:800; font-size:18px; white-space:nowrap; }
+  .plan .best { display:inline-block; font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase;
+                color:var(--accent-press); background:var(--accent-soft); padding:2px 7px; border-radius:999px; margin-left:8px; }
+
+  .btn { display:block; width:100%; font-family:inherit; font-weight:800; font-size:17px; padding:15px 20px;
+         border-radius:14px; border:0; cursor:pointer; text-align:center; background:var(--accent); color:#fff; margin-top:16px; }
+  .btn[disabled] { opacity:.5; cursor:default; }
+  .fine { color:var(--ink3); font-size:13px; text-align:center; margin:12px 0 0; }
+  .note { font-size:14px; padding:12px 14px; border-radius:12px; margin:14px 0 0; }
+  .note.err { background:var(--bad-soft); color:var(--bad); }
+  .note.warn { background:#FDF6E3; color:#8A6D1A; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<div class="belt"></div>
+<div class="wrap">
+  <header class="top">
+    <svg class="mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 7h18M5 7l1.5-2.5h11L19 7M6.5 7v13M17.5 7v13M6.5 10.5h11" stroke="#15201A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Relo Dojo <small>· Чёрный пояс</small></span>
+  </header>
+
+  <h1 id="h1">Чёрный пояс</h1>
+  <p class="lead" id="lead">Безлимит, двойные коку и «Проверь мой текст» без ограничений.</p>
+
+  <div id="noToken" class="note warn hidden"></div>
+
+  <div class="card" id="picker">
+    <div class="seg" role="tablist" id="seg">
+      <button role="tab" data-method="yookassa" aria-selected="true" id="mCard"></button>
+      <button role="tab" data-method="crypto" aria-selected="false" id="mCrypto"></button>
+    </div>
+    <div id="plans"></div>
+    <div id="err" class="note err hidden"></div>
+    <button class="btn" id="pay" disabled></button>
+    <p class="fine" id="fine"></p>
+  </div>
+</div>
+
+<script>
+(function () {
+  // --- read the session the app handed us in the URL fragment (never the query string) ---
+  var hash = new URLSearchParams(location.hash.slice(1));
+  var api = (hash.get("api") || "").replace(/\/+$/, "");
+  var token = hash.get("token") || "";
+  var lang = hash.get("lang") === "en" ? "en" : "ru";
+
+  var T = {
+    ru: {
+      h1: "Чёрный пояс", lead: "Безлимит, двойные коку и «Проверь мой текст» без ограничений.",
+      card: "Карта РФ", crypto: "Крипта · USDT",
+      pay: "Оплатить", paying: "Создаём оплату…",
+      mo: "мес", best: "выгодно",
+      fine: "Безопасная оплата у провайдера. Доступ откроется в приложении автоматически.",
+      noToken: "Открой эту страницу из приложения Relo Dojo (Профиль → Чёрный пояс), чтобы оплатить свой аккаунт.",
+      errPlans: "Не удалось загрузить тарифы. Обнови страницу.",
+      errPay: "Не удалось создать оплату. Попробуй ещё раз."
+    },
+    en: {
+      h1: "Black Belt", lead: "No daily cap, double koku and unlimited “Review my text”.",
+      card: "RU card", crypto: "Crypto · USDT",
+      pay: "Pay", paying: "Creating payment…",
+      mo: "mo", best: "best value",
+      fine: "Secure checkout at the provider. Access unlocks in the app automatically.",
+      noToken: "Open this page from the Relo Dojo app (Profile → Black Belt) to pay for your account.",
+      errPlans: "Couldn’t load the plans. Refresh the page.",
+      errPay: "Couldn’t start the payment. Try again."
+    }
+  }[lang];
+
+  var method = "yookassa", plans = [], selected = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  document.documentElement.lang = lang;
+  $("h1").textContent = T.h1; $("lead").textContent = T.lead;
+  $("mCard").textContent = T.card; $("mCrypto").textContent = T.crypto;
+  $("pay").textContent = T.pay; $("fine").textContent = T.fine;
+
+  if (!token) { var n = $("noToken"); n.textContent = T.noToken; n.classList.remove("hidden"); }
+
+  function priceLabel(p) {
+    return method === "yookassa" ? (p.price_rub + " ₽") : ("$" + p.price_usd);
+  }
+  function subLabel(p) {
+    var perMo = p.days / 30 || 1; // per-month equivalent, in the selected method's currency
+    return method === "yookassa"
+      ? "≈ " + Math.round(p.price_rub / perMo) + " ₽/" + T.mo
+      : "≈ $" + (p.price_usd / perMo).toFixed(1) + "/" + T.mo;
+  }
+
+  function render() {
+    $("seg").querySelectorAll("button").forEach(function (b) {
+      b.setAttribute("aria-selected", String(b.dataset.method === method));
+    });
+    var box = $("plans"); box.innerHTML = "";
+    plans.forEach(function (p, i) {
+      var best = (i === plans.length - 1 && plans.length > 1); // longest = best per-month value
+      var el = document.createElement("button");
+      el.className = "plan"; el.setAttribute("aria-selected", String(p.id === selected));
+      el.innerHTML =
+        '<span class="tick"></span>' +
+        '<span><span class="name">' + (lang === "en" ? p.label_en : p.label_ru) +
+          (best ? '<span class="best">' + T.best + "</span>" : "") + "</span><br>" +
+          '<span class="sub">' + subLabel(p) + "</span></span>" +
+        '<span class="price">' + priceLabel(p) + "</span>";
+      el.onclick = function () { selected = p.id; render(); };
+      box.appendChild(el);
+    });
+    $("pay").disabled = !selected || !token;
+  }
+
+  // method toggle
+  $("seg").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    method = b.dataset.method; render();
+  });
+
+  // load the catalog
+  fetch(api + "/billing/plans")
+    .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+    .then(function (d) { plans = d.plans || []; selected = plans.length ? plans[0].id : null; render(); })
+    .catch(function () { var e = $("err"); e.textContent = T.errPlans; e.classList.remove("hidden"); });
+
+  // pay → ask the backend for a provider checkout url, then redirect
+  $("pay").addEventListener("click", function () {
+    if (!selected || !token) return;
+    var btn = $("pay"); btn.disabled = true; btn.textContent = T.paying;
+    $("err").classList.add("hidden");
+    fetch(api + "/billing/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+      body: JSON.stringify({ plan: selected, method: method })
+    })
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) { if (d && d.url) { location.href = d.url; } else { throw 0; } })
+      .catch(function () {
+        var e = $("err"); e.textContent = T.errPay; e.classList.remove("hidden");
+        btn.disabled = false; btn.textContent = T.pay;
+      });
+  });
+})();
+</script>
+</body>
+</html>
