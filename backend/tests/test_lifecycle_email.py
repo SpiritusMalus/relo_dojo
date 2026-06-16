@@ -73,6 +73,18 @@ def test_build_return_email_embeds_cta_and_differs_per_kind():
     assert "<a" in h2 and "<a" in h6                # html has the button
 
 
+def test_build_return_email_is_bilingual_ru_en():
+    import re
+
+    for kind in le.RETURN_KINDS:
+        s, t, h = le.build_return_email(kind, "https://relodojo.app/go")
+        for blob in (s, t, h):
+            assert re.search("[А-Яа-яЁё]", blob)            # Russian in subject + text + html
+        assert "Sensei" in t                                # EN echo present in the plain text
+        assert ("Train 5 minutes" in t) or ("Pick up where you left off" in t)
+        assert "Вы получили" in h and "You're receiving" in h  # bilingual footer (RU + EN)
+
+
 def test_build_return_email_rejects_unknown_kind():
     with pytest.raises(ValueError):
         le.build_return_email("return_day99", "https://x")

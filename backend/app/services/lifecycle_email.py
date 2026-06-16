@@ -81,40 +81,67 @@ def due_kind(
 
 
 # ── email copy ────────────────────────────────────────────────────────────────
-def _html(heading: str, body: str, cta_url: str, cta_label: str) -> str:
+# Bilingual: RU primary, EN secondary. The cohort is RU/CIS IT relocants and the app default is
+# Russian (i18n/strings.ts), but some learners opt into English — and the server has no per-user
+# UI-language field — so we send both rather than guess wrong. RU leads; a short EN echo follows.
+def _html(body_ru: str, body_en: str, cta_url: str, cta_ru: str, cta_en: str) -> str:
     return f"""\
 <div style="font-family:system-ui,Arial,sans-serif;max-width:480px">
-  <h2 style="margin:0 0 12px">{heading}</h2>
-  <p style="color:#333">{body}</p>
+  <h2 style="margin:0 0 12px">Relo Dojo</h2>
+  <p style="color:#333">{body_ru}</p>
   <p><a href="{cta_url}"
         style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;
-               padding:12px 20px;border-radius:10px;font-weight:600">{cta_label}</a></p>
+               padding:12px 20px;border-radius:10px;font-weight:600">{cta_ru}</a></p>
+  <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
+  <p style="color:#666;font-size:14px">{body_en}<br/>
+     <a href="{cta_url}" style="color:#16a34a;font-weight:600;text-decoration:none">{cta_en} →</a></p>
   <p style="color:#999;font-size:12px;margin-top:18px">
-     You're receiving this because you created a Relo Dojo account. We only nudge you a couple of
-     times — then we'll leave your inbox alone.</p>
+     Вы получили это письмо, потому что создали аккаунт Relo Dojo — мы напомним пару раз и оставим
+     ваш ящик в покое.<br/>
+     You're receiving this because you created a Relo Dojo account; we only nudge you a couple of
+     times, then we leave your inbox alone.</p>
 </div>"""
 
 
+# (subject_ru, subject_en, lead_ru, lead_en, cta_ru, cta_en) per kind. Warm, short, honest — no
+# unverifiable claims (the batch can't know their real streak, so we don't invent one).
+_COPY: dict[str, tuple[str, str, str, str, str, str]] = {
+    RETURN_DAY2: (
+        "Твой коврик ещё тёплый",
+        "Your mat is still warm",
+        "Пару дней назад ты заглянул(а) в додзё — отличный первый шаг. Следующий пятиминутный "
+        "раунд готов, как только будешь готов(а) ты.",
+        "You stepped onto the mat a couple of days ago — nice first step. Your next five-minute "
+        "round is ready whenever you are.",
+        "Позаниматься 5 минут",
+        "Train 5 minutes",
+    ),
+    RETURN_DAY6: (
+        "Сэнсэй держит твоё место",
+        "Your sensei is keeping your spot",
+        "Прошло несколько дней с последнего занятия. Путь к поясу не потерян — один короткий раунд "
+        "вернёт всё назад. Сегодня хватит пяти минут.",
+        "It's been a few days since your last session. Your belt journey is paused, not lost — one "
+        "short round brings it right back. Five minutes is all it takes today.",
+        "Продолжить с места",
+        "Pick up where you left off",
+    ),
+}
+
+
 def build_return_email(kind: str, cta_url: str) -> tuple[str, str, str]:
-    """(subject, plain_text, html) for a return-email kind. Warm, short, honest — no fake claims."""
-    if kind == RETURN_DAY2:
-        subject = "Your mat is still warm 🥋"
-        lead = (
-            "You stepped into the dojo a couple of days ago — nice work taking the first step. "
-            "Your next five-minute round is ready whenever you are."
-        )
-        cta_label = "Train 5 minutes"
-    elif kind == RETURN_DAY6:
-        subject = "Your sensei is keeping your spot 🥋"
-        lead = (
-            "It's been a few days since your last session. Your belt journey is paused, not lost — "
-            "one short round brings it right back. Five minutes is all it takes today."
-        )
-        cta_label = "Pick up where you left off"
-    else:  # pragma: no cover — callers only pass a RETURN_KINDS value
+    """(subject, plain_text, html) for a return-email kind — bilingual RU/EN, RU first."""
+    copy = _COPY.get(kind)
+    if copy is None:  # pragma: no cover — callers only pass a RETURN_KINDS value
         raise ValueError(f"unknown return-email kind: {kind}")
-    text = f"{lead}\n\n{cta_label}: {cta_url}\n\nSee you on the mat,\nYour Sensei"
-    return subject, text, _html("Relo Dojo", lead, cta_url, cta_label)
+    s_ru, s_en, lead_ru, lead_en, cta_ru, cta_en = copy
+    subject = f"{s_ru} 🥋 / {s_en}"
+    text = (
+        f"{lead_ru}\n\n{cta_ru}: {cta_url}\n\n— Твой Сэнсэй\n\n"
+        f"— — —\n\n"
+        f"{lead_en}\n\n{cta_en}: {cta_url}\n\n— Your Sensei"
+    )
+    return subject, text, _html(lead_ru, lead_en, cta_url, cta_ru, cta_en)
 
 
 def cta_url(s=settings) -> str:
