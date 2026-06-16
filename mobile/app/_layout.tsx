@@ -20,6 +20,11 @@ function newAnonId(): string {
   return `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+// Foreground flush cadence. Server-counted features — daily contracts count progress from the
+// events table — must reflect a just-finished session without waiting for the app to background.
+// flush() no-ops on an empty queue, so an idle tick costs nothing.
+const FLUSH_INTERVAL_MS = 30000;
+
 // Redirect between login, onboarding, and the tabs based on auth + onboarding state.
 function RootNav() {
   const { ready: authReady, token } = useAuth();
@@ -85,6 +90,7 @@ function RootNav() {
   // Flush when the app leaves the foreground so buffered events aren't lost.
   useEffect(() => {
     let sub: { remove: () => void } | undefined;
+    let flushTimer: ReturnType<typeof setInterval> | undefined;
     void (async () => {
       let id = await AsyncStorage.getItem(ANON_KEY).catch(() => null);
       if (!id) {
@@ -100,8 +106,14 @@ function RootNav() {
       sub = AppState.addEventListener("change", (state) => {
         if (state !== "active") void analytics.flush();
       });
+      // Periodic foreground flush: buffered events (e.g. exercise_answered) reach the server during
+      // a session, so daily-contract progress advances without the app having to be backgrounded.
+      flushTimer = setInterval(() => void analytics.flush(), FLUSH_INTERVAL_MS);
     })();
-    return () => sub?.remove();
+    return () => {
+      sub?.remove();
+      if (flushTimer) clearInterval(flushTimer);
+    };
   }, []);
 
   if (!authReady) return null; // brief splash while we read stored token
