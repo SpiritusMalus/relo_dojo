@@ -9,11 +9,13 @@ Catalog items:
 - "use_freeze"  consume an owned charm (streak logic, branch 3): freezes -= qty, no coin cost
 - "extra_pack"  +EXTRA_PACK_SIZE exercises for TODAY (free tier): coins -= PRICE_EXTRA_PACK * qty,
                 today's used-counter -= size (may go negative = extra headroom; resets next day)
-- "streak_repair"  buy back a broken daily streak; qty = the LOST streak length, price =
-                min(REPAIR_BASE + REPAIR_PER_DAY * qty, REPAIR_MAX). The streak itself lives in the
-                client progress snapshot; the server only charges. (Known limit: qty is
-                client-reported — understating it lowers the price. Acceptable while the snapshot
-                is client-owned JSONB; tighten if the streak ever moves server-side.)
+- "streak_repair"  buy back a broken daily streak; price scales with the LOST streak length, =
+                min(REPAIR_BASE + REPAIR_PER_DAY * lost, REPAIR_MAX). The lost length is read from
+                the server's OWN copy of the progress snapshot (brokenStreak.streak), NOT the
+                client-sent qty — so a patched client can't understate qty to pay less. Falls back
+                to qty only when no snapshot is on record yet (legacy clients), so a legitimate
+                repair is never blocked. (Residual: the snapshot is still client-authored; full
+                authority would need a server-side streak counter — see BACKLOG.)
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
-from ..db.models import AwardedToken, User
+from ..db.models import AwardedToken, Progress, User
 from .gating import _utc_day
 
 _UNKNOWN_ITEM = "Unknown shop item."
@@ -137,7 +139,19 @@ async def spend(user: User, db: AsyncSession, item: str, qty: int) -> User:
         await db.refresh(user)
         return user
     elif item == "streak_repair":
-        cost = min(settings.REPAIR_BASE + settings.REPAIR_PER_DAY * qty, settings.REPAIR_MAX)
+        # Price off the server's OWN record of the lost streak (the last-synced snapshot's
+        # brokenStreak.streak), not the client-sent qty — the client flushes its snapshot just
+        # before repairing, so the value is current. Fall back to qty only when no snapshot exists
+        # yet, so a legitimate repair is never blocked. See the module docstring for the residual.
+        snap = await db.get(Progress, user.id)
+        broken = (snap.data.get("brokenStreak") if snap and snap.data else None) or {}
+        try:
+            lost = int(broken.get("streak") or 0)
+        except (TypeError, ValueError):
+            lost = 0
+        if lost <= 0:
+            lost = qty
+        cost = min(settings.REPAIR_BASE + settings.REPAIR_PER_DAY * lost, settings.REPAIR_MAX)
         stmt = (
             update(User)
             .where(User.id == user.id, User.coins >= cost)

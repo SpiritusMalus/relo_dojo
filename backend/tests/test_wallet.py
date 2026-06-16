@@ -21,9 +21,10 @@ class _FakeResult:
 class _FakeDB:
     """Records calls; `rowcount`/`scalar` configure what execute() reports back."""
 
-    def __init__(self, rowcount: int = 1, scalar: int | None = None) -> None:
+    def __init__(self, rowcount: int = 1, scalar: int | None = None, snapshot=None) -> None:
         self.rowcount = rowcount
         self.scalar = scalar
+        self.snapshot = snapshot  # what db.get(Progress, ...) returns (None = no synced snapshot)
         self.commits = 0
         self.rollbacks = 0
         self.refreshed = False
@@ -31,6 +32,9 @@ class _FakeDB:
     async def execute(self, stmt):  # noqa: ANN001 — SQLAlchemy statement
         self.last_stmt = stmt
         return _FakeResult(self.rowcount, self.scalar)
+
+    async def get(self, model, ident):  # noqa: ANN001 — db.get(Progress, user.id)
+        return self.snapshot
 
     def last_params(self) -> dict:
         """Compiled bind params of the last statement (e.g. the koku amount debited)."""
@@ -206,11 +210,22 @@ async def test_extra_pack_insufficient_koku_is_409():
 
 
 async def test_streak_repair_charges_price_scaled_by_lost_streak():
-    db = _FakeDB(rowcount=1)
+    db = _FakeDB(rowcount=1)  # no synced snapshot → price scales with the (fallback) qty
     await wallet.spend(_user(), db, "streak_repair", 30)  # qty = lost streak length
     assert db.commits == 1
     debited = [v for v in db.last_params().values() if isinstance(v, int)]
     assert settings.REPAIR_BASE + settings.REPAIR_PER_DAY * 30 in debited
+
+
+async def test_streak_repair_prices_off_server_snapshot_not_client_qty():
+    # The server reads the real lost streak (30) from its own synced snapshot; an understated
+    # qty=1 must NOT lower the price — the charge scales with the server's record (anti-spoof).
+    snap = SimpleNamespace(data={"brokenStreak": {"streak": 30}})
+    db = _FakeDB(rowcount=1, snapshot=snap)
+    await wallet.spend(_user(), db, "streak_repair", 1)  # client claims it lost only 1 day
+    debited = [v for v in db.last_params().values() if isinstance(v, int)]
+    assert settings.REPAIR_BASE + settings.REPAIR_PER_DAY * 30 in debited
+    assert settings.REPAIR_BASE + settings.REPAIR_PER_DAY * 1 not in debited
 
 
 async def test_streak_repair_price_caps_at_max():

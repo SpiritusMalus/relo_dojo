@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Relo Dojo app-icon master, 1024×1024. Concept: a torii gateway = a passage (relocation),
+     drawn dojo-clean, with a gold step rising through it (the climb / the belt). Full-bleed green;
+     the launcher rounds the corners. Export to the PNG sizes listed in ../BRAND_ASSETS.md.
+     Brand colors are the app theme (mobile/theme/theme.ts): accent #0E8A30, gold #E3A52C. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12A23A"/>
+      <stop offset="1" stop-color="#0B6E26"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background (full bleed — keep the icon's meaning inside the central 80% safe area). -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Soft forward "path" sweeping through the gate: the journey/relocation read. -->
+  <path d="M150 760 Q512 700 874 760" fill="none" stroke="#FFFFFF" stroke-opacity="0.14"
+        stroke-width="34" stroke-linecap="round"/>
+
+  <!-- Torii gateway -->
+  <g fill="none" stroke="#FFFFFF" stroke-width="46" stroke-linecap="round" stroke-linejoin="round">
+    <!-- top curved lintel (kasagi) -->
+    <path d="M232 300 Q512 196 792 300"/>
+    <!-- second beam (nuki) -->
+    <path d="M250 392 H774"/>
+    <!-- pillars -->
+    <path d="M338 392 V760"/>
+    <path d="M686 392 V760"/>
+  </g>
+
+  <!-- Gold step rising through the gate (the climb / belt accent). -->
+  <rect x="452" y="470" width="120" height="120" rx="14" fill="#E3A52C"/>
+  <rect x="452" y="470" width="120" height="120" rx="14" fill="#000000" opacity="0.06"/>
+
+  <!-- Subtle top sheen for depth. -->
+  <rect width="1024" height="1024" fill="#FFFFFF" opacity="0.04"/>
+</svg>
