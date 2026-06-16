@@ -176,3 +176,22 @@ class ClaimedContract(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class SentEmail(Base):
+    """One-time guard for lifecycle re-engagement emails (Day-2 / Day-6 return nudges).
+
+    PK is (user_id, kind): the first send of a given kind to a user inserts the row; the daily batch
+    job (services.lifecycle_email + scripts/send_return_emails.py) claims this row BEFORE sending, so
+    a user receives each nudge at most once and concurrent/retried runs can't double-mail. `kind` is
+    a stable slug like "return_day2" / "return_day6"."""
+
+    __tablename__ = "sent_emails"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    kind: Mapped[str] = mapped_column(String(40), primary_key=True)
+    sent_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

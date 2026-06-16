@@ -70,3 +70,29 @@ async def send_verification_email(to: str, link: str) -> None:
         await asyncio.to_thread(_send_sync, msg)
     except Exception:  # don't fail registration if the mail server hiccups
         logger.exception("Failed to send verification email to %s; link: %s", to, link)
+
+
+async def send_email(to: str, subject: str, text: str, html: str | None = None) -> bool:
+    """Generic transactional send (plain text + optional HTML alternative).
+
+    Shares the verification path's behavior: when SMTP isn't configured it's a no-op that LOGS the
+    message instead of erroring, so dev/CI work without a mail server. Returns True if the message
+    was handed to SMTP, False if it was only logged (unconfigured) or the server hiccuped — callers
+    use this for telemetry but should not treat a False as fatal. Used by the lifecycle
+    re-engagement job (services.lifecycle_email)."""
+    if not settings.SMTP_HOST:
+        logger.warning("SMTP not configured — '%s' email to %s not sent (logged only)", subject, to)
+        return False
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = formataddr((settings.EMAIL_FROM_NAME, settings.EMAIL_FROM))
+    msg["To"] = to
+    msg.set_content(text)
+    if html:
+        msg.add_alternative(html, subtype="html")
+    try:
+        await asyncio.to_thread(_send_sync, msg)
+        return True
+    except Exception:  # a re-engagement email is best-effort — never crash the batch job
+        logger.exception("Failed to send '%s' email to %s", subject, to)
+        return False

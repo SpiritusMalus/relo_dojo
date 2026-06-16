@@ -147,6 +147,23 @@ class Settings(BaseSettings):
     # in, so dev never loses cohort data by surprise). D7 only needs a few weeks of history.
     EVENTS_TTL_DAYS: int = 0
 
+    # --- Lifecycle re-engagement emails (Day-2 / Day-6 "come back" nudges) ---
+    # The cheapest retention lever we can pull without device push: pull a learner back on days 2
+    # and 6 of inactivity over the same SMTP transport as the activation email. OFF by default (like
+    # rewarded ads) so deploying the code never surprises real users — the batch job no-ops until
+    # this is flipped on. Driven by cron: `python scripts/send_return_emails.py` (daily).
+    RETURN_EMAILS_ENABLED: bool = False
+    # Inactivity windows, in whole days since last activity, for each nudge. Non-overlapping; a user
+    # gets each kind at most once (the sent_emails guard). The UPPER bounds matter: they stop us from
+    # blasting the long-dormant on first deploy — anyone inactive longer than day6_until gets nothing.
+    RETURN_DAY2_AFTER_DAYS: int = 2
+    RETURN_DAY2_UNTIL_DAYS: int = 5
+    RETURN_DAY6_AFTER_DAYS: int = 6
+    RETURN_DAY6_UNTIL_DAYS: int = 12
+    # CTA link embedded in the email. Empty → falls back to APP_BASE_URL. Point it at the install
+    # page / landing / deep-link you want returning users to open.
+    RETURN_EMAIL_CTA_URL: str = ""
+
     @property
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
