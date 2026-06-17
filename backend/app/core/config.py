@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     CHECK_SECRET: str = ""
 
     # --- Accounts / DB (Phase 4) ---
-    DATABASE_URL: str  # required, e.g. postgresql+asyncpg://user:pass@host/grammar_dojo
+    DATABASE_URL: str  # required, e.g. postgresql+asyncpg://user:pass@host/relo_dojo
     JWT_SECRET: str  # required; sign/verify access tokens
     JWT_EXPIRE_MIN: int = 10080  # 7 days
     JWT_ALG: str = "HS256"
@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     TRUST_FORWARDED_FOR: bool = False
 
     # --- Email confirmation (account activation) ---
-    # Base URL the verification link points at (the backend, e.g. https://api.grammardojo.ru). The
+    # Base URL the verification link points at (the backend, e.g. https://api.relodojo.app). The
     # link is {APP_BASE_URL}/auth/verify?token=...; empty in dev → we log the link instead of erroring.
     APP_BASE_URL: str = ""
     VERIFY_TOKEN_EXPIRE_H: int = 24  # verification link lifetime, hours
@@ -68,10 +68,10 @@ class Settings(BaseSettings):
     # the account but does not change the daily cap. All content (stories included) is open to
     # everyone regardless of verification — see services/access.py. 0 = unverified get no exercises.
     STARTER_DAILY_LIMIT: int = 20
-    EMAIL_FROM: str = "dojo@grammardojo.ru"
+    EMAIL_FROM: str = "dojo@relodojo.app"
     EMAIL_FROM_NAME: str = "Relo Dojo"
     # SMTP transport. If SMTP_HOST is empty, email sending is disabled and the link is logged (dev).
-    # For grammardojo.ru this is your mail provider's SMTP (e.g. Yandex 360 smtp.yandex.ru:465 SSL,
+    # For relodojo.app this is your mail provider's SMTP (e.g. Yandex 360 smtp.yandex.ru:465 SSL,
     # or Mail.ru biz smtp.mail.ru:465). Set SMTP_SSL=true for port 465, or keep STARTTLS for 587.
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587

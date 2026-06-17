@@ -7,7 +7,7 @@
 // closes it for good. No content is gated by this — only the prompt.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const STORAGE_KEY = "grammar-dojo/register-wall/v1";
+const STORAGE_KEY = "relo_dojo/register-wall/v1";
 
 /** Finished anonymous lessons before the save-progress prompt appears (Duo-style: taste first). */
 export const WALL_AFTER_LESSONS = 3;

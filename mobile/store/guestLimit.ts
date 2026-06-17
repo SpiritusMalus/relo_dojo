@@ -8,7 +8,7 @@
 // targets the incentive inversion, which matters before showing the app to real users.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const STORAGE_KEY = "grammar-dojo/guest-limit/v1";
+const STORAGE_KEY = "relo_dojo/guest-limit/v1";
 
 /** Mirror of backend FREE_DAILY_LIMIT (core/config.py). Drift here is cosmetic for guests only. */
 export const GUEST_DAILY_LIMIT = 20;

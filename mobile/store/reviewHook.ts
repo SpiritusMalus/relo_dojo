@@ -12,7 +12,7 @@
 // dismissable for the CURRENT week; next week it returns with the next prompt.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const STORAGE_KEY = "grammar-dojo/reviewHook/v1";
+const STORAGE_KEY = "relo_dojo/reviewHook/v1";
 
 // Relocation-flavored prompt ids. Each maps to an i18n label `revhook.p.<id>` (EN + RU). Rotated
 // weekly so the hook stays fresh and tracks the learner's real interview → life → work arc.

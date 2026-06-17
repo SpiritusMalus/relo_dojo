@@ -29,7 +29,7 @@ export function scoreAnswer(combo: number, correct: boolean, fraction = 1): Scor
   return { points, combo: correct ? combo + 1 : 0, multiplier };
 }
 
-const BEST_KEY = "grammar-dojo/challenge-best/v1";
+const BEST_KEY = "relo_dojo/challenge-best/v1";
 
 export async function loadBestScore(): Promise<number> {
   try {

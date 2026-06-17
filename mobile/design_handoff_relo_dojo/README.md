@@ -1,7 +1,7 @@
-# Handoff: Grammar Dojo — Visual Redesign (Belts + Mascot, gamified)
+# Handoff: Relo Dojo — Visual Redesign (Belts + Mascot, gamified)
 
 ## Overview
-This is a full visual redesign of **Grammar Dojo**, the existing Expo / React Native app
+This is a full visual redesign of **Relo Dojo**, the existing Expo / React Native app
 that teaches English grammar to developers through short daily adaptive exercises.
 
 The redesign keeps **all existing functionality and data models** (XP, levels, streaks,
@@ -43,7 +43,7 @@ Re-implement the visuals with React Native primitives (`View`, `Text`, `Pressabl
 `StyleSheet`) — **not** the HTML/CSS verbatim. See **"React Native implementation notes"** below
 for the mapping (CSS → RN equivalents, SVG, gradients, fonts, animations).
 
-The HTML reference (`reference/Grammar Dojo.html`) can be opened in any browser to click through
+The HTML reference (`reference/Relo Dojo.html`) can be opened in any browser to click through
 the full flow. The per-screen `.jsx` files are organised so each maps to a screen/component in
 the RN app (see **Files**).
 
@@ -199,7 +199,7 @@ Coordinates below are described relative to a ~390–402px-wide phone screen. Al
 
 ### 1. Login  (`mobile/app/login.tsx`)
 - **Purpose:** sign in / sign up entry.
-- **Layout:** vertically centred hero (mascot `cheer` ~120px, brand title "Grammar Dojo" 34/700,
+- **Layout:** vertically centred hero (mascot `cheer` ~120px, brand title "Relo Dojo" 34/700,
   subtitle 15/`ink2` max-width ~280, centred). Bottom block: Email + Password fields, primary
   button "ENTER THE DOJO" (uppercase, full-width, chunky), an "OR" divider, two ghost buttons
   (GitHub / Google) side by side with `gap:10`, and a "New here? Create an account" line.
@@ -394,7 +394,7 @@ see in a PNG.
 ## Files (in `reference/`)
 | File | What it covers → target in `mobile/` |
 |---|---|
-| `Grammar Dojo.html` | Open in a browser to click the whole flow (use the top buttons + Tweaks). |
+| `Relo Dojo.html` | Open in a browser to click the whole flow (use the top buttons + Tweaks). |
 | `theme.css` | All design tokens, light/dark, animations → `theme.ts` |
 | `dojo-core.jsx` | Belts, topic/exercise/achievement sample data, `Sensei`, `BeltKnot`, `BeltTag`, `Ring`, icons, confetti → shared `components/` + `theme.ts` |
 | `dojo-shell.jsx` | Top bar, tab bar, streak/XP badges → `(tabs)/_layout.tsx` + shared chrome |

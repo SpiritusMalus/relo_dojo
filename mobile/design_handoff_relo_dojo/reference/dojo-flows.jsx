@@ -6,7 +6,7 @@ function Login({ belt, onEnter }) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "0 var(--pad)" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", gap: 6 }}>
         <span className="dj-bob"><Sensei belt={belt} size={120} mood="cheer" /></span>
-        <div className="brand" style={{ fontSize: 34, fontWeight: 700, marginTop: 8 }}>Grammar Dojo</div>
+        <div className="brand" style={{ fontSize: 34, fontWeight: 700, marginTop: 8 }}>Relo Dojo</div>
         <div style={{ fontSize: 15, color: "var(--ink-2)", maxWidth: 280, lineHeight: 1.45 }}>
           Earn your belt in English grammar — one short drill a day, from a dev’s world.
         </div>

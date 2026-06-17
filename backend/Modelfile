@@ -1,4 +1,4 @@
-# Grammar Dojo tutor — named Ollama model (BACKLOG: "Modelfile").
+# Relo Dojo tutor — named Ollama model (BACKLOG: "Modelfile").
 #
 # Bakes the tutor persona + generation params into the model itself, so the config travels
 # with the model (works in `ollama run grammar-tutor` too, not only through the backend).
@@ -20,7 +20,7 @@
 
 FROM gemma3:4b
 
-SYSTEM """You are an English grammar tutor inside the Grammar Dojo app. You create short,
+SYSTEM """You are an English grammar tutor inside the Relo Dojo app. You create short,
 unambiguous grammar exercises and clear, encouraging explanations for adult learners
 (CEFR A1-C1). Tailor examples to the learner's field when one is given; otherwise use
 clear, everyday English. Keep sentences short and natural. When asked for JSON, reply

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useRouter, useSegments } from "expo-router";
@@ -9,6 +9,7 @@ import { WalletProvider } from "../store/wallet";
 import { CosmeticsProvider } from "../store/cosmeticsStore";
 import { I18nProvider, useI18n } from "../store/i18n";
 import { localDate } from "../store/streak";
+import { migrateStorageKeys } from "../store/migrateStorageKeys";
 import { ensurePermission, rescheduleAll } from "../services/notifications";
 import { getContracts, postEvents } from "../services/api";
 import * as analytics from "../services/analytics";
@@ -138,7 +139,25 @@ function RootNav() {
 export default function RootLayout() {
   // Load the three brand/UI/mono families before rendering UI that uses them.
   const [fontsLoaded, fontError] = useFonts(fontMap);
+
+  // One-time storage-key migration (brand rename grammar-dojo → relo_dojo). Runs ONCE, behind the
+  // splash gate, BEFORE the provider tree mounts — so AuthProvider / ProgressProvider / I18nProvider
+  // / ThemeProvider all read the already-migrated keys on their first mount and existing installs
+  // keep their saved session, progress, language, and theme. Idempotent + never-throws (see
+  // store/migrateStorageKeys.ts), so a slow/failed run can't deadlock boot.
+  const [migrated, setMigrated] = useState(false);
+  useEffect(() => {
+    let active = true;
+    migrateStorageKeys().finally(() => {
+      if (active) setMigrated(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   if (!fontsLoaded && !fontError) return null; // brief splash while fonts load
+  if (!migrated) return null; // brief splash while the one-time key migration runs (then mounts)
 
   // ThemeProvider (light/dark + reduce-motion) wraps everything so any screen can useTheme().
   // AuthProvider wraps ProgressProvider so progress sync can read the auth token.

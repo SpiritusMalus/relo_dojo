@@ -19,7 +19,7 @@ import {
 } from "../services/api";
 
 // SecureStore keys allow only [A-Za-z0-9._-] — no "/".
-const TOKEN_KEY = "grammar_dojo_token";
+const TOKEN_KEY = "relo_dojo_token";
 
 type AuthContextValue = {
   ready: boolean; // false until we've checked storage for a saved token

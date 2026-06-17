@@ -1,4 +1,4 @@
-# Grammar Dojo — Backend Build Brief
+# Relo Dojo — Backend Build Brief
 
 You already know this codebase and have the same files. This is **not** a re-introduction — it's the
 backend contract to build against the existing client. Reference points you have:

@@ -15,7 +15,7 @@ from email.utils import formataddr
 
 from ..core.config import settings
 
-logger = logging.getLogger("grammar_dojo.email")
+logger = logging.getLogger("relo_dojo.email")
 
 
 def _build_message(to: str, link: str) -> EmailMessage:

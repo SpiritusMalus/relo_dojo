@@ -30,7 +30,7 @@ import {
   type BrokenStreak,
 } from "./streak";
 
-const STORAGE_KEY = "grammar-dojo/progress/v1";
+const STORAGE_KEY = "relo_dojo/progress/v1";
 
 export const XP_PER_CORRECT = 10;
 export const XP_PER_LEVEL = 100;

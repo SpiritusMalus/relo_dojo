@@ -18,7 +18,7 @@ Usage:
     python scripts/send_return_emails.py --force        # send even if the feature flag is off
 
 Cron (daily, e.g. 09:00 in the users' timezone):
-    0 9 * * *  cd /srv/grammar-dojo/backend && /srv/venv/bin/python scripts/send_return_emails.py
+    0 9 * * *  cd /srv/relo_dojo/backend && /srv/venv/bin/python scripts/send_return_emails.py
 
 Exit code is non-zero only on an unexpected error, so it slots into a scheduler/alerting cleanly.
 """
@@ -40,7 +40,7 @@ from app.services import lifecycle_email as le  # noqa: E402
 from app.services.email import send_email  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-log = logging.getLogger("grammar_dojo.return_emails")
+log = logging.getLogger("relo_dojo.return_emails")
 
 
 async def run(dry_run: bool, force: bool) -> int:

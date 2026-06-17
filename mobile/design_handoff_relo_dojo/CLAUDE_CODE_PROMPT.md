@@ -1,7 +1,7 @@
-# Claude Code prompt — Grammar Dojo redesign
+# Claude Code prompt — Relo Dojo redesign
 
 Paste the prompt below into Claude Code, run from the repo root (the folder that contains
-`mobile/`). Keep `design_handoff_grammar_dojo/` committed in the repo so Claude can read it.
+`mobile/`). Keep `design_handoff_relo_dojo/` committed in the repo so Claude can read it.
 
 ---
 
@@ -9,9 +9,9 @@ Paste the prompt below into Claude Code, run from the repo root (the folder that
 
 You are implementing a visual redesign of our Expo / React Native app in `mobile/`.
 
-**Source of truth:** `design_handoff_grammar_dojo/README.md`. Read it fully before writing code.
-Visual targets are in `design_handoff_grammar_dojo/screenshots/` (01–06). The HTML/JSX in
-`design_handoff_grammar_dojo/reference/` are design references — recreate them with React Native
+**Source of truth:** `design_handoff_relo_dojo/README.md`. Read it fully before writing code.
+Visual targets are in `design_handoff_relo_dojo/screenshots/` (01–06). The HTML/JSX in
+`design_handoff_relo_dojo/reference/` are design references — recreate them with React Native
 primitives, do NOT copy the HTML/CSS verbatim and do NOT change any app logic, data, or routes.
 
 **Scope:** presentation only. Reuse all existing state, navigation (expo-router), the adaptive

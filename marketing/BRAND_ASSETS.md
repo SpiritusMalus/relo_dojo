@@ -115,7 +115,7 @@ Before publishing **[YOU]**:
 - Point **Privacy / Terms** in the footer at the published `legal/` URLs.
 - Export a real **`og-image.png`** (1200×630) for social previews — reuse shot 1 or the hero.
 - Set the contact email (currently `hello@relodojo.app`) and confirm the domain (hub note: the
-  registered domain is `grammardojo.ru`; decide the public marketing domain).
+  registered domain is `relodojo.app`; decide the public marketing domain).
 - Optional: drop one real product screenshot into the hero in place of the CSS phone mock.
 
 Copy is aligned with `legal/STORE_LISTING.md` — keep the two in sync if you revise positioning.

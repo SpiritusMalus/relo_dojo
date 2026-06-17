@@ -7,7 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { setApiLang } from "../services/api";
 import { STRINGS, type Lang, type StringKey } from "../i18n/strings";
 
-const STORAGE_KEY = "grammar-dojo/lang/v1";
+const STORAGE_KEY = "relo_dojo/lang/v1";
 const DEFAULT_LANG: Lang = "ru";
 
 type Vars = Record<string, string | number>;

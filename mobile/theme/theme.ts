@@ -1,5 +1,5 @@
 // Design system for the "dojo" redesign — single source of truth for colours, type, spacing,
-// shadows and the belt system. Recreated from design_handoff_grammar_dojo/README.md (resolved hex)
+// shadows and the belt system. Recreated from design_handoff_relo_dojo/README.md (resolved hex)
 // and reference/theme.css. Presentation only; no app logic or data lives here.
 //
 // Usage: wrap the app in <ThemeProvider>, then `const t = useTheme()` → { c, name, setName, toggle,
@@ -249,7 +249,7 @@ type ThemeContextValue = Theme & {
   reduceMotion: boolean; // honour OS "reduce motion" — gate confetti/bob/shake/pop
 };
 
-const THEME_KEY = "grammar-dojo/ui/theme";
+const THEME_KEY = "relo_dojo/ui/theme";
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

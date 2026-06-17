@@ -3,7 +3,7 @@
     "name": "Relo Dojo",
     "slug": "relo-dojo",
     "version": "1.0.0",
-    "scheme": "grammardojo",
+    "scheme": "relodojo",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

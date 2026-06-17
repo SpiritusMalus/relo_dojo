@@ -1,7 +1,7 @@
-# Backend handoff kit — Grammar Dojo
+# Backend handoff kit — Relo Dojo
 
 Companion artifacts for the Backend Build Brief. Hand the **whole `mobile/` repo + the mock**
-(`reference/Grammar Dojo.html` and the `dojo-*.jsx` files) to the executor together with this folder —
+(`reference/Relo Dojo.html` and the `dojo-*.jsx` files) to the executor together with this folder —
 the prompt is the task, the files are the context.
 
 | File | What it is |

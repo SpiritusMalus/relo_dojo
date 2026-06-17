@@ -4,7 +4,7 @@
 // perpetual "today only" is the one FOMO trick we skip: store policy + refunds risk.)
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const STORAGE_KEY = "grammar-dojo/offers/v1";
+const STORAGE_KEY = "relo_dojo/offers/v1";
 
 export type OfferId = "starter24" | "limit48";
 

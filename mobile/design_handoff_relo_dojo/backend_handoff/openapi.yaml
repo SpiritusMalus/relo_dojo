@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: Grammar Dojo API
+  title: Relo Dojo API
   version: 1.0.0
   description: >
-    Server-authoritative contract for the Grammar Dojo client (see BACKEND_PROMPT.md).
+    Server-authoritative contract for the Relo Dojo client (see BACKEND_PROMPT.md).
     The server is the only source of truth for XP, level, streak, belt/CEFR, lesson unlock
     state, and the email-verification gate. Client values are untrusted. Promotion is
     server-decided; gating is enforced in the API (403/409), not just the UI.

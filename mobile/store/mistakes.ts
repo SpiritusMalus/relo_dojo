@@ -7,7 +7,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Exercise } from "../services/api";
 
-const STORAGE_KEY = "grammar-dojo/mistakes/v1";
+const STORAGE_KEY = "relo_dojo/mistakes/v1";
 export const MISTAKES_CAP = 40;
 
 export type Mistake = {

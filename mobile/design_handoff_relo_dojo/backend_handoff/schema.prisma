@@ -1,4 +1,4 @@
-// Grammar Dojo — data model for the Backend Build Brief.
+// Relo Dojo — data model for the Backend Build Brief.
 // This mirrors the brief's "Data model (Prisma-ish; adapt)" section, fleshed out into valid Prisma.
 // Stack is the executor's choice — if you build on FastAPI/SQLAlchemy, treat this as the ER contract.
 // NOTE: the brief targets a GREENFIELD server. The repo already ships a FastAPI backend whose routes

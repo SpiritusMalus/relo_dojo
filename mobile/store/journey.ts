@@ -9,7 +9,7 @@
 // a journey goal id and its scenario pack (store/scenarioPacks.ts), so examples track the stage.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const STORAGE_KEY = "grammar-dojo/journey/v1";
+const STORAGE_KEY = "relo_dojo/journey/v1";
 
 /** The arc, in order. Each stage emphasizes one journey goal's scenario pack. */
 export const JOURNEY_STAGES = ["pre_move", "arrived", "settled"] as const;
