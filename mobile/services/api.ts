@@ -43,7 +43,7 @@ export function setApiLang(lang: string): void {
   apiLang = lang;
 }
 
-type Method = "GET" | "POST" | "PUT";
+type Method = "GET" | "POST" | "PUT" | "DELETE";
 
 // Error that carries the HTTP status + an optional machine-readable code so callers can route UI
 // (e.g. 403 "starter_limit" → activation prompt; 403 "daily_limit" → limit sheet with the upsell).
@@ -123,6 +123,8 @@ async function request<T>(
     }
     throw new ApiError(detail, res.status, code);
   }
+  // 204 No Content (e.g. DELETE /auth/account) has no body — don't try to parse JSON.
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
@@ -396,6 +398,38 @@ export function getMe(): Promise<AuthUser> {
 // Resend the account-activation email to the logged-in user.
 export function requestVerification(): Promise<{ message: string }> {
   return request<{ message: string }>("/auth/request-verification", {}, "POST");
+}
+
+// --- store-compliance: in-app account deletion + data export ---
+// Full snapshot of everything the backend holds about the caller (GET /auth/export).
+export type AccountExport = {
+  account: {
+    id: string;
+    email: string;
+    is_verified: boolean;
+    is_premium: boolean;
+    premium_until: string | null;
+    coins: number;
+    freezes: number;
+    cosmetics: string[];
+    equipped: Record<string, string>;
+    unlocks: string[];
+    created_at: string | null;
+  };
+  progress: Record<string, unknown>;
+  learner_profile: Record<string, unknown>;
+  events: { name: string; props: Record<string, unknown>; ts: string | null }[];
+};
+
+// Permanently delete the caller's account (204, no body). The caller must clear local state + sign
+// out afterwards — the bearer token is dead the moment this returns.
+export function deleteAccount(): Promise<void> {
+  return request<void>("/auth/account", undefined, "DELETE");
+}
+
+// Download everything we hold about the caller as JSON (the policy's "export your data" right).
+export function exportMyData(): Promise<AccountExport> {
+  return request<AccountExport>("/auth/export", undefined, "GET");
 }
 
 // --- economy: koku wallet (server-authoritative) ---

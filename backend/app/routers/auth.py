@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,10 +16,11 @@ from ..core.security import (
     hash_password,
     verify_password,
 )
-from ..db.models import User
+from ..db.models import Event, LearnerProfile, Progress, User
 from ..deps import auth_rate_limit, get_current_user, get_db
-from ..schemas import LoginIn, MessageOut, RegisterIn, TokenOut, UserOut
+from ..schemas import AccountExport, LoginIn, MessageOut, RegisterIn, TokenOut, UserOut
 from ..services import access, cosmetics as cosmetics_service
+from ..services.account import build_account_export
 from ..services.email import send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -108,6 +109,39 @@ async def request_verification(user: User = Depends(get_current_user)) -> Messag
         return MessageOut(message="Account already verified.")
     await _send_activation(user)
     return MessageOut(message="Verification email sent.")
+
+
+@router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account(
+    user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+) -> Response:
+    """Permanently delete the caller's account (store-compliance: in-app account deletion).
+
+    A single User row delete fans out through the FKs declared in db/models.py:
+      - progress / learner_profile  → deleted (relationship cascade="all, delete-orphan")
+      - claimed_contracts / sent_emails → deleted (FK ondelete="CASCADE")
+      - events / awarded_tokens / processed_payments → user_id set NULL (FK ondelete="SET NULL")
+    Payment receipts (processed_payments) intentionally SURVIVE, anonymized, for refund/audit —
+    they no longer reference the person. After this, the old token resolves to a missing user → 401.
+    """
+    await db.delete(user)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/export", response_model=AccountExport)
+async def export_account(
+    user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
+) -> AccountExport:
+    """Return everything we hold about the caller as JSON (store-compliance: data export right).
+
+    Account fields (no password hash), the progress + learner-profile snapshots, and every analytics
+    row still attributed to this user. Read-only — nothing is mutated."""
+    progress = await db.get(Progress, user.id)
+    profile = await db.get(LearnerProfile, user.id)
+    res = await db.execute(select(Event).where(Event.user_id == user.id).order_by(Event.ts))
+    events = res.scalars().all()
+    return build_account_export(user, progress, profile, events)
 
 
 @router.get("/verify", response_class=HTMLResponse)

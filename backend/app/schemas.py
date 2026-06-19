@@ -206,6 +206,40 @@ class UserOut(BaseModel):
     access: dict[str, bool] = Field(default_factory=dict)
 
 
+# --- account data export (store-compliance: the "export your data" right) ---
+class ExportAccount(BaseModel):
+    """The account row, minus secrets (no password hash, ever). Mirrors what the user owns."""
+
+    id: str
+    email: EmailStr
+    is_verified: bool = False
+    is_premium: bool = False
+    premium_until: Optional[str] = None  # ISO-8601 paid-subscription expiry (null = none)
+    coins: int = 0
+    freezes: int = 0
+    cosmetics: list[str] = Field(default_factory=list)
+    equipped: dict[str, str] = Field(default_factory=dict)
+    unlocks: list[str] = Field(default_factory=list)
+    created_at: Optional[str] = None  # ISO-8601 account creation time
+
+
+class ExportEvent(BaseModel):
+    """One analytics row attributed to the caller (server-stamped time)."""
+
+    name: str
+    props: dict = Field(default_factory=dict)
+    ts: Optional[str] = None  # ISO-8601 server receipt time
+
+
+class AccountExport(BaseModel):
+    """Everything we hold about the caller, returned by GET /auth/export. JSON the user can keep."""
+
+    account: ExportAccount
+    progress: dict = Field(default_factory=dict)  # progress.data snapshot ({} if never synced)
+    learner_profile: dict = Field(default_factory=dict)  # learner_profile.data ({} if none)
+    events: list[ExportEvent] = Field(default_factory=list)
+
+
 # --- cosmetics (engagement v2) ---
 class CosmeticsOut(BaseModel):
     """Owned ids (incl. implicit starters) + equipped id per slot."""

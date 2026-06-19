@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Switch, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,7 +12,7 @@ import { DEFAULT_TONE, TONES } from "../store/onboarding";
 // Reminder-time presets (the notification plan re-builds from profile.remindHour on change).
 const REMIND_HOURS = [8, 12, 16, 19, 21];
 import { RU_TONE_LABELS } from "../i18n/strings";
-import { analyzePain } from "../services/api";
+import { analyzePain, deleteAccount, exportMyData } from "../services/api";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Chip from "../components/ui/Chip";
@@ -32,6 +32,48 @@ export default function SettingsScreen() {
   const [goalText, setGoalText] = useState("");
   const [goalBusy, setGoalBusy] = useState(false);
   const [goalSaved, setGoalSaved] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Store-compliance: export the caller's data (GET /auth/export) and hand it to the OS share sheet
+  // so they can save/send the JSON. Read-only on the server.
+  async function onExportData() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const data = await exportMyData();
+      await Share.share({ message: JSON.stringify(data, null, 2) });
+    } catch {
+      Alert.alert(tr("settings.exportData"), tr("settings.exportFail"));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  // Store-compliance: in-app account deletion. Confirm first (irreversible), then DELETE the account
+  // and sign out — logout() clears the token, which resets the local progress cache (see store/progress).
+  function onDeleteAccount() {
+    if (deleting) return;
+    Alert.alert(tr("settings.deleteTitle"), tr("settings.deleteMsg"), [
+      { text: tr("settings.deleteCancel"), style: "cancel" },
+      {
+        text: tr("settings.deleteConfirm"),
+        style: "destructive",
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await deleteAccount();
+            await logout(); // clears the dead token → progress store wipes local state for the guest
+            router.replace("/");
+          } catch {
+            Alert.alert(tr("settings.deleteAccount"), tr("settings.deleteFail"));
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
+  }
 
   // "Change my goal": free text, any time. /profile/analyze maps it to topics and (when logged in)
   // persists it into the server-side learner profile; locally it refreshes painText + focusTopics.
@@ -148,6 +190,30 @@ export default function SettingsScreen() {
               {tr("settings.logout")}
             </Txt>
           </Pressable>
+
+          {/* Store-compliance: data export + in-app account deletion (signed-in accounts only). */}
+          {!!user && (
+            <>
+              <Button
+                label={tr("settings.exportData")}
+                variant="ghost"
+                uppercase={false}
+                onPress={onExportData}
+                disabled={exporting}
+                style={{ marginTop: 6 }}
+              />
+              <Pressable
+                onPress={onDeleteAccount}
+                disabled={deleting}
+                style={{ minHeight: 44, justifyContent: "center", alignItems: "center" }}
+                accessibilityLabel={tr("settings.deleteAccount")}
+              >
+                <Txt variant="bodyStrong" color={t.c.bad}>
+                  {tr("settings.deleteAccount")}
+                </Txt>
+              </Pressable>
+            </>
+          )}
         </Card>
 
         {/* Free-text goal change (Praktika adoption Stage 1): the account adapts to a new goal. */}
