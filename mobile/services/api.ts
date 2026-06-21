@@ -427,6 +427,13 @@ export function deleteAccount(): Promise<void> {
   return request<void>("/auth/account", undefined, "DELETE");
 }
 
+// 152-ФЗ cross-border consent (the standalone PD/transborder consent screen): record acceptance of
+// `version` server-side as the provable audit trail. Auth-only; anonymous acceptance is held locally
+// (store/consent) and replayed here after sign-in. Best-effort — the local flag still gates the UI.
+export function recordConsent(version: string): Promise<{ message: string }> {
+  return request<{ message: string }>("/auth/consent", { version });
+}
+
 // Download everything we hold about the caller as JSON (the policy's "export your data" right).
 export function exportMyData(): Promise<AccountExport> {
   return request<AccountExport>("/auth/export", undefined, "GET");

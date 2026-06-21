@@ -46,6 +46,7 @@ import Icon from "../components/ui/Icon";
 import ProgressBar from "../components/ui/ProgressBar";
 import Confetti from "../components/ui/Confetti";
 import Txt from "../components/ui/Txt";
+import DataGuard from "../components/ui/DataGuard";
 
 const GOAL_LABELS: Record<string, string> = Object.fromEntries(GOALS.map((g) => [g.id, g.label]));
 const CALIBRATION_ITEMS = 10;
@@ -404,6 +405,7 @@ export default function OnboardingScreen() {
         {step === 3 && (
           <StepView title={tr("ob.ownWordsTitle")} subtitle={tr("ob.ownWordsSub")}>
             <Input value={painText} onChangeText={setPainText} placeholder={tr("ob.painPlaceholder")} multiline />
+            <DataGuard />
             <Button label={busy ? tr("ob.analyzing") : tr("ob.next")} onPress={submitPain} disabled={busy} />
           </StepView>
         )}

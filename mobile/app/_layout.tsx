@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "../store/auth";
 import { ProgressProvider, useProgress } from "../store/progress";
 import { WalletProvider } from "../store/wallet";
 import { CosmeticsProvider } from "../store/cosmeticsStore";
+import { ConsentProvider, useConsent } from "../store/consent";
 import { I18nProvider, useI18n } from "../store/i18n";
 import { localDate } from "../store/streak";
 import { migrateStorageKeys } from "../store/migrateStorageKeys";
@@ -30,6 +31,7 @@ const FLUSH_INTERVAL_MS = 30000;
 function RootNav() {
   const { ready: authReady, token } = useAuth();
   const { ready: progressReady, synced, progress } = useProgress();
+  const { ready: consentReady, accepted: consentAccepted } = useConsent();
   const segments = useSegments();
   const router = useRouter();
 
@@ -37,6 +39,16 @@ function RootNav() {
     if (!authReady) return;
     const onLogin = segments[0] === "login";
     const onOnboarding = segments[0] === "onboarding";
+    const onConsent = segments[0] === "consent";
+
+    // 152-ФЗ gate: the standalone cross-border consent comes BEFORE onboarding/tabs. Until the
+    // current version is accepted, the only screen reachable is /consent (its "I agree" routes on).
+    // We only ever push TO consent here — never auto-pop — so opening it from Settings (review mode)
+    // after acceptance stays put.
+    if (consentReady && !consentAccepted) {
+      if (!onConsent) router.replace("/consent");
+      return;
+    }
 
     // Anonymous-first funnel (P1): a missing token no longer forces /login. Anonymous and
     // authenticated users both flow onboarding → tabs; the account ask is deferred to the soft
@@ -54,7 +66,7 @@ function RootNav() {
     } else if (progress.onboarded && onOnboarding) {
       router.replace("/");
     }
-  }, [authReady, token, progressReady, synced, progress.onboarded, segments, router]);
+  }, [authReady, token, progressReady, synced, progress.onboarded, consentReady, consentAccepted, segments, router]);
 
   // Trigger layer: once onboarded, keep the notification plan in sync with today's state.
   // Re-runs when training happens (cancels today's nags) or the streak/language changes.
@@ -123,6 +135,7 @@ function RootNav() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="login" />
+      <Stack.Screen name="consent" />
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="practice" options={{ headerShown: false }} />
       <Stack.Screen name="story" options={{ headerShown: false }} />
@@ -168,7 +181,9 @@ export default function RootLayout() {
           <WalletProvider>
             <CosmeticsProvider>
               <ProgressProvider>
-                <RootNav />
+                <ConsentProvider>
+                  <RootNav />
+                </ConsentProvider>
               </ProgressProvider>
             </CosmeticsProvider>
           </WalletProvider>

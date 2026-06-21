@@ -17,6 +17,7 @@ import {
   setAuthToken,
   type AuthUser,
 } from "../services/api";
+import { syncConsentToServer } from "./consent";
 
 // SecureStore keys allow only [A-Za-z0-9._-] — no "/".
 const TOKEN_KEY = "relo_dojo_token";
@@ -74,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { access_token } = await apiLogin(email.trim(), password);
       await apply(access_token);
       setUser(await getMe());
+      void syncConsentToServer(); // replay a consent accepted while anonymous (audit trail)
     },
     [apply]
   );
@@ -83,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { access_token } = await apiRegister(email.trim(), password);
       await apply(access_token);
       setUser(await getMe());
+      void syncConsentToServer(); // replay a consent accepted while anonymous (audit trail)
     },
     [apply]
   );

@@ -19,6 +19,7 @@ import { TOPIC_LABELS } from "../store/onboarding";
 import { useTheme } from "../theme/theme";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
+import DataGuard from "../components/ui/DataGuard";
 import Icon from "../components/ui/Icon";
 import Sensei from "../components/ui/Sensei";
 import Txt from "../components/ui/Txt";
@@ -103,6 +104,7 @@ export default function TextReviewScreen() {
                 marginBottom: 10,
               }}
             />
+            <DataGuard style={{ marginBottom: 10 }} />
             {!!error && (
               <Txt variant="secondary" color={t.c.bad} style={{ marginBottom: 8 }}>
                 {error}

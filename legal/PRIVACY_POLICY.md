@@ -52,12 +52,31 @@ or microphone/camera input.
 
 ## AI processing of your text
 
-To generate exercises and feedback, the text you submit may be processed by a language model. The
-model runs either on the operator's own server or, when enabled by the operator, via a third-party
-AI provider (for example Anthropic or OpenAI) under that provider's terms. We send only the content
-needed for the task (your answer, goal, or the text you chose to review) plus your tone/level
-settings; we do not send your email or password to the model. We instruct the system to treat your
-text strictly as data to evaluate.
+To generate exercises and feedback, the text you submit is processed by a language model. In
+production this is **Google LLC** (the **Gemini 3.1 Flash-Lite** model), acting as our processor
+under Google's terms; the model runs on Google's infrastructure in the **United States**. (In local
+development the operator may run an on-server model instead; no user data leaves the server in that
+mode.) We send only the content needed for the task (your answer, your stated goal, or the text you
+chose to review) plus your tone/level settings; we do **not** send your email or password to the
+model. We instruct the system to treat your text strictly as data to evaluate.
+
+Because this provider processes your text in the United States, using these AI features involves a
+**cross-border transfer of personal data** — see "Cross-border transfer of your text" below.
+
+## Cross-border transfer of your text
+
+- **Recipient:** Google LLC (Gemini), United States.
+- **What is transferred:** only the text you enter for an AI task — your exercise answers, your
+  stated goal, and any text you paste into "Review my text" — together with your tone/level
+  settings. Never your email, password, or other account identifiers.
+- **Purpose:** to grade your answers and to generate lessons and explanations for you.
+- **Your consent:** for users in Russia, this transfer is made on the basis of your **separate,
+  specific consent**, which you give on a dedicated consent screen in the app (it is not part of the
+  Terms of Use). You can decline; the rest of the app remains usable, and you may be offered the
+  on-server model where available.
+- **Withdrawing consent:** you can withdraw at any time by deleting your account in the app's
+  Settings (which stops all further processing of your data) or by contacting us at
+  [INSERT CONTACT EMAIL]. Withdrawal does not affect processing already carried out.
 
 ## How we use your data
 
@@ -86,8 +105,9 @@ is an internal flag. If in-app purchases are added later, they will be handled b
 ## Sharing
 
 We share data only with service providers that help us run the app — our server/hosting, the email
-provider, and (when enabled) the AI provider — each processing data on our behalf. We may disclose
-data if required by law. We do not sell personal data and do not share it for advertising.
+provider, and the AI provider (**Google LLC**, for the text-processing features described above) —
+each processing data on our behalf. We may disclose data if required by law. We do not sell personal
+data and do not share it for advertising.
 
 ## Retention
 
@@ -118,9 +138,13 @@ your data.
 
 ## International transfers
 
-Depending on the operator's hosting and AI-provider choices, your data may be processed in a country
-other than your own. Where required, we put appropriate safeguards in place. [Operator: state your
-hosting region and, if you serve EU/UK users, your transfer mechanism.]
+Your **account and learning data** (email, hashed password, progress, learner profile) are stored on
+our primary database, which is hosted **in the Russian Federation**. The **text you submit for AI
+features** is, with your separate consent, transferred to **Google LLC in the United States** for
+processing as described in "Cross-border transfer of your text" above; that is the only routine
+transfer of your data outside Russia. Where additional safeguards are required for the markets we
+serve, we put them in place. [Operator: confirm the RF hosting region/provider and, if you serve
+EU/UK users, your transfer mechanism.]
 
 ## Changes
 

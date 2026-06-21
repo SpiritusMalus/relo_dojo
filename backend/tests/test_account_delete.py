@@ -60,6 +60,7 @@ def _user(**over):
         premium_until=None, coins=42, freezes=3, cosmetics=["sensei_sage"],
         equipped={"sensei": "sensei_sage"}, unlocks=["arc_office"],
         created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        pd_consent_version="", pd_consent_at=None,
     )
     base.update(over)
     return SimpleNamespace(**base)

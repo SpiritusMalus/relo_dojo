@@ -37,6 +37,8 @@ def build_account_export(
             equipped=dict(user.equipped or {}),
             unlocks=list(user.unlocks or []),
             created_at=_iso(user.created_at),
+            pd_consent_version=user.pd_consent_version or "",
+            pd_consent_at=_iso(user.pd_consent_at),
         ),
         progress=dict(progress.data) if progress is not None else {},
         learner_profile=dict(profile.data) if profile is not None else {},

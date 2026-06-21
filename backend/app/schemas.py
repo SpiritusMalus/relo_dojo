@@ -204,6 +204,15 @@ class UserOut(BaseModel):
     equipped: dict[str, str] = Field(default_factory=dict)
     # Feature capability map (services/access.py): the client reads booleans, never re-derives gating.
     access: dict[str, bool] = Field(default_factory=dict)
+    # 152-ФЗ cross-border consent audit: the accepted version ("" = not yet) + ISO-8601 timestamp.
+    pd_consent_version: str = ""
+    pd_consent_at: Optional[str] = None
+
+
+class ConsentIn(BaseModel):
+    """Record acceptance of the standalone PD/cross-border consent (POST /auth/consent)."""
+
+    version: str = Field(min_length=1, max_length=20)
 
 
 # --- account data export (store-compliance: the "export your data" right) ---
@@ -221,6 +230,9 @@ class ExportAccount(BaseModel):
     equipped: dict[str, str] = Field(default_factory=dict)
     unlocks: list[str] = Field(default_factory=list)
     created_at: Optional[str] = None  # ISO-8601 account creation time
+    # 152-ФЗ cross-border consent audit: the version the user accepted + when (provable acceptance).
+    pd_consent_version: str = ""
+    pd_consent_at: Optional[str] = None  # ISO-8601 acceptance time (null = not yet accepted)
 
 
 class ExportEvent(BaseModel):

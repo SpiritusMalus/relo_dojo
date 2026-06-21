@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import type { ExerciseProps } from "./types";
+import DataGuard from "./ui/DataGuard";
 
 // The one typing exercise (rare/advanced). LLM-graded via the parent.
 export default function FreeText({ exercise, locked, onChange }: ExerciseProps) {
@@ -23,6 +24,7 @@ export default function FreeText({ exercise, locked, onChange }: ExerciseProps) 
         editable={!locked}
         autoCapitalize="none"
       />
+      <DataGuard />
     </View>
   );
 }

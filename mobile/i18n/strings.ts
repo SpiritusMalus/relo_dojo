@@ -332,6 +332,32 @@ export const STRINGS = {
     "review.remove": "Remove this one",
     "review.backHome": "Back to home",
 
+    // 152-ФЗ cross-border personal-data consent (standalone screen + the point-of-input guard).
+    "consent.title": "Data & cross-border consent",
+    "consent.intro": "To check and generate your exercises, the text you type is sent to an AI model abroad. Russian law requires your separate consent for this — it is not part of the Terms of Use.",
+    "consent.whoLabel": "Who receives it",
+    "consent.who": "Google LLC (Gemini), USA.",
+    "consent.whatLabel": "What is sent",
+    "consent.what": "Only the text you enter — your exercise answers, your stated goal, and any text you paste into “Review my text”. Never your email or password.",
+    "consent.whyLabel": "Why",
+    "consent.why": "To grade your answers and generate lessons and explanations for you.",
+    "consent.crossLabel": "Cross-border transfer",
+    "consent.cross": "This is a transfer of your personal data outside Russia, to the USA.",
+    "consent.withdrawLabel": "Withdrawing consent",
+    "consent.withdraw": "You can withdraw anytime by deleting your account in Settings, or by contacting us. After that, the AI features stop sending your text.",
+    "consent.guardReminder": "Please don’t enter personal data, contacts, or other people’s data.",
+    "consent.agree": "I agree",
+    "consent.acceptedNote": "You accepted this consent (version {v}).",
+    "consent.privacyPolicy": "Read the full Privacy Policy",
+    "consent.close": "Close",
+    // Point-of-input guardrail, shown at every free-text field.
+    "guard.crossBorder": "Your text is sent to Google (USA) to be checked. Don’t enter personal data, contacts, or other people’s data.",
+    // Settings: privacy & consent section.
+    "settings.privacyTitle": "Privacy & consent",
+    "settings.privacySub": "How your data is used, and your cross-border consent.",
+    "settings.consentReview": "Data & cross-border consent",
+    "settings.privacyPolicy": "Privacy Policy",
+
     "loading.default": "Loading…",
   },
   ru: {
@@ -661,6 +687,32 @@ export const STRINGS = {
     "review.progress": "{n} из {total}",
     "review.remove": "Убрать этот",
     "review.backHome": "На главную",
+
+    // 152-ФЗ cross-border personal-data consent (standalone screen + the point-of-input guard).
+    "consent.title": "Согласие на обработку и передачу данных",
+    "consent.intro": "Чтобы проверять и составлять упражнения, введённый вами текст отправляется в ИИ-модель за рубежом. По российскому закону на это нужно отдельное согласие — оно не входит в Условия использования.",
+    "consent.whoLabel": "Кто получает",
+    "consent.who": "Google LLC (Gemini), США.",
+    "consent.whatLabel": "Что отправляется",
+    "consent.what": "Только введённый вами текст — ваши ответы в упражнениях, ваша цель и любой текст, который вы вставляете в «Разбор моего текста». Никогда — почта или пароль.",
+    "consent.whyLabel": "Зачем",
+    "consent.why": "Чтобы проверять ваши ответы и составлять для вас задания и пояснения.",
+    "consent.crossLabel": "Трансграничная передача",
+    "consent.cross": "Это передача ваших персональных данных за пределы России, в США.",
+    "consent.withdrawLabel": "Отзыв согласия",
+    "consent.withdraw": "Вы можете отозвать согласие в любой момент, удалив аккаунт в Настройках или связавшись с нами. После этого ИИ-функции перестают отправлять ваш текст.",
+    "consent.guardReminder": "Пожалуйста, не вводите личные данные, контакты и данные других людей.",
+    "consent.agree": "Я согласен(на)",
+    "consent.acceptedNote": "Вы приняли это согласие (версия {v}).",
+    "consent.privacyPolicy": "Полная Политика конфиденциальности",
+    "consent.close": "Закрыть",
+    // Point-of-input guardrail, shown at every free-text field.
+    "guard.crossBorder": "Текст уйдёт в Google (США) для проверки. Не вводите личные данные, контакты или данные других людей.",
+    // Settings: privacy & consent section.
+    "settings.privacyTitle": "Конфиденциальность и согласие",
+    "settings.privacySub": "Как используются ваши данные и ваше трансграничное согласие.",
+    "settings.consentReview": "Согласие на обработку и передачу данных",
+    "settings.privacyPolicy": "Политика конфиденциальности",
 
     "loading.default": "Загрузка…",
   },

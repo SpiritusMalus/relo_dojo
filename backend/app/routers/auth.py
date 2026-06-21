@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
@@ -18,7 +20,15 @@ from ..core.security import (
 )
 from ..db.models import Event, LearnerProfile, Progress, User
 from ..deps import auth_rate_limit, get_current_user, get_db
-from ..schemas import AccountExport, LoginIn, MessageOut, RegisterIn, TokenOut, UserOut
+from ..schemas import (
+    AccountExport,
+    ConsentIn,
+    LoginIn,
+    MessageOut,
+    RegisterIn,
+    TokenOut,
+    UserOut,
+)
 from ..services import access, cosmetics as cosmetics_service
 from ..services.account import build_account_export
 from ..services.email import send_verification_email
@@ -99,6 +109,8 @@ async def me(user: User = Depends(get_current_user)) -> UserOut:
         cosmetics=cosmetics_service.owned_ids(user),
         equipped=cosmetics_service.equipped_resolved(user),
         access=access.access_map(user),
+        pd_consent_version=user.pd_consent_version or "",
+        pd_consent_at=user.pd_consent_at.isoformat() if user.pd_consent_at else None,
     )
 
 
@@ -109,6 +121,24 @@ async def request_verification(user: User = Depends(get_current_user)) -> Messag
         return MessageOut(message="Account already verified.")
     await _send_activation(user)
     return MessageOut(message="Verification email sent.")
+
+
+@router.post("/consent", response_model=MessageOut)
+async def record_consent(
+    payload: ConsentIn,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> MessageOut:
+    """Record acceptance of the STANDALONE personal-data + cross-border consent (152-ФЗ).
+
+    The consent (transfer of the text the learner enters to Google LLC / Gemini, США) is presented
+    in the app as its own document, separate from the оферта/Terms (01.09.2025 rule). This persists
+    the version accepted + the server timestamp as the provable audit trail; it is surfaced verbatim
+    in GET /auth/export. Re-accepting (e.g. a bumped version) simply overwrites with the latest."""
+    user.pd_consent_version = payload.version
+    user.pd_consent_at = datetime.now(timezone.utc)
+    await db.commit()
+    return MessageOut(message="Consent recorded.")
 
 
 @router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)
