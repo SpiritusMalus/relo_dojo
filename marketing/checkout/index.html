@@ -104,6 +104,20 @@
   var token = hash.get("token") || "";
   var lang = hash.get("lang") === "en" ? "en" : "ru";
 
+  // Defense-in-depth: the bearer token must only ever be sent to OUR backend. `api` comes from the
+  // URL fragment, so refuse to call (and never attach the token to) any host outside this allowlist —
+  // a tampered link can't redirect a session token to an attacker's server. Extend the list if a
+  // staging API lives on another domain. Private LAN ranges + localhost cover Expo dev.
+  function apiAllowed(u) {
+    try {
+      var h = new URL(u).hostname;
+      if (h === "relodojo.app" || h.slice(-13) === ".relodojo.app") return true;
+      if (h === "localhost" || h === "127.0.0.1") return true;
+      return /^10\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+    } catch (e) { return false; }
+  }
+  var sessionOk = !!token && apiAllowed(api);
+
   var T = {
     ru: {
       h1: "Чёрный пояс", lead: "Безлимит, двойные коку и «Проверь мой текст» без ограничений.",
@@ -135,7 +149,7 @@
   $("mCard").textContent = T.card; $("mCrypto").textContent = T.crypto;
   $("pay").textContent = T.pay; $("fine").textContent = T.fine;
 
-  if (!token) { var n = $("noToken"); n.textContent = T.noToken; n.classList.remove("hidden"); }
+  if (!sessionOk) { var n = $("noToken"); n.textContent = T.noToken; n.classList.remove("hidden"); }
 
   function priceLabel(p) {
     return method === "yookassa" ? (p.price_rub + " ₽") : ("$" + p.price_usd);
@@ -165,7 +179,7 @@
       el.onclick = function () { selected = p.id; render(); };
       box.appendChild(el);
     });
-    $("pay").disabled = !selected || !token;
+    $("pay").disabled = !selected || !sessionOk;
   }
 
   // method toggle
@@ -174,15 +188,17 @@
     method = b.dataset.method; render();
   });
 
-  // load the catalog
-  fetch(api + "/billing/plans")
-    .then(function (r) { if (!r.ok) throw 0; return r.json(); })
-    .then(function (d) { plans = d.plans || []; selected = plans.length ? plans[0].id : null; render(); })
-    .catch(function () { var e = $("err"); e.textContent = T.errPlans; e.classList.remove("hidden"); });
+  // load the catalog (only from the trusted backend; a tampered `api` is treated as no session)
+  if (sessionOk) {
+    fetch(api + "/billing/plans")
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) { plans = d.plans || []; selected = plans.length ? plans[0].id : null; render(); })
+      .catch(function () { var e = $("err"); e.textContent = T.errPlans; e.classList.remove("hidden"); });
+  }
 
   // pay → ask the backend for a provider checkout url, then redirect
   $("pay").addEventListener("click", function () {
-    if (!selected || !token) return;
+    if (!selected || !sessionOk) return;
     var btn = $("pay"); btn.disabled = true; btn.textContent = T.paying;
     $("err").classList.add("hidden");
     fetch(api + "/billing/checkout", {

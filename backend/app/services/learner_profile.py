@@ -15,7 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db.models import LearnerProfile, User
 from ..schemas import GoalEntry, LearnerProfileData
 
-MAX_GOAL_HISTORY = 20  # keep the trail bounded; oldest entries fall off
+# Keep the trail bounded (oldest entries fall off). Matches the schema cap
+# (schemas.LearnerProfileData.goalHistory max_length=50) so the apply_goal trim and a direct
+# PUT /profile agree on one bound — neither can persist more than the other accepts.
+MAX_GOAL_HISTORY = 50
 
 
 async def get_data(user: User | None, db: AsyncSession) -> LearnerProfileData | None:

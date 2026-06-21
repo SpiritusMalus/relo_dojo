@@ -72,6 +72,7 @@ async def get_current_user_optional(
 # Two process-local buckets. Built once at import from settings; a limit of <= 0 disables a bucket.
 _auth_limiter = SlidingWindowLimiter(settings.AUTH_RATE_LIMIT, settings.AUTH_RATE_WINDOW_S)
 _llm_limiter = SlidingWindowLimiter(settings.LLM_RATE_LIMIT, settings.LLM_RATE_WINDOW_S)
+_events_limiter = SlidingWindowLimiter(settings.EVENTS_RATE_LIMIT, settings.EVENTS_RATE_WINDOW_S)
 
 
 def _client_ip(request: Request) -> str:
@@ -107,3 +108,8 @@ async def llm_rate_limit(request: Request) -> None:
     """Cost guard for the model-backed endpoints (per client IP — anonymous abuse is the concern;
     authed practice is already bounded by the daily exercise quota)."""
     _enforce(_llm_limiter, request, "llm")
+
+
+async def events_rate_limit(request: Request) -> None:
+    """Storage-abuse guard for the public, anonymous-allowed analytics ingest (per client IP)."""
+    _enforce(_events_limiter, request, "events")

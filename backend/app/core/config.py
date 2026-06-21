@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     # /review-text). Sized generously so a real practice session never trips it.
     LLM_RATE_LIMIT: int = 40
     LLM_RATE_WINDOW_S: int = 60
+    # Events bucket (storage-abuse guard) — keyed by client IP; covers the PUBLIC, anonymous-allowed
+    # POST /events ingestion. Sized generously so a real client's buffered flush never trips it, while
+    # capping a flood that would grow the append-only events table unbounded.
+    EVENTS_RATE_LIMIT: int = 120
+    EVENTS_RATE_WINDOW_S: int = 60
     # Trust the first hop of X-Forwarded-For for the client IP. Enable ONLY behind a proxy you
     # control (nginx/Caddy on the VPS) — otherwise the header is client-spoofable and defeats the
     # IP keying. Off by default (direct connect on the Mac uses request.client.host).

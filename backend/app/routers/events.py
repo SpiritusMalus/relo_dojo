@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
 from ..db.models import Event, User
-from ..deps import get_current_user, get_current_user_optional, get_db
+from ..deps import events_rate_limit, get_current_user, get_current_user_optional, get_db
 from ..schemas import EventAck, EventBatchIn
 from ..services import analytics
 
@@ -29,7 +29,7 @@ router = APIRouter(prefix="/events", tags=["events"])
 _log = logging.getLogger("uvicorn.error")
 
 
-@router.post("", response_model=EventAck)
+@router.post("", response_model=EventAck, dependencies=[Depends(events_rate_limit)])
 async def ingest_events(
     payload: EventBatchIn,
     user: Optional[User] = Depends(get_current_user_optional),

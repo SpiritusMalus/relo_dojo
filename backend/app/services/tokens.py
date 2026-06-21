@@ -33,9 +33,15 @@ def _build_fernet() -> Fernet:
     if CHECK_SECRET:
         try:
             return Fernet(CHECK_SECRET.encode())
-        except (ValueError, TypeError):
-            # Misconfigured key — fall through to an ephemeral one rather than crashing the server.
-            pass
+        except (ValueError, TypeError) as exc:
+            # Set but malformed = operator error. Fail loudly at startup (like the required
+            # DATABASE_URL / JWT_SECRET) instead of silently degrading to an ephemeral key. That key
+            # differs per process, so under a multi-worker / multi-instance deploy a token sealed by
+            # one worker cannot be unsealed by another, and /check would fail unpredictably.
+            raise RuntimeError(
+                "CHECK_SECRET is set but is not a valid Fernet key (expected 32 url-safe base64 "
+                "bytes - generate one with `Fernet.generate_key()`)."
+            ) from exc
     return Fernet(Fernet.generate_key())
 
 

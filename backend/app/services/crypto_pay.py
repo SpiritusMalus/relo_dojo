@@ -91,6 +91,11 @@ async def create_invoice(  # pragma: no cover — HTTP IO
 ) -> dict[str, Any]:
     """Create a hosted crypto invoice; returns the Cryptomus `result` object (incl. its url)."""
     body = build_invoice_request(plan, user_id, return_url, callback_url)
+    # Cryptomus recomputes the signature over the EXACT bytes it receives (md5(base64(raw_body)+key)),
+    # so we must transmit the same compact serialization we signed. httpx's json= re-encodes with
+    # spaces (", " / ": "), which would not match make_sign's compact dump → the gateway rejects the
+    # request. Send the pre-serialized payload as raw content instead (identical bytes to make_sign's).
+    signed_body = json.dumps(body, separators=(",", ":"))
     headers = {
         "merchant": settings.CRYPTO_MERCHANT_ID,
         "sign": make_sign(body, settings.CRYPTO_API_KEY),
@@ -99,7 +104,7 @@ async def create_invoice(  # pragma: no cover — HTTP IO
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             resp = await client.post(
-                f"{settings.CRYPTO_API_URL}/payment", json=body, headers=headers
+                f"{settings.CRYPTO_API_URL}/payment", content=signed_body, headers=headers
             )
     except httpx.HTTPError as exc:
         raise BillingError("Could not reach the crypto gateway.") from exc
