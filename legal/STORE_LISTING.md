@@ -65,7 +65,9 @@ for functionality), **Approximate technical data / IP** (security). Declare:
 - Data **is** encrypted in transit.
 - Users **can request deletion** (via [INSERT CONTACT EMAIL]).
 - Passwords are stored hashed.
-Note the use of a third-party AI provider for text processing if one is enabled in production.
+- **User-provided text** is shared with a third-party AI processor — **Google LLC** (Gemini), in the
+  **United States** — for the text-processing features, on the basis of the user's separate in-app
+  consent. Declare this transfer and the "Data shared" → "User-provided text" recipient accordingly.
 
 ## Required links
 - Privacy Policy URL: [HOST legal/PRIVACY_POLICY.md AT A PUBLIC URL]

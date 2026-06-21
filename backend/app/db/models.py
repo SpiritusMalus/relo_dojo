@@ -67,6 +67,15 @@ class User(Base):
     # Unlocked content ids (engagement v2 Phase 3): koku-bought story arcs / packs. Free content is
     # never stored here. Server-authoritative — the client can't grant itself an unlock.
     unlocks: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    # --- 152-ФЗ cross-border consent (PD transfer to Google LLC / Gemini, США) ---
+    # Audit trail for the STANDALONE personal-data + cross-border consent (separate from the
+    # оферта/Terms, per the 01.09.2025 rule): the version string the user accepted + when. Empty
+    # version / NULL timestamp = not yet accepted. Written by POST /auth/consent; surfaced verbatim
+    # in the data export (GET /auth/export) so the acceptance is provable.
+    pd_consent_version: Mapped[str] = mapped_column(String(20), nullable=False, server_default="")
+    pd_consent_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

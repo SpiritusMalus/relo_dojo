@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Switch, TextInput, View } from "react-native";
+import { Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Switch, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,9 +13,11 @@ import { DEFAULT_TONE, TONES } from "../store/onboarding";
 const REMIND_HOURS = [8, 12, 16, 19, 21];
 import { RU_TONE_LABELS } from "../i18n/strings";
 import { analyzePain, deleteAccount, exportMyData } from "../services/api";
+import { PRIVACY_URL } from "../store/consent";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Chip from "../components/ui/Chip";
+import DataGuard from "../components/ui/DataGuard";
 import Icon from "../components/ui/Icon";
 import Txt from "../components/ui/Txt";
 
@@ -216,6 +218,30 @@ export default function SettingsScreen() {
           )}
         </Card>
 
+        {/* Privacy & cross-border consent (152-ФЗ): re-read the standalone consent + the full policy.
+            Sits next to the account delete/export actions — withdrawal = delete account. */}
+        <Card>
+          <Txt variant="label" style={{ marginBottom: 6 }}>
+            {tr("settings.privacyTitle")}
+          </Txt>
+          <Txt variant="secondary" color={t.c.ink3} style={{ marginBottom: 10 }}>
+            {tr("settings.privacySub")}
+          </Txt>
+          <Button
+            label={tr("settings.consentReview")}
+            variant="ghost"
+            uppercase={false}
+            onPress={() => router.push("/consent?review=1")}
+            style={{ marginBottom: 6 }}
+          />
+          <Button
+            label={tr("settings.privacyPolicy")}
+            variant="ghost"
+            uppercase={false}
+            onPress={() => Linking.openURL(PRIVACY_URL)}
+          />
+        </Card>
+
         {/* Free-text goal change (Praktika adoption Stage 1): the account adapts to a new goal. */}
         <Card>
           <Txt variant="label" style={{ marginBottom: 6 }}>
@@ -248,6 +274,7 @@ export default function SettingsScreen() {
               marginBottom: 10,
             }}
           />
+          <DataGuard style={{ marginBottom: 10 }} />
           {goalSaved && (
             <Txt variant="secondary" color={t.c.accent} style={{ marginBottom: 8 }}>
               {tr("settings.goalSaved")}
