@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,10 +32,38 @@ export default function PremiumScreen() {
   const { isPremium, refresh: refreshWallet } = useWallet();
   const belt = beltProgress(progress).belt;
   const [restoring, setRestoring] = useState(false);
+  const [buying, setBuying] = useState(false);
 
   useEffect(() => {
     trackPaywallView({ kind: "premium", belt: belt.id });
   }, [belt.id]);
+
+  // Re-pull entitlement from the server (the YooKassa webhook grants premium server-side). Used on
+  // Custom-Tab return and by the iOS restore action.
+  async function refreshEntitlement() {
+    await Promise.all([refreshUser(), refreshWallet()]);
+  }
+
+  // Android/web purchase: open the web checkout in an IN-APP Custom Tab (the user stays in the app
+  // shell; the СБП hand-off to the bank app + return works). The checkout "done" page may redirect
+  // to the app scheme to auto-close; otherwise the user taps Done. Either way we refetch entitlement
+  // on return — plus one delayed retry to cover webhook lag — so premium flips without a restart.
+  async function onBuy() {
+    const url = buildCheckoutUrl(token, lang);
+    setBuying(true);
+    try {
+      await WebBrowser.openAuthSessionAsync(url, "relodojo://premium");
+    } catch {
+      Linking.openURL(url); // fall back to the system browser if the Custom Tab can't open
+      setBuying(false);
+      return;
+    }
+    await refreshEntitlement();
+    setBuying(false);
+    setTimeout(() => {
+      refreshEntitlement().catch(() => {});
+    }, 2500);
+  }
 
   // iOS reader model: no purchase. "Restore" = sign in (if anonymous) or re-pull entitlement
   // from /auth/me so a sub bought elsewhere shows up here.
@@ -45,7 +74,7 @@ export default function PremiumScreen() {
     }
     setRestoring(true);
     try {
-      await Promise.all([refreshUser(), refreshWallet()]);
+      await refreshEntitlement();
     } finally {
       setRestoring(false);
     }
@@ -117,8 +146,9 @@ export default function PremiumScreen() {
         ) : billingEnabled() ? (
           <>
             <Button
-              label={tr("premium.ctaBuy")}
-              onPress={() => Linking.openURL(buildCheckoutUrl(token, lang))}
+              label={buying ? "…" : tr("premium.ctaBuy")}
+              disabled={buying}
+              onPress={onBuy}
             />
             <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center" }}>
               {tr("premium.ctaNote")}
