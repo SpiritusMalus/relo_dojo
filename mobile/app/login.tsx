@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -111,6 +111,17 @@ export default function LoginScreen() {
             </Pressable>
           )}
         </View>
+
+        {/* Neutral studio-site link (plain landing, not a checkout/purchase URL — safe on iOS too). */}
+        <Pressable
+          onPress={() => Linking.openURL("https://family-pie.ru")}
+          accessibilityRole="link"
+          style={{ alignItems: "center", paddingVertical: 6 }}
+        >
+          <Txt variant="secondary" color={t.c.ink3}>
+            {tr("links.site")}
+          </Txt>
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );

@@ -246,6 +246,14 @@ export default function SettingsScreen() {
             variant="ghost"
             uppercase={false}
             onPress={() => Linking.openURL(TERMS_URL)}
+            style={{ marginBottom: 6 }}
+          />
+          {/* Neutral studio-site link (plain landing, not a purchase URL — safe on iOS too). */}
+          <Button
+            label={tr("links.site")}
+            variant="ghost"
+            uppercase={false}
+            onPress={() => Linking.openURL("https://family-pie.ru")}
           />
         </Card>
 
