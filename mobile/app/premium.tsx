@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,14 +26,30 @@ export default function PremiumScreen() {
   const { t: tr, lang } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { token } = useAuth();
+  const { token, refreshUser } = useAuth();
   const { progress } = useProgress();
-  const { isPremium } = useWallet();
+  const { isPremium, refresh: refreshWallet } = useWallet();
   const belt = beltProgress(progress).belt;
+  const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
     trackPaywallView({ kind: "premium", belt: belt.id });
   }, [belt.id]);
+
+  // iOS reader model: no purchase. "Restore" = sign in (if anonymous) or re-pull entitlement
+  // from /auth/me so a sub bought elsewhere shows up here.
+  async function onRestore() {
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+    setRestoring(true);
+    try {
+      await Promise.all([refreshUser(), refreshWallet()]);
+    } finally {
+      setRestoring(false);
+    }
+  }
 
   // Every perk listed here is already enforced server-side — the pitch contains no fiction.
   const perks = [
@@ -83,6 +99,21 @@ export default function PremiumScreen() {
           <Txt variant="bodyStrong" color={t.c.gold} style={{ textAlign: "center" }}>
             {tr("premium.active")}
           </Txt>
+        ) : Platform.OS === "ios" ? (
+          // Apple reader model: NO purchase button, price-to-pay CTA, or "buy on site" link on iOS
+          // (anti-steering). Only perks (above) + a restore/sign-in path to surface an existing sub.
+          <>
+            <Button
+              label={restoring ? "…" : tr("premium.restore")}
+              variant="ghost"
+              uppercase={false}
+              disabled={restoring}
+              onPress={onRestore}
+            />
+            <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center" }}>
+              {tr("premium.restoreNote")}
+            </Txt>
+          </>
         ) : billingEnabled() ? (
           <>
             <Button
