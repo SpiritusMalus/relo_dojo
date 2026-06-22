@@ -13,7 +13,7 @@ import { DEFAULT_TONE, TONES } from "../store/onboarding";
 const REMIND_HOURS = [8, 12, 16, 19, 21];
 import { RU_TONE_LABELS } from "../i18n/strings";
 import { analyzePain, deleteAccount, exportMyData } from "../services/api";
-import { PRIVACY_URL } from "../store/consent";
+import { PRIVACY_URL, TERMS_URL } from "../store/consent";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Chip from "../components/ui/Chip";
@@ -239,6 +239,13 @@ export default function SettingsScreen() {
             variant="ghost"
             uppercase={false}
             onPress={() => Linking.openURL(PRIVACY_URL)}
+            style={{ marginBottom: 6 }}
+          />
+          <Button
+            label={tr("settings.terms")}
+            variant="ghost"
+            uppercase={false}
+            onPress={() => Linking.openURL(TERMS_URL)}
           />
         </Card>
 

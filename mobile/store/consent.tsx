@@ -15,9 +15,11 @@ import { recordConsent } from "../services/api";
 
 // Current consent document version. Bump on any material change to what/where/why data is sent.
 export const PD_CONSENT_VERSION = "pd-2026-06";
-// Hosted full privacy policy (the operator publishes legal/PRIVACY_POLICY.md here). Linked from the
-// consent screen and Settings.
-export const PRIVACY_URL = "https://relodojo.app/privacy";
+// Hosted legal docs on the studio's central host (family-pie mirrors legal/PRIVACY_POLICY.md +
+// TERMS_OF_USE.md). Linked from the consent screen and Settings. Конфиденциальность = Privacy,
+// Оферта = Terms.
+export const PRIVACY_URL = "https://family-pie.ru/relo_dojo/privacy";
+export const TERMS_URL = "https://family-pie.ru/relo_dojo/terms";
 const STORAGE_KEY = "relo_dojo/consent/pd/v1";
 
 type ConsentCtx = {

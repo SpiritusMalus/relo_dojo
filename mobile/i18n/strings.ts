@@ -357,6 +357,7 @@ export const STRINGS = {
     "settings.privacySub": "How your data is used, and your cross-border consent.",
     "settings.consentReview": "Data & cross-border consent",
     "settings.privacyPolicy": "Privacy Policy",
+    "settings.terms": "Terms of Use",
 
     "loading.default": "Loading…",
   },
@@ -713,6 +714,7 @@ export const STRINGS = {
     "settings.privacySub": "Как используются ваши данные и ваше трансграничное согласие.",
     "settings.consentReview": "Согласие на обработку и передачу данных",
     "settings.privacyPolicy": "Политика конфиденциальности",
+    "settings.terms": "Оферта",
 
     "loading.default": "Загрузка…",
   },
