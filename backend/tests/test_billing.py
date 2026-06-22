@@ -1,7 +1,7 @@
-"""Web-checkout billing (app.services.billing / yookassa / crypto_pay) — pure layer.
+"""Web-checkout billing (app.services.billing / yookassa) — pure layer.
 
-Covers the catalog, the subscription expiry/stacking math, the effective-premium property, and both
-adapters' request building + webhook verification. The DB claim/grant (apply_payment) is IO
+Covers the catalog, the subscription expiry/stacking math, the effective-premium property, and the
+YooKassa adapter's request building + payment parsing. The DB claim/grant (apply_payment) is IO
 (pragma: no cover) — verified on real Postgres via the smoke script, like the rest of the data layer.
 """
 
@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from app.db.models import User
-from app.services import billing, crypto_pay, yookassa
+from app.services import billing, yookassa
 
 
 # ── catalog ────────────────────────────────────────────────────────────────────
@@ -19,7 +19,7 @@ def test_plans_catalog_is_consistent():
     for plan_id, plan in billing.PLANS.items():
         assert plan.id == plan_id, "plan.id must equal its catalog key (it's the stable wire id)"
         assert plan.days > 0
-        assert plan.price_rub > 0 and plan.price_usd > 0
+        assert plan.price_rub > 0
         assert plan.label_en and plan.label_ru
 
 
@@ -95,54 +95,3 @@ def test_yookassa_parse_payment_and_urls():
 
 def test_yookassa_parse_payment_tolerates_missing_metadata():
     assert yookassa.parse_payment({"id": "p", "status": "pending"}) == ("p", "pending", None, None)
-
-
-# ── crypto adapter (signing + order-id codec) ────────────────────────────────────
-def test_crypto_sign_is_deterministic_and_verifies_round_trip():
-    key = "test-api-key"
-    payload = {"order_id": "o1", "status": "paid", "amount": "8"}
-    sign = crypto_pay.make_sign(payload, key)
-    assert sign == crypto_pay.make_sign(payload, key), "sign must be deterministic"
-    assert crypto_pay.verify_webhook({**payload, "sign": sign}, key) is True
-
-
-def test_crypto_verify_rejects_tampered_and_unsigned():
-    key = "test-api-key"
-    payload = {"order_id": "o1", "status": "paid"}
-    sign = crypto_pay.make_sign(payload, key)
-    # tampered amount → recomputed sign differs
-    assert crypto_pay.verify_webhook({"order_id": "o1", "status": "paid_over", "sign": sign}, key) is False
-    # wrong key → reject
-    assert crypto_pay.verify_webhook({**payload, "sign": sign}, "other-key") is False
-    # missing sign → reject
-    assert crypto_pay.verify_webhook(payload, key) is False
-
-
-def test_crypto_order_id_round_trips_user_and_plan():
-    uid = str(uuid.uuid4())
-    order_id = crypto_pay.make_order_id(uuid.UUID(uid), "black_belt_12m")
-    assert crypto_pay.parse_order_id(order_id) == (uid, "black_belt_12m")
-    # the nonce keeps order ids unique across attempts
-    assert crypto_pay.make_order_id(uuid.UUID(uid), "black_belt_12m") != order_id
-
-
-def test_crypto_parse_order_id_rejects_malformed():
-    assert crypto_pay.parse_order_id("garbage") == (None, None)
-    assert crypto_pay.parse_order_id("") == (None, None)
-
-
-def test_crypto_invoice_request_shape():
-    uid = uuid.uuid4()
-    plan = billing.PLANS["black_belt_12m"]
-    body = crypto_pay.build_invoice_request(plan, uid, "https://relodojo.app/done", "https://api/cb")
-    assert body["amount"] == str(plan.price_usd)
-    assert body["currency"] == "USD"
-    assert body["url_callback"] == "https://api/cb"
-    u, p = crypto_pay.parse_order_id(body["order_id"])
-    assert (u, p) == (str(uid), plan.id)
-    assert crypto_pay.invoice_url({"url": "https://pay.crypto/x"}) == "https://pay.crypto/x"
-
-
-def test_paid_statuses_cover_exact_and_overpaid():
-    assert "paid" in crypto_pay.PAID_STATUSES and "paid_over" in crypto_pay.PAID_STATUSES
-    assert "pending" not in crypto_pay.PAID_STATUSES

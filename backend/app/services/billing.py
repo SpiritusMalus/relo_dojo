@@ -1,9 +1,9 @@
 """Web-checkout billing — paid premium ("Black Belt"), provider-neutral core.
 
 Apple/Google forbid third-party payment for in-app digital goods, so premium is sold on the web
-(relodojo.app) and the account unlocks server-side via provider webhooks. This module is the
-provider-AGNOSTIC core; the rails live in sibling adapters (services/yookassa.py for RU cards/SBP,
-services/crypto_pay.py for USDT). Both authenticate their webhook, then hand a
+(relodojo.app) and the account unlocks server-side via the provider webhook. This module is the
+provider-AGNOSTIC core; the rail lives in a sibling adapter (services/yookassa.py for RU cards/SBP).
+The adapter authenticates its webhook, then hands a
 (provider, external_id, user_id, plan) tuple to `apply_payment`.
 
 Design mirrors the rest of the backend:
@@ -25,25 +25,23 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from ..db.models import ProcessedPayment, User
 
 PROVIDER_YOOKASSA = "yookassa"
-PROVIDER_CRYPTO = "crypto"
 
 
 class Plan(NamedTuple):
     id: str
     days: int
     price_rub: int  # charged via YooKassa (whole rubles)
-    price_usd: int  # charged via crypto (whole USD ≈ USDT)
     label_en: str
     label_ru: str
 
 
 # Product catalog. Annual is the anchor (cheapest per month), matching the pricing thesis
-# (Black Belt ≈ $8/mo, ≈ $55/yr; RU prices undercut Praktika). Ids are STABLE — they're embedded in
-# the payment metadata/order id and read back at webhook time, so renaming one orphans in-flight pays.
+# (RU prices undercut Praktika). Ids are STABLE — they're embedded in the payment metadata and read
+# back at webhook time, so renaming one orphans in-flight pays.
 PLANS: dict[str, Plan] = {
-    "black_belt_1m": Plan("black_belt_1m", 30, 690, 8, "Black Belt · 1 month", "Чёрный пояс · 1 месяц"),
-    "black_belt_3m": Plan("black_belt_3m", 90, 1790, 21, "Black Belt · 3 months", "Чёрный пояс · 3 месяца"),
-    "black_belt_12m": Plan("black_belt_12m", 365, 4900, 55, "Black Belt · 12 months", "Чёрный пояс · 12 месяцев"),
+    "black_belt_1m": Plan("black_belt_1m", 30, 690, "Black Belt · 1 month", "Чёрный пояс · 1 месяц"),
+    "black_belt_3m": Plan("black_belt_3m", 90, 1790, "Black Belt · 3 months", "Чёрный пояс · 3 месяца"),
+    "black_belt_12m": Plan("black_belt_12m", 365, 4900, "Black Belt · 12 months", "Чёрный пояс · 12 месяцев"),
 }
 
 
