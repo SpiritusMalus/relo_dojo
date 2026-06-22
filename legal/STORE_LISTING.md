@@ -70,8 +70,8 @@ for functionality), **Approximate technical data / IP** (security). Declare:
   consent. Declare this transfer and the "Data shared" → "User-provided text" recipient accordingly.
 
 ## Required links
-- Privacy Policy URL: [HOST legal/PRIVACY_POLICY.md AT A PUBLIC URL]
-- Terms of Use URL: [HOST legal/TERMS_OF_USE.md AT A PUBLIC URL]
+- Privacy Policy URL: https://family-pie.ru/relo_dojo/privacy
+- Terms of Use URL: https://family-pie.ru/relo_dojo/terms
 - Support URL / email: [INSERT]
 
 ## Assets checklist (Phase 7)
