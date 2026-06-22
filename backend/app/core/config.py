@@ -19,13 +19,17 @@ class Settings(BaseSettings):
     ENV: str = "dev"
 
     # --- LLM provider (API migration, decided 2026-06-11) ---
-    # "ollama" (local dev, default) | "anthropic" | "openai". Prod runs on an API provider;
-    # re-run the eval set (evals/run_eval.py --provider ...) before flipping this in prod.
+    # "ollama" (local dev, default) | "anthropic" | "openai" | "gemini". Prod runs on an API
+    # provider; re-run the eval set (evals/run_eval.py --provider ...) before flipping this in prod.
     LLM_PROVIDER: str = "ollama"
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-haiku-4-5"
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
+    GEMINI_API_KEY: str = ""
+    # Resolved from the live Google AI model list (June 2026): the stable Flash-Lite id (the
+    # `-preview` alias is discontinued 2026-07-09). Cheapest viable tier for this workload.
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
     LLM_MAX_TOKENS: int = 1024  # API providers require an explicit cap
 
     # --- Ollama (local dev path) ---

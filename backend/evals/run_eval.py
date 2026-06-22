@@ -10,6 +10,7 @@ Usage (from backend/, venv active; Ollama running for the ollama provider):
     python -m evals.run_eval --model gemma3:12b    # override the active provider's model
     python -m evals.run_eval --provider anthropic  # eval the API path (needs ANTHROPIC_API_KEY)
     python -m evals.run_eval --provider openai --model gpt-4o-mini
+    python -m evals.run_eval --provider gemini  # Flash-Lite path (needs GEMINI_API_KEY)
     python -m evals.run_eval --limit 10            # quick smoke run
     python -m evals.run_eval --generate 5          # also: generation smoke test, 5 items/type
 
@@ -32,7 +33,12 @@ BACKEND = HERE.parent
 
 
 # Which env var the --model override lands in, per provider.
-_MODEL_ENV = {"ollama": "OLLAMA_MODEL", "anthropic": "ANTHROPIC_MODEL", "openai": "OPENAI_MODEL"}
+_MODEL_ENV = {
+    "ollama": "OLLAMA_MODEL",
+    "anthropic": "ANTHROPIC_MODEL",
+    "openai": "OPENAI_MODEL",
+    "gemini": "GEMINI_MODEL",
+}
 
 
 def _bootstrap(model: str | None, provider: str | None) -> None:
@@ -103,7 +109,9 @@ async def run_generation_smoke(per_type: int) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", help="override the active provider's model for this run")
-    ap.add_argument("--provider", choices=["ollama", "anthropic", "openai"], help="override LLM_PROVIDER")
+    ap.add_argument(
+        "--provider", choices=["ollama", "anthropic", "openai", "gemini"], help="override LLM_PROVIDER"
+    )
     ap.add_argument("--file", default=str(HERE / "eval_set.json"), help="eval set path")
     ap.add_argument("--limit", type=int, help="only run the first N items")
     ap.add_argument("--generate", type=int, metavar="N", help="also run a generation smoke test, N items per type")
