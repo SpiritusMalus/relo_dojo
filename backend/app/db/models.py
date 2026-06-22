@@ -222,18 +222,21 @@ class SentEmail(Base):
 
 
 class ProcessedPayment(Base):
-    """Idempotency guard for billing webhooks (web-checkout premium: YooKassa + crypto/USDT).
+    """Idempotency guard for billing webhooks (web-checkout premium: YooKassa).
 
     PK is (provider, external_id): the first successful payment notification inserts the row and
     extends the buyer's premium_until; a replay or retried webhook for the SAME payment hits the PK
     conflict and grants nothing. Same claim-before-grant pattern as AwardedToken / SentEmail —
     payment webhooks are at-least-once, so the grant MUST be idempotent. `user_id` is the buyer (SET
     NULL on delete: the receipt outlives the account); `plan`/`days` record what was granted for
-    support/audit/refunds."""
+    support/audit/refunds.
+
+    NOTE: the crypto/USDT rail was removed (ФЗ-259, 2026-06-21). Historical `provider="crypto"` rows
+    are PRESERVED here as immutable receipts; "crypto" is no longer a writable provider value."""
 
     __tablename__ = "processed_payments"
 
-    provider: Mapped[str] = mapped_column(String(20), primary_key=True)  # "yookassa" | "crypto"
+    provider: Mapped[str] = mapped_column(String(20), primary_key=True)  # "yookassa" ("crypto" = legacy receipts)
     external_id: Mapped[str] = mapped_column(String(128), primary_key=True)  # provider's payment id
     user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True

@@ -12,7 +12,7 @@
   app opens this page with the buyer's session in the URL FRAGMENT (#api=...&token=...&lang=...).
   The fragment is read by JS and never sent to a server / kept in access logs, unlike a query
   string. This page just calls the backend:
-    GET  {api}/billing/plans      -> render plan + price (RUB via card, USD via crypto)
+    GET  {api}/billing/plans      -> render plan + price (RUB, via YooKassa card/SBP)
     POST {api}/billing/checkout   -> {url}, then we redirect the buyer to the provider's page
   The backend grants premium on the provider webhook (server-authoritative). Static, zero build.
 -->
@@ -39,12 +39,6 @@
   h1 { font-size:clamp(24px,6.5vw,30px); line-height:1.12; letter-spacing:-.03em; margin:18px 0 6px; }
   .lead { color:var(--ink2); font-size:16px; margin:0 0 18px; }
   .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px; box-shadow:var(--shadow); }
-
-  /* method toggle */
-  .seg { display:flex; gap:6px; background:var(--surface2); padding:5px; border-radius:14px; margin-bottom:16px; }
-  .seg button { flex:1; font-family:inherit; font-weight:700; font-size:15px; padding:11px 8px; border:0;
-                border-radius:10px; background:transparent; color:var(--ink2); cursor:pointer; }
-  .seg button[aria-selected="true"] { background:var(--surface); color:var(--ink); box-shadow:var(--shadow); }
 
   /* plans */
   .plan { display:flex; align-items:center; gap:13px; width:100%; text-align:left; font-family:inherit;
@@ -85,10 +79,6 @@
   <div id="noToken" class="note warn hidden"></div>
 
   <div class="card" id="picker">
-    <div class="seg" role="tablist" id="seg">
-      <button role="tab" data-method="yookassa" aria-selected="true" id="mCard"></button>
-      <button role="tab" data-method="crypto" aria-selected="false" id="mCrypto"></button>
-    </div>
     <div id="plans"></div>
     <div id="err" class="note err hidden"></div>
     <button class="btn" id="pay" disabled></button>
@@ -121,7 +111,6 @@
   var T = {
     ru: {
       h1: "Чёрный пояс", lead: "Безлимит, двойные коку и «Проверь мой текст» без ограничений.",
-      card: "Карта РФ", crypto: "Крипта · USDT",
       pay: "Оплатить", paying: "Создаём оплату…",
       mo: "мес", best: "выгодно",
       fine: "Безопасная оплата у провайдера. Доступ откроется в приложении автоматически.",
@@ -131,7 +120,6 @@
     },
     en: {
       h1: "Black Belt", lead: "No daily cap, double koku and unlimited “Review my text”.",
-      card: "RU card", crypto: "Crypto · USDT",
       pay: "Pay", paying: "Creating payment…",
       mo: "mo", best: "best value",
       fine: "Secure checkout at the provider. Access unlocks in the app automatically.",
@@ -141,30 +129,24 @@
     }
   }[lang];
 
-  var method = "yookassa", plans = [], selected = null;
+  var plans = [], selected = null;
   var $ = function (id) { return document.getElementById(id); };
 
   document.documentElement.lang = lang;
   $("h1").textContent = T.h1; $("lead").textContent = T.lead;
-  $("mCard").textContent = T.card; $("mCrypto").textContent = T.crypto;
   $("pay").textContent = T.pay; $("fine").textContent = T.fine;
 
   if (!sessionOk) { var n = $("noToken"); n.textContent = T.noToken; n.classList.remove("hidden"); }
 
   function priceLabel(p) {
-    return method === "yookassa" ? (p.price_rub + " ₽") : ("$" + p.price_usd);
+    return p.price_rub + " ₽";
   }
   function subLabel(p) {
-    var perMo = p.days / 30 || 1; // per-month equivalent, in the selected method's currency
-    return method === "yookassa"
-      ? "≈ " + Math.round(p.price_rub / perMo) + " ₽/" + T.mo
-      : "≈ $" + (p.price_usd / perMo).toFixed(1) + "/" + T.mo;
+    var perMo = p.days / 30 || 1; // per-month equivalent
+    return "≈ " + Math.round(p.price_rub / perMo) + " ₽/" + T.mo;
   }
 
   function render() {
-    $("seg").querySelectorAll("button").forEach(function (b) {
-      b.setAttribute("aria-selected", String(b.dataset.method === method));
-    });
     var box = $("plans"); box.innerHTML = "";
     plans.forEach(function (p, i) {
       var best = (i === plans.length - 1 && plans.length > 1); // longest = best per-month value
@@ -182,12 +164,6 @@
     $("pay").disabled = !selected || !sessionOk;
   }
 
-  // method toggle
-  $("seg").addEventListener("click", function (e) {
-    var b = e.target.closest("button"); if (!b) return;
-    method = b.dataset.method; render();
-  });
-
   // load the catalog (only from the trusted backend; a tampered `api` is treated as no session)
   if (sessionOk) {
     fetch(api + "/billing/plans")
@@ -204,7 +180,7 @@
     fetch(api + "/billing/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-      body: JSON.stringify({ plan: selected, method: method })
+      body: JSON.stringify({ plan: selected, method: "yookassa" })
     })
       .then(function (r) { if (!r.ok) throw 0; return r.json(); })
       .then(function (d) { if (d && d.url) { location.href = d.url; } else { throw 0; } })

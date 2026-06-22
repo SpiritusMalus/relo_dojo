@@ -2,7 +2,7 @@
 //
 // Apple/Google forbid third-party payment for in-app digital goods, so the app never charges in
 // app — it hands the buyer to a web checkout page (relodojo.app) carrying their session, and the
-// backend flips premium via the provider webhook (YooKassa / crypto). See backend services/billing.
+// backend flips premium via the provider webhook (YooKassa). See backend services/billing.
 //
 // OFF until EXPO_PUBLIC_CHECKOUT_URL is set (mirrors the backend's BILLING_ENABLED): the premium
 // screen keeps its "coming soon" CTA until then, so shipping this code changes nothing for users.
