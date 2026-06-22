@@ -519,18 +519,17 @@ class EventAck(BaseModel):
     accepted: int
 
 
-# --- web-checkout billing (premium "Black Belt": YooKassa + crypto) ---
+# --- web-checkout billing (premium "Black Belt": YooKassa) ---
 class BillingPlanOut(BaseModel):
     id: str
     days: int
     price_rub: int
-    price_usd: int
     label_en: str
     label_ru: str
 
 
 class PlansOut(BaseModel):
-    """The plan catalog for the web checkout to render (prices in both rails)."""
+    """The plan catalog for the web checkout to render (RUB prices)."""
 
     plans: list[BillingPlanOut] = Field(default_factory=list)
 
@@ -540,7 +539,7 @@ class CheckoutIn(BaseModel):
     taken from the request body — so a checkout can only ever top up your OWN account."""
 
     plan: str = Field(min_length=1, max_length=40)
-    method: str = Field(pattern="^(yookassa|crypto)$")
+    method: str = Field(default="yookassa", pattern="^(yookassa)$")
 
 
 class CheckoutOut(BaseModel):

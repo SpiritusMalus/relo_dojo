@@ -222,7 +222,7 @@ class SentEmail(Base):
 
 
 class ProcessedPayment(Base):
-    """Idempotency guard for billing webhooks (web-checkout premium: YooKassa + crypto/USDT).
+    """Idempotency guard for billing webhooks (web-checkout premium: YooKassa).
 
     PK is (provider, external_id): the first successful payment notification inserts the row and
     extends the buyer's premium_until; a replay or retried webhook for the SAME payment hits the PK
@@ -233,7 +233,7 @@ class ProcessedPayment(Base):
 
     __tablename__ = "processed_payments"
 
-    provider: Mapped[str] = mapped_column(String(20), primary_key=True)  # "yookassa" | "crypto"
+    provider: Mapped[str] = mapped_column(String(20), primary_key=True)  # "yookassa" (kept wide for any legacy rows)
     external_id: Mapped[str] = mapped_column(String(128), primary_key=True)  # provider's payment id
     user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
