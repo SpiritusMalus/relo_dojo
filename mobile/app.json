@@ -28,6 +28,13 @@
       "expo-router",
       "expo-font",
       "expo-notifications"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "dff49700-f8e2-43b5-8f1f-552470876724"
+      }
+    },
+    "owner": "tihonenkoeugene"
   }
 }

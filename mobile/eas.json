@@ -20,6 +20,17 @@
         "buildType": "app-bundle"
       },
       "ios": {}
+    },
+    "prod-apk": {
+      "extends": "production",
+      "autoIncrement": false,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://relo.family-pie.ru"
+      }
     }
   },
   "submit": {

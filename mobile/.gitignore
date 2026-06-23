@@ -18,6 +18,12 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Local release signing (sideload prod-local build) — NEVER commit the keystore or its passwords.
+# Commit only credentials.example.json + the eas.json wiring. See README "Local production build".
+*.keystore
+credentials.json
+credentials/
+
 # Metro
 .metro-health-check*
 
