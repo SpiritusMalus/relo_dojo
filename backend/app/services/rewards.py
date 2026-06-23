@@ -26,6 +26,13 @@ class _Rng(Protocol):
     def random(self) -> float: ...
 
 
+# The prize roll feeds the economy (koku/charms), so use a CSPRNG, not the predictable global
+# Mersenne Twister — a player must not be able to predict or await high-value drops. Tests inject
+# their own deterministic `rng`. (Option/tile shuffles elsewhere stay on plain `random`: the answer
+# is Fernet-sealed, so their order leaks nothing.)
+_secure_rng = random.SystemRandom()
+
+
 # (kind, amount, weight). Weights are relative; koku dominates, the rares carry the thrill.
 SCROLL_TABLE: list[tuple[str, int, int]] = [
     ("koku", 5, 50),  # common: pocket change
@@ -38,7 +45,7 @@ SCROLL_TABLE: list[tuple[str, int, int]] = [
 _TOTAL_WEIGHT = sum(w for _, _, w in SCROLL_TABLE)
 
 
-def roll_scroll(rng: _Rng = random) -> tuple[str, int]:
+def roll_scroll(rng: _Rng = _secure_rng) -> tuple[str, int]:
     """Weighted roll over SCROLL_TABLE. `rng` injectable for deterministic tests."""
     pick = rng.random() * _TOTAL_WEIGHT
     acc = 0.0
@@ -49,7 +56,7 @@ def roll_scroll(rng: _Rng = random) -> tuple[str, int]:
     return SCROLL_TABLE[-1][0], SCROLL_TABLE[-1][1]  # float edge — give the last row
 
 
-async def grant_scroll(user: User, db: AsyncSession, rng: _Rng = random) -> dict:
+async def grant_scroll(user: User, db: AsyncSession, rng: _Rng = _secure_rng) -> dict:
     """Roll and credit one scroll for the user; 403 {code: scroll_limit} past the daily cap."""
     # Row-lock the account: the daily cap is the farm guard, so two concurrent /rewards/scroll
     # calls must not both pass the cap check and both credit koku. Released by the commit below.

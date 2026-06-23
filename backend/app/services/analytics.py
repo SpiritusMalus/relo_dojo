@@ -79,7 +79,18 @@ def subject_key(user_id: Optional[uuid.UUID], anon_id: Optional[str]) -> Optiona
     if user_id is not None:
         return str(user_id)
     if anon_id:
-        return anon_id.strip()[:64] or None
+        candidate = anon_id.strip()[:64]
+        if not candidate:
+            return None
+        # Refuse a client anon id that parses as a UUID: anon and authed subjects share one namespace,
+        # so a forged anon_id equal to a victim's user UUID would otherwise cross-attribute events to
+        # them (metric poisoning + farmable daily contracts). Real client ids are "a-<base36>-<base36>"
+        # and never parse as a UUID, so this drops only spoof attempts.
+        try:
+            uuid.UUID(candidate)
+        except ValueError:
+            return candidate
+        return None
     return None
 
 

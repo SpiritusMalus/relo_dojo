@@ -57,6 +57,16 @@ def test_subject_prefers_user_then_anon_then_none():
     assert analytics.subject_key(None, None) is None
 
 
+def test_subject_rejects_uuid_shaped_anon_id():
+    # Anti-spoofing (RD-02): an anonymous caller must not be able to set subject = a real user's UUID
+    # (which would cross-attribute events / farm that user's daily contracts). A UUID-shaped anon_id
+    # is dropped; the real client format ("a-<base36>-<base36>") is unaffected.
+    victim = uuid.uuid4()
+    assert analytics.subject_key(None, str(victim)) is None
+    assert analytics.subject_key(None, str(victim).upper()) is None
+    assert analytics.subject_key(None, "a-lz3k9q-x7h2m4p9") == "a-lz3k9q-x7h2m4p9"
+
+
 # --- row building ------------------------------------------------------------
 def test_build_event_rows_attributes_and_filters():
     uid = uuid.uuid4()
