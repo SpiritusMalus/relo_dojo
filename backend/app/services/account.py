@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Iterable, Optional
 
-from ..db.models import Event, LearnerProfile, Progress, User
-from ..schemas import AccountExport, ExportAccount, ExportEvent
+from ..db.models import Event, LearnerProfile, ProcessedPayment, Progress, User
+from ..schemas import AccountExport, ExportAccount, ExportEvent, ExportPayment
 
 
 def _iso(dt) -> Optional[str]:  # noqa: ANN001 — datetime | None
@@ -22,8 +22,10 @@ def build_account_export(
     progress: Optional[Progress],
     profile: Optional[LearnerProfile],
     events: Iterable[Event],
+    payments: Iterable[ProcessedPayment] = (),
 ) -> AccountExport:
-    """Assemble the caller's full data export. `progress`/`profile` are None when never synced."""
+    """Assemble the caller's full data export. `progress`/`profile` are None when never synced;
+    `payments` is the caller's purchase history (empty when they've never bought premium)."""
     return AccountExport(
         account=ExportAccount(
             id=str(user.id),
@@ -43,4 +45,8 @@ def build_account_export(
         progress=dict(progress.data) if progress is not None else {},
         learner_profile=dict(profile.data) if profile is not None else {},
         events=[ExportEvent(name=e.name, props=dict(e.props or {}), ts=_iso(e.ts)) for e in events],
+        payments=[
+            ExportPayment(provider=p.provider, plan=p.plan, days=p.days, created_at=_iso(p.created_at))
+            for p in payments
+        ],
     )
