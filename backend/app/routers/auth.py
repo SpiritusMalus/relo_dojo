@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import HTMLResponse
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
@@ -18,7 +19,7 @@ from ..core.security import (
     hash_password,
     verify_password,
 )
-from ..db.models import Event, LearnerProfile, Progress, User
+from ..db.models import Event, LearnerProfile, ProcessedPayment, Progress, User
 from ..deps import auth_rate_limit, get_current_user, get_db
 from ..schemas import (
     AccountExport,
@@ -163,7 +164,16 @@ async def delete_account(
       - events / awarded_tokens / processed_payments → user_id set NULL (FK ondelete="SET NULL")
     Payment receipts (processed_payments) intentionally SURVIVE, anonymized, for refund/audit —
     they no longer reference the person. After this, the old token resolves to a missing user → 401.
+
+    Erasure completeness (152-ФЗ): the FK SET NULL clears `Event.user_id`, but `Event.subject` still
+    holds this user's id string — so before the delete we re-key the user's analytics rows to a fresh
+    opaque subject. The event trail survives for aggregate retention (and stays a DISTINCT cohort, so
+    the math is unaffected) but is no longer linkable to the deleted person.
     """
+    anon_subject = f"deleted:{uuid.uuid4().hex}"
+    await db.execute(
+        update(Event).where(Event.subject == str(user.id)).values(subject=anon_subject, user_id=None)
+    )
     await db.delete(user)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -175,13 +185,22 @@ async def export_account(
 ) -> AccountExport:
     """Return everything we hold about the caller as JSON (store-compliance: data export right).
 
-    Account fields (no password hash), the progress + learner-profile snapshots, and every analytics
-    row still attributed to this user. Read-only — nothing is mutated."""
+    Account fields (no password hash), the progress + learner-profile snapshots, every analytics row
+    still attributed to this user, and the purchase history (premium grants). Read-only — nothing is
+    mutated."""
     progress = await db.get(Progress, user.id)
     profile = await db.get(LearnerProfile, user.id)
-    res = await db.execute(select(Event).where(Event.user_id == user.id).order_by(Event.ts))
-    events = res.scalars().all()
-    return build_account_export(user, progress, profile, events)
+    events = (
+        await db.execute(select(Event).where(Event.user_id == user.id).order_by(Event.ts))
+    ).scalars().all()
+    payments = (
+        await db.execute(
+            select(ProcessedPayment)
+            .where(ProcessedPayment.user_id == user.id)
+            .order_by(ProcessedPayment.created_at)
+        )
+    ).scalars().all()
+    return build_account_export(user, progress, profile, events, payments)
 
 
 @router.get("/verify", response_class=HTMLResponse)

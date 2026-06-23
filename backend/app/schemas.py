@@ -243,6 +243,16 @@ class ExportEvent(BaseModel):
     ts: Optional[str] = None  # ISO-8601 server receipt time
 
 
+class ExportPayment(BaseModel):
+    """One premium purchase attributed to the caller. The receipt itself survives account deletion
+    (anonymized), but the live owner can export their own purchase history while the account exists."""
+
+    provider: str  # e.g. "yookassa"
+    plan: str  # plan id granted, e.g. "black_belt_12m"
+    days: int  # premium days granted by this payment
+    created_at: Optional[str] = None  # ISO-8601 receipt time
+
+
 class AccountExport(BaseModel):
     """Everything we hold about the caller, returned by GET /auth/export. JSON the user can keep."""
 
@@ -250,6 +260,7 @@ class AccountExport(BaseModel):
     progress: dict = Field(default_factory=dict)  # progress.data snapshot ({} if never synced)
     learner_profile: dict = Field(default_factory=dict)  # learner_profile.data ({} if none)
     events: list[ExportEvent] = Field(default_factory=list)
+    payments: list[ExportPayment] = Field(default_factory=list)  # purchase history ([] if none)
 
 
 # --- cosmetics (engagement v2) ---
