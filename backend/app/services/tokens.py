@@ -42,6 +42,13 @@ def _build_fernet() -> Fernet:
                 "CHECK_SECRET is set but is not a valid Fernet key (expected 32 url-safe base64 "
                 "bytes - generate one with `Fernet.generate_key()`)."
             ) from exc
+    if settings.is_prod:
+        # An ephemeral per-process key breaks /check across restarts and (multi-worker) instances:
+        # a token sealed by one worker can't be unsealed by another. Required in prod like JWT_SECRET.
+        raise RuntimeError(
+            "CHECK_SECRET is required when ENV=prod (an ephemeral key breaks /check across restarts "
+            "and workers). Generate one with `Fernet.generate_key()`."
+        )
     return Fernet(Fernet.generate_key())
 
 
