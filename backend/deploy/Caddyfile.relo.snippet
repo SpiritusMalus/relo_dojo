@@ -1,0 +1,27 @@
+# relo_dojo API — ADD this block to the EXISTING family-pie Caddyfile (do not replace the file).
+# Caddy auto-provisions a Let's Encrypt cert for relo.family-pie.ru. The family-pie.ru and
+# food.family-pie.ru blocks are untouched.
+#
+# This block also carries the proxy-side security headers (security-audit RD-08) — the part that
+# couldn't live in the app: HSTS + a tight CSP. CSP is safe to lock down here because in prod the
+# only HTML the API serves is the /auth/verify page (inline styles only) and Swagger is OFF
+# (ENV=prod, RD-07). If a browser-based web checkout (relodojo.app / family-pie.ru) ever calls this
+# API directly, add its origin to the backend's ALLOWED_ORIGINS (CORS), not here.
+
+relo.family-pie.ru {
+	encode zstd gzip
+
+	header {
+		# HTTPS-only for 2 years incl. subdomains.
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		# API serves JSON + one inline-styled HTML page; nothing else is allowed to load.
+		Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		-Server
+	}
+
+	reverse_proxy 127.0.0.1:8010
+}

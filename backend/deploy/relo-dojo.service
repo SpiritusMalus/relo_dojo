@@ -1,0 +1,32 @@
+[Unit]
+# relo_dojo FastAPI backend (uvicorn) on the shared family-pie VPS.
+# Co-located with family-pie (static) + HealthRoutine food proxy — independent unit, own user,
+# own localhost port (8010), so it neither shares state with nor can take down the neighbours.
+Description=relo_dojo backend (FastAPI/uvicorn)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=relo
+Group=relo
+# Repo checked out at /opt/relo_dojo; the app package lives under backend/.
+WorkingDirectory=/opt/relo_dojo/backend
+# Secrets + ENV=prod live here (chmod 600, owned by relo). NOT in the repo.
+EnvironmentFile=/opt/relo_dojo/backend/.env
+# Bind to localhost only — Caddy is the sole public entrypoint (TLS terminates there).
+ExecStart=/opt/relo_dojo/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010
+Restart=on-failure
+RestartSec=3
+
+# Hardening (defence-in-depth; does not affect other services).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
