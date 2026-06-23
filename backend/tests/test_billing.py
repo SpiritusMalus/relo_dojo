@@ -9,6 +9,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+from fastapi.testclient import TestClient
+
 from app.db.models import User
 from app.services import billing, yookassa
 
@@ -95,3 +97,31 @@ def test_yookassa_parse_payment_and_urls():
 
 def test_yookassa_parse_payment_tolerates_missing_metadata():
     assert yookassa.parse_payment({"id": "p", "status": "pending"}) == ("p", "pending", None, None)
+
+
+# ── /billing/plans router gating (local pay-rail test relies on this) ─────────────
+def _client(monkeypatch):
+    from app import main
+    from app.core.config import settings as _settings
+
+    monkeypatch.setattr(_settings, "AUTO_MIGRATE", False)  # no DB on startup in the test
+    return TestClient(main.app)
+
+
+def test_plans_404_when_billing_disabled(monkeypatch):
+    from app.core.config import settings as _settings
+
+    monkeypatch.setattr(_settings, "BILLING_ENABLED", False)
+    with _client(monkeypatch) as client:
+        assert client.get("/billing/plans").status_code == 404  # whole rail invisible until enabled
+
+
+def test_plans_returns_all_three_when_billing_enabled(monkeypatch):
+    from app.core.config import settings as _settings
+
+    monkeypatch.setattr(_settings, "BILLING_ENABLED", True)  # the local-test flip (.env.local.example)
+    with _client(monkeypatch) as client:
+        resp = client.get("/billing/plans")
+    assert resp.status_code == 200
+    ids = {p["id"] for p in resp.json()["plans"]}
+    assert ids == {"black_belt_1m", "black_belt_3m", "black_belt_12m"}
