@@ -69,7 +69,10 @@ async def send_verification_email(to: str, link: str) -> None:
     try:
         await asyncio.to_thread(_send_sync, msg)
     except Exception:  # don't fail registration if the mail server hiccups
-        logger.exception("Failed to send verification email to %s; link: %s", to, link)
+        # Don't log the activation link on the failure path: it embeds a (verify-scope) JWT, and logs
+        # are lower-trust than the mailbox it's meant for. The unconfigured-SMTP branch above still
+        # logs it on purpose — that's the dev path where the link IS the delivery mechanism.
+        logger.exception("Failed to send verification email to %s.", to)
 
 
 async def send_email(to: str, subject: str, text: str, html: str | None = None) -> bool:

@@ -38,6 +38,16 @@ def _user(scroll_day: str = "", scrolls_used: int = 0) -> SimpleNamespace:
     )
 
 
+def test_default_rng_is_a_csprng():
+    # RD-03: the prize roll must not default to the predictable global Mersenne Twister, or a player
+    # could predict/await high-value drops. The injected default is SystemRandom (os CSPRNG).
+    import random
+
+    assert isinstance(rewards._secure_rng, random.SystemRandom)
+    assert rewards.roll_scroll.__defaults__ == (rewards._secure_rng,)
+    assert rewards.grant_scroll.__defaults__ == (rewards._secure_rng,)
+
+
 def test_roll_table_weights_cover_all_kinds():
     total = sum(w for _, _, w in rewards.SCROLL_TABLE)
     # First row at fraction 0; last row just under 1.

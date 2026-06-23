@@ -35,6 +35,10 @@ from ..services.email import send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+# Fixed argon2 hash verified on the missing-user login path so an unknown email costs the same time
+# as a wrong password (anti-enumeration; see login()). Computed once at import.
+_DUMMY_PASSWORD_HASH = hash_password("login-timing-equalizer")
+
 
 async def _get_by_email(db: AsyncSession, email: str) -> User | None:
     res = await db.execute(select(User).where(User.email == email))
@@ -87,9 +91,15 @@ async def login(payload: LoginIn, db: AsyncSession = Depends(get_db)) -> TokenOu
     # Note: the Gmail block lives on /register only. Login must stay open so any pre-existing account
     # (e.g. created before the block, or via another path) is never locked out of its own data.
     user = await _get_by_email(db, payload.email.lower())
-    # Verify even when the user is missing to keep timing uniform isn't trivial here; a generic
-    # 401 avoids leaking which emails exist.
-    if user is None or not verify_password(payload.password, user.password_hash):
+    # Constant-ish timing: run an argon2 verify even when the email is unknown, against a fixed dummy
+    # hash, so a missing account doesn't return faster than a wrong password (login user-enumeration
+    # via a timing oracle). Either branch ends in the same generic 401.
+    if user is None:
+        verify_password(payload.password, _DUMMY_PASSWORD_HASH)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password."
+        )
+    if not verify_password(payload.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password."
         )
