@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncIterator, Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -93,7 +93,34 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="Relo Dojo API", version="0.4.0", lifespan=lifespan)
+def _docs_kwargs(is_prod: bool) -> dict[str, Optional[str]]:
+    """Swagger/OpenAPI is served only in dev. In prod we don't publish the API schema (it's free
+    recon for an attacker) — `/docs`, `/redoc`, `/openapi.json` all 404."""
+    if is_prod:
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {"docs_url": "/docs", "redoc_url": "/redoc", "openapi_url": "/openapi.json"}
+
+
+app = FastAPI(title="Relo Dojo API", version="0.4.0", lifespan=lifespan, **_docs_kwargs(settings.is_prod))
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Defence-in-depth response headers (RD-08). Kept narrow so they're safe on every surface,
+    including the dev Swagger UI and the /auth/verify HTML page: no CSP here — a correct policy has
+    to account for that HTML/JS surface, so it lives at the reverse proxy (Caddy/nginx) at deploy.
+    HSTS is prod-only (it only makes sense over HTTPS)."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    if settings.is_prod:
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=63072000; includeSubDomains"
+        )
+    return response
+
 
 # CORS origins are explicit (configured via ALLOWED_ORIGINS) — no wildcard in production.
 app.add_middleware(

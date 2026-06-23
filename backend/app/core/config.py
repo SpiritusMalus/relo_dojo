@@ -13,6 +13,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # Runtime environment. "prod" tightens posture (see `is_prod` consumers): Swagger/OpenAPI off,
+    # CHECK_SECRET required (no silent ephemeral key), HSTS header emitted. Default "dev" so local
+    # work and tests keep the developer conveniences.
+    ENV: str = "dev"
+
     # --- LLM provider (API migration, decided 2026-06-11) ---
     # "ollama" (local dev, default) | "anthropic" | "openai". Prod runs on an API provider;
     # re-run the eval set (evals/run_eval.py --provider ...) before flipping this in prod.
@@ -183,6 +188,11 @@ class Settings(BaseSettings):
     YOOKASSA_SHOP_ID: str = ""
     YOOKASSA_SECRET_KEY: str = ""
     YOOKASSA_API_URL: str = "https://api.yookassa.ru/v3"
+
+    @property
+    def is_prod(self) -> bool:
+        """True in production (ENV=prod|production). Gates the hardened runtime posture."""
+        return self.ENV.strip().lower() in {"prod", "production"}
 
     @property
     def allowed_origins_list(self) -> list[str]:
