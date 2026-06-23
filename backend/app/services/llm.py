@@ -5,6 +5,8 @@ One `generate` / `generate_json` surface, routed by LLM_PROVIDER:
 - "anthropic" — Claude via the Messages API; structured output via a forced tool call
   (the schema becomes the tool's input_schema, so the reply IS the parsed JSON).
 - "openai" — Chat Completions; structured output via response_format json_schema.
+- "gemini" — Google generateContent; structured output via generationConfig.responseSchema
+  (an OpenAPI subset), with a responseMimeType=application/json + json.loads fallback.
 
 Every provider raises the SAME exception (`LLMError`, aliased to the historical `OllamaError`)
 so the 503 handling in main.py works for all of them unchanged.
@@ -32,6 +34,7 @@ LLMError = OllamaError
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 TIMEOUT = 120.0
 
 
@@ -103,6 +106,65 @@ def parse_openai_response(data: dict[str, Any], expect_json: bool) -> Any:
         raise LLMError(f"Model returned invalid JSON: {content[:200]}") from exc
 
 
+# Keys Gemini's responseSchema (an OpenAPI 3.0 subset) accepts; everything else is stripped.
+_GEMINI_SCHEMA_KEYS = {"type", "properties", "items", "required", "enum", "description", "nullable"}
+
+
+def to_gemini_schema(schema: dict[str, Any]) -> dict[str, Any] | None:
+    """Translate one of our JSON-Schema objects to Gemini's responseSchema subset.
+
+    Keeps only the supported keys, recursing into properties/items. Returns None if the result
+    is empty (e.g. nothing mapped) — the caller then drops responseSchema and relies on the
+    responseMimeType=application/json + json.loads fallback, mirroring the OpenAI path."""
+    if not isinstance(schema, dict):
+        return None
+    out: dict[str, Any] = {}
+    for key, value in schema.items():
+        if key not in _GEMINI_SCHEMA_KEYS:
+            continue
+        if key == "properties" and isinstance(value, dict):
+            mapped_props = {k: to_gemini_schema(v) for k, v in value.items()}
+            out["properties"] = {k: v for k, v in mapped_props.items() if v is not None}
+        elif key == "items":
+            mapped_items = to_gemini_schema(value)
+            if mapped_items is not None:
+                out["items"] = mapped_items
+        else:
+            out[key] = value
+    return out or None
+
+
+def build_gemini_payload(
+    prompt: str, schema: dict[str, Any] | None = None, temperature: float | None = None
+) -> dict[str, Any]:
+    gen_config: dict[str, Any] = {"maxOutputTokens": settings.LLM_MAX_TOKENS}
+    if temperature is not None:
+        gen_config["temperature"] = temperature
+    if schema is not None:
+        # JSON mime is the safety net; responseSchema is added when the schema maps cleanly.
+        gen_config["responseMimeType"] = "application/json"
+        mapped = to_gemini_schema(schema)
+        if mapped is not None:
+            gen_config["responseSchema"] = mapped
+    return {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": gen_config}
+
+
+def parse_gemini_response(data: dict[str, Any], expect_json: bool) -> Any:
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+        text = "".join(str(p.get("text") or "") for p in parts)
+    except (KeyError, IndexError, TypeError) as exc:
+        raise LLMError("Gemini returned no usable content.") from exc
+    if not text.strip():
+        raise LLMError("Gemini returned no usable content.")
+    if not expect_json:
+        return text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise LLMError(f"Model returned invalid JSON: {text[:200]}") from exc
+
+
 # --- streaming line parsers (SSE; unit-tested offline, mirror the Ollama NDJSON parser) ----------
 def parse_anthropic_sse_line(line: str) -> str:
     """Text delta from one Anthropic Messages-stream SSE line, or "" for any non-text/control line.
@@ -138,6 +200,26 @@ def parse_openai_sse_line(line: str) -> str:
         return ""
     try:
         return str(evt["choices"][0]["delta"].get("content") or "")
+    except (KeyError, IndexError, TypeError):
+        return ""
+
+
+def parse_gemini_sse_line(line: str) -> str:
+    """Text delta from one Gemini streamGenerateContent?alt=sse line, or "" for control lines.
+    Gemini emits `data: {...}` frames; each carries candidates[0].content.parts[*].text."""
+    line = line.strip()
+    if not line.startswith("data:"):
+        return ""
+    raw = line[len("data:"):].strip()
+    if not raw or raw == "[DONE]":
+        return ""
+    try:
+        evt = json.loads(raw)
+    except json.JSONDecodeError:
+        return ""
+    try:
+        parts = evt["candidates"][0]["content"]["parts"]
+        return "".join(str(p.get("text") or "") for p in parts)
     except (KeyError, IndexError, TypeError):
         return ""
 
@@ -205,6 +287,14 @@ async def _openai(prompt: str, schema: dict[str, Any] | None, temperature: float
     return parse_openai_response(data, expect_json=schema is not None)
 
 
+async def _gemini(prompt: str, schema: dict[str, Any] | None, temperature: float | None) -> Any:
+    key = _require_key(settings.GEMINI_API_KEY, "GEMINI_API_KEY", "gemini")
+    headers = {"x-goog-api-key": key}
+    url = f"{GEMINI_BASE}/models/{settings.GEMINI_MODEL}:generateContent"
+    data = await _post(url, headers, build_gemini_payload(prompt, schema, temperature), "Gemini")
+    return parse_gemini_response(data, expect_json=schema is not None)
+
+
 async def _anthropic_stream(prompt: str, temperature: float | None) -> AsyncIterator[str]:
     headers = {
         "x-api-key": _require_key(settings.ANTHROPIC_API_KEY, "ANTHROPIC_API_KEY", "anthropic"),
@@ -230,6 +320,17 @@ async def _openai_stream(prompt: str, temperature: float | None) -> AsyncIterato
             yield delta
 
 
+async def _gemini_stream(prompt: str, temperature: float | None) -> AsyncIterator[str]:
+    key = _require_key(settings.GEMINI_API_KEY, "GEMINI_API_KEY", "gemini")
+    headers = {"x-goog-api-key": key}
+    url = f"{GEMINI_BASE}/models/{settings.GEMINI_MODEL}:streamGenerateContent?alt=sse"
+    payload = build_gemini_payload(prompt, None, temperature)
+    async for line in _stream_lines(url, headers, payload, "Gemini"):
+        delta = parse_gemini_sse_line(line)
+        if delta:
+            yield delta
+
+
 # --- public surface (same signatures the app used with ollama_client) ---------
 async def generate(prompt: str, *, temperature: float | None = None) -> str:
     p = _provider()
@@ -237,6 +338,8 @@ async def generate(prompt: str, *, temperature: float | None = None) -> str:
         return await _anthropic(prompt, None, temperature)
     if p == "openai":
         return await _openai(prompt, None, temperature)
+    if p == "gemini":
+        return await _gemini(prompt, None, temperature)
     return await _ollama_generate(prompt, temperature=temperature)
 
 
@@ -248,15 +351,17 @@ async def generate_json(
         return await _anthropic(prompt, schema, temperature)
     if p == "openai":
         return await _openai(prompt, schema, temperature)
+    if p == "gemini":
+        return await _gemini(prompt, schema, temperature)
     return await _ollama_generate_json(prompt, schema, temperature=temperature)
 
 
 async def generate_stream(prompt: str, *, temperature: float | None = None) -> AsyncIterator[str]:
     """Stream a free-text reply as deltas, routed by provider.
 
-    All three providers now stream incrementally: Ollama via NDJSON, Anthropic via the Messages
-    stream, OpenAI via Chat-Completions SSE. Each yields text deltas (control frames filtered out).
-    Same LLMError contract as the non-streaming surface."""
+    All providers stream incrementally: Ollama via NDJSON, Anthropic via the Messages stream,
+    OpenAI via Chat-Completions SSE, Gemini via streamGenerateContent SSE. Each yields text deltas
+    (control frames filtered out). Same LLMError contract as the non-streaming surface."""
     p = _provider()
     if p == "anthropic":
         async for delta in _anthropic_stream(prompt, temperature):
@@ -264,6 +369,10 @@ async def generate_stream(prompt: str, *, temperature: float | None = None) -> A
         return
     if p == "openai":
         async for delta in _openai_stream(prompt, temperature):
+            yield delta
+        return
+    if p == "gemini":
+        async for delta in _gemini_stream(prompt, temperature):
             yield delta
         return
     async for chunk in _ollama_generate_stream(prompt, temperature=temperature):
@@ -277,4 +386,6 @@ def active_model() -> str:
         return settings.ANTHROPIC_MODEL
     if p == "openai":
         return settings.OPENAI_MODEL
+    if p == "gemini":
+        return settings.GEMINI_MODEL
     return settings.OLLAMA_MODEL
