@@ -14,6 +14,9 @@ import ResultPanel from "../components/ResultPanel";
 import { useProgress, mergeSteering, DEFAULT_STEERING, type Steering } from "../store/progress";
 import { effectiveSkill, levelToCefr, selectNext, applySteeringAction, type SwerveAction } from "../store/adaptive";
 import SwerveSheet, { type SwerveScope } from "../components/ui/SwerveSheet";
+import PronunciationCard from "../components/ui/PronunciationCard";
+import { canServePronunciation, voiceFeatureEnabled } from "../services/voice";
+import { useVoiceConsent } from "../store/voiceConsent";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
 import { loadMistakes, mistakeHintsForTopic, type Mistake } from "../store/mistakes";
@@ -47,6 +50,10 @@ export default function PracticeScreen() {
   const insets = useSafeAreaInsets();
   const { progress, updateProfile, setSteering } = useProgress();
   const { token } = useAuth();
+  // Opt-in pronunciation (voice-direction): dormant unless the build flag + voice consent + the
+  // learner's pronunciation pref all hold. Off by default → this never renders today.
+  const { granted: voiceGranted } = useVoiceConsent();
+  const showPronun = canServePronunciation(voiceFeatureEnabled(), voiceGranted, progress.steering.formatPrefs.pronunciation);
   const { t: tr, lang } = useI18n();
   // Stage 2 Progress Agent: every answer of this session, pushed once at the summary screen.
   const sessionAnswersRef = useRef<SessionAnswer[]>([]);
@@ -373,6 +380,10 @@ export default function PracticeScreen() {
           <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
             <ExerciseCard key={round} exercise={exercise} locked={!!result} onChange={onChange} />
           </Animated.View>
+        )}
+
+        {showPronun && exercise && !loading && !showScroll && (
+          <PronunciationCard target={exercise.text} lang={lang} />
         )}
 
         {result && exercise && !showScroll && (

@@ -71,7 +71,9 @@ export type Profile = {
 export type Steering = {
   pinnedFocusTopic?: string; // a topic to over-weight (capped, never starves variety)
   mutedTopics: string[]; // canonical topic ids excluded from selection
-  formatPrefs: Partial<Record<ExerciseType, boolean>>; // explicit per-format on/off (absent = on)
+  // Explicit per-format on/off (absent = on for text formats). "pronunciation" is the opt-in voice
+  // modality (absent/false = off), gated additionally by EXPO_PUBLIC_VOICE_ENABLED + voice consent.
+  formatPrefs: Partial<Record<ExerciseType | "pronunciation", boolean>>;
   difficultyBias: number; // -1..+1 shift of the served CEFR around the model's level
 };
 

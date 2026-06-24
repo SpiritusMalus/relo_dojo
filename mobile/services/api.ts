@@ -434,6 +434,14 @@ export function recordConsent(version: string): Promise<{ message: string }> {
   return request<{ message: string }>("/auth/consent", { version });
 }
 
+// Read-aloud transcription (voice direction, mode a): the captured utterance is transcribed by
+// Gemini for a binary "did you say it right" check (services/voice gradeReadAloud). Routed through
+// the backend so the Gemini key stays server-side. GATED — only called when EXPO_PUBLIC_VOICE_ENABLED
+// && voice consent (enforced at the call site); the backend endpoint is provisioned at flag-flip.
+export function transcribeAudio(audioBase64: string, mime: string, lang?: string): Promise<{ transcript: string }> {
+  return request<{ transcript: string }>("/voice/transcribe", { audio: audioBase64, mime, lang });
+}
+
 // Download everything we hold about the caller as JSON (the policy's "export your data" right).
 export function exportMyData(): Promise<AccountExport> {
   return request<AccountExport>("/auth/export", undefined, "GET");

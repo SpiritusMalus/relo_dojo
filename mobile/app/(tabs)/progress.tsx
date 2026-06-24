@@ -3,6 +3,8 @@ import { useRouter } from "expo-router";
 import { ACHIEVEMENTS, DEFAULT_STEERING, levelFor, useProgress, XP_PER_LEVEL, xpInLevel } from "../../store/progress";
 import { applySteeringAction, type SwerveAction } from "../../store/adaptive";
 import { weakestTopic } from "../../store/greeting";
+import { voiceFeatureEnabled } from "../../services/voice";
+import { useVoiceConsent } from "../../store/voiceConsent";
 import { useI18n } from "../../store/i18n";
 import { RU_ACH, RU_TOPIC_LABELS } from "../../i18n/strings";
 import { TOPIC_LABELS } from "../../store/onboarding";
@@ -202,10 +204,18 @@ export default function ProgressScreen() {
                   </Pressable>
                 );
               })}
-              {/* Disabled until voice-direction ships the modality. */}
-              <View style={[styles.fmtChip, { backgroundColor: t.c.surface2, borderColor: t.c.line, opacity: 0.45 }]}>
-                <Txt variant="caption" color={t.c.ink3}>{tr("focus.pronun")}</Txt>
-              </View>
+              {/* Pronunciation: an inert placeholder until EXPO_PUBLIC_VOICE_ENABLED is flipped (voice-
+                  direction). When the flag is on it becomes a real opt-in toggle (consent-gated). */}
+              {voiceFeatureEnabled() ? (
+                <PronunciationToggle
+                  on={progress.steering.formatPrefs.pronunciation === true}
+                  onToggle={() => apply({ kind: "toggleFormat", type: "pronunciation" })}
+                />
+              ) : (
+                <View style={[styles.fmtChip, { backgroundColor: t.c.surface2, borderColor: t.c.line, opacity: 0.45 }]}>
+                  <Txt variant="caption" color={t.c.ink3}>{tr("focus.pronun")}</Txt>
+                </View>
+              )}
             </View>
           </Card>
         );
@@ -332,6 +342,37 @@ export default function ProgressScreen() {
       </Card>
 
     </Screen>
+  );
+}
+
+// Opt-in pronunciation toggle (only mounted when EXPO_PUBLIC_VOICE_ENABLED). It is "on" only when the
+// learner enabled the pref AND granted voice consent; enabling without consent requests it first.
+function PronunciationToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  const t = useTheme();
+  const { t: tr } = useI18n();
+  const { granted, accept } = useVoiceConsent();
+  const active = on && granted;
+  const press = async () => {
+    if (!granted) await accept(); // separate voice consent (draft copy pending legal sign-off)
+    onToggle();
+  };
+  return (
+    <Pressable
+      onPress={press}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: active }}
+      accessibilityLabel={tr("focus.pronunOn")}
+      style={({ pressed }) => [
+        styles.fmtChip,
+        {
+          backgroundColor: active ? t.c.accentSoft : t.c.surface2,
+          borderColor: active ? t.c.accent : t.c.line,
+          opacity: pressed ? 0.7 : 1,
+        },
+      ]}
+    >
+      <Txt variant="caption" color={active ? t.c.accent : t.c.ink3}>{tr("focus.pronunOn")}</Txt>
+    </Pressable>
   );
 }
 

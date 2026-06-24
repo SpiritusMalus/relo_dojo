@@ -8,6 +8,7 @@ import { ProgressProvider, useProgress } from "../store/progress";
 import { WalletProvider } from "../store/wallet";
 import { CosmeticsProvider } from "../store/cosmeticsStore";
 import { ConsentProvider, useConsent } from "../store/consent";
+import { VoiceConsentProvider } from "../store/voiceConsent";
 import { I18nProvider, useI18n } from "../store/i18n";
 import { localDate } from "../store/streak";
 import { migrateStorageKeys } from "../store/migrateStorageKeys";
@@ -182,7 +183,9 @@ export default function RootLayout() {
             <CosmeticsProvider>
               <ProgressProvider>
                 <ConsentProvider>
-                  <RootNav />
+                  <VoiceConsentProvider>
+                    <RootNav />
+                  </VoiceConsentProvider>
                 </ConsentProvider>
               </ProgressProvider>
             </CosmeticsProvider>

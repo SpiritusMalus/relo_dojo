@@ -396,6 +396,24 @@ export const STRINGS = {
     "fmt.order-the-dialog": "Order the dialog",
     "fmt.free-text": "Free writing",
 
+    // Voice direction (opt-in pronunciation; dormant until the flag + legal gate clear).
+    // NB: consent copy is a DRAFT pending legal/DPO sign-off (brief voice-direction steps 1–3).
+    "focus.pronunOn": "Pronunciation",
+    "voice.guard": "Your voice recording goes to Google (USA) for the spoken-language check. Don't say personal data or other people's details.",
+    "voice.consentTitle": "Practice pronunciation?",
+    "voice.consentBody": "To check pronunciation, your microphone audio is sent to Google (USA) and processed by Gemini. This is separate from the text consent and you can turn it off any time.",
+    "voice.consentAccept": "I agree — enable voice",
+    "voice.consentDecline": "Not now",
+    "voice.readAloudPrompt": "Read this aloud:",
+    "voice.record": "Tap to speak",
+    "voice.recording": "Listening…",
+    "voice.checking": "Checking…",
+    "voice.correct": "Sounds right! 🎉",
+    "voice.tryAgain": "Close — give it another go.",
+    "voice.talk": "Talk with Sensei",
+    "voice.endTalk": "End conversation",
+    "voice.unavailable": "Voice practice isn't available right now.",
+
     "loading.default": "Loading…",
   },
   ru: {
@@ -789,6 +807,24 @@ export const STRINGS = {
     "fmt.multiple-blanks": "Заполнить пропуски",
     "fmt.order-the-dialog": "Порядок реплик",
     "fmt.free-text": "Свободный ответ",
+
+    // Голосовое направление (опциональное произношение; спит до флага + юр. гейта).
+    // ВНИМАНИЕ: текст согласия — ЧЕРНОВИК до проверки юристом/DPO (бриф voice-direction, шаги 1–3).
+    "focus.pronunOn": "Произношение",
+    "voice.guard": "Запись голоса уходит в Google (США) для проверки произношения. Не произноси личные данные или данные других людей.",
+    "voice.consentTitle": "Тренировать произношение?",
+    "voice.consentBody": "Для проверки произношения звук с микрофона отправляется в Google (США) и обрабатывается Gemini. Это отдельно от согласия на текст, и можно отключить в любой момент.",
+    "voice.consentAccept": "Согласен — включить голос",
+    "voice.consentDecline": "Не сейчас",
+    "voice.readAloudPrompt": "Прочитай вслух:",
+    "voice.record": "Нажми и говори",
+    "voice.recording": "Слушаю…",
+    "voice.checking": "Проверяю…",
+    "voice.correct": "Звучит верно! 🎉",
+    "voice.tryAgain": "Почти — попробуй ещё раз.",
+    "voice.talk": "Поговорить с Сэнсэем",
+    "voice.endTalk": "Завершить разговор",
+    "voice.unavailable": "Голосовая практика сейчас недоступна.",
 
     "loading.default": "Загрузка…",
   },
