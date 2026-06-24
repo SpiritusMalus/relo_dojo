@@ -280,7 +280,7 @@ export type SwerveAction =
   | { kind: "difficulty"; delta: number } // easier (−) / harder (+)
   | { kind: "pinTopic"; topic: string } // focus here
   | { kind: "muteTopic"; topic: string } // hide this topic
-  | { kind: "toggleFormat"; type: ExerciseType }; // flip a format on/off
+  | { kind: "toggleFormat"; type: ExerciseType | "pronunciation" }; // flip a format/modality on/off
 
 /** Apply one swerve action to a steering slice, returning a new immutable Steering. Pure. */
 export function applySteeringAction(base: Steering, action: SwerveAction): Steering {
