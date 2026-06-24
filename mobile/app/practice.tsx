@@ -11,8 +11,9 @@ import LimitSheet from "../components/ui/LimitSheet";
 import { beltProgress } from "../store/dojo";
 import ExerciseCard from "../components/ExerciseCard";
 import ResultPanel from "../components/ResultPanel";
-import { useProgress } from "../store/progress";
-import { effectiveSkill, levelToCefr, selectNext } from "../store/adaptive";
+import { useProgress, mergeSteering, DEFAULT_STEERING, type Steering } from "../store/progress";
+import { effectiveSkill, levelToCefr, selectNext, applySteeringAction, type SwerveAction } from "../store/adaptive";
+import SwerveSheet, { type SwerveScope } from "../components/ui/SwerveSheet";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
 import { loadMistakes, mistakeHintsForTopic, type Mistake } from "../store/mistakes";
@@ -44,7 +45,7 @@ export default function PracticeScreen() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { progress, updateProfile } = useProgress();
+  const { progress, updateProfile, setSteering } = useProgress();
   const { token } = useAuth();
   const { t: tr, lang } = useI18n();
   // Stage 2 Progress Agent: every answer of this session, pushed once at the summary screen.
@@ -80,11 +81,15 @@ export default function PracticeScreen() {
   // Recent misses (per device), refreshed on each load; fed back to the generator to target weak
   // points in a fresh sentence (personalized practice). Kept in a ref so selectParams stays sync.
   const mistakesRef = useRef<Mistake[]>([]);
+  // "Just now" swerve overlay: tweaks the live queue without persisting (the persisted slice lives in
+  // progress.steering). Merged on top of it per fetch so a session nudge layers over the saved one.
+  const sessionSteeringRef = useRef<Steering | null>(null);
   const queueRef = useRef<ExerciseQueue | null>(null);
   if (queueRef.current === null) {
     queueRef.current = createExerciseQueue({
       selectParams: () => {
-        const { topic, cefr, type } = selectNext(progressRef.current, forcedTopicRef.current);
+        const steering = mergeSteering(progressRef.current.steering, sessionSteeringRef.current ?? DEFAULT_STEERING);
+        const { topic, cefr, type } = selectNext(progressRef.current, forcedTopicRef.current, steering);
         return {
           topic,
           level: cefr,
@@ -107,6 +112,7 @@ export default function PracticeScreen() {
   const [solved, setSolved] = useState(0);
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const [showScroll, setShowScroll] = useState(false); // end-of-session summary + reward scroll
+  const [swerveOpen, setSwerveOpen] = useState(false); // learner's "steer the lesson" sheet
   const { isPremium, coins } = useWallet();
   const { owned: ownedCosmetics } = useCosmetics();
   // XP at session start — the summary shows the delta (combo/boost included automatically).
@@ -116,7 +122,7 @@ export default function PracticeScreen() {
 
   const shake = useRef(new Animated.Value(0)).current;
 
-  const loadExercise = useCallback(async () => {
+  const loadExercise = useCallback(async (replace = false) => {
     setLoading(true);
     setLoadError(null);
     setGated(false);
@@ -129,7 +135,8 @@ export default function PracticeScreen() {
     // Guests get the same daily allowance as a free account (store/guestLimit.ts). On exhaustion we
     // show the register wall instead of fetching — registering lifts the cap and adds sync. (The
     // server doesn't meter anonymous callers; this is the client-side incentive fix.)
-    if (!token && !(await consumeGuestExercise(localDate(new Date())))) {
+    // `replace` (a swerve swapping the current card) reuses the slot already counted — no re-charge.
+    if (!replace && !token && !(await consumeGuestExercise(localDate(new Date())))) {
       setGuestLimited(true);
       setLoading(false);
       return;
@@ -162,6 +169,22 @@ export default function PracticeScreen() {
     queueRef.current!.clear();
     loadExercise();
   }, [forcedTopic, loadExercise]);
+
+  // Apply a swerve from the sheet. "remember" persists to the steering slice (adaptive.ts honors it
+  // next time); "just now" layers a session-only overlay. Either way we drop the buffer and, if the
+  // learner hasn't answered the current card yet, swap it for one chosen under the new steering.
+  const applySwerve = useCallback(
+    (action: SwerveAction, scope: SwerveScope) => {
+      if (scope === "remember") {
+        setSteering(applySteeringAction(progressRef.current.steering, action));
+      } else {
+        sessionSteeringRef.current = applySteeringAction(sessionSteeringRef.current ?? DEFAULT_STEERING, action);
+      }
+      queueRef.current!.clear();
+      if (!result) void loadExercise(true); // reuse the already-counted slot — no extra guest charge
+    },
+    [setSteering, result, loadExercise]
+  );
 
   function onChange(value: ResponseValue | null, display: string) {
     setResponse(value);
@@ -248,10 +271,26 @@ export default function PracticeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
-        <Txt variant="label" style={{ marginBottom: 2 }}>
-          {topicLabel}
-          {exercise ? `  ·  ${levelToCefr(effectiveSkill(progress, exercise.topic))}` : ""}
-        </Txt>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 }}>
+          <Txt variant="label" style={{ flex: 1 }}>
+            {topicLabel}
+            {exercise ? `  ·  ${levelToCefr(effectiveSkill(progress, exercise.topic))}` : ""}
+          </Txt>
+          {exercise && !showScroll && (
+            <Pressable
+              onPress={() => setSwerveOpen(true)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={tr("swerve.open")}
+              style={({ pressed }) => [
+                styles.swerveBtn,
+                { borderColor: t.c.line, backgroundColor: t.c.surface2, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Txt variant="caption" color={t.c.ink2}>{`↪ ${tr("swerve.open")}`}</Txt>
+            </Pressable>
+          )}
+        </View>
 
         {loading && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
@@ -262,7 +301,7 @@ export default function PracticeScreen() {
 
         {limited && !loading && (
           <View style={{ marginTop: 20 }}>
-            <LimitSheet belt={beltProgress(progress).belt} onUnlocked={loadExercise} />
+            <LimitSheet belt={beltProgress(progress).belt} onUnlocked={() => loadExercise()} />
           </View>
         )}
 
@@ -282,7 +321,7 @@ export default function PracticeScreen() {
             <Txt variant="secondary" color={t.c.ink3} style={{ textAlign: "center" }}>
               {tr("activate.lockedMsg")}
             </Txt>
-            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadExercise} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={() => loadExercise()} />
           </View>
         )}
 
@@ -291,7 +330,7 @@ export default function PracticeScreen() {
             <Txt variant="body" color={t.c.bad} style={{ textAlign: "center" }}>
               {error}
             </Txt>
-            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadExercise} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={() => loadExercise()} />
           </View>
         )}
 
@@ -348,6 +387,16 @@ export default function PracticeScreen() {
         )}
       </ScrollView>
 
+      {exercise && (
+        <SwerveSheet
+          visible={swerveOpen}
+          topic={exercise.topic}
+          format={exercise.type}
+          onApply={applySwerve}
+          onClose={() => setSwerveOpen(false)}
+        />
+      )}
+
       {result?.correct && <Confetti />}
 
       {/* Sticky bottom action */}
@@ -369,7 +418,7 @@ export default function PracticeScreen() {
                 }}
               />
             ) : (
-              <Button label={tr("action.next")} onPress={loadExercise} />
+              <Button label={tr("action.next")} onPress={() => loadExercise()} />
             )
           ) : (
             <Button label={checking ? tr("action.checking") : tr("action.check")} onPress={onCheck} disabled={!canSubmit} />
@@ -385,4 +434,5 @@ const styles = StyleSheet.create({
   closeBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   content: { paddingHorizontal: 20, paddingTop: 8, gap: 14 },
   footer: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1 },
+  swerveBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1 },
 });

@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getProgress, putProgress, syncLearnerProfile } from "../services/api";
+import { getProgress, putProgress, syncLearnerProfile, type ExerciseType } from "../services/api";
 import { useAuth } from "./auth";
 import { resetWall } from "./registerWall";
 import { resetGuestLimit } from "./guestLimit";
@@ -65,6 +65,30 @@ export type Profile = {
   diary?: import("./diary").DiaryState;
 };
 
+/** Learner-set steering over the adaptive model (see store/adaptive.ts). Empty = today's behavior
+ *  exactly: the model decides everything. The learner can "correct the teacher" by pinning a focus
+ *  topic, muting topics/formats, or nudging difficulty. Persisted with the rest of Progress. */
+export type Steering = {
+  pinnedFocusTopic?: string; // a topic to over-weight (capped, never starves variety)
+  mutedTopics: string[]; // canonical topic ids excluded from selection
+  formatPrefs: Partial<Record<ExerciseType, boolean>>; // explicit per-format on/off (absent = on)
+  difficultyBias: number; // -1..+1 shift of the served CEFR around the model's level
+};
+
+export const DEFAULT_STEERING: Steering = { mutedTopics: [], formatPrefs: {}, difficultyBias: 0 };
+
+/** Field-wise merge of two steering slices (used on login reconcile + the "just now" session overlay).
+ *  `b` wins where it carries intent: its pin, its non-zero bias, its explicit format prefs; muted
+ *  topics are unioned so a mute is never silently dropped. */
+export function mergeSteering(a: Steering = DEFAULT_STEERING, b: Steering = DEFAULT_STEERING): Steering {
+  return {
+    pinnedFocusTopic: b.pinnedFocusTopic ?? a.pinnedFocusTopic,
+    mutedTopics: Array.from(new Set([...a.mutedTopics, ...b.mutedTopics])),
+    formatPrefs: { ...a.formatPrefs, ...b.formatPrefs },
+    difficultyBias: b.difficultyBias !== 0 ? b.difficultyBias : a.difficultyBias,
+  };
+}
+
 export type Progress = {
   xp: number;
   dailyStreak: number;
@@ -85,6 +109,8 @@ export type Progress = {
   // Belt exam: highest belt idx EARNED through an exam (worn belt). undefined = legacy, skill belt shown.
   beltEarned?: number;
   lastExamDate?: string; // local YYYY-MM-DD of the last exam attempt (one attempt per day)
+  // Learner-set overrides on the adaptive model (visible, editable focus + format). Empty = default.
+  steering: Steering;
 };
 
 export const DEFAULT_PROGRESS: Progress = {
@@ -102,6 +128,7 @@ export const DEFAULT_PROGRESS: Progress = {
   todayCount: 0,
   brokenStreak: null,
   boostUntil: "",
+  steering: DEFAULT_STEERING,
 };
 
 /** Is the x2-XP boost active at `now`? */
@@ -304,6 +331,8 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
         ? a.beltEarned
         : Math.max(a.beltEarned, b.beltEarned),
     lastExamDate: (a.lastExamDate ?? "") >= (b.lastExamDate ?? "") ? a.lastExamDate : b.lastExamDate,
+    // Learner steering: field-wise merge (server canonical wins where it carries intent).
+    steering: mergeSteering(a.steering, b.steering),
   };
 }
 
@@ -329,6 +358,7 @@ async function load(): Promise<Progress> {
       profile: stored.profile ?? null,
       brokenStreak: stored.brokenStreak ?? null,
       boostUntil: stored.boostUntil ?? "",
+      steering: stored.steering ? { ...DEFAULT_STEERING, ...stored.steering } : DEFAULT_STEERING,
     };
   } catch {
     return DEFAULT_PROGRESS;
@@ -364,6 +394,8 @@ type ProgressContextValue = {
   dismissBrokenStreak: () => void;
   /** Start the x2-XP "kensei" boost (scroll rare drop): BOOST_MINUTES from now. */
   activateBoost: () => void;
+  /** Replace the persisted learner-steering slice (the "remember" path of the swerve lever). */
+  setSteering: (next: Steering) => void;
 };
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
@@ -617,6 +649,18 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [schedulePush]
   );
 
+  const setSteering = useCallback(
+    (next: Steering) => {
+      setProgress((prev) => {
+        const p: Progress = { ...prev, steering: next };
+        void save(p);
+        schedulePush(p);
+        return p;
+      });
+    },
+    [schedulePush]
+  );
+
   const resetOnboarding = useCallback(() => {
     setProgress((prev) => {
       const next: Progress = { ...prev, onboarded: false };
@@ -640,8 +684,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       repairStreak,
       dismissBrokenStreak,
       activateBoost,
+      setSteering,
     }),
-    [progress, ready, synced, record, completeOnboarding, resetOnboarding, updateProfile, recordExamResult, awardQuestBonus, repairStreak, dismissBrokenStreak, activateBoost]
+    [progress, ready, synced, record, completeOnboarding, resetOnboarding, updateProfile, recordExamResult, awardQuestBonus, repairStreak, dismissBrokenStreak, activateBoost, setSteering]
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

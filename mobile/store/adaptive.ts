@@ -5,7 +5,7 @@
 // a little, a wrong answer lowers it more, with the step shrinking as evidence accumulates. The
 // level then drives the served difficulty (CEFR) and the exercise-type mix; topic choice is biased
 // toward weak/underpracticed areas while staying varied (weighted-random).
-import type { Progress } from "./progress";
+import type { Progress, Steering } from "./progress";
 import type { ExerciseType } from "../services/api";
 
 export const START_LEVEL = 1.5; // ≈ A2/B1 boundary (Pre-Intermediate)
@@ -223,26 +223,89 @@ export function topicWeight(p: Progress, topic: string, today: string = isoDay(n
   );
 }
 
-/** Pick the next exercise's topic, difficulty (CEFR) and type from the learner model.
- *  Pass `forcedTopic` to drill a chosen topic (difficulty/type still adapt to its level). */
+// --- Learner steering ---------------------------------------------------------
+// The learner can "correct the teacher": pin a focus topic, mute topics/formats, nudge difficulty.
+// All of it flows through `selectNext` as an argument (kept pure/offline-testable), and the empty
+// steering (DEFAULT_STEERING) reduces back to the exact legacy behavior.
+
+export const PIN_BOOST = 2.5; // weight multiplier for a learner-pinned focus topic (capped, keeps variety)
+export const DIFFICULTY_BIAS_RANGE = 1.0; // max served-level shift (≈ one CEFR band) at |difficultyBias| = 1
+
+/** Pick the next exercise's topic, difficulty (CEFR) and type from the learner model, honoring the
+ *  learner's `steering` (pinned focus, muted topics/formats, difficulty bias). Pass `forcedTopic` to
+ *  drill a chosen topic (difficulty/type still adapt to its level). */
 export function selectNext(
   p: Progress,
   forcedTopic?: string,
+  steering?: Steering,
   today: string = isoDay(new Date())
 ): { topic: string; cefr: Cefr; type: ExerciseType } {
-  const topics = Object.keys(TOPIC_PRIORS);
+  const all = Object.keys(TOPIC_PRIORS);
+  // Muted topics drop out of the pool, but the pool is never emptied (mute everything → ignore it).
+  const muted = new Set(steering?.mutedTopics ?? []);
+  let candidates = all.filter((t) => !muted.has(t));
+  if (candidates.length === 0) candidates = all;
+
+  const pin = steering?.pinnedFocusTopic;
   const topic =
-    forcedTopic && topics.includes(forcedTopic)
+    forcedTopic && all.includes(forcedTopic)
       ? forcedTopic
       : weightedPick(
-          topics,
-          topics.map((t) => topicWeight(p, t, today))
+          candidates,
+          // Over-weight the pinned topic by a capped factor so it surfaces often without starving variety.
+          candidates.map((t) => topicWeight(p, t, today) * (pin && t === pin ? PIN_BOOST : 1))
         );
+
   const level = effectiveSkill(p, topic);
-  const tw = typeWeightsForLevel(level).filter(([, w]) => w > 0);
+  // Difficulty steer: shift the served level (and thus CEFR + type mix) up/down around the model.
+  const bias = clamp(steering?.difficultyBias ?? 0, -1, 1);
+  const servedLevel = clamp(level + bias * DIFFICULTY_BIAS_RANGE, LEVEL_MIN, LEVEL_MAX);
+
+  // Format prefs filter the type pool (a format explicitly set false is hidden); never empty the pool.
+  const prefs = steering?.formatPrefs ?? {};
+  const base = typeWeightsForLevel(servedLevel).filter(([, w]) => w > 0);
+  let tw = base.filter(([type]) => prefs[type] !== false);
+  if (tw.length === 0) tw = base;
   const type = weightedPick(
     tw.map(([t]) => t),
     tw.map(([, w]) => w)
   );
-  return { topic, cefr: levelToCefr(level), type };
+  return { topic, cefr: levelToCefr(servedLevel), type };
+}
+
+/** One learner gesture from the swerve sheet / focus surface. Applied to a Steering slice by the
+ *  pure reducer below; the caller decides whether the result persists ("remember") or stays a
+ *  session overlay ("just now"). */
+export type SwerveAction =
+  | { kind: "difficulty"; delta: number } // easier (−) / harder (+)
+  | { kind: "pinTopic"; topic: string } // focus here
+  | { kind: "muteTopic"; topic: string } // hide this topic
+  | { kind: "toggleFormat"; type: ExerciseType }; // flip a format on/off
+
+/** Apply one swerve action to a steering slice, returning a new immutable Steering. Pure. */
+export function applySteeringAction(base: Steering, action: SwerveAction): Steering {
+  switch (action.kind) {
+    case "difficulty":
+      return { ...base, difficultyBias: clamp(base.difficultyBias + action.delta, -1, 1) };
+    case "pinTopic":
+      // Pinning a topic also lifts any mute on it (the two intents contradict).
+      return {
+        ...base,
+        pinnedFocusTopic: action.topic,
+        mutedTopics: base.mutedTopics.filter((t) => t !== action.topic),
+      };
+    case "muteTopic":
+      return {
+        ...base,
+        mutedTopics: base.mutedTopics.includes(action.topic)
+          ? base.mutedTopics
+          : [...base.mutedTopics, action.topic],
+        // Muting the pinned topic clears the pin.
+        pinnedFocusTopic: base.pinnedFocusTopic === action.topic ? undefined : base.pinnedFocusTopic,
+      };
+    case "toggleFormat": {
+      const on = base.formatPrefs[action.type] !== false; // absent = on
+      return { ...base, formatPrefs: { ...base.formatPrefs, [action.type]: !on } };
+    }
+  }
 }

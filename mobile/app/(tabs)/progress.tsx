@@ -1,9 +1,12 @@
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
-import { ACHIEVEMENTS, levelFor, useProgress, XP_PER_LEVEL, xpInLevel } from "../../store/progress";
+import { ACHIEVEMENTS, DEFAULT_STEERING, levelFor, useProgress, XP_PER_LEVEL, xpInLevel } from "../../store/progress";
+import { applySteeringAction, type SwerveAction } from "../../store/adaptive";
+import { weakestTopic } from "../../store/greeting";
 import { useI18n } from "../../store/i18n";
 import { RU_ACH, RU_TOPIC_LABELS } from "../../i18n/strings";
 import { TOPIC_LABELS } from "../../store/onboarding";
+import { SWERVE_FORMATS, FMT_LABEL_KEY } from "../../components/ui/SwerveSheet";
 import { beltProgress, topicRows, type PathNode } from "../../store/dojo";
 import { belts, useTheme } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
@@ -31,7 +34,7 @@ const ACH_META: Record<string, { glyph: string; sub: string }> = {
 export default function ProgressScreen() {
   const t = useTheme();
   const router = useRouter();
-  const { progress } = useProgress();
+  const { progress, setSteering } = useProgress();
   const { t: tr, lang } = useI18n();
 
   const bp = beltProgress(progress);
@@ -119,6 +122,94 @@ export default function ProgressScreen() {
           <Txt variant="secondary" color={t.c.ink3}>{tr("prog.bestRun")}</Txt>
         </Card>
       </View>
+
+      {/* Your focus — the adaptive model made visible & editable (store/adaptive.ts steering). The
+          learner can confirm/override the inferred weak topic and turn exercise formats on/off.
+          Pronunciation is an inert placeholder owned by the voice-direction brief. */}
+      {(() => {
+        const steering = progress.steering;
+        const focus = steering.pinnedFocusTopic ?? weakestTopic(progress);
+        const focusLabel = focus
+          ? lang === "ru"
+            ? RU_TOPIC_LABELS[focus] ?? TOPIC_LABELS[focus] ?? focus
+            : TOPIC_LABELS[focus] ?? focus
+          : null;
+        const active =
+          !!steering.pinnedFocusTopic ||
+          steering.mutedTopics.length > 0 ||
+          steering.difficultyBias !== 0 ||
+          Object.values(steering.formatPrefs).some((v) => v === false);
+        const apply = (action: SwerveAction) => setSteering(applySteeringAction(steering, action));
+        return (
+          <Card>
+            <View style={styles.rowBetween}>
+              <Txt variant="label">{tr("focus.title")}</Txt>
+              {active && (
+                <Pressable onPress={() => setSteering(DEFAULT_STEERING)} hitSlop={8} accessibilityRole="button">
+                  <Txt variant="caption" color={t.c.accent}>{tr("focus.reset")}</Txt>
+                </Pressable>
+              )}
+            </View>
+
+            {focus ? (
+              <View style={{ marginTop: 8, gap: 10 }}>
+                <Txt variant="body">
+                  {steering.pinnedFocusTopic
+                    ? tr("focus.pinned", { topic: focusLabel! })
+                    : tr("focus.weak", { topic: focusLabel! })}
+                </Txt>
+                {!steering.pinnedFocusTopic && (
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Button label={tr("focus.confirm")} onPress={() => apply({ kind: "pinTopic", topic: focus })} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Button variant="ghost" label={tr("focus.notProblem")} onPress={() => apply({ kind: "muteTopic", topic: focus })} />
+                    </View>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <Txt variant="secondary" color={t.c.ink3} style={{ marginTop: 8 }}>
+                {tr("focus.none")}
+              </Txt>
+            )}
+
+            <Txt variant="label" style={{ marginTop: 18 }}>{tr("focus.formats")}</Txt>
+            <Txt variant="caption" color={t.c.ink3} style={{ marginTop: 2, marginBottom: 10 }}>
+              {tr("focus.formatsSub")}
+            </Txt>
+            <View style={styles.fmtWrap}>
+              {SWERVE_FORMATS.map((f) => {
+                const on = steering.formatPrefs[f] !== false;
+                return (
+                  <Pressable
+                    key={f}
+                    onPress={() => apply({ kind: "toggleFormat", type: f })}
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={tr(FMT_LABEL_KEY[f])}
+                    style={({ pressed }) => [
+                      styles.fmtChip,
+                      {
+                        backgroundColor: on ? t.c.accentSoft : t.c.surface2,
+                        borderColor: on ? t.c.accent : t.c.line,
+                        opacity: pressed ? 0.7 : 1,
+                      },
+                    ]}
+                  >
+                    <Txt variant="caption" color={on ? t.c.accent : t.c.ink3}>{tr(FMT_LABEL_KEY[f])}</Txt>
+                  </Pressable>
+                );
+              })}
+              {/* Disabled until voice-direction ships the modality. */}
+              <View style={[styles.fmtChip, { backgroundColor: t.c.surface2, borderColor: t.c.line, opacity: 0.45 }]}>
+                <Txt variant="caption" color={t.c.ink3}>{tr("focus.pronun")}</Txt>
+              </View>
+            </View>
+          </Card>
+        );
+      })()}
 
       {/* Sensei's notes (Stage 2): reframed stats — slips as material, the agent's win line,
           and the Planner's focus for the week. Errors are never shown as raw failure counts. */}
@@ -254,4 +345,6 @@ const styles = StyleSheet.create({
   topicRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   achGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   ach: { width: "47.5%", borderWidth: 1, borderRadius: 14, padding: 12, gap: 2 },
+  fmtWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  fmtChip: { borderWidth: 1, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 12 },
 });
