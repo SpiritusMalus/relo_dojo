@@ -41,7 +41,7 @@ EXERCISE_TYPES: list[tuple[str, int]] = [
     ("tap-the-error", 12),
     ("odd-one-out", 8),
     ("multiple-blanks", 6),
-    ("order-the-dialog", 4),
+    ("order-the-dialog", 10),
     ("free-text", 0),
 ]
 

@@ -135,7 +135,7 @@ function typeWeightsForLevel(level: number): Array<[ExerciseType, number]> {
       ["odd-one-out", 18],
       ["tap-the-error", 0],
       ["multiple-blanks", 0],
-      ["order-the-dialog", 0],
+      ["order-the-dialog", 4],
     ];
   }
   if (cefr === "B1") {
@@ -146,7 +146,7 @@ function typeWeightsForLevel(level: number): Array<[ExerciseType, number]> {
       ["tap-the-error", 15],
       ["odd-one-out", 12],
       ["multiple-blanks", 10],
-      ["order-the-dialog", 4],
+      ["order-the-dialog", 12],
     ];
   }
   return [
@@ -156,7 +156,7 @@ function typeWeightsForLevel(level: number): Array<[ExerciseType, number]> {
     ["tap-the-error", 28],
     ["odd-one-out", 8],
     ["multiple-blanks", 12],
-    ["order-the-dialog", 8],
+    ["order-the-dialog", 16],
   ];
 }
 
