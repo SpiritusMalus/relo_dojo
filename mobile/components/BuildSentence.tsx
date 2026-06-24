@@ -8,10 +8,13 @@ import Txt from "./ui/Txt";
 
 // Build-the-sentence (RU → EN). Prompt card (mascot + RU) → dashed answer track → word bank.
 // Tap a bank tile to place it; tap a placed tile to remove. Submittable once every tile is placed.
+// Reused for transform-the-sentence: same tile interaction + answer shape, only the prompt header
+// differs (a grammar instruction + the English source instead of the RU translation prompt).
 export default function BuildSentence({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
   const tiles = exercise.tiles;
   const [order, setOrder] = useState<number[]>([]);
+  const isTransform = exercise.type === "transform-the-sentence";
 
   function report(next: number[]) {
     const complete = next.length === tiles.length;
@@ -38,7 +41,7 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
       <View style={[styles.prompt, { backgroundColor: t.c.surface2, borderColor: t.c.line, borderRadius: t.spacing.radius }]}>
         <Sensei size={48} mood="think" />
         <View style={{ flex: 1 }}>
-          <Txt variant="label">Translate to English</Txt>
+          <Txt variant="label">{isTransform ? exercise.instruction || "Rewrite the sentence" : "Translate to English"}</Txt>
           <Txt variant="cardTitle" style={{ fontSize: 21, lineHeight: 27, marginTop: 4 }}>
             {exercise.prompt || exercise.text}
           </Txt>
@@ -55,7 +58,7 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
       >
         {order.length === 0 ? (
           <Txt variant="body" color={t.c.ink3} style={{ fontStyle: "italic" }}>
-            Tap the words below to build it…
+            {isTransform ? "Tap the words to rewrite it…" : "Tap the words below to build it…"}
           </Txt>
         ) : (
           order.map((i) => (

@@ -398,6 +398,7 @@ export const STRINGS = {
     "fmt.odd-one-out": "Odd one out",
     "fmt.multiple-blanks": "Fill the blanks",
     "fmt.order-the-dialog": "Order the dialog",
+    "fmt.transform-the-sentence": "Rewrite the sentence",
     "fmt.free-text": "Free writing",
 
     // Voice direction (opt-in pronunciation; dormant until the flag + legal gate clear).
@@ -814,6 +815,7 @@ export const STRINGS = {
     "fmt.odd-one-out": "Лишнее слово",
     "fmt.multiple-blanks": "Заполнить пропуски",
     "fmt.order-the-dialog": "Порядок реплик",
+    "fmt.transform-the-sentence": "Переписать фразу",
     "fmt.free-text": "Свободный ответ",
 
     // Голосовое направление (опциональное произношение; спит до флага + юр. гейта).

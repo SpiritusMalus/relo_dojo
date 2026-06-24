@@ -14,6 +14,9 @@ export default function ExerciseCard(props: ExerciseProps) {
       return <MultipleChoice {...props} />;
     case "build-the-sentence":
       return <BuildSentence {...props} />;
+    case "transform-the-sentence":
+      // Same tile interaction + answer shape as build-the-sentence; only the prompt header differs.
+      return <BuildSentence {...props} />;
     case "match-pairs":
       return <MatchPairs {...props} />;
     case "tap-the-error":

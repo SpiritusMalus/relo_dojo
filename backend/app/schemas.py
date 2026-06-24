@@ -45,6 +45,7 @@ class ExerciseOut(BaseModel):
     - odd-one-out: options (one doesn't belong; tap it)
     - multiple-blanks: text (with several '___') + blankOptions (choices per blank, in order)
     - order-the-dialog: tiles (shuffled dialog lines to reorder)
+    - transform-the-sentence: prompt (source sentence) + instruction (the transform) + tiles
     - free-text: text (typed answer, LLM-graded)
 
     `token` seals the answer for interactive types (graded server-side); it is None for free-text.
@@ -56,6 +57,7 @@ class ExerciseOut(BaseModel):
     level: str = ""  # effective CEFR served (A1..C1); lets the client score difficulty-aware
     text: str = ""
     prompt: str = ""  # source line for translation exercises (e.g. the Russian sentence)
+    instruction: str = ""  # transform-the-sentence: the grammar transform to apply to `prompt`
     options: list[str] = []
     tiles: list[str] = []
     tokens: list[str] = []

@@ -104,6 +104,15 @@ ORDER_DIALOG_SCHEMA: dict[str, Any] = {
     "properties": {"lines": {"type": "array", "items": {"type": "string"}}},
     "required": ["lines"],
 }
+TRANSFORM_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "instruction": {"type": "string"},
+        "source": {"type": "string"},
+        "target": {"type": "string"},
+    },
+    "required": ["instruction", "source", "target"],
+}
 
 
 # --- per-type generators -----------------------------------------------------
@@ -399,6 +408,50 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
     }
 
 
+async def _gen_transform_the_sentence(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
+    # Rewrite-the-sentence: show a source + a grammar instruction, learner builds the transformed
+    # sentence from word tiles. Deterministically graded by word position (reuses build-the-sentence).
+    prompt = _tutor_intro(
+        f"Create ONE sentence-transformation exercise that practices: {topic}.\n"
+        "'instruction' is a SHORT command for one clear grammatical change (e.g. 'Rewrite in the past "
+        "simple', 'Make it negative', 'Change to the passive', 'Turn it into reported speech'). "
+        "'source' is a correct English sentence. 'target' is the SINGLE correct result of applying the "
+        "instruction to the source — there must be exactly one natural answer, and it must differ from "
+        "the source. Draw the example from the learner's field when one is given; otherwise a clear "
+        "everyday situation. Reply ONLY as JSON.",
+        level,
+        context,
+        mistakes,
+        scenario=True,
+        topic=topic,
+    )
+    data = await generate_json(prompt, TRANSFORM_SCHEMA, temperature=EXERCISE_TEMPERATURE)
+    instruction = str(data.get("instruction") or "").strip()
+    source = str(data.get("source") or "").strip()
+    target = str(data.get("target") or "").strip()
+    words = target.split()
+    # Reject degenerate items: missing parts, a no-op transform, or a target outside the tile range.
+    if not instruction or not source or not target or _norm(target) == _norm(source):
+        return None
+    if len(words) < 3 or len(words) > _max_words(level):
+        return None
+    tiles = words[:]
+    # Shuffle until the order changes (so it isn't already solved).
+    for _ in range(8):
+        random.shuffle(tiles)
+        if tiles != words:
+            break
+    return {
+        "type": "transform-the-sentence",
+        "topic": topic,
+        "text": "Rewrite the sentence:",
+        "instruction": instruction,
+        "prompt": source,
+        "tiles": tiles,
+        "token": tokens.seal({"t": "transform-the-sentence", "sentence": target}),
+    }
+
+
 _GENERATORS = {
     "multiple-choice": _gen_multiple_choice,
     "build-the-sentence": _gen_build_the_sentence,
@@ -407,6 +460,7 @@ _GENERATORS = {
     "odd-one-out": _gen_odd_one_out,
     "multiple-blanks": _gen_multiple_blanks,
     "order-the-dialog": _gen_order_the_dialog,
+    "transform-the-sentence": _gen_transform_the_sentence,
     "free-text": _gen_free_text,
 }
 

@@ -45,7 +45,9 @@ def grade(sealed: dict[str, Any], response: Any) -> dict[str, Any]:
         correct = len(picks) == len(order) and got == len(order)
         return _result(correct, " → ".join(order), got, len(order))
 
-    if kind == "build-the-sentence":
+    if kind in ("build-the-sentence", "transform-the-sentence"):
+        # transform-the-sentence builds a single target sentence from tiles, graded identically:
+        # normalized full-match for `correct`, word-position partial credit otherwise.
         sentence = str(sealed.get("sentence") or "")
         target_words = sentence.split()
         got_words = str(response).split() if not isinstance(response, (list, dict)) else []

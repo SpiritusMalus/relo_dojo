@@ -313,6 +313,22 @@ describe("selectNext — learner steering", () => {
     expect(selectNext(p, "articles", steer({ difficultyBias: 1 })).cefr).toBe("B2"); // 2.5 + 1.0 = 3.5
     expect(DIFFICULTY_BIAS_RANGE).toBe(1.0);
   });
+
+  it("makes transform-the-sentence selectable at B1+ but never at A2, pool never empty", () => {
+    const typesOver = (skill: number): Set<string> => {
+      const p = progressWith({ skill: { articles: skill } });
+      const seen = new Set<string>();
+      for (let i = 0; i < ITER; i++) seen.add(selectNext(p, "articles").type);
+      return seen;
+    };
+    expect(typesOver(2.5).has("transform-the-sentence")).toBe(true); // B1
+    expect(typesOver(3.5).has("transform-the-sentence")).toBe(true); // B2/C1
+    expect(typesOver(1.5).has("transform-the-sentence")).toBe(false); // A2 — production type is B1+
+    // The weighted pool is never emptied by adding the new type.
+    for (const s of [0.5, 1.5, 2.5, 3.5, 4.5]) {
+      expect(selectNext(progressWith({ skill: { articles: s } }), "articles").type).toBeTruthy();
+    }
+  });
 });
 
 describe("applySteeringAction", () => {

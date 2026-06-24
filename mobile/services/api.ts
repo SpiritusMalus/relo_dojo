@@ -138,6 +138,7 @@ export type ExerciseType =
   | "odd-one-out"
   | "multiple-blanks"
   | "order-the-dialog"
+  | "transform-the-sentence"
   | "free-text";
 
 export type Exercise = {
@@ -146,6 +147,7 @@ export type Exercise = {
   level: string; // effective CEFR served (A1..C1); drives difficulty-aware scoring
   text: string;
   prompt: string; // source line for translation exercises (e.g. the Russian sentence)
+  instruction?: string; // transform-the-sentence: the grammar transform to apply to `prompt`
   options: string[];
   tiles: string[];
   tokens: string[];
