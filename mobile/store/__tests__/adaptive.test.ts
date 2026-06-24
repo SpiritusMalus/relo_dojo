@@ -291,8 +291,9 @@ describe("selectNext — learner steering", () => {
 
   it("filters served formats by formatPrefs and never empties the type pool", () => {
     // Mute every A2 format except multiple-choice → only it should ever be served at A2.
+    // (order-the-dialog now carries a small A2 weight, so it must be muted here too.)
     const s = steer({
-      formatPrefs: { "match-pairs": false, "build-the-sentence": false, "odd-one-out": false },
+      formatPrefs: { "match-pairs": false, "build-the-sentence": false, "odd-one-out": false, "order-the-dialog": false },
     });
     const p = progressWith({ skill: { articles: 1.5 } }); // A2
     for (let i = 0; i < ITER; i++) {

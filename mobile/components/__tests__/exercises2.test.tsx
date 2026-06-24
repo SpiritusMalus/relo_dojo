@@ -92,4 +92,20 @@ describe("OrderDialog", () => {
     press(r, "How are you?");
     expect(onChange).toHaveBeenLastCalledWith(["Hi", "How are you?"], "Hi → How are you?");
   });
+
+  it("renders and reorders an 8-line dialog, reporting all lines in order", () => {
+    const onChange = jest.fn();
+    const lines = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8"];
+    // Present them shuffled; the learner taps them back into the correct order.
+    const shuffled = ["L3", "L1", "L8", "L5", "L2", "L7", "L4", "L6"];
+    const r = render(
+      <OrderDialog
+        exercise={ex({ type: "order-the-dialog", tiles: shuffled })}
+        locked={false}
+        onChange={onChange}
+      />
+    );
+    lines.forEach((l) => press(r, l));
+    expect(onChange).toHaveBeenLastCalledWith(lines, lines.join(" → "));
+  });
 });

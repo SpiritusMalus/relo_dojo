@@ -364,12 +364,16 @@ async def _gen_multiple_blanks(topic: str, level: str | None = None, context: st
 
 
 async def _gen_order_the_dialog(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
+    # Per-line word cap scales with CEFR (short turns early, longer at B2/C1).
+    per_line = _max_words(level)
     prompt = _tutor_intro(
-        f"Create ONE short dialog of 3 to 5 lines that, in the correct order, forms a coherent "
+        f"Create ONE dialog of 4 to 8 lines that, in the correct order, forms a coherent "
         f"conversation and naturally practices: {topic}.\n"
-        "'lines' is the dialog IN THE CORRECT ORDER (each line a single short turn, under 12 words). "
-        "Lines must only make sense in one order (use cohesion: questions before answers, references "
-        "like 'it'/'that' after their antecedent). Set it in the learner's field when given, else everyday. Reply ONLY as JSON.",
+        f"'lines' is the dialog IN THE CORRECT ORDER (each line a single turn, under {per_line} words). "
+        "The lines must make sense in EXACTLY ONE order — build strong cohesion: open with a greeting or "
+        "question, put every answer after its question, and only use back-references ('it', 'that', "
+        "'then', 'sure') after the thing they point to. Avoid lines that could stand in more than one "
+        "position. Set it in the learner's field when given, else everyday. Reply ONLY as JSON.",
         level,
         context,
         mistakes,
@@ -378,8 +382,8 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
     )
     data = await generate_json(prompt, ORDER_DIALOG_SCHEMA, temperature=EXERCISE_TEMPERATURE)
     lines = [str(line).strip() for line in (data.get("lines") or []) if str(line).strip()]
-    # Need 3-5 distinct lines for an unambiguous ordering task.
-    if not (3 <= len(lines) <= 5) or len({_norm(line) for line in lines}) != len(lines):
+    # Need 4-8 distinct lines for a richer, still-unambiguous ordering task.
+    if not (4 <= len(lines) <= 8) or len({_norm(line) for line in lines}) != len(lines):
         return None
     tiles = lines[:]
     for _ in range(8):
