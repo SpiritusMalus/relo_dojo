@@ -55,7 +55,9 @@ export default function ProgressScreen() {
           <Sensei belt={bp.belt} size={72} mood="happy" bob />
           <View style={{ flex: 1 }}>
             <Txt variant="screenTitle">{bp.belt.name}</Txt>
-            <Txt variant="secondary" color={t.c.ink3}>{tr("prog.overall", { cefr: bp.cefr })}</Txt>
+            <Txt variant="secondary" color={t.c.ink3}>
+              {bp.started ? tr("prog.overall", { cefr: bp.cefr }) : tr("prog.notStarted")}
+            </Txt>
           </View>
         </View>
         {/* belt rack */}
@@ -282,17 +284,28 @@ export default function ProgressScreen() {
         <View style={{ gap: 14 }}>
           {rows.map((r) => (
             <View key={r.id} style={styles.topicRow}>
-              <View style={{ width: 16, height: 16, borderRadius: 5, backgroundColor: r.belt.color, borderWidth: 1.5, borderColor: r.belt.edge }} />
+              {/* Not-started topics wear no belt colour and read "—": their belt is unearned. */}
+              <View style={{ width: 16, height: 16, borderRadius: 5, backgroundColor: r.started ? r.belt.color : t.c.surface3, borderWidth: 1.5, borderColor: r.started ? r.belt.edge : t.c.line2 }} />
               <View style={{ flex: 1 }}>
-                <Txt variant="bodyStrong" color={r.weak ? t.c.bad : t.c.ink}>
+                <Txt variant="bodyStrong" color={r.weak ? t.c.bad : r.started ? t.c.ink : t.c.ink3}>
                   {lang === "ru" ? RU_TOPIC_LABELS[r.id] ?? r.label : r.label}
                   {r.weak ? `  · ${tr("prog.focus")}` : ""}
                 </Txt>
-                <ProgressBar pct={r.acc} height={6} color={r.weak ? t.c.bad : t.c.accent} style={{ marginTop: 6 }} />
+                {r.started ? (
+                  <ProgressBar pct={r.acc} height={6} color={r.weak ? t.c.bad : t.c.accent} style={{ marginTop: 6 }} />
+                ) : (
+                  <Txt variant="caption" color={t.c.ink3} style={{ marginTop: 6 }}>{tr("prog.topicNotStarted")}</Txt>
+                )}
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Txt variant="caption" color={t.c.ink3}>{r.cefr}</Txt>
-                <Txt variant="bodyStrong">{`${r.acc}%`}</Txt>
+                {r.started ? (
+                  <>
+                    <Txt variant="caption" color={t.c.ink3}>{r.cefr}</Txt>
+                    <Txt variant="bodyStrong">{`${r.acc}%`}</Txt>
+                  </>
+                ) : (
+                  <Txt variant="bodyStrong" color={t.c.ink3}>—</Txt>
+                )}
               </View>
             </View>
           ))}

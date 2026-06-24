@@ -184,7 +184,9 @@ export default function HomeScreen() {
           {bp.belt.name}
         </Txt>
         <Txt variant="bodyStrong" color={bp.belt.ink} style={{ opacity: 0.9, marginTop: 4, marginBottom: 12 }}>
-          {bp.atMax
+          {!bp.started
+            ? tr("home.notStarted")
+            : bp.atMax
             ? tr("home.topBelt", { cefr: bp.cefr })
             : tr("home.toNext", { cefr: bp.cefr, pct: bp.pctToNext, belt: bp.nextBelt.name })}
         </Txt>
