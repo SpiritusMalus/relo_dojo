@@ -9,13 +9,12 @@ import { useI18n } from "../../store/i18n";
 import { RU_ACH, RU_TOPIC_LABELS } from "../../i18n/strings";
 import { TOPIC_LABELS } from "../../store/onboarding";
 import { SWERVE_FORMATS, FMT_LABEL_KEY } from "../../components/ui/SwerveSheet";
-import { beltProgress, topicRows, type PathNode } from "../../store/dojo";
+import { beltProgress, topicRows } from "../../store/dojo";
 import { belts, useTheme } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
 import ActivationBanner from "../../components/ui/ActivationBanner";
 import Card from "../../components/ui/Card";
-import JourneyPath from "../../components/ui/JourneyPath";
 import JourneyStageCard from "../../components/ui/JourneyStageCard";
 import Button from "../../components/ui/Button";
 import Sensei from "../../components/ui/Sensei";
@@ -91,15 +90,6 @@ export default function ProgressScreen() {
       {/* Relocation journey — the niche arc (pre-move → arrived → settled). Shows only for learners
           on the niche; gently nudges them onward (the event-need → recurring-need retention hook). */}
       <JourneyStageCard goals={progress.profile?.goals} />
-
-      {/* Belt journey — interactive map: tap a node to train that topic, or the belt-test node to
-          take the exam. Locked nodes (further along the path) stay non-tappable. */}
-      <JourneyPath
-        onSelect={(node: PathNode) => {
-          if (node.state === "test") router.push("/belt-exam");
-          else if (node.topic) router.push({ pathname: "/practice", params: { topic: node.topic.id } });
-        }}
-      />
 
       {/* Level + XP */}
       <Card>

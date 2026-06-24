@@ -267,6 +267,7 @@ export const STRINGS = {
 
     "topics.all": "All grammar topics",
     "topics.adapts": "Difficulty still adapts to you.",
+    "train.modes": "More ways to train",
 
     "prog.overall": "Overall level · CEFR {cefr}",
     "prog.journeyTitle": "Your relocation journey",
@@ -679,6 +680,7 @@ export const STRINGS = {
 
     "topics.all": "Все темы грамматики",
     "topics.adapts": "Сложность по-прежнему подстраивается под тебя.",
+    "train.modes": "Другие режимы тренировки",
 
     "prog.overall": "Общий уровень · CEFR {cefr}",
     "prog.journeyTitle": "Твой путь релокации",

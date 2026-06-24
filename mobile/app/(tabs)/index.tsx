@@ -7,7 +7,7 @@ import { useAuth } from "../../store/auth";
 import { useAccess } from "../../store/access";
 import { useWallet } from "../../store/wallet";
 import { useI18n } from "../../store/i18n";
-import { beltProgress } from "../../store/dojo";
+import { beltProgress, type PathNode } from "../../store/dojo";
 import { useTheme } from "../../theme/theme";
 import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
@@ -15,21 +15,13 @@ import ActivationBanner from "../../components/ui/ActivationBanner";
 import StreakRepairSheet from "../../components/ui/StreakRepairSheet";
 import OfferBanner from "../../components/ui/OfferBanner";
 import { ensureOffer } from "../../store/offers";
-import LockGate from "../../components/ui/LockGate";
 import RegisterWall from "../../components/ui/RegisterWall";
 import { dismiss as dismissWall, loadWall, saveWall, shouldShowWall, DEFAULT_WALL, type WallState } from "../../store/registerWall";
-import { loadReviewHook, saveReviewHook, dismissForWeek, shouldShowHook, promptForWeek, DEFAULT_REVIEW_HOOK, type ReviewHookState } from "../../store/reviewHook";
 import DailyMixButton from "../../components/ui/DailyMixButton";
 import CoachCard from "../../components/ui/CoachCard";
 import DailyGoalRing from "../../components/ui/DailyGoalRing";
 import ContractsCard from "../../components/ui/ContractsCard";
-import StoryButton from "../../components/ui/StoryButton";
-import ChallengeButton from "../../components/ui/ChallengeButton";
-import ReviewButton from "../../components/ui/ReviewButton";
-import TextReviewButton from "../../components/ui/TextReviewButton";
-import ReviewHookCard from "../../components/ui/ReviewHookCard";
-import ShopButton from "../../components/ui/ShopButton";
-import { mistakeCount } from "../../store/mistakes";
+import JourneyPath from "../../components/ui/JourneyPath";
 import { buildStats, planPatch, shouldReplan } from "../../store/planner";
 import { bonusDue, bonusPaidPatch, buildQuests, questBaseline, QUEST_BONUS_XP } from "../../store/quest";
 import { tickDiary } from "../../store/diary";
@@ -41,16 +33,16 @@ import BeltKnot from "../../components/ui/BeltKnot";
 import { TOPIC_LABELS, minutesToGoal } from "../../store/onboarding";
 import { RU_TOPIC_LABELS } from "../../i18n/strings";
 import { isoDay } from "../../store/adaptive";
-import { requestPlan, getStoryCatalog } from "../../services/api";
-import { trackReviewHookTap } from "../../services/analytics";
+import { requestPlan } from "../../services/api";
 import Sensei, { type Mood } from "../../components/ui/Sensei";
 import SenseiBubble from "../../components/ui/SenseiBubble";
 import ProgressBar from "../../components/ui/ProgressBar";
 import Txt from "../../components/ui/Txt";
 
-// Home = "today / recommended". One clear daily action (Daily Mix) plus the special modes (Story,
-// Challenge, Review). Self-directed topic practice lives in the Train tab; the belt journey is a
-// progress map in the Progress tab — so each surface has a single, distinct purpose (no duplication).
+// Home = "твой пояс → твой путь → one thing to do": the belt hero, the belt JourneyPath, and a
+// single primary action (Daily Mix) — wrapped in contextual retention cards (offers, streak repair,
+// quests, register wall, coach). Every special mode (Story, Challenge, Review, Review-my-text, Shop)
+// lives in the Train tab below the topic picker; the journey map shows here, not on Progress anymore.
 export default function HomeScreen() {
   const router = useRouter();
   const t = useTheme();
@@ -99,14 +91,8 @@ export default function HomeScreen() {
   // ever moved behind an account/premium gate — no screen rewrite needed.
   const access = useAccess();
 
-  // Refresh the mistake count whenever Home regains focus (e.g. returning from Review/Practice).
-  const [mistakes, setMistakes] = useState(0);
-  // Today's featured story arc ("today's different" rotation), surfaced on the Story button.
-  const [featuredArc, setFeaturedArc] = useState<string | null>(null);
   // Soft register wall (anon-first funnel): lesson count is bumped in practice; we just read it here.
   const [wall, setWall] = useState<WallState>(DEFAULT_WALL);
-  // "Review my text" weekly hook (the killer free taste, surfaced + rotated weekly).
-  const [reviewHook, setReviewHook] = useState<ReviewHookState>(DEFAULT_REVIEW_HOOK);
 
   // Trigger: onboarding done → open the one-shot 24h starter offer (no-op if it ever existed).
   // In an effect, not the render body — render must stay side-effect-free.
@@ -145,32 +131,16 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      mistakeCount().then((n) => active && setMistakes(n));
       // Re-read the anon lesson count (bumped at each session finish in practice.tsx).
       loadWall().then((w) => active && setWall(w));
-      // Re-read the review-hook dismissal so a fresh week re-surfaces the card.
-      loadReviewHook().then((s) => active && s && setReviewHook(s));
       // Refresh the wallet too: koku earned and the daily allowance spent in Practice should be
       // visible the moment the learner lands back on Home (the shrinking counter is the point).
       void refresh();
-      // Today's featured arc — best-effort; a failure just falls back to the default Story subtitle.
-      getStoryCatalog()
-        .then((c) => {
-          if (!active) return;
-          const arc = c.arcs.find((a) => a.id === c.featured_id);
-          setFeaturedArc(arc ? arc.title : null);
-        })
-        .catch(() => {});
       return () => {
         active = false;
       };
     }, [refresh])
   );
-
-  // Weekly "Review my text" hook: a fresh, job-relevant prompt each week; dismissable for the week.
-  const now = new Date();
-  const showReviewHook = shouldShowHook(reviewHook, now);
-  const weekPrompt = promptForWeek(now);
 
   return (
     <Screen>
@@ -305,7 +275,16 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Recommended daily action (starter — always open) + special modes (locked until verified) */}
+      {/* Belt journey — interactive map (moved off Progress): tap a node to train that topic, or the
+          belt-test node to take the exam. Locked nodes (further along the path) stay non-tappable. */}
+      <JourneyPath
+        onSelect={(node: PathNode) => {
+          if (node.state === "test") router.push("/belt-exam");
+          else if (node.topic) router.push({ pathname: "/practice", params: { topic: node.topic.id } });
+        }}
+      />
+
+      {/* The one daily action (starter — always open). Every other mode lives in the Train tab. */}
       <DailyMixButton onPress={() => router.push("/practice")} />
       {leftToday !== null && (
         <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center", marginTop: -6 }}>
@@ -316,46 +295,6 @@ export default function HomeScreen() {
       {/* Daily contracts (engagement v2): the come-back-every-day + earn-varied hook.
           Account-only — the koku economy is server-authoritative, so guests don't see it. */}
       {access.sync && <ContractsCard />}
-
-      {/* Killer free taste: "Review my text" surfaced as a prominent weekly hook (open to anon).
-          Dismiss it for the week → it falls back to the compact button below; next week it returns
-          with the next rotating prompt. */}
-      {showReviewHook ? (
-        <ReviewHookCard
-          prompt={weekPrompt}
-          onPress={() => {
-            trackReviewHookTap({ prompt: weekPrompt });
-            router.push("/text-review");
-          }}
-          onDismiss={() => {
-            const next = dismissForWeek(reviewHook, new Date());
-            setReviewHook(next);
-            void saveReviewHook(next);
-          }}
-        />
-      ) : (
-        <LockGate locked={!access.review_text}>
-          <TextReviewButton onPress={() => router.push("/text-review")} />
-        </LockGate>
-      )}
-
-      <LockGate locked={!access.story}>
-        <StoryButton
-          onPress={() => router.push("/story")}
-          subtitle={featuredArc ? tr("home.featuredStory", { title: featuredArc }) : undefined}
-        />
-      </LockGate>
-      <LockGate locked={!access.challenge}>
-        <ChallengeButton onPress={() => router.push("/challenge")} />
-      </LockGate>
-      {mistakes > 0 && (
-        <LockGate locked={!access.review}>
-          <ReviewButton count={mistakes} onPress={() => router.push("/review")} />
-        </LockGate>
-      )}
-      {/* Named entry to the Lavka. Account-only: koku is earned/spent server-side, so a guest's
-          shop would be inert (0 koku, 401 on buy). Shown once there's an account. */}
-      {access.sync && <ShopButton onPress={() => router.push("/shop")} />}
     </Screen>
   );
 }
