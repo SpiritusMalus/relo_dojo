@@ -136,6 +136,7 @@ function typeWeightsForLevel(level: number): Array<[ExerciseType, number]> {
       ["tap-the-error", 0],
       ["multiple-blanks", 0],
       ["order-the-dialog", 4],
+      ["transform-the-sentence", 0], // production type is B1+ (transforms need a grammar base)
     ];
   }
   if (cefr === "B1") {
@@ -147,6 +148,7 @@ function typeWeightsForLevel(level: number): Array<[ExerciseType, number]> {
       ["odd-one-out", 12],
       ["multiple-blanks", 10],
       ["order-the-dialog", 12],
+      ["transform-the-sentence", 10],
     ];
   }
   return [
@@ -157,6 +159,7 @@ function typeWeightsForLevel(level: number): Array<[ExerciseType, number]> {
     ["odd-one-out", 8],
     ["multiple-blanks", 12],
     ["order-the-dialog", 16],
+    ["transform-the-sentence", 14],
   ];
 }
 

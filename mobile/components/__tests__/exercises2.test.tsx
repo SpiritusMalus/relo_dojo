@@ -5,6 +5,7 @@ import { createElement, type ReactElement } from "react";
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 
 import BuildSentence from "../BuildSentence";
+import ExerciseCard from "../ExerciseCard";
 import MatchPairs from "../MatchPairs";
 import OrderDialog from "../OrderDialog";
 import { ThemeProvider } from "../../theme/theme";
@@ -107,5 +108,30 @@ describe("OrderDialog", () => {
     );
     lines.forEach((l) => press(r, l));
     expect(onChange).toHaveBeenLastCalledWith(lines, lines.join(" → "));
+  });
+});
+
+describe("ExerciseCard routing", () => {
+  it("renders transform-the-sentence via the build-the-sentence tile UI and reports the joined answer", () => {
+    const onChange = jest.fn();
+    const tiles = ["She", "did", "not", "call", "me"];
+    const r = render(
+      <ExerciseCard
+        exercise={ex({
+          type: "transform-the-sentence",
+          instruction: "Make it negative",
+          prompt: "She called me",
+          text: "Rewrite the sentence:",
+          tiles,
+        })}
+        locked={false}
+        onChange={onChange}
+      />
+    );
+    // The transform instruction is surfaced in the prompt header.
+    expect(r.root.findAll((n) => n.props.children === "Make it negative").length).toBeGreaterThan(0);
+    // Tapping the tiles builds the sentence (same answer shape as build-the-sentence).
+    tiles.forEach((w) => press(r, w));
+    expect(onChange).toHaveBeenLastCalledWith("She did not call me", "She did not call me");
   });
 });

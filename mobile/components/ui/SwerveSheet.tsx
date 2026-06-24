@@ -22,6 +22,7 @@ export const SWERVE_FORMATS: ExerciseType[] = [
   "odd-one-out",
   "multiple-blanks",
   "order-the-dialog",
+  "transform-the-sentence",
 ];
 
 export const FMT_LABEL_KEY: Record<ExerciseType, StringKey> = {
@@ -32,6 +33,7 @@ export const FMT_LABEL_KEY: Record<ExerciseType, StringKey> = {
   "odd-one-out": "fmt.odd-one-out",
   "multiple-blanks": "fmt.multiple-blanks",
   "order-the-dialog": "fmt.order-the-dialog",
+  "transform-the-sentence": "fmt.transform-the-sentence",
   "free-text": "fmt.free-text",
 };
 

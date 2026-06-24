@@ -62,6 +62,16 @@ def test_build_the_sentence_partial_credit():
     assert 0 < wrong["score"] < 1  # first two words in position
 
 
+def test_transform_the_sentence_grades_like_build():
+    # Same deterministic word-position path as build-the-sentence (sealed target sentence).
+    sealed = {"t": "transform-the-sentence", "sentence": "She did not call me"}
+    assert grammar.grade(sealed, "She did not call me")["correct"] is True
+    assert grammar.grade(sealed, " she DID not call me ")["correct"] is True  # normalized
+    wrong = grammar.grade(sealed, "She did call not me")
+    assert wrong["correct"] is False
+    assert 0 < wrong["score"] < 1  # leading words in position → partial credit
+
+
 def test_match_pairs_all_or_nothing_with_partial_score():
     sealed = {"t": "match-pairs", "ids": [0, 1, 2]}
     correct = grammar.grade(sealed, {"0": 0, "1": 1, "2": 2})

@@ -42,6 +42,7 @@ EXERCISE_TYPES: list[tuple[str, int]] = [
     ("odd-one-out", 8),
     ("multiple-blanks", 6),
     ("order-the-dialog", 10),
+    ("transform-the-sentence", 10),
     ("free-text", 0),
 ]
 
