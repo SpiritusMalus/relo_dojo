@@ -59,10 +59,19 @@ describe("beltProgress with the exam cap", () => {
     expect(bp.pctToNext).toBe(100);
     expect(bp.cefr).toBe("B1"); // difficulty stays skill-derived
   });
-  it("keeps legacy behavior when beltEarned is undefined", () => {
+  it("forces White before any evidence — placement-seeded skill is not earned", () => {
+    // skill 2.2 from the placement quiz but zero attempts and no passed exam → honest default is White.
     const bp = beltProgress(withSkill(2.2));
+    expect(bp.belt.idx).toBe(0);
+    expect(bp.pctToNext).toBe(0);
+    expect(bp.started).toBe(false);
+    expect(bp.cefr).toBe("B1"); // difficulty stays skill-derived
+  });
+  it("shows the skill-derived belt once there is evidence (real attempts)", () => {
+    const bp = beltProgress(withSkill(2.2, { topics: { articles: { attempts: 3, correct: 2 } } }));
     expect(bp.belt.idx).toBe(2);
     expect(bp.pctToNext).toBe(20);
+    expect(bp.started).toBe(true);
   });
 });
 

@@ -12,6 +12,7 @@ export const STRINGS = {
     "home.yourBelt": "Your belt",
     "home.toNext": "CEFR {cefr} · {pct}% to {belt}",
     "home.topBelt": "CEFR {cefr} · top belt",
+    "home.notStarted": "Answer your first exercise to earn your belt",
     "home.todaysPath": "Today's path",
     "home.ofDone": "{done} of {total} done",
     "home.browseTopics": "Browse all topics",
@@ -287,6 +288,8 @@ export const STRINGS = {
     "prog.beltsByTopic": "Belts by topic",
     "prog.focus": "focus",
     "prog.achievements": "Achievements",
+    "prog.notStarted": "Not started yet — answer your first exercise",
+    "prog.topicNotStarted": "Not started",
 
     "ob.skip": "Skip",
     "ob.welcomeTitle": "Let's tune your dojo",
@@ -425,6 +428,7 @@ export const STRINGS = {
     "home.yourBelt": "Твой пояс",
     "home.toNext": "CEFR {cefr} · {pct}% до пояса {belt}",
     "home.topBelt": "CEFR {cefr} · высший пояс",
+    "home.notStarted": "Ответь на первое упражнение, чтобы заслужить пояс",
     "home.todaysPath": "Путь на сегодня",
     "home.ofDone": "{done} из {total} пройдено",
     "home.browseTopics": "Все темы",
@@ -700,6 +704,8 @@ export const STRINGS = {
     "prog.beltsByTopic": "Пояса по темам",
     "prog.focus": "фокус",
     "prog.achievements": "Достижения",
+    "prog.notStarted": "Пока не начато — ответь на первое упражнение",
+    "prog.topicNotStarted": "Не начато",
 
     "ob.skip": "Пропустить",
     "ob.welcomeTitle": "Настроим твоё додзё",
