@@ -442,6 +442,13 @@ export function transcribeAudio(audioBase64: string, mime: string, lang?: string
   return request<{ transcript: string }>("/voice/transcribe", { audio: audioBase64, mime, lang });
 }
 
+// Voice Live (mode b): mint a SHORT-LIVED ephemeral Gemini Live credential server-side, so the real
+// Gemini key never ships in the app bundle. The model is resolved server-side too. GATED — only
+// called behind EXPO_PUBLIC_VOICE_ENABLED && voice consent; the endpoint 404s until VOICE_ENABLED.
+export function getVoiceLiveToken(): Promise<{ token: string; expiresAt: string; model: string }> {
+  return request<{ token: string; expiresAt: string; model: string }>("/voice/live-token");
+}
+
 // Download everything we hold about the caller as JSON (the policy's "export your data" right).
 export function exportMyData(): Promise<AccountExport> {
   return request<AccountExport>("/auth/export", undefined, "GET");

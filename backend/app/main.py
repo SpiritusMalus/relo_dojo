@@ -39,6 +39,7 @@ from .routers import cosmetics as cosmetics_router
 from .routers import events as events_router
 from .routers import profile as profile_router
 from .routers import progress as progress_router
+from .routers import voice as voice_router
 from .routers import wallet as wallet_router
 from .schemas import (
     AnalyzeIn,
@@ -138,6 +139,7 @@ app.include_router(cosmetics_router.router)
 app.include_router(events_router.router)
 app.include_router(profile_router.router)
 app.include_router(progress_router.router)
+app.include_router(voice_router.router)
 app.include_router(wallet_router.router)
 
 
