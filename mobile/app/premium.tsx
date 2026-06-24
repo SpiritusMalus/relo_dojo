@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { trackPaywallView } from "../services/analytics";
 import { billingEnabled, buildCheckoutUrl } from "../services/billing";
+import { PREMIUM_PERKS } from "../services/premium";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import { useAuth } from "../store/auth";
@@ -80,12 +81,8 @@ export default function PremiumScreen() {
     }
   }
 
-  // Every perk listed here is already enforced server-side — the pitch contains no fiction.
-  const perks = [
-    { icon: "♾️", key: "premium.perkUnlimited" },
-    { icon: "🌾", key: "premium.perkKoku" },
-    { icon: "📜", key: "premium.perkScrolls" },
-  ] as const;
+  // Perks are the shared source of truth (services/premium.ts); each is enforced server-side.
+  const perks = PREMIUM_PERKS;
 
   return (
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top + 8 }}>
