@@ -362,6 +362,17 @@ class BrokenStreak(BaseModel):
     date: str = ""  # local YYYY-MM-DD when the break was noticed
 
 
+class Steering(BaseModel):
+    """Learner-set overrides on the adaptive model (client store/adaptive). Synced so the steering
+    (pinned focus topic, muted topics, per-format prefs, difficulty bias) survives device changes.
+    `formatPrefs` keys are exercise types plus the "pronunciation" modality."""
+
+    pinnedFocusTopic: Optional[str] = None
+    mutedTopics: list[str] = []
+    formatPrefs: dict[str, bool] = {}
+    difficultyBias: float = 0.0
+
+
 class ProgressData(BaseModel):
     xp: int = 0
     dailyStreak: int = 0
@@ -380,6 +391,7 @@ class ProgressData(BaseModel):
     # Belt exam (client mechanic; synced so the worn belt survives device changes).
     beltEarned: Optional[int] = None
     lastExamDate: str = ""
+    steering: Steering = Field(default_factory=Steering)  # learner-set adaptive overrides (synced)
 
 
 # --- scroll rewards (variable reinforcement) ---
@@ -557,3 +569,31 @@ class CheckoutOut(BaseModel):
     """Where to send the buyer next — the provider's hosted checkout / invoice page."""
 
     url: str
+
+
+# --- voice (pronunciation: read-aloud transcription + Gemini Live token) -----
+# The precise byte/duration guard is enforced in the handler (413); this static cap only bounds the
+# request body so an oversized payload is rejected early. ~4M base64 chars ≈ 3 MB of audio.
+_MAX_AUDIO_B64 = 4_000_000
+
+
+class TranscribeIn(BaseModel):
+    """Read-aloud upload: base64 audio + its container mime. The pass/fail compare is client-side
+    (services/voice gradeReadAloud) — the server only returns a faithful verbatim transcript."""
+
+    audio: str = Field(min_length=1, max_length=_MAX_AUDIO_B64)
+    mime: str = Field(min_length=1, max_length=60)
+    lang: Optional[str] = Field(default=None, max_length=8)
+
+
+class TranscribeOut(BaseModel):
+    transcript: str
+
+
+class LiveTokenOut(BaseModel):
+    """A short-lived ephemeral credential for a client↔Google Gemini Live session — so the real
+    GEMINI_API_KEY never ships in the app bundle. `model` is resolved server-side from the live list."""
+
+    token: str
+    expiresAt: str
+    model: str

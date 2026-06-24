@@ -1,32 +1,11 @@
-// Gemini Live (mode b) — realtime two-way voice with the sensei. This is a SEPARATE path from the
-// backend's text generateContent (services/llm.py): a direct client↔Google WebSocket carrying raw
-// PCM audio. Per the llm.py rule we RESOLVE the live model id from the model list rather than
-// hardcoding a guess (see pickLiveModel in services/voice).
+// Gemini Live (mode b) — realtime two-way voice with the sensei. A SEPARATE path from the backend's
+// text generateContent (services/llm.py): a direct client↔Google WebSocket carrying raw PCM audio.
 //
-// Dormant unless EXPO_PUBLIC_VOICE_ENABLED=true AND voice consent is granted — enforced at the call
-// site. The realtime key is an ephemeral/public Live key the owner provisions at flag-flip; it is NOT
-// the backend's secret GEMINI_API_KEY.
-import { GEMINI_LIVE_WSS, pickLiveModel } from "./voice";
-
-const GEMINI_REST = "https://generativelanguage.googleapis.com/v1beta";
-
-/** Realtime Live key (owner-provisioned, ephemeral). Empty until flag-flip → Live stays unavailable. */
-export const LIVE_KEY = process.env.EXPO_PUBLIC_GEMINI_LIVE_KEY ?? "";
-
-/** List available model ids from the Gemini API (used to resolve the live model — never hardcode). */
-export async function listModels(key: string = LIVE_KEY): Promise<string[]> {
-  const res = await fetch(`${GEMINI_REST}/models?key=${encodeURIComponent(key)}`);
-  if (!res.ok) throw new Error(`Gemini model list failed: ${res.status}`);
-  const data = (await res.json()) as { models?: Array<{ name?: string }> };
-  return (data.models ?? []).map((m) => m.name ?? "").filter(Boolean);
-}
-
-/** Resolve the native-audio flash-live model id from the live list, or throw if none qualifies. */
-export async function resolveLiveModel(key: string = LIVE_KEY): Promise<string> {
-  const model = pickLiveModel(await listModels(key));
-  if (!model) throw new Error("No Gemini live (flash native-audio) model available");
-  return model;
-}
+// The credential is a SHORT-LIVED ephemeral token minted by OUR backend (POST /voice/live-token via
+// api.getVoiceLiveToken) — the real GEMINI_API_KEY never ships in the app bundle. The model is
+// resolved server-side (per the llm.py "resolve from the live list, don't hardcode" rule) and passed
+// in. Dormant unless EXPO_PUBLIC_VOICE_ENABLED && voice consent — enforced at the call site.
+import { GEMINI_LIVE_WSS } from "./voice";
 
 export type LiveSession = {
   /** Send a chunk of raw PCM16 16 kHz audio (base64) to the model. */
@@ -41,15 +20,20 @@ export type LiveHandlers = {
   onClose?: () => void;
 };
 
-/** Open a Gemini Live session. Resolves the model, opens the WebSocket, sends the setup frame, and
- *  wires inbound text to the handlers. Returns controls for streaming mic audio and closing. */
-export async function openLiveSession(handlers: LiveHandlers, key: string = LIVE_KEY): Promise<LiveSession> {
-  if (!key) throw new Error("Live voice key not configured");
-  const model = await resolveLiveModel(key);
-  const ws = new WebSocket(`${GEMINI_LIVE_WSS}?key=${encodeURIComponent(key)}`);
+/** Open a Gemini Live session with a backend-minted ephemeral `token` and a server-resolved `model`.
+ *  Opens the WebSocket, sends the setup frame, and wires inbound text to the handlers. Returns
+ *  controls for streaming mic audio and closing. The caller obtains {token, model} from
+ *  api.getVoiceLiveToken() — this module never reads an embedded key. */
+export async function openLiveSession(
+  handlers: LiveHandlers,
+  token: string,
+  model: string
+): Promise<LiveSession> {
+  if (!token) throw new Error("Live voice token missing");
+  const ws = new WebSocket(`${GEMINI_LIVE_WSS}?access_token=${encodeURIComponent(token)}`);
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ setup: { model: `models/${model}` } }));
+    ws.send(JSON.stringify({ setup: { model: model.startsWith("models/") ? model : `models/${model}` } }));
   };
   ws.onmessage = (ev: { data: unknown }) => {
     try {

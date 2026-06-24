@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     # capping a flood that would grow the append-only events table unbounded.
     EVENTS_RATE_LIMIT: int = 120
     EVENTS_RATE_WINDOW_S: int = 60
+    # Voice bucket (cost guard) — audio→Gemini is pricier than text, so keep it conservative. Covers
+    # /voice/transcribe + /voice/live-token (keyed by client IP). Both require auth.
+    VOICE_RATE_LIMIT: int = 20
+    VOICE_RATE_WINDOW_S: int = 60
     # Trust the first hop of X-Forwarded-For for the client IP. Enable ONLY behind a proxy you
     # control (nginx/Caddy on the VPS) — otherwise the header is client-spoofable and defeats the
     # IP keying. Off by default (direct connect on the Mac uses request.client.host).
@@ -183,6 +187,15 @@ class Settings(BaseSettings):
     # web (relodojo.app) and the account unlocks via the provider webhook. OFF by default (like
     # rewarded ads / return emails): /billing/* 404s until a provider is configured and this flips.
     BILLING_ENABLED: bool = False
+    # Voice modality (pronunciation: /voice/transcribe + /voice/live-token). OFF by default like
+    # BILLING_ENABLED — the whole /voice/* surface 404s until this flips, so deploying the code is
+    # inert. Prod enable is owner-gated (RKN audio-category amendment + the client voice flag/consent).
+    # Reuses the same GEMINI_API_KEY / GEMINI_MODEL as the text LLM path (services/llm.py).
+    VOICE_ENABLED: bool = False
+    # Cost/abuse guards on the read-aloud upload (audio→Gemini). Bytes is enforced server-side (413);
+    # seconds is the client-side cap mirrored here for the runbook.
+    VOICE_MAX_AUDIO_SECONDS: int = 20
+    VOICE_MAX_AUDIO_BYTES: int = 2_000_000  # ~2 MB ≈ 20 s of m4a/aac
     # Public base URL of the web checkout's result page — where the provider returns the buyer after
     # pay/cancel (e.g. https://relodojo.app/checkout/done). Falls back to APP_BASE_URL.
     BILLING_RETURN_URL: str = ""

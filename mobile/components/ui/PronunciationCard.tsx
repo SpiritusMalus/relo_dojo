@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
-import { transcribeAudio } from "../../services/api";
+import { getVoiceLiveToken, transcribeAudio } from "../../services/api";
 import { useI18n } from "../../store/i18n";
 import { useVoiceConsent } from "../../store/voiceConsent";
 import { canUseVoice, gradeReadAloud, voiceFeatureEnabled } from "../../services/voice";
@@ -88,7 +88,9 @@ export default function PronunciationCard({ target, lang }: { target: string; la
     }
     if (!ensureGate()) return;
     try {
-      liveRef.current = await openLiveSession({ onClose: () => setTalking(false) });
+      // Ephemeral token + server-resolved model — the real Gemini key never reaches the client.
+      const { token, model } = await getVoiceLiveToken();
+      liveRef.current = await openLiveSession({ onClose: () => setTalking(false) }, token, model);
       setTalking(true);
     } catch {
       setTalking(false);
