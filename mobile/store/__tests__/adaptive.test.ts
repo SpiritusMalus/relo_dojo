@@ -1,6 +1,8 @@
 import {
+  applySteeringAction,
   cefrMidpoint,
   COLD_START_BLEND,
+  DIFFICULTY_BIAS_RANGE,
   effectiveSkill,
   expectedOutcome,
   FOCUS_BOOST,
@@ -15,7 +17,7 @@ import {
   topicWeight,
   updateSkill,
 } from "../adaptive";
-import { DEFAULT_PROGRESS, type Progress } from "../progress";
+import { DEFAULT_PROGRESS, DEFAULT_STEERING, type Progress, type Steering } from "../progress";
 
 function progressWith(overrides: Partial<Progress>): Progress {
   return { ...DEFAULT_PROGRESS, ...overrides };
@@ -235,6 +237,114 @@ describe("isoDay", () => {
   it("formats a local date as YYYY-MM-DD", () => {
     expect(isoDay(new Date(2026, 5, 4))).toBe("2026-06-04");
     expect(isoDay(new Date(2026, 0, 9))).toBe("2026-01-09");
+  });
+});
+
+describe("selectNext — learner steering", () => {
+  const steer = (over: Partial<Steering>): Steering => ({ ...DEFAULT_STEERING, ...over });
+  const ITER = 400;
+
+  it("empty steering reproduces the legacy pick (forced topic, no bias)", () => {
+    const p = progressWith({ skill: { articles: 2.5 } });
+    const legacy = selectNext(p, "articles");
+    const steered = selectNext(p, "articles", DEFAULT_STEERING);
+    expect(steered.topic).toBe(legacy.topic);
+    expect(steered.cefr).toBe(legacy.cefr); // both B1 from skill 2.5
+  });
+
+  it("never serves a muted topic", () => {
+    const muted = "prepositions";
+    const s = steer({ mutedTopics: [muted] });
+    for (let i = 0; i < ITER; i++) {
+      expect(selectNext(DEFAULT_PROGRESS, undefined, s).topic).not.toBe(muted);
+    }
+  });
+
+  it("ignores the mute (never empties the pool) when every topic is muted", () => {
+    const allMuted = steer({
+      mutedTopics: [
+        "prepositions", "conditionals", "verb sequence (tense agreement)", "vocabulary", "articles",
+        "modal verbs", "phrasal verbs", "gerunds & infinitives", "comparatives & superlatives",
+        "word order", "punctuation",
+      ],
+    });
+    expect(typeof selectNext(DEFAULT_PROGRESS, undefined, allMuted).topic).toBe("string");
+  });
+
+  it("over-weights a pinned topic yet preserves variety", () => {
+    const pin = "punctuation"; // lowest prior — without help it's rarely picked
+    const s = steer({ pinnedFocusTopic: pin });
+    let pinned = 0;
+    const seen = new Set<string>();
+    for (let i = 0; i < ITER; i++) {
+      const t = selectNext(DEFAULT_PROGRESS, undefined, s).topic;
+      if (t === pin) pinned++;
+      seen.add(t);
+    }
+    let baseline = 0;
+    for (let i = 0; i < ITER; i++) {
+      if (selectNext(DEFAULT_PROGRESS, undefined, DEFAULT_STEERING).topic === pin) baseline++;
+    }
+    expect(pinned).toBeGreaterThan(baseline); // boosted
+    expect(seen.size).toBeGreaterThan(1); // variety not starved — other topics still appear
+  });
+
+  it("filters served formats by formatPrefs and never empties the type pool", () => {
+    // Mute every A2 format except multiple-choice → only it should ever be served at A2.
+    const s = steer({
+      formatPrefs: { "match-pairs": false, "build-the-sentence": false, "odd-one-out": false },
+    });
+    const p = progressWith({ skill: { articles: 1.5 } }); // A2
+    for (let i = 0; i < ITER; i++) {
+      expect(selectNext(p, "articles", s).type).toBe("multiple-choice");
+    }
+    // All A2 formats muted → filter ignored, still returns a valid (muted) type rather than crashing.
+    const allOff = steer({
+      formatPrefs: { "multiple-choice": false, "match-pairs": false, "build-the-sentence": false, "odd-one-out": false },
+    });
+    expect(selectNext(p, "articles", allOff).type).toBeTruthy();
+  });
+
+  it("shifts the served CEFR by difficultyBias", () => {
+    const p = progressWith({ skill: { articles: 2.5 } }); // B1 at bias 0
+    expect(selectNext(p, "articles", steer({ difficultyBias: 0 })).cefr).toBe("B1");
+    expect(selectNext(p, "articles", steer({ difficultyBias: -1 })).cefr).toBe("A2"); // 2.5 - 1.0 = 1.5
+    expect(selectNext(p, "articles", steer({ difficultyBias: 1 })).cefr).toBe("B2"); // 2.5 + 1.0 = 3.5
+    expect(DIFFICULTY_BIAS_RANGE).toBe(1.0);
+  });
+});
+
+describe("applySteeringAction", () => {
+  it("nudges and clamps difficultyBias to [-1, 1]", () => {
+    expect(applySteeringAction(DEFAULT_STEERING, { kind: "difficulty", delta: 0.5 }).difficultyBias).toBe(0.5);
+    const maxed = applySteeringAction({ ...DEFAULT_STEERING, difficultyBias: 0.8 }, { kind: "difficulty", delta: 0.5 });
+    expect(maxed.difficultyBias).toBe(1);
+    const floored = applySteeringAction({ ...DEFAULT_STEERING, difficultyBias: -0.8 }, { kind: "difficulty", delta: -0.5 });
+    expect(floored.difficultyBias).toBe(-1);
+  });
+
+  it("pins a topic and lifts any mute on it", () => {
+    const base: Steering = { ...DEFAULT_STEERING, mutedTopics: ["articles"] };
+    const next = applySteeringAction(base, { kind: "pinTopic", topic: "articles" });
+    expect(next.pinnedFocusTopic).toBe("articles");
+    expect(next.mutedTopics).not.toContain("articles");
+  });
+
+  it("mutes a topic (idempotent) and clears the pin when it matches", () => {
+    const base: Steering = { ...DEFAULT_STEERING, pinnedFocusTopic: "articles" };
+    const next = applySteeringAction(base, { kind: "muteTopic", topic: "articles" });
+    expect(next.mutedTopics).toContain("articles");
+    expect(next.pinnedFocusTopic).toBeUndefined();
+    // idempotent: muting again doesn't duplicate
+    const again = applySteeringAction(next, { kind: "muteTopic", topic: "articles" });
+    expect(again.mutedTopics.filter((t) => t === "articles")).toHaveLength(1);
+  });
+
+  it("toggles a format on/off (default on)", () => {
+    const off = applySteeringAction(DEFAULT_STEERING, { kind: "toggleFormat", type: "tap-the-error" });
+    expect(off.formatPrefs["tap-the-error"]).toBe(false);
+    const backOn = applySteeringAction(off, { kind: "toggleFormat", type: "tap-the-error" });
+    expect(backOn.formatPrefs["tap-the-error"]).toBe(true);
   });
 });
 
