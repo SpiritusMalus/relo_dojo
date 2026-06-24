@@ -7,6 +7,7 @@ import { trackPaywallView } from "../services/analytics";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import { EXTRA_PACK_SIZE, PRICE_EXTRA_PACK, useWallet } from "../store/wallet";
+import { PREMIUM_PERKS } from "../services/premium";
 import type { SpendItem } from "../services/api";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -113,19 +114,31 @@ export default function ShopScreen() {
           </Card>
         )}
 
-        {/* Black Belt upsell — the shop is browsed with intent, so the subscription belongs here. */}
+        {/* Black Belt upsell — the shop is browsed with intent, so the subscription belongs here.
+            Lead with the concrete, server-enforced perks (not a vague teaser) and a primary CTA, so
+            the value is visible at a glance rather than hidden behind a "learn more" ghost link. */}
         {!isPremium && (
-          <Card>
+          <Card style={{ borderColor: t.c.gold, borderWidth: 1 }}>
             <View style={styles.row}>
               <Txt style={{ fontSize: 36 }}>🖤</Txt>
               <View style={{ flex: 1 }}>
                 <Txt variant="bodyStrong">{tr("premium.title")}</Txt>
                 <Txt variant="secondary" color={t.c.ink2}>
-                  {tr("premium.teaser")}
+                  {tr("premium.heroSub")}
                 </Txt>
               </View>
             </View>
-            <Button label={tr("premium.cta")} variant="ghost" onPress={() => router.push("/premium")} />
+            <View style={styles.perks}>
+              {PREMIUM_PERKS.map((p) => (
+                <View key={p.key} style={styles.perk}>
+                  <Txt style={{ fontSize: 18 }}>{p.icon}</Txt>
+                  <Txt variant="secondary" color={t.c.ink} style={{ flex: 1 }}>
+                    {tr(p.key)}
+                  </Txt>
+                </View>
+              ))}
+            </View>
+            <Button label={tr("premium.cta")} onPress={() => router.push("/premium")} />
           </Card>
         )}
 
@@ -143,4 +156,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, minHeight: 44 },
   back: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   row: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
+  perks: { gap: 8, marginBottom: 12 },
+  perk: { flexDirection: "row", alignItems: "center", gap: 10 },
 });
