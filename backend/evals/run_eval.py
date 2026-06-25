@@ -37,6 +37,7 @@ _MODEL_ENV = {
     "ollama": "OLLAMA_MODEL",
     "anthropic": "ANTHROPIC_MODEL",
     "openai": "OPENAI_MODEL",
+    "openrouter": "OPENROUTER_MODEL",
     "gemini": "GEMINI_MODEL",
 }
 

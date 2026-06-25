@@ -5,6 +5,9 @@ One `generate` / `generate_json` surface, routed by LLM_PROVIDER:
 - "anthropic" — Claude via the Messages API; structured output via a forced tool call
   (the schema becomes the tool's input_schema, so the reply IS the parsed JSON).
 - "openai" — Chat Completions; structured output via response_format json_schema.
+- "openrouter" — OpenRouter's OpenAI-compatible Chat Completions (one sk-or key fronts many models;
+  we keep the Gemini family). Reuses the OpenAI payload/parser, just a different base URL + key.
+  NOTE: realtime voice (Gemini Live) is NOT reachable via OpenRouter — only the "gemini" provider.
 - "gemini" — Google generateContent; structured output via generationConfig.responseSchema
   (an OpenAPI subset), with a responseMimeType=application/json + json.loads fallback.
 
@@ -34,6 +37,7 @@ LLMError = OllamaError
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 TIMEOUT = 120.0
 
@@ -74,10 +78,14 @@ def parse_anthropic_response(data: dict[str, Any], expect_json: bool) -> Any:
 
 
 def build_openai_payload(
-    prompt: str, schema: dict[str, Any] | None = None, temperature: float | None = None
+    prompt: str,
+    schema: dict[str, Any] | None = None,
+    temperature: float | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
+    # `model` lets the OpenAI-compatible OpenRouter path reuse this builder with its own slug.
     payload: dict[str, Any] = {
-        "model": settings.OPENAI_MODEL,
+        "model": model or settings.OPENAI_MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": settings.LLM_MAX_TOKENS,
     }
@@ -287,6 +295,15 @@ async def _openai(prompt: str, schema: dict[str, Any] | None, temperature: float
     return parse_openai_response(data, expect_json=schema is not None)
 
 
+async def _openrouter(prompt: str, schema: dict[str, Any] | None, temperature: float | None) -> Any:
+    headers = {
+        "Authorization": f"Bearer {_require_key(settings.OPENROUTER_API_KEY, 'OPENROUTER_API_KEY', 'openrouter')}"
+    }
+    payload = build_openai_payload(prompt, schema, temperature, model=settings.OPENROUTER_MODEL)
+    data = await _post(OPENROUTER_URL, headers, payload, "OpenRouter")
+    return parse_openai_response(data, expect_json=schema is not None)
+
+
 async def _gemini(prompt: str, schema: dict[str, Any] | None, temperature: float | None) -> Any:
     key = _require_key(settings.GEMINI_API_KEY, "GEMINI_API_KEY", "gemini")
     headers = {"x-goog-api-key": key}
@@ -320,6 +337,18 @@ async def _openai_stream(prompt: str, temperature: float | None) -> AsyncIterato
             yield delta
 
 
+async def _openrouter_stream(prompt: str, temperature: float | None) -> AsyncIterator[str]:
+    headers = {
+        "Authorization": f"Bearer {_require_key(settings.OPENROUTER_API_KEY, 'OPENROUTER_API_KEY', 'openrouter')}"
+    }
+    payload = build_openai_payload(prompt, None, temperature, model=settings.OPENROUTER_MODEL)
+    payload["stream"] = True
+    async for line in _stream_lines(OPENROUTER_URL, headers, payload, "OpenRouter"):
+        delta = parse_openai_sse_line(line)
+        if delta:
+            yield delta
+
+
 async def _gemini_stream(prompt: str, temperature: float | None) -> AsyncIterator[str]:
     key = _require_key(settings.GEMINI_API_KEY, "GEMINI_API_KEY", "gemini")
     headers = {"x-goog-api-key": key}
@@ -338,6 +367,8 @@ async def generate(prompt: str, *, temperature: float | None = None) -> str:
         return await _anthropic(prompt, None, temperature)
     if p == "openai":
         return await _openai(prompt, None, temperature)
+    if p == "openrouter":
+        return await _openrouter(prompt, None, temperature)
     if p == "gemini":
         return await _gemini(prompt, None, temperature)
     return await _ollama_generate(prompt, temperature=temperature)
@@ -351,6 +382,8 @@ async def generate_json(
         return await _anthropic(prompt, schema, temperature)
     if p == "openai":
         return await _openai(prompt, schema, temperature)
+    if p == "openrouter":
+        return await _openrouter(prompt, schema, temperature)
     if p == "gemini":
         return await _gemini(prompt, schema, temperature)
     return await _ollama_generate_json(prompt, schema, temperature=temperature)
@@ -371,6 +404,10 @@ async def generate_stream(prompt: str, *, temperature: float | None = None) -> A
         async for delta in _openai_stream(prompt, temperature):
             yield delta
         return
+    if p == "openrouter":
+        async for delta in _openrouter_stream(prompt, temperature):
+            yield delta
+        return
     if p == "gemini":
         async for delta in _gemini_stream(prompt, temperature):
             yield delta
@@ -386,6 +423,8 @@ def active_model() -> str:
         return settings.ANTHROPIC_MODEL
     if p == "openai":
         return settings.OPENAI_MODEL
+    if p == "openrouter":
+        return settings.OPENROUTER_MODEL
     if p == "gemini":
         return settings.GEMINI_MODEL
     return settings.OLLAMA_MODEL

@@ -191,3 +191,37 @@ def test_transcribe_payload_carries_inline_audio_and_verbatim_instruction():
     assert parts[0]["inline_data"] == {"mime_type": "audio/m4a", "data": B64}
     assert "verbatim" in parts[1]["text"].lower()
     assert body["generationConfig"]["temperature"] == 0
+
+
+def test_openrouter_transcribe_payload_carries_input_audio():
+    from app.core.config import settings as _settings
+
+    body = voice_transcribe.build_openrouter_transcribe_payload(B64, "audio/m4a", "en")
+    content = body["messages"][0]["content"]
+    assert content[0] == {"type": "input_audio", "input_audio": {"data": B64, "format": "m4a"}}
+    assert "verbatim" in content[1]["text"].lower()
+    assert body["model"] == _settings.OPENROUTER_TRANSCRIBE_MODEL
+    assert body["temperature"] == 0
+    # MIME → bare format token, with the aliases that differ from the subtype.
+    assert voice_transcribe._audio_format("audio/mpeg") == "mp3"
+    assert voice_transcribe._audio_format("audio/wav") == "wav"
+
+
+async def test_transcribe_routes_to_openrouter_when_provider_openrouter(monkeypatch):
+    from app.core.config import settings as _settings
+    from app.services import llm
+
+    monkeypatch.setattr(_settings, "LLM_PROVIDER", "openrouter")
+    monkeypatch.setattr(_settings, "OPENROUTER_API_KEY", "sk-or-test")
+    seen = {}
+
+    async def fake_post(url, headers, payload, name):
+        seen["url"], seen["name"] = url, name
+        return {"choices": [{"message": {"content": " hello "}}]}
+
+    # transcribe() calls llm._post directly (imported into voice_transcribe's namespace).
+    monkeypatch.setattr(voice_transcribe, "_post", fake_post)
+    out = await voice_transcribe.transcribe(B64, "audio/m4a", "en")
+    assert out == "hello"
+    assert seen["url"] == llm.OPENROUTER_URL
+    assert seen["name"] == "OpenRouter"

@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     ENV: str = "dev"
 
     # --- LLM provider (API migration, decided 2026-06-11) ---
-    # "ollama" (local dev, default) | "anthropic" | "openai" | "gemini". Prod runs on an API
-    # provider; re-run the eval set (evals/run_eval.py --provider ...) before flipping this in prod.
+    # "ollama" (local dev, default) | "anthropic" | "openai" | "gemini" | "openrouter". Prod runs on
+    # an API provider; re-run the eval set (evals/run_eval.py --provider ...) before flipping in prod.
     LLM_PROVIDER: str = "ollama"
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-haiku-4-5"
@@ -30,6 +30,15 @@ class Settings(BaseSettings):
     # Resolved from the live Google AI model list (June 2026): the stable Flash-Lite id (the
     # `-preview` alias is discontinued 2026-07-09). Cheapest viable tier for this workload.
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
+    # --- OpenRouter (OpenAI-compatible gateway) — text + read-aloud audio go through one sk-or key.
+    # Realtime voice (Gemini Live) is NOT available via OpenRouter; only the gemini provider has it.
+    OPENROUTER_API_KEY: str = ""
+    # Model slugs are provider/name (see openrouter.ai/models). Keep the Gemini family so the
+    # prompt tuning carries over. Override in .env if the exact slug differs.
+    OPENROUTER_MODEL: str = "google/gemini-2.5-flash-lite"
+    # Read-aloud transcription model — MUST accept audio input (the lite tier may not), so this is a
+    # separate, audio-capable slug. Verified live by scripts/verify_voice.py.
+    OPENROUTER_TRANSCRIBE_MODEL: str = "google/gemini-2.5-flash"
     LLM_MAX_TOKENS: int = 1024  # API providers require an explicit cap
 
     # --- Ollama (local dev path) ---

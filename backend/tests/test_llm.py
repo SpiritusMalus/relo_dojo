@@ -34,6 +34,9 @@ def test_openai_payload_uses_json_schema_response_format():
     assert p["response_format"]["type"] == "json_schema"
     assert p["response_format"]["json_schema"]["schema"] == {"type": "object"}
     assert "response_format" not in build_openai_payload("hi")
+    # default model is OPENAI_MODEL; the `model` arg overrides it (the OpenRouter path uses this).
+    assert build_openai_payload("hi")["model"] == settings.OPENAI_MODEL
+    assert build_openai_payload("hi", model="google/gemini-2.5-flash-lite")["model"] == "google/gemini-2.5-flash-lite"
 
 
 def test_gemini_payload_sets_json_mime_and_response_schema():
@@ -136,6 +139,7 @@ async def test_generate_json_routes_by_provider(monkeypatch):
     monkeypatch.setattr(llm, "_ollama_generate_json", fake_ollama)
     monkeypatch.setattr(llm, "_anthropic", fake_api)
     monkeypatch.setattr(llm, "_openai", fake_api)
+    monkeypatch.setattr(llm, "_openrouter", fake_api)
     monkeypatch.setattr(llm, "_gemini", fake_api)
 
     monkeypatch.setattr(settings, "LLM_PROVIDER", "ollama")
@@ -144,9 +148,18 @@ async def test_generate_json_routes_by_provider(monkeypatch):
     await llm.generate_json("p", {})
     monkeypatch.setattr(settings, "LLM_PROVIDER", "openai")
     await llm.generate_json("p", {})
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "openrouter")
+    await llm.generate_json("p", {})
     monkeypatch.setattr(settings, "LLM_PROVIDER", "gemini")
     await llm.generate_json("p", {})
-    assert calls == ["ollama", "api", "api", "api"]
+    assert calls == ["ollama", "api", "api", "api", "api"]
+
+
+async def test_openrouter_requires_key(monkeypatch):
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "openrouter")
+    monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "")
+    with pytest.raises(LLMError, match="OPENROUTER_API_KEY"):
+        await llm.generate_json("p", {})
 
 
 async def test_gemini_requires_key(monkeypatch):
@@ -170,5 +183,7 @@ def test_active_model_follows_provider(monkeypatch):
     assert active_model() == settings.ANTHROPIC_MODEL
     monkeypatch.setattr(settings, "LLM_PROVIDER", "openai")
     assert active_model() == settings.OPENAI_MODEL
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "openrouter")
+    assert active_model() == settings.OPENROUTER_MODEL
     monkeypatch.setattr(settings, "LLM_PROVIDER", "gemini")
     assert active_model() == settings.GEMINI_MODEL
