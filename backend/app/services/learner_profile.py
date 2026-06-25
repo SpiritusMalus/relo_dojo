@@ -20,6 +20,38 @@ from ..schemas import GoalEntry, LearnerProfileData
 # PUT /profile agree on one bound — neither can persist more than the other accepts.
 MAX_GOAL_HISTORY = 50
 
+# Upper bound on the composed generation-context line. Mirrors _grammar_feedback._WEAK_SPOTS_MAX_LEN
+# (small models copy long prompts; keep it tight). The generator's _context_clause / SCENARIO already
+# consume one free-text `context` string — context_for folds the profile into that single string.
+_CONTEXT_MAX_LEN = 300
+_MAX_INTERESTS = 5
+
+
+def context_for(data: LearnerProfileData | None) -> str:
+    """Compose a short, prompt-safe generation context from the learner's OWN profile so exercises
+    lean toward their goal / field / interests and drill their weak areas. Pure + offline-testable.
+    None or an empty profile -> "" (today's behavior, byte-for-byte). Bounded to ~300 chars.
+
+    Weak-spot awareness rides in here (the profile stores weakSpots as ONE summary string, not a
+    per-item miss-log) — it is NOT fabricated into the `mistakes` list param."""
+    if data is None:
+        return ""
+    parts: list[str] = []
+    goal = " ".join((data.goal or "").split()).strip()
+    if goal:
+        parts.append(f"goal: {goal}")
+    sphere = " ".join((data.sphere or "").split()).strip()
+    if sphere:
+        parts.append(f"field: {sphere}")
+    interests = [" ".join(str(i).split()).strip() for i in (data.interests or [])]
+    interests = [i for i in interests if i][:_MAX_INTERESTS]
+    if interests:
+        parts.append("interests: " + ", ".join(interests))
+    weak = " ".join((data.weakSpots or "").split()).strip()
+    if weak:
+        parts.append(f"weak spots to drill: {weak}")
+    return "; ".join(parts).strip()[:_CONTEXT_MAX_LEN].strip()
+
 
 async def get_data(user: User | None, db: AsyncSession) -> LearnerProfileData | None:
     """The caller's profile, or None when anonymous / never saved."""

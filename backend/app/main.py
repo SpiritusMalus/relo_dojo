@@ -173,12 +173,22 @@ async def exercise(
     # that can't be served; meter only AFTER a successful generation, so a 503 / retried generation
     # never burns the user's daily quota.
     gating.ensure_daily_quota(user)
+    # "About my life": when the client didn't supply a context, compose one from the learner's OWN
+    # server-side profile (goal / field / interests + weak-spot summary) so generation quietly leans
+    # toward their world — the rich memory already exists, it just never reached /exercise. A
+    # client-supplied context always wins (a future scene picker stays authoritative); anonymous and
+    # no-profile callers are unchanged. Gated on the recorded 152-ФЗ cross-border consent so profile
+    # text only egresses to the LLM for users who provably accepted the transfer.
+    context = payload.context
+    if not (context or "").strip() and user is not None and user.pd_consent_at is not None:
+        prof = await learner_profile.get_data(user, db)
+        context = learner_profile.context_for(prof)
     try:
         data = await grammar.generate_exercise(
             topic=payload.topic,
             level=payload.level,
             ex_type=payload.type,
-            context=payload.context,
+            context=context,
             mistakes=payload.mistakes,
         )
     except OllamaError as exc:

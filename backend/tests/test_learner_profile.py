@@ -8,7 +8,12 @@ from app.services.grammar import (
     _feedback_clause,
     _history_clause,
 )
-from app.services.learner_profile import MAX_GOAL_HISTORY, apply_goal
+from app.services.learner_profile import (
+    MAX_GOAL_HISTORY,
+    _CONTEXT_MAX_LEN,
+    apply_goal,
+    context_for,
+)
 
 
 # --- schema -------------------------------------------------------------------
@@ -68,3 +73,39 @@ def test_check_prompt_threads_tone_and_history():
     assert TONE_LINES["soft"] in p
     assert "prepositions in/at" in p
     assert "Russian" in p
+
+
+# --- context_for: profile → generation context line ---------------------------
+def test_context_for_none_and_empty_profile_is_blank():
+    assert context_for(None) == ""
+    assert context_for(LearnerProfileData()) == ""
+
+
+def test_context_for_composes_goal_field_interests_weak_spots():
+    data = LearnerProfileData(
+        goal="pass a relocation interview",
+        sphere="Backend engineering",
+        interests=["football", "cooking"],
+        weakSpots="confuses past simple vs present perfect",
+    )
+    ctx = context_for(data)
+    assert "goal: pass a relocation interview" in ctx
+    assert "field: Backend engineering" in ctx
+    assert "interests: football, cooking" in ctx
+    assert "weak spots to drill: confuses past simple vs present perfect" in ctx
+
+
+def test_context_for_collapses_whitespace_and_caps_interests():
+    data = LearnerProfileData(
+        goal="speak\n  to   my team",
+        interests=[f"i{i}" for i in range(10)],
+    )
+    ctx = context_for(data)
+    assert "goal: speak to my team" in ctx  # whitespace collapsed
+    assert "i0, i1, i2, i3, i4" in ctx  # first 5 only
+    assert "i5" not in ctx
+
+
+def test_context_for_is_length_bounded():
+    data = LearnerProfileData(goal="g " * 200, weakSpots="w " * 200)
+    assert len(context_for(data)) <= _CONTEXT_MAX_LEN
