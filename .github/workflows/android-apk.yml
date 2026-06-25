@@ -21,6 +21,13 @@ on:
         options:
           - assembleRelease
           - assembleDebug
+      voice_enabled:
+        description: Ship voice (read-aloud pronunciation) — EXPO_PUBLIC_VOICE_ENABLED
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
 
 permissions:
   contents: read
@@ -37,7 +44,9 @@ jobs:
       # Override with a repo secret of the same name if any of these change.
       EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL || 'https://relo.family-pie.ru' }}
       EXPO_PUBLIC_CHECKOUT_URL: ${{ secrets.EXPO_PUBLIC_CHECKOUT_URL || '' }}
-      EXPO_PUBLIC_VOICE_ENABLED: ${{ secrets.EXPO_PUBLIC_VOICE_ENABLED || 'false' }}
+      # Chosen per-build from the workflow input (defaults false). On OpenRouter only read-aloud
+      # works; the Gemini Live dialog the same flag gates would 502 (live needs the gemini provider).
+      EXPO_PUBLIC_VOICE_ENABLED: ${{ inputs.voice_enabled || 'false' }}
     steps:
       - uses: actions/checkout@v4
 
