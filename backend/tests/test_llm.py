@@ -36,7 +36,7 @@ def test_openai_payload_uses_json_schema_response_format():
     assert "response_format" not in build_openai_payload("hi")
     # default model is OPENAI_MODEL; the `model` arg overrides it (the OpenRouter path uses this).
     assert build_openai_payload("hi")["model"] == settings.OPENAI_MODEL
-    assert build_openai_payload("hi", model="google/gemini-2.5-flash-lite")["model"] == "google/gemini-2.5-flash-lite"
+    assert build_openai_payload("hi", model="google/gemini-3.1-flash-lite")["model"] == "google/gemini-3.1-flash-lite"
 
 
 def test_gemini_payload_sets_json_mime_and_response_schema():

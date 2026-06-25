@@ -33,12 +33,12 @@ class Settings(BaseSettings):
     # --- OpenRouter (OpenAI-compatible gateway) — text + read-aloud audio go through one sk-or key.
     # Realtime voice (Gemini Live) is NOT available via OpenRouter; only the gemini provider has it.
     OPENROUTER_API_KEY: str = ""
-    # Model slugs are provider/name (see openrouter.ai/models). Keep the Gemini family so the
-    # prompt tuning carries over. Override in .env if the exact slug differs.
-    OPENROUTER_MODEL: str = "google/gemini-2.5-flash-lite"
-    # Read-aloud transcription model — MUST accept audio input (the lite tier may not), so this is a
-    # separate, audio-capable slug. Verified live by scripts/verify_voice.py.
-    OPENROUTER_TRANSCRIBE_MODEL: str = "google/gemini-2.5-flash"
+    # Model slug is provider/name (see openrouter.ai/models). gemini-3.1-flash-lite is the owner's
+    # pick and (confirmed on the OpenRouter model list) accepts audio input — so the SAME slug serves
+    # both text and read-aloud transcription. Override in .env to change models.
+    OPENROUTER_MODEL: str = "google/gemini-3.1-flash-lite"
+    # Read-aloud transcription model — must accept audio input; defaults to the text model (it does).
+    OPENROUTER_TRANSCRIBE_MODEL: str = "google/gemini-3.1-flash-lite"
     LLM_MAX_TOKENS: int = 1024  # API providers require an explicit cap
 
     # --- Ollama (local dev path) ---
