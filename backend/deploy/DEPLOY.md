@@ -51,8 +51,12 @@ cp /opt/relo_dojo/backend/deploy/.env.prod.example /opt/relo_dojo/backend/.env
 #   JWT_SECRET   = python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 #   CHECK_SECRET = .venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 #   DATABASE_URL = ...://relo:<DB_PW>@127.0.0.1:5432/relo_dojo   (DB_PW from step 2)
-# LLM stays pending Gemini (LLM-backed endpoints 503 until then); set ANTHROPIC_API_KEY to go live sooner.
+#   OPENROUTER_API_KEY = sk-or-v1-...  (the account MUST have purchased credits, else HTTP 402)
+#   SMTP_PASSWORD = the relo@family-pie.ru mailbox password (from reg.ru ISPmanager)
 chown relo:relo /opt/relo_dojo/backend/.env && chmod 600 /opt/relo_dojo/backend/.env
+# Confirm the LLM + voice links are live before going public (no DB/server needed):
+sudo -u relo /opt/relo_dojo/backend/.venv/bin/python /opt/relo_dojo/backend/scripts/verify_llm.py
+sudo -u relo /opt/relo_dojo/backend/.venv/bin/python /opt/relo_dojo/backend/scripts/verify_voice.py
 ```
 
 ## 5. systemd service (migrations auto-run on first start via AUTO_MIGRATE=true)
@@ -99,5 +103,13 @@ caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
 - **Audit follow-up:** the family-pie VPS `sshd` still has `PasswordAuthentication yes` +
   `PermitRootLogin yes` (flagged in the studio security audit, owner/infra fix — out of scope for
   this deploy, but worth hardening while you're on the box).
-- **LLM:** prod has no working model until `feat/llm-gemini` merges and a `GEMINI_API_KEY` is set
-  (or switch `LLM_PROVIDER=anthropic` + key). Everything non-LLM is fully functional meanwhile.
+- **LLM + voice = OpenRouter (one `sk-or` key).** `LLM_PROVIDER=openrouter`, model
+  `google/gemini-3.1-flash-lite` for both text and read-aloud `/voice/transcribe` (it accepts audio
+  input). The OpenRouter account **must have purchased credits** or every LLM/voice call returns
+  **HTTP 402 "Insufficient credits"** (the model is paid) — top up at openrouter.ai/settings/credits.
+  Verify both links with `scripts/verify_llm.py` + `scripts/verify_voice.py`. Until the key is set
+  (and funded), the LLM-backed endpoints (`/exercise`, `/story`, `/check-answer`, `/explain`,
+  `/review-text`, `/profile/analyze`, `/agent/*`, `/voice/transcribe`) 503/502; everything else works.
+- **Voice scope:** read-aloud pronunciation only. Realtime **Live dialog is NOT available on
+  OpenRouter** — only the `gemini` provider (direct Google `AIza` key) has it, and that path is
+  currently dropped. `VOICE_ENABLED=true` exposes `/voice/transcribe`; `/voice/live-token` will 502.
