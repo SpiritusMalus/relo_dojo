@@ -1,0 +1,83 @@
+name: Android APK (prod)
+
+# Cloud APK build that does NOT use the EAS build quota. Runs the Expo prebuild
+# + Gradle pipeline on a free GitHub-hosted runner and uploads the APK as a build
+# artifact. The release buildType in the default Expo template is signed with the
+# debug keystore, so the APK installs for internal testing / sideload without any
+# extra signing secrets. Mirrors the eas.json "prod-apk" profile (points the JS
+# bundle at the prod API), but on GitHub Actions instead of EAS Build.
+#
+# The Expo app lives in mobile/ (monorepo), so every build step is scoped there.
+#
+# Trigger manually from the Actions tab (or `gh workflow run android-apk.yml`).
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: Gradle variant
+        type: choice
+        default: assembleRelease
+        options:
+          - assembleRelease
+          - assembleDebug
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      # Inlined into the JS bundle at build time (matches eas.json "prod-apk").
+      # Override with a repo secret of the same name if any of these change.
+      EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL || 'https://relo.family-pie.ru' }}
+      EXPO_PUBLIC_CHECKOUT_URL: ${{ secrets.EXPO_PUBLIC_CHECKOUT_URL || '' }}
+      EXPO_PUBLIC_VOICE_ENABLED: ${{ secrets.EXPO_PUBLIC_VOICE_ENABLED || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # ubuntu-latest ships the Android SDK; this also wires ANDROID_HOME and
+      # accepts licenses so prebuild/Gradle can resolve build-tools.
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Expo prebuild (android)
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build APK (${{ inputs.variant }})
+        working-directory: mobile/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew ${{ inputs.variant }} --no-daemon
+
+      - name: Locate APK
+        id: apk
+        run: |
+          path="$(find android/app/build/outputs/apk -name '*.apk' | head -1)"
+          echo "path=mobile/$path" >> "$GITHUB_OUTPUT"
+          echo "Built: $path"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relo-dojo-android-apk
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14
