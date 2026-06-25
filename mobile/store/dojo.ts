@@ -126,7 +126,12 @@ export type PathNode = { state: NodeState; topic?: TopicRow };
  *  States: done (mastered) → current (first unmastered) → next (the one after) → locked (rest). */
 export function buildPath(p: Progress, count = 6): { nodes: PathNode[]; doneCount: number; total: number } {
   const rows = TOPIC_ORDER.slice(0, count).map((id) => topicRow(p, id));
-  const currentIdx = rows.findIndex((r) => r.skill < MASTERED_SKILL);
+  // Mastery requires EVIDENCE, not a seeded/placement skill estimate: a topic counts as "done" only
+  // when it has been practiced (`started`, i.e. attempts > 0) AND its skill is ≥ MASTERED_SKILL. This
+  // closes the JourneyPath gap left by #62 — the placement quiz can seed a topic at B2+ with zero
+  // attempts, and that self-assessment must never read as mastered. `current` = first non-mastered row.
+  const isMastered = (r: TopicRow) => r.started && r.skill >= MASTERED_SKILL;
+  const currentIdx = rows.findIndex((r) => !isMastered(r));
 
   const nodes: PathNode[] = rows.map((r, i) => {
     let state: NodeState;

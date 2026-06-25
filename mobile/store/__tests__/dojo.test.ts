@@ -1,4 +1,4 @@
-import { beltProgress, hasEvidence, topicRow, topicRows, TOPIC_ORDER } from "../dojo";
+import { beltProgress, buildPath, hasEvidence, topicRow, topicRows, TOPIC_ORDER } from "../dojo";
 import { DEFAULT_PROGRESS, recordAnswer, type Progress } from "../progress";
 import { selectNext } from "../adaptive";
 
@@ -70,5 +70,38 @@ describe("display honesty — no fabricated progress before evidence", () => {
     const choice = selectNext(DEFAULT_PROGRESS);
     expect(choice).toBeTruthy();
     expect(choice.topic).toBeTruthy();
+  });
+});
+
+describe("buildPath — mastery is evidence-gated, not seeded-skill-gated", () => {
+  const first = TOPIC_ORDER[0];
+
+  it("fresh account: no done nodes, node[0] is current", () => {
+    const { nodes, doneCount } = buildPath(DEFAULT_PROGRESS);
+    expect(doneCount).toBe(0);
+    expect(nodes[0].state).toBe("current");
+  });
+
+  it("a topic seeded ≥3.5 but never practiced is NOT done (no fabricated mastery)", () => {
+    // Placement quiz can seed a high skill with zero attempts — a self-assessment, not earned mastery.
+    const p: Progress = { ...DEFAULT_PROGRESS, skill: { [first]: 4.2 } };
+    expect(topicRow(p, first).started).toBe(false);
+    const { nodes, doneCount } = buildPath(p);
+    expect(nodes[0].state).not.toBe("done");
+    expect(nodes[0].state).toBe("current");
+    expect(doneCount).toBe(0);
+  });
+
+  it("a practiced topic with skill ≥3.5 IS done", () => {
+    const p: Progress = {
+      ...DEFAULT_PROGRESS,
+      skill: { [first]: 4.2 },
+      topics: { [first]: { attempts: 5, correct: 5 } },
+    };
+    expect(topicRow(p, first).started).toBe(true);
+    const { nodes, doneCount } = buildPath(p);
+    expect(nodes[0].state).toBe("done");
+    expect(doneCount).toBe(1);
+    expect(nodes[1].state).toBe("current");
   });
 });
