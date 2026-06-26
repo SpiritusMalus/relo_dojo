@@ -100,6 +100,12 @@ caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
 ```
 
 ### Notes
+- **`Environment=HOME=/opt/relo_dojo/backend` in the unit is load-bearing (not cosmetic).** asyncpg
+  probes `~/.postgresql/postgresql.key` during SSL negotiation; with `ProtectHome=true` the masked
+  `/home/relo` makes that `stat()` raise `PermissionError`, so **every DB endpoint (register/login/…)
+  500s** while non-DB routes (`/health`, `/billing/plans`) still 200 — a confusing partial outage. The
+  unit sets `HOME` to an unmasked dir so the probe finds nothing and the connection proceeds; TLS and
+  ProtectHome stay on. If you ever see DB-only 500s on this box, check that line first.
 - **Audit follow-up:** the family-pie VPS `sshd` still has `PasswordAuthentication yes` +
   `PermitRootLogin yes` (flagged in the studio security audit, owner/infra fix — out of scope for
   this deploy, but worth hardening while you're on the box).
