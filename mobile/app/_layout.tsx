@@ -17,6 +17,10 @@ import { getContracts, postEvents } from "../services/api";
 import * as analytics from "../services/analytics";
 import { ThemeProvider, fontMap } from "../theme/theme";
 
+// Global crash screen: expo-router renders this whenever a render throws anywhere in the tree
+// below the root layout, instead of leaving a blank white screen with no recovery.
+export { RootErrorBoundary as ErrorBoundary } from "../components/RootErrorBoundary";
+
 // Stable anonymous id for pre-login retention attribution (persisted across launches).
 const ANON_KEY = "gd.analytics.anon";
 function newAnonId(): string {
@@ -105,6 +109,29 @@ function RootNav() {
   useEffect(() => {
     let sub: { remove: () => void } | undefined;
     let flushTimer: ReturnType<typeof setInterval> | undefined;
+
+    // Catch uncaught JS errors that the render ErrorBoundary can't see (async callbacks, event
+    // handlers). Chain RN's default handler so the dev red box / prod fatal behaviour is preserved;
+    // we only add a best-effort analytics breadcrumb on top.
+    const errorUtils = (globalThis as { ErrorUtils?: {
+      getGlobalHandler: () => (e: unknown, isFatal?: boolean) => void;
+      setGlobalHandler: (h: (e: unknown, isFatal?: boolean) => void) => void;
+    } }).ErrorUtils;
+    if (errorUtils && !(globalThis as { __reloErrHooked?: boolean }).__reloErrHooked) {
+      (globalThis as { __reloErrHooked?: boolean }).__reloErrHooked = true;
+      const prev = errorUtils.getGlobalHandler();
+      errorUtils.setGlobalHandler((e, isFatal) => {
+        try {
+          const err = e as { message?: unknown } | undefined;
+          analytics.track("app_error", { message: String(err?.message ?? e), fatal: !!isFatal });
+          void analytics.flush();
+        } catch {
+          // never let the handler itself throw
+        }
+        prev?.(e, isFatal);
+      });
+    }
+
     void (async () => {
       let id = await AsyncStorage.getItem(ANON_KEY).catch(() => null);
       if (!id) {
