@@ -48,6 +48,9 @@ describe("Login screen (smoke)", () => {
     expect(JSON.stringify(r.toJSON())).toContain("Relo Dojo");
     expect(inputByLabel(r, "login.email")).toBeTruthy();
     expect(inputByLabel(r, "login.password")).toBeTruthy();
+    // Unmount so the Sensei mascot's bob animation loop stops — an un-unmounted screen leaves its
+    // timer running past teardown and force-exits the Jest worker.
+    act(() => r.unmount());
   });
 
   it("submits the typed credentials (login mode)", async () => {
@@ -61,5 +64,6 @@ describe("Login screen (smoke)", () => {
     });
     expect(mockLogin).toHaveBeenCalledWith("a@b.com", "password123");
     expect(mockRegister).not.toHaveBeenCalled();
+    act(() => r.unmount());
   });
 });

@@ -47,5 +47,9 @@ describe("Progress screen (smoke)", () => {
   it("renders the default snapshot without throwing", () => {
     const r = render(<ProgressScreen />);
     expect(r.toJSON()).toBeTruthy();
+    // Unmount so the screen's effects/animations clean up — otherwise self-driving timers in the
+    // belt-journey/mascot keep firing past teardown ("accessed after the Jest environment was torn
+    // down" + a force-exited worker, a CI flake/hang risk).
+    act(() => r.unmount());
   });
 });
