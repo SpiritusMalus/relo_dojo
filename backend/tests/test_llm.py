@@ -162,6 +162,29 @@ async def test_openrouter_requires_key(monkeypatch):
         await llm.generate_json("p", {})
 
 
+async def test_openrouter_posts_to_openrouter_url_with_model_and_bearer(monkeypatch):
+    # The openrouter path reuses the OpenAI payload/parser, but hits OpenRouter's base URL with its
+    # own model slug + Bearer auth. Pin that wiring (the live eval confirms behavior; this is offline).
+    seen: dict = {}
+
+    async def fake_post(url, headers, payload, name):
+        seen.update(url=url, headers=headers, payload=payload, name=name)
+        return {"choices": [{"message": {"content": '{"ok": true}'}}]}
+
+    monkeypatch.setattr(llm, "_post", fake_post)
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "openrouter")
+    monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "sk-or-test")
+    monkeypatch.setattr(settings, "OPENROUTER_MODEL", "google/gemini-3.1-flash-lite")
+
+    out = await llm.generate_json("p", {"type": "object"})
+    assert out == {"ok": True}
+    assert seen["url"] == llm.OPENROUTER_URL
+    assert seen["name"] == "OpenRouter"
+    assert seen["headers"]["Authorization"] == "Bearer sk-or-test"
+    assert seen["payload"]["model"] == "google/gemini-3.1-flash-lite"
+    assert seen["payload"]["response_format"]["type"] == "json_schema"
+
+
 async def test_gemini_requires_key(monkeypatch):
     monkeypatch.setattr(settings, "LLM_PROVIDER", "gemini")
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
