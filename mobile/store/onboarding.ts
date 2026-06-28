@@ -113,12 +113,36 @@ export function selfLevelToLevel(self: string): number {
     case "beginner":
       return 0.5; // A1
     case "advanced":
-      return 3.5; // B2
+      // B1 (was 3.5 = inside B2, one good answer from C1). The self-claim is only a starting prior;
+      // the calibration quiz must EARN B2+. Down-weighted so the test dominates, not the self-rating.
+      return 2.8;
     case "intermediate":
       return 1.8; // A2/B1
     default:
       return START_LEVEL;
   }
+}
+
+// --- calibration (onboarding placement quiz) ---
+// Onboarding placement is a short, low-evidence quiz, so its verdict is deliberately conservative:
+//  1. the per-answer step DECAYS as items accumulate (one item is weak evidence — never a whole CEFR
+//     band of swing), mirroring the gentle runtime model in adaptive.ts; and
+//  2. the result is CAPPED at high-B2 — a 10-item multiple-choice quiz never awards C1. C1 is reserved
+//     for sustained performance in real practice / the belt exam (adaptive.ts can climb above this).
+// This is the fix for placement over-estimation ("C1 with a couple of mistakes, can't actually speak").
+
+// Largest level the onboarding quiz can output (inside the B2 band [3,4) → levelToCefr = "B2").
+export const ONBOARDING_MAX_LEVEL = 3.9;
+
+/** Per-answer calibration step, decaying with the number of items already answered. Starts at 0.6
+ *  (well under a 1.0-wide CEFR band) and shrinks toward a 0.2 floor so later items fine-tune. */
+export function calibrationStep(answered: number): number {
+  return Math.max(0.2, 0.6 / (1 + Math.max(0, answered) / 3));
+}
+
+/** Clamp an onboarding-derived level so placement never overshoots into C1 (see ONBOARDING_MAX_LEVEL). */
+export function capOnboardingLevel(level: number): number {
+  return Math.min(ONBOARDING_MAX_LEVEL, Math.max(LEVEL_MIN, level));
 }
 
 /** Per-topic skill from a base level: every topic starts at `level`, flagged topics a bit lower. */
