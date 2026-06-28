@@ -445,6 +445,19 @@ class ReviewOut(BaseModel):
     topics: list[str] = []  # distinct topics found (client convenience; also fed to the profile)
 
 
+# --- writing assessment (Level Test productive-skill section) ---
+class WritingAssessIn(BaseModel):
+    text: str = Field(min_length=1, max_length=MAX_TEXT)
+    prompt: Optional[str] = Field(default=None, max_length=300)  # the task the learner answered
+    lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language for the note
+
+
+class WritingAssessOut(BaseModel):
+    cefr: str  # A1..C1
+    score: float  # 0..5 (midpoint of the band) — folded into the Level Test overall
+    note: str = ""
+
+
 # --- learner profile (Praktika adoption Stage 1: server-side memory layer) ---
 TONES = ("soft", "balanced", "strict")
 

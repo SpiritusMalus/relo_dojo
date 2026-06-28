@@ -145,6 +145,24 @@ export const CALIBRATION_BANK: CalItem[] = [
   { id: "r-c1-2", topic: "reading", skill: "reading", level: 4.5, passage: "While the author concedes that technology has accelerated communication, she contends that genuine understanding has not kept pace, and may even have declined as messages grow shorter and more frequent.", text: "What is the author's main argument?", options: ["Faster communication hasn't improved understanding", "Technology has deepened understanding", "People send too few messages"], answer: "Faster communication hasn't improved understanding" },
 ];
 
+// Writing-section prompts (Level Test productive skill). Field-neutral; difficulty rises with level.
+// The learner writes a few sentences; the response is CEFR-scored by the LLM (/assess-writing).
+export type WritingPrompt = { level: number; prompt: string };
+export const WRITING_PROMPTS: WritingPrompt[] = [
+  { level: 1.0, prompt: "Write 2–3 sentences about your typical morning." },
+  { level: 2.0, prompt: "Write a few sentences about a place you enjoyed visiting." },
+  { level: 3.0, prompt: "Describe a problem you solved recently and how you solved it." },
+  { level: 3.8, prompt: "Do you think working from home is better than working in an office? Give your reasons." },
+  { level: 4.5, prompt: "Some people say technology makes us less social. To what extent do you agree?" },
+];
+
+/** The writing prompt whose target level is closest to the learner's estimated ability `target`. */
+export function pickWritingPrompt(target: number): WritingPrompt {
+  return WRITING_PROMPTS.reduce((best, p) =>
+    Math.abs(p.level - target) < Math.abs(best.level - target) ? p : best
+  );
+}
+
 /** Pick the unused bank item whose level is closest to `target` (random tie-break). When `skill` is
  *  given, only items of that skill are considered (the Level Test rotates skills for coverage);
  *  returns null if none remain so the caller can fall back to any skill. */
