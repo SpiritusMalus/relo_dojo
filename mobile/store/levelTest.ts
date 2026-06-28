@@ -11,13 +11,17 @@
 // and fails around θ, the estimate has bracketed their true level and the test stops. (A target-success
 // controller like adaptive.ts would instead converge to the 75%-success point, never the ceiling —
 // wrong for placement, right for ongoing practice.)
-import { pickItem, type CalItem } from "./calibrationBank";
+import { pickItem, type CalItem, type CalSkill } from "./calibrationBank";
 import { levelToCefr, START_LEVEL, type Cefr } from "./adaptive";
 import { beltByCefr } from "../theme/theme";
 
 export const LT_MIN_ITEMS = 8; // never decide on fewer than this — placement needs evidence
 export const LT_MAX_ITEMS = 16; // hard ceiling so the test always terminates
 const BRACKET_WINDOW = 4; // look at the last N answers to detect that θ has bracketed the boundary
+
+// The test rotates through these skills so the placement reflects more than grammar (each is sampled
+// roughly evenly). "listening" joins once TTS lands; "writing" is a separate LLM-scored section.
+const SKILL_ROTATION: CalSkill[] = ["grammar", "vocab", "reading"];
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 
@@ -40,9 +44,11 @@ export function startLevelTest(seed: number = START_LEVEL): LevelTestState {
   return { theta: clamp(seed, 0, 5), answered: 0, used: new Set(), recent: [] };
 }
 
-/** The next item to serve: the unused bank item whose difficulty is closest to the current θ. */
+/** The next item to serve: rotate to the next skill (for balanced coverage) and pick the unused item
+ *  of that skill closest to the current θ; if that skill is exhausted, fall back to any skill. */
 export function nextItem(s: LevelTestState): CalItem | null {
-  return pickItem(s.theta, s.used);
+  const skill = SKILL_ROTATION[s.answered % SKILL_ROTATION.length];
+  return pickItem(s.theta, s.used, skill) ?? pickItem(s.theta, s.used);
 }
 
 /** Fold one graded answer into the estimate (up-down staircase with a decaying step). */
