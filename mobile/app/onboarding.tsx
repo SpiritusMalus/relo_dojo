@@ -34,7 +34,7 @@ import {
   seedSkillFromProfile,
   selfLevelToLevel,
 } from "../store/onboarding";
-import { pickItem, type CalItem } from "../store/calibrationBank";
+import { pickOnboardingItem, type CalItem } from "../store/calibrationBank";
 import { useI18n } from "../store/i18n";
 import { RU_GOAL_LABELS, RU_SELF_LABELS, RU_TONE_LABELS, RU_TOPIC_LABELS } from "../i18n/strings";
 import { beltByCefr, useTheme } from "../theme/theme";
@@ -166,7 +166,7 @@ function Calibration({
   const load = useCallback(() => {
     setResponse(null);
     setResult(null);
-    const next = pickItem(levelRef.current, usedRef.current);
+    const next = pickOnboardingItem(levelRef.current, usedRef.current);
     if (!next) {
       finish();
       return;

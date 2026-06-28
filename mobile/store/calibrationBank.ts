@@ -20,11 +20,18 @@ export type CalItem = {
   answer: string; // must be one of options
   skill?: CalSkill; // omitted → inferred by skillOf() (vocabulary topic → vocab, else grammar)
   passage?: string; // reading items: the text shown above the question
+  speak?: string; // listening items: the text played via TTS (NOT shown); the question is `text`
 };
 
 /** The skill an item measures. Legacy grammar/vocab items don't tag it, so infer from the topic. */
 export function skillOf(item: CalItem): CalSkill {
   return item.skill ?? (item.topic === "vocabulary" ? "vocab" : "grammar");
+}
+
+/** A "core" item is a plain MCQ with no passage to show or audio to play — the only kind the
+ *  onboarding warm-up can render. Reading (passage) / listening (audio) items are Level-Test-only. */
+export function isCoreItem(item: CalItem): boolean {
+  return !item.passage && !item.speak;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -143,6 +150,24 @@ export const CALIBRATION_BANK: CalItem[] = [
   // --- C1 (4.5) ---
   { id: "r-c1-1", topic: "reading", skill: "reading", level: 4.5, passage: "The policy was ostensibly designed to protect small businesses, yet its complex requirements ended up favouring large firms that could afford specialist legal advice — an outcome few of its authors had anticipated.", text: "What was the unintended effect of the policy?", options: ["It favoured large firms", "It bankrupted large firms", "It simplified legal advice"], answer: "It favoured large firms" },
   { id: "r-c1-2", topic: "reading", skill: "reading", level: 4.5, passage: "While the author concedes that technology has accelerated communication, she contends that genuine understanding has not kept pace, and may even have declined as messages grow shorter and more frequent.", text: "What is the author's main argument?", options: ["Faster communication hasn't improved understanding", "Technology has deepened understanding", "People send too few messages"], answer: "Faster communication hasn't improved understanding" },
+
+  // === Listening comprehension (skill: "listening") — `speak` is played via TTS and NOT shown; the
+  // learner answers the `text` question from what they heard. Spoken text gets longer/denser by level. ===
+  // --- A1 (0.5) ---
+  { id: "l-a1-1", topic: "listening", skill: "listening", level: 0.5, speak: "Hello. My name is Anna and I am from Spain.", text: "Where is Anna from?", options: ["Spain", "France", "Italy"], answer: "Spain" },
+  { id: "l-a1-2", topic: "listening", skill: "listening", level: 0.5, speak: "I have two cats and one dog at home.", text: "How many cats does the speaker have?", options: ["Two", "One", "Three"], answer: "Two" },
+  // --- A2 (1.5) ---
+  { id: "l-a2-1", topic: "listening", skill: "listening", level: 1.5, speak: "The meeting is on Friday at three o'clock, not on Monday.", text: "When is the meeting?", options: ["Friday at three", "Monday at three", "Friday at two"], answer: "Friday at three" },
+  { id: "l-a2-2", topic: "listening", skill: "listening", level: 1.5, speak: "I usually take the bus to work, but today I walked.", text: "How did the speaker get to work today?", options: ["They walked", "By bus", "By car"], answer: "They walked" },
+  // --- B1 (2.5) ---
+  { id: "l-b1-1", topic: "listening", skill: "listening", level: 2.5, speak: "We were going to have a picnic, but it started raining, so we stayed home.", text: "Why did they stay home?", options: ["It started raining", "They were tired", "They had no food"], answer: "It started raining" },
+  { id: "l-b1-2", topic: "listening", skill: "listening", level: 2.5, speak: "He has been learning the guitar for three years and now plays in a small band.", text: "What does he do now?", options: ["Plays in a band", "Teaches guitar", "Has just started learning"], answer: "Plays in a band" },
+  // --- B2 (3.5) ---
+  { id: "l-b2-1", topic: "listening", skill: "listening", level: 3.5, speak: "Although the flight was delayed by two hours, we still managed to catch our connection.", text: "What happened in the end?", options: ["They caught their connection", "They missed the flight", "The flight was cancelled"], answer: "They caught their connection" },
+  { id: "l-b2-2", topic: "listening", skill: "listening", level: 3.5, speak: "The new policy lets employees work from home twice a week, which most of the team welcomed.", text: "How did most of the team react?", options: ["They welcomed it", "They opposed it", "They ignored it"], answer: "They welcomed it" },
+  // --- C1 (4.5) ---
+  { id: "l-c1-1", topic: "listening", skill: "listening", level: 4.5, speak: "Had the committee consulted the residents earlier, much of the later controversy could have been avoided.", text: "What does the speaker imply?", options: ["Consulting residents earlier would have avoided controversy", "The residents caused the controversy", "The committee did consult residents early"], answer: "Consulting residents earlier would have avoided controversy" },
+  { id: "l-c1-2", topic: "listening", skill: "listening", level: 4.5, speak: "While she is undeniably talented, her tendency to miss deadlines has held back her career.", text: "What has held back her career?", options: ["Missing deadlines", "A lack of talent", "Taking on too few projects"], answer: "Missing deadlines" },
 ];
 
 // Writing-section prompts (Level Test productive skill). Field-neutral; difficulty rises with level.
@@ -163,16 +188,27 @@ export function pickWritingPrompt(target: number): WritingPrompt {
   );
 }
 
-/** Pick the unused bank item whose level is closest to `target` (random tie-break). When `skill` is
- *  given, only items of that skill are considered (the Level Test rotates skills for coverage);
- *  returns null if none remain so the caller can fall back to any skill. */
-export function pickItem(target: number, usedIds: Set<string>, skill?: CalSkill): CalItem | null {
-  const pool = CALIBRATION_BANK.filter(
-    (it) => !usedIds.has(it.id) && (skill === undefined || skillOf(it) === skill)
-  );
+/** The pool item whose level is closest to `target` (random tie-break), or null if the pool is empty. */
+function nearest(pool: CalItem[], target: number): CalItem | null {
   if (pool.length === 0) return null;
   let best = Infinity;
   for (const it of pool) best = Math.min(best, Math.abs(it.level - target));
   const closest = pool.filter((it) => Math.abs(it.level - target) === best);
   return closest[Math.floor(Math.random() * closest.length)];
+}
+
+/** Pick the unused bank item whose level is closest to `target`. When `skill` is given, only items of
+ *  that skill are considered (the Level Test rotates skills for coverage); returns null if none remain
+ *  so the caller can fall back to any skill. */
+export function pickItem(target: number, usedIds: Set<string>, skill?: CalSkill): CalItem | null {
+  return nearest(
+    CALIBRATION_BANK.filter((it) => !usedIds.has(it.id) && (skill === undefined || skillOf(it) === skill)),
+    target
+  );
+}
+
+/** Onboarding warm-up picker: ONLY core MCQ items (no reading passages / listening audio it can't
+ *  render). Keeps the quick onboarding to plain grammar/vocab even as the bank grows. */
+export function pickOnboardingItem(target: number, usedIds: Set<string>): CalItem | null {
+  return nearest(CALIBRATION_BANK.filter((it) => !usedIds.has(it.id) && isCoreItem(it)), target);
 }

@@ -9,7 +9,7 @@ import {
   LT_MIN_ITEMS,
   type LevelTestState,
 } from "../levelTest";
-import { pickWritingPrompt, skillOf } from "../calibrationBank";
+import { isCoreItem, pickOnboardingItem, pickWritingPrompt, skillOf } from "../calibrationBank";
 import { levelToCefr } from "../adaptive";
 
 // Drive the engine to completion modelling a learner of `trueAbility`: they reliably handle items at
@@ -85,8 +85,20 @@ describe("level test engine — multi-skill coverage", () => {
       s = recordAnswer(s, it, it.level <= 2.5);
     }
     expect(skills.has("reading")).toBe(true);
+    expect(skills.has("listening")).toBe(true);
     // and it still includes the grammar/vocab core
     expect(skills.has("grammar") || skills.has("vocab")).toBe(true);
+  });
+
+  test("the onboarding picker never serves reading/listening items (it can't render them)", () => {
+    const used = new Set<string>();
+    for (let i = 0; i < 30; i++) {
+      const it = pickOnboardingItem(2.5, used);
+      if (!it) break;
+      expect(isCoreItem(it)).toBe(true);
+      expect(["reading", "listening"]).not.toContain(skillOf(it));
+      used.add(it.id);
+    }
   });
 });
 

@@ -446,6 +446,8 @@ export const STRINGS = {
     "lt.writingSubmit": "Submit",
     "lt.writingSkip": "Skip writing",
     "lt.scoring": "Sensei is reading your writing…",
+    "lt.listenHint": "Listen and answer",
+    "lt.playAudio": "🔊 Play again",
 
     "loading.default": "Loading…",
   },
@@ -889,6 +891,8 @@ export const STRINGS = {
     "lt.writingSubmit": "Отправить",
     "lt.writingSkip": "Пропустить письмо",
     "lt.scoring": "Сэнсэй читает твой текст…",
+    "lt.listenHint": "Послушай и ответь",
+    "lt.playAudio": "🔊 Повторить",
 
     "loading.default": "Загрузка…",
   },
