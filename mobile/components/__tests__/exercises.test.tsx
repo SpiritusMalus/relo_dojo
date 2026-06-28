@@ -5,6 +5,10 @@
 import { createElement, type ReactElement } from "react";
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 
+// i18n store mocked (key-passthrough) so the localized on-card instructions render their key — the
+// components only need a `t`, not the real AsyncStorage-backed provider. Mirrors result-panel.test.
+jest.mock("../../store/i18n", () => ({ useI18n: () => ({ t: (k: string) => k }) }));
+
 import MultipleChoice from "../MultipleChoice";
 import TapError from "../TapError";
 import MultipleBlanks from "../MultipleBlanks";
@@ -63,6 +67,24 @@ describe("MultipleChoice", () => {
     // After selection the chosen option exposes selected state for screen readers.
     expect(buttons(r)[0].props.accessibilityState.selected).toBe(true);
     expect(buttons(r)[1].props.accessibilityState.selected).toBe(false);
+  });
+
+  it("shows the localized instruction for odd-one-out (not the backend English text)", () => {
+    // odd-one-out reuses MultipleChoice; its backend `text` is a fixed English instruction, so the
+    // component shows a localized one instead. Multiple-choice keeps showing its content sentence.
+    const oddR = render(
+      <MultipleChoice
+        exercise={ex({ type: "odd-one-out", text: "Tap the one that doesn't belong.", options: ["cat", "dog", "run"] })}
+        locked={false}
+        onChange={jest.fn()}
+      />
+    );
+    expect(oddR.root.findAll((n) => n.props.children === "ex.oddOneOut").length).toBeGreaterThan(0);
+
+    const mcR = render(
+      <MultipleChoice exercise={ex({ text: "I ___ home", options: ["go", "goes"] })} locked={false} onChange={jest.fn()} />
+    );
+    expect(mcR.root.findAll((n) => n.props.children === "I ___ home").length).toBeGreaterThan(0);
   });
 
   it("does not report when locked, and marks options disabled", () => {

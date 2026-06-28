@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
+import { useI18n } from "../store/i18n";
 import Txt from "./ui/Txt";
 
 // Reorder shuffled dialog lines. Tap a bank line to append (numbered); tap a placed line to remove.
 export default function OrderDialog({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
+  const { t: tr } = useI18n();
   const tiles = exercise.tiles;
   const [order, setOrder] = useState<number[]>([]);
 
@@ -31,12 +33,12 @@ export default function OrderDialog({ exercise, locked, onChange }: ExerciseProp
 
   return (
     <View style={{ gap: 14 }}>
-      <Txt variant="label">{exercise.text}</Txt>
+      <Txt variant="label">{tr("ex.orderDialog")}</Txt>
 
       <View style={{ gap: 8, minHeight: 52 }}>
         {order.length === 0 ? (
           <Txt variant="body" color={t.c.ink3} style={{ fontStyle: "italic" }}>
-            Tap lines below in order…
+            {tr("ex.orderDialogHint")}
           </Txt>
         ) : (
           order.map((i, pos) => (

@@ -465,6 +465,7 @@ async def build_story(
     level: str | None = None,
     context_override: str | None = None,
     scenario_id: str | None = None,
+    lang: str | None = None,
 ) -> dict[str, Any]:
     """Assemble a mini-story: pick a curated scenario, then generate one exercise per beat.
 
@@ -484,7 +485,7 @@ async def build_story(
     for i in range(STORY_LEN):
         topic = topics[i % len(topics)]
         exercise = await grammar.generate_exercise(
-            topic=topic, level=level, ex_type=None, context=context
+            topic=topic, level=level, ex_type=None, context=context, lang=lang
         )
         narration = scenario["narration"][i] if i < len(scenario["narration"]) else ""
         beats.append({"narration": narration, "exercise": exercise})

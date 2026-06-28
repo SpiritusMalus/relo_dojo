@@ -418,6 +418,18 @@ export const STRINGS = {
     "voice.endTalk": "End conversation",
     "voice.unavailable": "Voice practice isn't available right now.",
 
+    // Fixed on-card task instructions / chrome (the exercise *content* stays English; these are the
+    // localized "what to do" labels the learner reads — see components/*.tsx).
+    "ex.matchPairs": "Match each item with its pair.",
+    "ex.tapError": "Tap the word that is wrong.",
+    "ex.oddOneOut": "Tap the one that doesn't belong.",
+    "ex.orderDialog": "Put the conversation in the right order.",
+    "ex.orderDialogHint": "Tap lines below in order…",
+    "ex.translate": "Translate to English",
+    "ex.rewrite": "Rewrite the sentence",
+    "ex.buildHint": "Tap the words below to build it…",
+    "ex.rewriteHint": "Tap the words to rewrite it…",
+
     "loading.default": "Loading…",
   },
   ru: {
@@ -833,6 +845,16 @@ export const STRINGS = {
     "voice.talk": "Поговорить с Сэнсэем",
     "voice.endTalk": "Завершить разговор",
     "voice.unavailable": "Голосовая практика сейчас недоступна.",
+
+    "ex.matchPairs": "Соедини каждый элемент с его парой.",
+    "ex.tapError": "Нажми на слово с ошибкой.",
+    "ex.oddOneOut": "Нажми на лишнее.",
+    "ex.orderDialog": "Расставь реплики по порядку.",
+    "ex.orderDialogHint": "Нажимай реплики ниже по порядку…",
+    "ex.translate": "Переведи на английский",
+    "ex.rewrite": "Перепиши предложение",
+    "ex.buildHint": "Нажимай слова ниже, чтобы собрать…",
+    "ex.rewriteHint": "Нажимай слова, чтобы переписать…",
 
     "loading.default": "Загрузка…",
   },

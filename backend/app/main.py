@@ -190,6 +190,7 @@ async def exercise(
             ex_type=payload.type,
             context=context,
             mistakes=payload.mistakes,
+            lang=payload.lang,
         )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -218,7 +219,7 @@ async def story(
             raise HTTPException(status_code=403, detail="This arc is locked. Unlock it with koku.")
     try:
         data = await stories.build_story(
-            level=payload.level, context_override=payload.context, scenario_id=payload.id
+            level=payload.level, context_override=payload.context, scenario_id=payload.id, lang=payload.lang
         )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

@@ -17,6 +17,18 @@ def _explain_lang(lang: str | None) -> str:
     return "Russian" if (lang or "").lower().startswith("ru") else "English"
 
 
+def _lang_directive(lang: str | None) -> str:
+    """A prominent output-language instruction, placed up FRONT in every feedback prompt. A trailing
+    'write in Russian' line is easily ignored by a weaker model buried under a long English prompt, so
+    we also state it before the task — this is what makes RU explanations actually come back in RU."""
+    note_lang = _explain_lang(lang)
+    return (
+        f"OUTPUT LANGUAGE: write EVERY learner-facing field (explanation, tip, summary, notes) in "
+        f"{note_lang}. Only the English exercise text and the correct answer stay in English; all of "
+        f"your explanatory prose must be in {note_lang}.\n"
+    )
+
+
 # Feedback style (Praktika adoption Stage 1): correction by rephrasing, never the word "wrong",
 # errors reframed as progress. Tone is the learner's choice (profile.tone); balanced is the default.
 TONE_LINES: dict[str, str] = {
@@ -70,6 +82,7 @@ def _check_prompt(
     note_lang = _explain_lang(lang)
     return (
         _tutor_intro()
+        + _lang_directive(lang)
         + _feedback_clause(tone, weak_spots)
         + GUARDRAIL
         + f"Exercise: {text}\n"
@@ -135,6 +148,7 @@ async def explain(
     note_lang = _explain_lang(lang)
     prompt = (
         _tutor_intro()
+        + _lang_directive(lang)
         + _feedback_clause(tone, weak_spots)
         + GUARDRAIL
         + f"Exercise: {text}\nCorrect answer: {correct_answer}\n"
@@ -162,6 +176,7 @@ def explain_text_prompt(
     note_lang = _explain_lang(lang)
     return (
         _tutor_intro()
+        + _lang_directive(lang)
         + _feedback_clause(tone, weak_spots)
         + GUARDRAIL
         + f"Exercise: {text}\nCorrect answer: {correct_answer}\n"
@@ -205,6 +220,7 @@ def _review_prompt(
     note_lang = _explain_lang(lang)
     return (
         _tutor_intro()
+        + _lang_directive(lang)
         + _feedback_clause(tone, weak_spots)
         + GUARDRAIL
         + "The learner pastes a REAL text of their own (an email, message, or post) and wants a "

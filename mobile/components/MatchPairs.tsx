@@ -3,11 +3,13 @@ import { Pressable, StyleSheet, View } from "react-native";
 import type { ResponseValue } from "../services/api";
 import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
+import { useI18n } from "../store/i18n";
 import Txt from "./ui/Txt";
 
 // Two columns. Tap a left item, then a right item, to link them (one-to-one).
 export default function MatchPairs({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
+  const { t: tr } = useI18n();
   const { left, right } = exercise;
   const [map, setMap] = useState<Record<number, number>>({});
   const [pendingLeft, setPendingLeft] = useState<number | null>(null);
@@ -50,7 +52,7 @@ export default function MatchPairs({ exercise, locked, onChange }: ExerciseProps
   return (
     <View style={styles.wrap}>
       <Txt variant="body" color={t.c.ink2}>
-        {exercise.text}
+        {tr("ex.matchPairs")}
       </Txt>
       <View style={styles.columns}>
         <View style={styles.col}>

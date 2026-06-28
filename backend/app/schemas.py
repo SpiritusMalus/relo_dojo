@@ -28,6 +28,7 @@ class ExerciseIn(BaseModel):
     # Recent items the learner got wrong on this topic, to personalize generation (sanitized + capped
     # server-side). Count bounded here; per-item length/whitespace handled in grammar._sanitize_mistakes.
     mistakes: list[str] = Field(default_factory=list, max_length=5)
+    lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language for LLM-generated task instructions (transform-the-sentence)
 
 
 class MatchItem(BaseModel):
@@ -75,6 +76,7 @@ class StoryIn(BaseModel):
     level: Optional[str] = Field(default=None, max_length=4)  # CEFR: A1..C1
     context: Optional[str] = Field(default=None, max_length=300)
     id: Optional[str] = Field(default=None, max_length=40)  # specific arc; omitted → random/featured
+    lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language for LLM-generated task instructions (transform beats)
 
 
 class StoryBeat(BaseModel):
