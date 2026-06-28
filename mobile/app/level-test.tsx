@@ -2,11 +2,12 @@
 // items come from the curated bank and are graded locally against the known answer (no LLM). The
 // estimate stops once it settles; the result re-seeds the skill estimate and raises the worn belt,
 // and — unlike the onboarding warm-up (capped at B2) — it can place at C1.
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Speech from "expo-speech";
 import { assessWriting, type ResponseValue } from "../services/api";
 import { itemToExercise, pickWritingPrompt, type CalItem } from "../store/calibrationBank";
 import {
@@ -62,6 +63,24 @@ export default function LevelTestScreen() {
   const [writingText, setWritingText] = useState("");
 
   const exercise = useMemo(() => (item ? itemToExercise(item) : null), [item]);
+
+  // Listening items: play the (hidden) text via TTS. Guarded — on a client built before expo-speech
+  // was added the native call throws; we swallow it so the card still works (degrades to text-only).
+  const playListening = useCallback(() => {
+    if (!item?.speak) return;
+    try {
+      Speech.stop();
+      Speech.speak(item.speak, { language: "en-US", rate: 0.95 });
+    } catch {
+      // expo-speech unavailable (un-rebuilt client) — no audio, the question still shows.
+    }
+  }, [item]);
+
+  // Auto-play a listening item once it appears (replayable via the button); stop any speech on unmount.
+  useEffect(() => {
+    if (phase === "solving" && item?.skill === "listening") playListening();
+  }, [item, phase, playListening]);
+  useEffect(() => () => { try { Speech.stop(); } catch { /* noop */ } }, []);
 
   // The MCQ section is done → hand off to the writing task (prompt chosen at the placed level).
   const toWriting = useCallback(() => {
@@ -207,6 +226,13 @@ export default function LevelTestScreen() {
         {item?.passage && (
           <Card style={{ backgroundColor: t.c.surface2 }}>
             <Txt variant="body" color={t.c.ink}>{item.passage}</Txt>
+          </Card>
+        )}
+        {/* Listening items: the text is spoken (never shown). Tap to replay. */}
+        {item?.skill === "listening" && (
+          <Card style={{ backgroundColor: t.c.surface2, alignItems: "center", gap: 8 }}>
+            <Txt variant="secondary" color={t.c.ink3}>{tr("lt.listenHint")}</Txt>
+            <Button label={tr("lt.playAudio")} variant="ghost" onPress={playListening} />
           </Card>
         )}
         {exercise && (

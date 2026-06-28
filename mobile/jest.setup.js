@@ -9,6 +9,10 @@ jest.mock("@react-native-async-storage/async-storage", () =>
 // Tests that exercise streaming provide their own per-file behavior.
 jest.mock("expo/fetch", () => ({ fetch: jest.fn() }), { virtual: true });
 
+// expo-speech is a native TTS module (Level Test listening section). Stub it so a suite that imports
+// a screen using it doesn't hit native code under jest.
+jest.mock("expo-speech", () => ({ speak: jest.fn(), stop: jest.fn() }), { virtual: true });
+
 // Google-font asset packages (pulled in transitively via theme/theme.ts when a component renders).
 // They ship native font assets jest can't resolve; the values are only used as fontFamily *keys*,
 // so a string stub per export is enough for render tests. `virtual: true` → no real module needed.

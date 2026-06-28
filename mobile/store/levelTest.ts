@@ -20,8 +20,8 @@ export const LT_MAX_ITEMS = 16; // hard ceiling so the test always terminates
 const BRACKET_WINDOW = 4; // look at the last N answers to detect that θ has bracketed the boundary
 
 // The test rotates through these skills so the placement reflects more than grammar (each is sampled
-// roughly evenly). "listening" joins once TTS lands; "writing" is a separate LLM-scored section.
-const SKILL_ROTATION: CalSkill[] = ["grammar", "vocab", "reading"];
+// roughly evenly). "writing" is a separate LLM-scored section handled by the screen.
+const SKILL_ROTATION: CalSkill[] = ["grammar", "vocab", "reading", "listening"];
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 
