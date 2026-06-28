@@ -87,6 +87,9 @@ export default function ProgressScreen() {
         </View>
         {/* Wardrobe entry — the showcase is where you admire the Sensei, so dress it from here. */}
         <Button label={tr("ward.dress")} variant="ghost" onPress={() => router.push("/wardrobe")} />
+        {/* Full adaptive Level Test — the objective placement that can reach C1 (lifts the onboarding
+            B2 cap). Retakeable any time. */}
+        <Button label={tr("lt.entry")} variant="ghost" onPress={() => router.push("/level-test")} />
       </Card>
 
       {/* Relocation journey — the niche arc (pre-move → arrived → settled). Shows only for learners

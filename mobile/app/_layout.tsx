@@ -173,6 +173,7 @@ function RootNav() {
       <Stack.Screen name="wardrobe" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="premium" options={{ headerShown: false }} />
+      <Stack.Screen name="level-test" options={{ headerShown: false }} />
     </Stack>
   );
 }

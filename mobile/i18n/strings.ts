@@ -430,6 +430,17 @@ export const STRINGS = {
     "ex.buildHint": "Tap the words below to build it…",
     "ex.rewriteHint": "Tap the words to rewrite it…",
 
+    "lt.entry": "Level test",
+    "lt.entrySub": "A full adaptive test — can reach C1",
+    "lt.title": "Level test",
+    "lt.intro": "A short adaptive test to place your English level. It adapts to your answers and stops once your level is clear — and unlike the quick onboarding, it can reach C1.",
+    "lt.start": "Start the test",
+    "lt.question": "Question {n}",
+    "lt.resultTitle": "Your level: {cefr}",
+    "lt.resultSub": "Based on {n} questions. Keep practicing to climb higher.",
+    "lt.save": "Save my level",
+    "lt.retake": "Take the test again",
+
     "loading.default": "Loading…",
   },
   ru: {
@@ -855,6 +866,17 @@ export const STRINGS = {
     "ex.rewrite": "Перепиши предложение",
     "ex.buildHint": "Нажимай слова ниже, чтобы собрать…",
     "ex.rewriteHint": "Нажимай слова, чтобы переписать…",
+
+    "lt.entry": "Тест уровня",
+    "lt.entrySub": "Полный адаптивный тест — вплоть до C1",
+    "lt.title": "Тест уровня",
+    "lt.intro": "Короткий адаптивный тест, чтобы определить твой уровень английского. Он подстраивается под ответы и останавливается, когда уровень ясен — и, в отличие от быстрого онбординга, может дать вплоть до C1.",
+    "lt.start": "Начать тест",
+    "lt.question": "Вопрос {n}",
+    "lt.resultTitle": "Твой уровень: {cefr}",
+    "lt.resultSub": "По итогам {n} вопросов. Практикуйся, чтобы подняться выше.",
+    "lt.save": "Сохранить уровень",
+    "lt.retake": "Пройти тест заново",
 
     "loading.default": "Загрузка…",
   },

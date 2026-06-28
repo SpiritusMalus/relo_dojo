@@ -388,6 +388,9 @@ type ProgressContextValue = {
   updateProfile: (patch: Partial<Profile>) => void;
   /** Record a belt-exam attempt; on pass the target belt becomes the worn (earned) one. */
   recordExamResult: (passed: boolean, targetIdx: number, date: string) => void;
+  /** Apply a completed full Level Test (store/levelTest.ts): set the (uncapped) skill estimate and
+   *  raise the worn belt to the placed one. This is the path that lifts the onboarding B2 cap. */
+  applyLevelTest: (skill: Record<string, number>, beltIdx: number, date: string) => void;
   /** Pay the weekly-quest completion bonus: +xp once, and mark the plan as paid. */
   awardQuestBonus: (xp: number, profilePatch: Partial<Profile>) => void;
   /** Buy back the broken streak ("отработка у Сэнсэя"). Charges koku server-side; throws on 409. */
@@ -634,6 +637,26 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [schedulePush]
   );
 
+  const applyLevelTest = useCallback(
+    (skill: Record<string, number>, beltIdx: number, date: string) => {
+      // The full adaptive test is legitimate evidence, so it both re-seeds the skill estimate
+      // (uncapped — can place at C1) and raises the worn belt. Only RAISES the belt (max) so a
+      // retake never strips a belt already earned via exams.
+      setProgress((prev) => {
+        const next: Progress = {
+          ...prev,
+          skill,
+          lastExamDate: date,
+          beltEarned: Math.max(prev.beltEarned ?? 0, beltIdx),
+        };
+        void save(next);
+        schedulePush(next);
+        return next;
+      });
+    },
+    [schedulePush]
+  );
+
   const awardQuestBonus = useCallback(
     (xp: number, profilePatch: Partial<Profile>) => {
       setProgress((prev) => {
@@ -682,13 +705,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       resetOnboarding,
       updateProfile,
       recordExamResult,
+      applyLevelTest,
       awardQuestBonus,
       repairStreak,
       dismissBrokenStreak,
       activateBoost,
       setSteering,
     }),
-    [progress, ready, synced, record, completeOnboarding, resetOnboarding, updateProfile, recordExamResult, awardQuestBonus, repairStreak, dismissBrokenStreak, activateBoost, setSteering]
+    [progress, ready, synced, record, completeOnboarding, resetOnboarding, updateProfile, recordExamResult, applyLevelTest, awardQuestBonus, repairStreak, dismissBrokenStreak, activateBoost, setSteering]
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;
