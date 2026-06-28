@@ -8,6 +8,7 @@ import {
   LT_MIN_ITEMS,
   type LevelTestState,
 } from "../levelTest";
+import { skillOf } from "../calibrationBank";
 import { levelToCefr } from "../adaptive";
 
 // Drive the engine to completion modelling a learner of `trueAbility`: they reliably handle items at
@@ -68,5 +69,22 @@ describe("level test engine — objective placement (incl. C1)", () => {
   test("levelTestResult maps θ → CEFR consistently", () => {
     const s = startLevelTest(4.2);
     expect(levelTestResult(s).cefr).toBe(levelToCefr(4.2));
+  });
+});
+
+describe("level test engine — multi-skill coverage", () => {
+  test("a run samples reading, not only grammar/vocab", () => {
+    let s = startLevelTest(2.5);
+    const skills = new Set<string>();
+    let guard = 0;
+    while (!isDone(s) && guard++ < 100) {
+      const it = nextItem(s);
+      if (!it) break;
+      skills.add(skillOf(it));
+      s = recordAnswer(s, it, it.level <= 2.5);
+    }
+    expect(skills.has("reading")).toBe(true);
+    // and it still includes the grammar/vocab core
+    expect(skills.has("grammar") || skills.has("vocab")).toBe(true);
   });
 });

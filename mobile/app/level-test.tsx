@@ -143,6 +143,12 @@ export default function LevelTestScreen() {
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
+        {/* Reading items carry a passage shown above the question; other skills have none. */}
+        {item?.passage && (
+          <Card style={{ backgroundColor: t.c.surface2 }}>
+            <Txt variant="body" color={t.c.ink}>{item.passage}</Txt>
+          </Card>
+        )}
         {exercise && (
           <ExerciseCard key={item!.id} exercise={exercise} locked={phase === "feedback"} onChange={(v) => setResponse(v)} />
         )}
