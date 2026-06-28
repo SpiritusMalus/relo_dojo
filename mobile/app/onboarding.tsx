@@ -27,6 +27,8 @@ import {
   SOFTWARE_ROLES,
   TOPIC_LABELS,
   buildContext,
+  calibrationStep,
+  capOnboardingLevel,
   minutesToGoal,
   seedSkillFromLevel,
   seedSkillFromProfile,
@@ -155,10 +157,11 @@ function Calibration({
   // would reshuffle the list and make the options jump around / drop the selection.
   const exercise = useMemo(() => (item ? itemToExercise(item) : null), [item]);
 
-  const finish = useCallback(
-    () => onDone(seedSkillFromLevel(levelRef.current, profile.focusTopics ?? []), levelRef.current),
-    [onDone, profile.focusTopics]
-  );
+  const finish = useCallback(() => {
+    // Cap the placement so a short MCQ quiz never overshoots into C1 (see capOnboardingLevel).
+    const level = capOnboardingLevel(levelRef.current);
+    onDone(seedSkillFromLevel(level, profile.focusTopics ?? []), level);
+  }, [onDone, profile.focusTopics]);
 
   const load = useCallback(() => {
     setResponse(null);
@@ -179,7 +182,7 @@ function Calibration({
   function check() {
     if (!item || response === null || result) return;
     const correct = response === item.answer;
-    const step = count < 4 ? 0.8 : count < 7 ? 0.6 : 0.4;
+    const step = calibrationStep(count);
     levelRef.current = Math.min(5, Math.max(0, levelRef.current + (correct ? step : -step)));
     setResult({ correct, correct_answer: item.answer });
   }
