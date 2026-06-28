@@ -83,3 +83,11 @@ export function levelTestResult(s: LevelTestState): LevelTestResult {
   const cefr = levelToCefr(s.theta);
   return { level: s.theta, cefr, beltIdx: beltByCefr(cefr).idx };
 }
+
+/** Fold the writing-section score (0..5, from /assess-writing) into the receptive estimate. The
+ *  receptive MCQ section gets ~double weight (many more items than the single writing task). */
+export function combineLevels(receptive: number, writing: number): LevelTestResult {
+  const level = clamp((2 * receptive + writing) / 3, 0, 5);
+  const cefr = levelToCefr(level);
+  return { level, cefr, beltIdx: beltByCefr(cefr).idx };
+}

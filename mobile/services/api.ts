@@ -230,6 +230,13 @@ export function buyContent(id: string): Promise<{ owned: string[]; coins: number
   return request<{ owned: string[]; coins: number }>("/content/buy", { id });
 }
 
+// Level Test writing section: place a short written response on the CEFR scale (productive skill).
+// Open to everyone; the client folds `score` (0..5) into the overall level. Notes come back in apiLang.
+export type WritingAssessment = { cefr: string; score: number; note: string };
+export function assessWriting(text: string, prompt?: string): Promise<WritingAssessment> {
+  return request<WritingAssessment>("/assess-writing", { text, prompt, lang: apiLang });
+}
+
 // Goal intake: map a free-text goal / "what's hard for me" to canonical grammar topics.
 // For authenticated callers the backend ALSO persists the goal into the learner profile
 // (saved: true) — both onboarding and "change my goal" in settings flow through here.

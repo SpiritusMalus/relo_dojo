@@ -3,13 +3,14 @@
 // estimate stops once it settles; the result re-seeds the skill estimate and raises the worn belt,
 // and — unlike the onboarding warm-up (capped at B2) — it can place at C1.
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { ResponseValue } from "../services/api";
-import { itemToExercise, type CalItem } from "../store/calibrationBank";
+import { assessWriting, type ResponseValue } from "../services/api";
+import { itemToExercise, pickWritingPrompt, type CalItem } from "../store/calibrationBank";
 import {
+  combineLevels,
   isDone,
   levelTestResult,
   nextItem,
@@ -35,7 +36,7 @@ import ProgressBar from "../components/ui/ProgressBar";
 import Sensei from "../components/ui/Sensei";
 import Txt from "../components/ui/Txt";
 
-type Phase = "intro" | "solving" | "feedback" | "done";
+type Phase = "intro" | "solving" | "feedback" | "writing" | "scoring" | "done";
 
 export default function LevelTestScreen() {
   const t = useTheme();
@@ -55,21 +56,32 @@ export default function LevelTestScreen() {
   const [result, setResult] = useState<{ correct: boolean; answer: string } | null>(null);
   const [count, setCount] = useState(0); // answered so far (for the progress header)
   const [done, setDone] = useState<LevelTestResult | null>(null);
+  // Writing section (productive skill): runs after the adaptive MCQ part, then folds into the level.
+  const receptiveRef = useRef(0); // the MCQ-section estimate, blended with the writing score
+  const [writingPrompt, setWritingPrompt] = useState("");
+  const [writingText, setWritingText] = useState("");
 
   const exercise = useMemo(() => (item ? itemToExercise(item) : null), [item]);
+
+  // The MCQ section is done → hand off to the writing task (prompt chosen at the placed level).
+  const toWriting = useCallback(() => {
+    receptiveRef.current = stRef.current.theta;
+    setWritingPrompt(pickWritingPrompt(stRef.current.theta).prompt);
+    setWritingText("");
+    setPhase("writing");
+  }, []);
 
   const loadNext = useCallback(() => {
     const next = nextItem(stRef.current);
     if (!next) {
-      setDone(levelTestResult(stRef.current));
-      setPhase("done");
+      toWriting();
       return;
     }
     setItem(next);
     setResponse(null);
     setResult(null);
     setPhase("solving");
-  }, []);
+  }, [toWriting]);
 
   const start = useCallback(() => {
     stRef.current = startLevelTest(seed);
@@ -87,13 +99,27 @@ export default function LevelTestScreen() {
   }, [item, response, phase]);
 
   const onNext = useCallback(() => {
-    if (isDone(stRef.current)) {
-      setDone(levelTestResult(stRef.current));
+    if (isDone(stRef.current)) toWriting();
+    else loadNext();
+  }, [loadNext, toWriting]);
+
+  // Submit the writing task → CEFR-score it server-side → blend into the level. On any failure
+  // (offline / LLM down) or skip, fall back gracefully to the receptive-only placement.
+  const finishWithReceptiveOnly = useCallback(() => {
+    setDone(levelTestResult(stRef.current));
+    setPhase("done");
+  }, []);
+
+  const onSubmitWriting = useCallback(async () => {
+    setPhase("scoring");
+    try {
+      const w = await assessWriting(writingText.trim(), writingPrompt);
+      setDone(combineLevels(receptiveRef.current, w.score));
       setPhase("done");
-    } else {
-      loadNext();
+    } catch {
+      finishWithReceptiveOnly();
     }
-  }, [loadNext]);
+  }, [writingText, writingPrompt, finishWithReceptiveOnly]);
 
   const onSave = useCallback(() => {
     if (!done) return;
@@ -109,6 +135,40 @@ export default function LevelTestScreen() {
         <Txt variant="hero" style={{ textAlign: "center" }}>{tr("lt.title")}</Txt>
         <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("lt.intro")}</Txt>
         <Button label={tr("lt.start")} onPress={start} style={{ alignSelf: "stretch" }} />
+      </Centered>
+    );
+  }
+
+  if (phase === "scoring") {
+    return (
+      <Centered insets={insets}>
+        <Sensei size={96} mood="think" bob />
+        <ActivityIndicator color={t.c.accent} />
+        <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("lt.scoring")}</Txt>
+      </Centered>
+    );
+  }
+
+  if (phase === "writing") {
+    return (
+      <Centered insets={insets} onClose={() => router.back()}>
+        <Sensei size={80} mood="think" />
+        <Txt variant="hero" style={{ textAlign: "center" }}>{tr("lt.writingTitle")}</Txt>
+        <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("lt.writingIntro")}</Txt>
+        <Card style={{ alignSelf: "stretch", backgroundColor: t.c.surface2 }}>
+          <Txt variant="bodyStrong" color={t.c.ink}>{writingPrompt}</Txt>
+        </Card>
+        <TextInput
+          value={writingText}
+          onChangeText={setWritingText}
+          placeholder={tr("lt.writingPlaceholder")}
+          placeholderTextColor={t.c.ink3}
+          multiline
+          textAlignVertical="top"
+          style={[styles.input, { color: t.c.ink, backgroundColor: t.c.surface, borderColor: t.c.line2 }]}
+        />
+        <Button label={tr("lt.writingSubmit")} onPress={onSubmitWriting} disabled={writingText.trim().length < 15} style={{ alignSelf: "stretch" }} />
+        <Button label={tr("lt.writingSkip")} variant="ghost" onPress={finishWithReceptiveOnly} />
       </Centered>
     );
   }
@@ -209,4 +269,5 @@ const styles = StyleSheet.create({
   closeBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   content: { paddingHorizontal: 20, paddingTop: 8, gap: 14 },
   footer: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1 },
+  input: { alignSelf: "stretch", minHeight: 120, borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16 },
 });

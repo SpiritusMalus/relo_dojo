@@ -1,4 +1,5 @@
 import {
+  combineLevels,
   isDone,
   levelTestResult,
   nextItem,
@@ -8,7 +9,7 @@ import {
   LT_MIN_ITEMS,
   type LevelTestState,
 } from "../levelTest";
-import { skillOf } from "../calibrationBank";
+import { pickWritingPrompt, skillOf } from "../calibrationBank";
 import { levelToCefr } from "../adaptive";
 
 // Drive the engine to completion modelling a learner of `trueAbility`: they reliably handle items at
@@ -86,5 +87,21 @@ describe("level test engine — multi-skill coverage", () => {
     expect(skills.has("reading")).toBe(true);
     // and it still includes the grammar/vocab core
     expect(skills.has("grammar") || skills.has("vocab")).toBe(true);
+  });
+});
+
+describe("level test engine — writing blend", () => {
+  test("combineLevels weights the receptive section ~2x the single writing task", () => {
+    // receptive C1 (4.5) + weak writing A1 (0.5) → (2*4.5 + 0.5)/3 = 3.17 → B2, not C1.
+    const r = combineLevels(4.5, 0.5);
+    expect(r.level).toBeCloseTo(3.17, 1);
+    expect(r.cefr).toBe("B2");
+    // strong on both → C1
+    expect(combineLevels(4.5, 4.5).cefr).toBe("C1");
+  });
+
+  test("a writing prompt is chosen near the estimated ability", () => {
+    expect(pickWritingPrompt(0.5).level).toBeLessThan(2);
+    expect(pickWritingPrompt(4.5).level).toBeGreaterThan(3.5);
   });
 });

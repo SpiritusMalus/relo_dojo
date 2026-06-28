@@ -3,7 +3,7 @@
 // send `lang`; these two were the gap (explanation-lang-ru).
 jest.mock("expo/fetch", () => ({ fetch: jest.fn() }));
 
-import { getExercise, getStory, setApiLang } from "../api";
+import { assessWriting, getExercise, getStory, setApiLang } from "../api";
 
 describe("getExercise / getStory send the UI lang", () => {
   let lastBody: Record<string, unknown>;
@@ -34,5 +34,13 @@ describe("getExercise / getStory send the UI lang", () => {
     await getStory({ id: "arc-1" });
     expect(lastBody.lang).toBe("ru");
     expect(lastBody.id).toBe("arc-1");
+  });
+
+  it("assessWriting sends the text, prompt and lang", async () => {
+    setApiLang("ru");
+    await assessWriting("My answer here.", "Describe your weekend.");
+    expect(lastBody.text).toBe("My answer here.");
+    expect(lastBody.prompt).toBe("Describe your weekend.");
+    expect(lastBody.lang).toBe("ru");
   });
 });

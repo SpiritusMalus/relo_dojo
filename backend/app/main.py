@@ -56,6 +56,8 @@ from .schemas import (
     ContentBuyOut,
     ContentIn,
     ReviewOut,
+    WritingAssessIn,
+    WritingAssessOut,
     AdRewardOut,
     ScrollOut,
     StoryArcOut,
@@ -396,6 +398,20 @@ async def review_text(
     if user is not None and topics:
         await learner_profile.save_review(user, db, topics)
     return ReviewOut(**data, topics=topics)
+
+
+@app.post("/assess-writing", response_model=WritingAssessOut, dependencies=[Depends(llm_rate_limit)])
+async def assess_writing(
+    payload: WritingAssessIn,
+    user: Optional[User] = Depends(get_current_user_optional),
+) -> WritingAssessOut:
+    """Level Test writing section: place a short written response on the CEFR scale (productive skill).
+    Open to everyone; stateless (no profile write) — the client folds the score into the overall level."""
+    try:
+        data = await grammar.assess_writing(payload.text, payload.prompt, payload.lang)
+    except OllamaError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return WritingAssessOut(**data)
 
 
 @app.post("/rewards/scroll", response_model=ScrollOut)

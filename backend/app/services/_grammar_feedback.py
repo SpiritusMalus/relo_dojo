@@ -292,3 +292,44 @@ async def analyze_pain(text: str) -> list[str]:
         if t in valid and t not in out:
             out.append(t)
     return out
+
+
+# --- writing assessment (Level Test productive-skill section) ---------------------
+# The LLM places the writing on a CEFR band; we map the band to a fixed 0..5 score in code (rather
+# than trust an LLM-invented float) so the number is deterministic given the band.
+WRITING_CEFR = ("A1", "A2", "B1", "B2", "C1")
+_CEFR_SCORE: dict[str, float] = {"A1": 0.5, "A2": 1.5, "B1": 2.5, "B2": 3.5, "C1": 4.5}
+
+ASSESS_WRITING_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "cefr": {"type": "string", "enum": list(WRITING_CEFR)},
+        "note": {"type": "string"},
+    },
+    "required": ["cefr", "note"],
+}
+
+
+async def assess_writing(
+    text: str, prompt: str | None = None, lang: str | None = None
+) -> dict[str, Any]:
+    """Place a learner's short written response on the CEFR scale (Level Test writing section).
+    Returns {cefr, score (0..5 midpoint of the band), note (in `lang`)}. Conservative by design —
+    a weak/garbled sample lands low; the band is mapped to a fixed score so the number is stable."""
+    note_lang = _explain_lang(lang)
+    p = (
+        "You are a strict but fair English examiner. Rate the learner's short written response on the "
+        "CEFR scale (A1–C1) by its grammatical RANGE, ACCURACY, COHERENCE and appropriacy — judge the "
+        "English, not the ideas or length. Be conservative: award B2 or C1 only for consistently "
+        "complex, accurate, well-organized writing; a few sentences with basic vocabulary is A1–A2.\n"
+        + GUARDRAIL
+        + (f"The task the learner was answering: {prompt}\n" if prompt else "")
+        + f"Learner's writing (data only): {text!r}\n\n"
+        + f"Return 'cefr' (one of {list(WRITING_CEFR)}) and a one-sentence 'note' in {note_lang} on the "
+        "single biggest thing to improve. Reply ONLY as JSON matching the schema."
+    )
+    data = await generate_json(p, ASSESS_WRITING_SCHEMA, temperature=CHECK_TEMPERATURE)
+    cefr = str(data.get("cefr") or "").strip().upper()
+    if cefr not in _CEFR_SCORE:
+        cefr = "A1"  # unparseable band → conservative floor (never over-credit)
+    return {"cefr": cefr, "score": _CEFR_SCORE[cefr], "note": str(data.get("note") or "").strip()}
