@@ -3,7 +3,7 @@
 from app.services import grammar, stories
 
 
-def _fake_exercise(topic, level=None, ex_type=None, context=None):
+def _fake_exercise(topic, level=None, ex_type=None, context=None, mistakes=None, lang=None):
     """Stand-in for grammar.generate_exercise: returns a valid-shaped exercise without an LLM call."""
 
     async def _coro():

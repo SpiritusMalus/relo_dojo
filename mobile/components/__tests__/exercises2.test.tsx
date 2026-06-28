@@ -4,6 +4,9 @@
 import { createElement, type ReactElement } from "react";
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 
+// i18n store mocked (key-passthrough) — components render localized instruction keys; see exercises.test.
+jest.mock("../../store/i18n", () => ({ useI18n: () => ({ t: (k: string) => k }) }));
+
 import BuildSentence from "../BuildSentence";
 import ExerciseCard from "../ExerciseCard";
 import MatchPairs from "../MatchPairs";

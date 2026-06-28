@@ -186,7 +186,9 @@ export function getExercise(params?: {
   context?: string;
   mistakes?: string[];
 }): Promise<Exercise> {
-  return request<Exercise>("/exercise", params ?? {});
+  // `lang` lets the backend write the LLM-generated task instruction (transform-the-sentence) in the
+  // learner's UI language; the exercise content itself stays English (it's an English course).
+  return request<Exercise>("/exercise", { ...(params ?? {}), lang: apiLang });
 }
 
 // A themed mini-story: a curated narrative wrapping a sequence of linked exercises.
@@ -203,7 +205,8 @@ export type StorySet = {
 // `id` selects a specific arc (premium arcs require an unlock → 403). Three exercises are generated
 // server-side in sequence, so this needs a longer timeout.
 export function getStory(params?: { level?: string; context?: string; id?: string }): Promise<StorySet> {
-  return request<StorySet>("/story", params ?? {}, "POST", STORY_TIMEOUT_MS);
+  // `lang` localizes any LLM-generated task instruction in the story's beats (e.g. a transform beat).
+  return request<StorySet>("/story", { ...(params ?? {}), lang: apiLang }, "POST", STORY_TIMEOUT_MS);
 }
 
 // --- story arcs / content unlocks (engagement v2 Phase 3) ---

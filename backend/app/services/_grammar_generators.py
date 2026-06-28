@@ -9,6 +9,7 @@ from typing import Any
 
 from ..core.config import EXERCISE_TEMPERATURE
 from . import tokens
+from ._grammar_feedback import _explain_lang
 from .llm import LLMError as OllamaError
 from .llm import generate_json
 from ._grammar_prompts import (
@@ -119,7 +120,7 @@ TRANSFORM_SCHEMA: dict[str, Any] = {
 # Each returns the client payload (no answer) plus a sealed `token` carrying the answer.
 
 
-async def _gen_multiple_choice(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
+async def _gen_multiple_choice(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE short multiple-choice exercise focused on: {topic}.\n"
         "'text' is a sentence with a single blank shown as '___'. 'options' is 3-4 short choices "
@@ -153,7 +154,7 @@ async def _gen_multiple_choice(topic: str, level: str | None = None, context: st
     }
 
 
-async def _gen_build_the_sentence(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
+async def _gen_build_the_sentence(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None) -> dict[str, Any] | None:
     # Translation exercise: show the Russian source, learner builds the English from word tiles.
     prompt = _tutor_intro(
         f"Write ONE correct English sentence (6 to 12 words; longer and more complex at higher CEFR "
@@ -190,7 +191,7 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
     }
 
 
-async def _gen_match_pairs(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
+async def _gen_match_pairs(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create 3 or 4 matching pairs to practice: {topic}.\n"
         "Each 'left' MUST be a short sentence containing exactly one blank shown as '___'. "
@@ -232,7 +233,7 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
     }
 
 
-async def _gen_tap_the_error(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
+async def _gen_tap_the_error(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Write ONE English sentence (6 to 12 words) containing exactly ONE grammatically wrong "
         f"word, related to: {topic}.\n"
@@ -271,7 +272,7 @@ async def _gen_tap_the_error(topic: str, level: str | None = None, context: str 
     }
 
 
-async def _gen_free_text(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
+async def _gen_free_text(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE short 'fill the gap' exercise focused on: {topic}.\n"
         "'text' is a single sentence with a blank shown as '___' that the learner types the missing "
@@ -290,7 +291,7 @@ async def _gen_free_text(topic: str, level: str | None = None, context: str | No
     return {"type": "free-text", "topic": topic, "text": text, "token": None}
 
 
-async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
+async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE 'odd one out' exercise to practice: {topic}.\n"
         "'items' is 4 short words or phrases; exactly ONE does not belong with the others (by grammar "
@@ -326,7 +327,7 @@ async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | 
     }
 
 
-async def _gen_multiple_blanks(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
+async def _gen_multiple_blanks(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None) -> dict[str, Any] | None:
     prompt = _tutor_intro(
         f"Create ONE fill-the-gaps exercise with 2 to 5 blanks to practice: {topic}.\n"
         "'text' is one short sentence (or two for 4-5 blanks) — use more blanks only if it stays "
@@ -372,7 +373,7 @@ async def _gen_multiple_blanks(topic: str, level: str | None = None, context: st
     }
 
 
-async def _gen_order_the_dialog(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
+async def _gen_order_the_dialog(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None) -> dict[str, Any] | None:
     # Per-line word cap scales with CEFR (short turns early, longer at B2/C1).
     per_line = _max_words(level)
     prompt = _tutor_intro(
@@ -408,17 +409,22 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
     }
 
 
-async def _gen_transform_the_sentence(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None) -> dict[str, Any] | None:
+async def _gen_transform_the_sentence(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None) -> dict[str, Any] | None:
     # Rewrite-the-sentence: show a source + a grammar instruction, learner builds the transformed
     # sentence from word tiles. Deterministically graded by word position (reuses build-the-sentence).
+    # The 'instruction' is the only learner-facing prose, so it follows the UI language; the source
+    # and target sentences stay English (it's an English course — that's the content being practiced).
+    instr_lang = _explain_lang(lang)
     prompt = _tutor_intro(
         f"Create ONE sentence-transformation exercise that practices: {topic}.\n"
-        "'instruction' is a SHORT command for one clear grammatical change (e.g. 'Rewrite in the past "
-        "simple', 'Make it negative', 'Change to the passive', 'Turn it into reported speech'). "
+        f"'instruction' is a SHORT command, written in {instr_lang}, for one clear grammatical change "
+        "(e.g. in English 'Rewrite in the past simple', 'Make it negative', 'Change to the passive', "
+        "'Turn it into reported speech'). "
         "'source' is a correct English sentence. 'target' is the SINGLE correct result of applying the "
         "instruction to the source — there must be exactly one natural answer, and it must differ from "
-        "the source. Draw the example from the learner's field when one is given; otherwise a clear "
-        "everyday situation. Reply ONLY as JSON.",
+        "the source. The 'source' and 'target' sentences are ALWAYS in English regardless of the "
+        "instruction's language. Draw the example from the learner's field when one is given; otherwise "
+        "a clear everyday situation. Reply ONLY as JSON.",
         level,
         context,
         mistakes,
@@ -475,9 +481,15 @@ async def generate_exercise(
     ex_type: str | None = None,
     context: str | None = None,
     mistakes: list[str] | None = None,
+    lang: str | None = None,
 ) -> dict[str, Any]:
     """Generate a new exercise. The client may steer topic/level/type (adaptive difficulty);
     anything invalid or omitted falls back to the weighted defaults.
+
+    `lang` is the learner's UI language; it only affects LLM-generated task *instructions* (the
+    transform-the-sentence command), so a Russian learner reads "Перепиши в прошедшем времени"
+    rather than English. The exercise content (English sentences/options) is unaffected — it's an
+    English course. Fixed instruction chrome for the other types is localized client-side.
 
     If a type's model output is unusable, fall back to multiple-choice; if even that fails, raise
     OllamaError (503) — never ship a broken card.
@@ -491,12 +503,12 @@ async def generate_exercise(
     # level), then fall back to multiple-choice — never ship a broken or over-hard item.
     result = None
     for _ in range(3):
-        result = await _GENERATORS[ex_type](topic, level, context, mistakes)
+        result = await _GENERATORS[ex_type](topic, level, context, mistakes, lang)
         if result is not None:
             break
     if result is None and ex_type != "multiple-choice":
         for _ in range(2):
-            result = await _gen_multiple_choice(topic, level, context, mistakes)
+            result = await _gen_multiple_choice(topic, level, context, mistakes, lang)
             if result is not None:
                 break
     if result is None:

@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
+import { useI18n } from "../store/i18n";
 import Txt from "./ui/Txt";
 
 // Tap the single wrong word in the sentence. Response is the tapped token index.
 export default function TapError({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
+  const { t: tr } = useI18n();
   const [selected, setSelected] = useState<number | null>(null);
 
   function tap(i: number) {
@@ -18,7 +20,7 @@ export default function TapError({ exercise, locked, onChange }: ExerciseProps) 
   return (
     <View style={styles.wrap}>
       <Txt variant="body" color={t.c.ink2}>
-        {exercise.text}
+        {tr("ex.tapError")}
       </Txt>
       <View style={styles.sentence}>
         {exercise.tokens.map((word, i) => {

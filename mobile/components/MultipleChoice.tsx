@@ -2,12 +2,17 @@ import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
+import { useI18n } from "../store/i18n";
 import Txt from "./ui/Txt";
 
 // Sentence with a blank + tap one option (also used for odd-one-out).
 export default function MultipleChoice({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
+  const { t: tr } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
+  // For odd-one-out the backend `text` is a fixed English instruction and the options carry the
+  // content; show a localized instruction instead. For multiple-choice `text` is the content sentence.
+  const prompt = exercise.type === "odd-one-out" ? tr("ex.oddOneOut") : exercise.text;
 
   function pick(opt: string) {
     if (locked) return;
@@ -18,7 +23,7 @@ export default function MultipleChoice({ exercise, locked, onChange }: ExerciseP
   return (
     <View style={styles.wrap}>
       <Txt variant="cardTitle" style={{ fontSize: 19, lineHeight: 26 }}>
-        {exercise.text}
+        {prompt}
       </Txt>
       <View style={{ gap: 10 }}>
         {exercise.options.map((opt) => {
