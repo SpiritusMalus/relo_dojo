@@ -96,6 +96,31 @@ async def test_ollama_generate_retries_a_stale_keepalive(monkeypatch):
     await http_client.aclose()
 
 
+async def test_ollama_generate_json_retries_truncated_json(monkeypatch):
+    # format-constrained decoding still occasionally truncates mid-string (3/53 in the live eval);
+    # sampling makes it transient — one fresh generation, then give up.
+    responses = [
+        httpx.Response(200, json={"response": '{"correct": true, "explanation": "You wer'}),
+        httpx.Response(200, json={"response": '{"ok": 1}'}),
+    ]
+    calls = _install(monkeypatch, responses)
+    out = await ollama_client.generate_json("p", {"type": "object"})
+    assert out == {"ok": 1}
+    assert calls["n"] == 2
+    await http_client.aclose()
+
+
+async def test_ollama_generate_json_gives_up_after_second_bad_json(monkeypatch):
+    responses = [
+        httpx.Response(200, json={"response": "{bad"}),
+        httpx.Response(200, json={"response": "{still bad"}),
+    ]
+    _install(monkeypatch, responses)
+    with pytest.raises(LLMError, match="invalid JSON"):
+        await ollama_client.generate_json("p", {"type": "object"})
+    await http_client.aclose()
+
+
 # --- pooled client ------------------------------------------------------------------
 def test_pooled_client_survives_multiple_event_loops():
     # Multi-asyncio.run scripts (evals) must not inherit a client whose loop is closed —

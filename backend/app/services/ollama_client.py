@@ -129,9 +129,21 @@ async def generate_stream(
 async def generate_json(
     prompt: str, schema: dict[str, Any], *, temperature: float | None = None, model: str | None = None
 ) -> dict[str, Any]:
-    """Generate JSON constrained to `schema` and parse it. Raises OllamaError on bad JSON."""
-    raw = await generate(prompt, fmt=schema, temperature=temperature, model=model)
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise OllamaError(f"Model returned invalid JSON: {raw[:200]}") from exc
+    """Generate JSON constrained to `schema` and parse it. Raises OllamaError on bad JSON.
+
+    One retry on a parse failure: even with format-constrained decoding the model occasionally
+    truncates mid-string (live eval: 3/53 checks), and sampling makes that transient — a fresh
+    generation usually parses. A second failure raises as before."""
+    for attempt in (1, 2):
+        raw = await generate(prompt, fmt=schema, temperature=temperature, model=model)
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as exc:
+            if attempt == 2:
+                raise OllamaError(f"Model returned invalid JSON: {raw[:200]}") from exc
+            logger.warning(
+                "llm retry name=Ollama model=%s attempt=%d cause=invalid-json",
+                model or OLLAMA_MODEL,
+                attempt,
+            )
+    raise OllamaError("unreachable")  # loop always returns or raises
