@@ -88,6 +88,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logging.getLogger("uvicorn.error").exception(
                 "Auto-migrate failed — run `alembic upgrade head` manually."
             )
+        # Alembic's fileConfig() replaced the root logging config with alembic.ini's (root=WARNING),
+        # filtering out app INFO telemetry. Re-assert ours now that migrations are done.
+        logging.basicConfig(
+            force=True, level=logging.INFO, format="%(levelname)s [%(name)s] %(message)s"
+        )
     # Events TTL: bound the append-only analytics table so it can't grow without limit.
     cutoff = analytics.retention_cutoff(datetime.now(timezone.utc), settings.EVENTS_TTL_DAYS)
     if cutoff is not None:  # pragma: no cover — opt-in, exercised live not in unit tests
