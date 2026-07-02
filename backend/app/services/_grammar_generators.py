@@ -145,12 +145,15 @@ async def _gen_multiple_choice(topic: str, level: str | None = None, context: st
     if _norm(answer) not in {_norm(o) for o in options}:
         options.append(answer)  # model forgot to include the answer — add it
     random.shuffle(options)
+    # Sealed extras: `topic` (+ `text` where the item has a real drill sentence) ride in every token
+    # so /check can log a miss server-side (services.miss_log). grade() reads only its own keys, so
+    # older, leaner tokens keep grading unchanged.
     return {
         "type": "multiple-choice",
         "topic": topic,
         "text": text,
         "options": options[:6],
-        "token": tokens.seal({"t": "multiple-choice", "answer": answer}),
+        "token": tokens.seal({"t": "multiple-choice", "answer": answer, "topic": topic, "text": text}),
     }
 
 
@@ -187,7 +190,7 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
         "text": "Translate into English:",
         "prompt": sentence_ru,
         "tiles": tiles,
-        "token": tokens.seal({"t": "build-the-sentence", "sentence": sentence}),
+        "token": tokens.seal({"t": "build-the-sentence", "sentence": sentence, "topic": topic}),
     }
 
 
@@ -228,7 +231,7 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
         "left": left_items,
         "right": right_items,
         "token": tokens.seal(
-            {"t": "match-pairs", "ids": [p["id"] for p in left_items], "answer": correct_answer}
+            {"t": "match-pairs", "ids": [p["id"] for p in left_items], "answer": correct_answer, "topic": topic}
         ),
     }
 
@@ -267,6 +270,8 @@ async def _gen_tap_the_error(topic: str, level: str | None = None, context: str 
                 "t": "tap-the-error",
                 "index": error_index,
                 "answer": f"'{words[error_index]}' → '{correction}'",
+                "topic": topic,
+                "text": sentence,
             }
         ),
     }
@@ -323,7 +328,7 @@ async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | 
         "topic": topic,
         "text": "Tap the one that doesn't belong.",
         "options": items,
-        "token": tokens.seal({"t": "odd-one-out", "answer": odd}),
+        "token": tokens.seal({"t": "odd-one-out", "answer": odd, "topic": topic}),
     }
 
 
@@ -369,7 +374,7 @@ async def _gen_multiple_blanks(topic: str, level: str | None = None, context: st
         "topic": topic,
         "text": text,
         "blankOptions": blank_options,
-        "token": tokens.seal({"t": "multiple-blanks", "answers": answers}),
+        "token": tokens.seal({"t": "multiple-blanks", "answers": answers, "topic": topic, "text": text}),
     }
 
 
@@ -405,7 +410,7 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
         "topic": topic,
         "text": "Put the conversation in the right order.",
         "tiles": tiles,
-        "token": tokens.seal({"t": "order-the-dialog", "order": lines}),
+        "token": tokens.seal({"t": "order-the-dialog", "order": lines, "topic": topic}),
     }
 
 
@@ -454,7 +459,7 @@ async def _gen_transform_the_sentence(topic: str, level: str | None = None, cont
         "instruction": instruction,
         "prompt": source,
         "tiles": tiles,
-        "token": tokens.seal({"t": "transform-the-sentence", "sentence": target}),
+        "token": tokens.seal({"t": "transform-the-sentence", "sentence": target, "topic": topic}),
     }
 
 

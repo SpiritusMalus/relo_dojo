@@ -65,7 +65,7 @@ from .schemas import (
     StoryIn,
     StoryOut,
 )
-from .services import ads, analytics, content, gating, grammar, learner_profile, rewards, stories, tokens
+from .services import ads, analytics, content, gating, grammar, learner_profile, miss_log, rewards, stories, tokens
 from .services import wallet as wallet_service
 from .services.llm import LLMError as OllamaError  # one exception across providers
 from .services.llm import generate_stream as llm_generate_stream
@@ -185,13 +185,30 @@ async def exercise(
     if not (context or "").strip() and user is not None and user.pd_consent_at is not None:
         prof = await learner_profile.get_data(user, db)
         context = learner_profile.context_for(prof)
+    # Cross-device personalization: top up the per-topic miss hints from the server-side miss log
+    # when the client sends fewer than MAX_MISTAKE_HINTS (fresh install / new device — the local
+    # Review deck is empty, but the server remembers). Client hints always lead; same 152-ФЗ egress
+    # gate as the profile context above. Only for a canonical client-chosen topic — when generation
+    # picks the topic itself, we can't know it here.
+    mistakes = payload.mistakes
+    if (
+        user is not None
+        and user.pd_consent_at is not None
+        and payload.topic in grammar._TOPIC_NAMES
+        and len(mistakes) < grammar.MAX_MISTAKE_HINTS
+    ):
+        server_hints = await miss_log.recent_misses(
+            db, user, payload.topic, limit=grammar.MAX_MISTAKE_HINTS
+        )
+        if server_hints:
+            mistakes = miss_log.merge_hints(mistakes, server_hints, cap=grammar.MAX_MISTAKE_HINTS)
     try:
         data = await grammar.generate_exercise(
             topic=payload.topic,
             level=payload.level,
             ex_type=payload.type,
             context=context,
-            mistakes=payload.mistakes,
+            mistakes=mistakes,
             lang=payload.lang,
         )
     except OllamaError as exc:
@@ -292,6 +309,11 @@ async def check(
     else:
         # A wrong answer breaks the consecutive-correct combo run (server-side).
         await wallet_service.reset_correct_run(user, db)
+        # ...and lands in the server-side miss log (newer tokens carry topic + a drill sentence;
+        # older ones no-op here and still grade fine). Feeds /exercise personalization cross-device.
+        await miss_log.record_miss(
+            db, user, sealed.get("topic"), sealed.get("text") or sealed.get("sentence")
+        )
     return CheckOut(
         **result,
         coins_earned=coins_earned,

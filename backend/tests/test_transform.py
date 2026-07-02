@@ -24,9 +24,14 @@ async def test_accepts_a_clean_transform(monkeypatch):
     assert out["type"] == "transform-the-sentence"
     assert out["instruction"] == "Make it negative"
     assert out["prompt"] == "She called me."
-    # Tiles are the shuffled target words; the sealed token carries the target sentence.
+    # Tiles are the shuffled target words; the sealed token carries the target sentence (+ the
+    # topic, which /check feeds to the server-side miss log on a wrong answer).
     assert sorted(out["tiles"]) == sorted("She did not call me.".split())
-    assert tokens.unseal(out["token"]) == {"t": "transform-the-sentence", "sentence": "She did not call me."}
+    assert tokens.unseal(out["token"]) == {
+        "t": "transform-the-sentence",
+        "sentence": "She did not call me.",
+        "topic": "verb tenses",
+    }
 
 
 async def test_rejects_noop_transform(monkeypatch):

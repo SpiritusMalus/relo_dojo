@@ -9,6 +9,7 @@ import re
 from typing import Any
 
 from ._grammar_rules import rules_clause
+from ._lexical_bank import lexical_clause
 
 # Prepended to prompts that embed user input: reduces prompt-injection influence on output.
 GUARDRAIL = (
@@ -180,12 +181,15 @@ def _tutor_intro(
     scenario: bool = False,
     topic: str | None = None,
 ) -> str:
-    # `topic` injects the curated grammar rule (RAG): an authoritative anchor placed up front so the
-    # model builds the item from the rule, not its memory. Empty for off-canon topics (harmless).
+    # `topic` injects the curated anchors (RAG), placed up front so the model builds the item from
+    # them, not its memory: the grammar rule (band-scoped when a refinement exists) for structural
+    # topics, plus a sampled word-bank clause for the lexical ones. Empty for off-canon topics
+    # (harmless). Feedback prompts call this without `topic`, so neither anchor leaks into them.
     return (
         "You are an English grammar tutor. Tailor examples to the learner's field when one is given; "
         "otherwise use clear, everyday English.\n"
-        + rules_clause(topic)
+        + rules_clause(topic, level)
+        + lexical_clause(topic, level)
         + _level_clause(level)
         + _context_clause(context)
         + _mistakes_clause(mistakes)
