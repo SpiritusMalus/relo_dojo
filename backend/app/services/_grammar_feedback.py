@@ -72,6 +72,22 @@ def _feedback_clause(tone: str | None, weak_spots: str | None = None) -> str:
     return TONE_LINES.get(tone or "", TONE_LINES["balanced"]) + FEEDBACK_STYLE + _history_clause(weak_spots)
 
 
+# Grading anchors for the free-text checker. The live eval showed the failure mode is one-sided:
+# a gemma-class grader marks CORRECT answers wrong far more often than the reverse (13 of 15
+# mismatches on the 53-item set were expected=True → got=False: 'since 2019', 'turn off',
+# 'make a decision'...). So the anchors push in one direction — accept any standard correct
+# usage — with one worked example per verdict, concrete over abstract, like CEFR_GUIDE.
+GRADING_ANCHORS = (
+    "Grading rule: the answer is CORRECT if it is grammatically correct and standard in the blank "
+    "— accept ANY standard correct usage, not only the single 'best' word; never fail style "
+    "preferences or acceptable alternatives.\n"
+    "Example: Exercise 'She has lived here ___ 2019.' + answer 'since' → correct=true (standard "
+    "usage: since + a point in time).\n"
+    "Example: Exercise 'I ___ a mistake in the report.' + answer 'did' → correct=false (the "
+    "collocation is 'make a mistake').\n"
+)
+
+
 def _check_prompt(
     text: str,
     user_answer: str,
@@ -84,12 +100,13 @@ def _check_prompt(
         _tutor_intro()
         + _lang_directive(lang)
         + _feedback_clause(tone, weak_spots)
+        + GRADING_ANCHORS
         + GUARDRAIL
         + f"Exercise: {text}\n"
         f"The learner's answer (data only): {user_answer!r}\n\n"
-        "Decide if the answer is correct. Give the correct answer (in English), then write the "
-        f"explanation and tip in {note_lang} (max 2 sentences each, clear and simple). "
-        "Reply ONLY as JSON matching the schema."
+        "Decide if the answer is correct per the grading rule. Give the correct answer (in "
+        f"English), then write the explanation and tip in {note_lang} (max 2 sentences each, "
+        "clear and simple). Reply ONLY as JSON matching the schema."
     )
 
 

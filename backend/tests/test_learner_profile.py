@@ -75,6 +75,16 @@ def test_check_prompt_threads_tone_and_history():
     assert "Russian" in p
 
 
+def test_check_prompt_carries_grading_anchors():
+    # The anchors fight the grader's one-sided failure mode (correct answers marked wrong) —
+    # they must ride in every check prompt, with one worked example per verdict.
+    from app.services._grammar_feedback import GRADING_ANCHORS
+
+    p = _check_prompt("Fill: I go ___ work", "to")
+    assert GRADING_ANCHORS in p
+    assert "correct=true" in p and "correct=false" in p
+
+
 # --- context_for: profile → generation context line ---------------------------
 def test_context_for_none_and_empty_profile_is_blank():
     assert context_for(None) == ""
