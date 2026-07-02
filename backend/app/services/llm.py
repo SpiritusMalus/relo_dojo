@@ -49,12 +49,19 @@ TIMEOUT = http_client.TIMEOUT  # kept as a public constant; the pooled client ow
 
 # Transient-failure retry: blips that fail fast or clear quickly get LLM_RETRIES extra attempts
 # with a short growing backoff — without this, a single 429/5xx/connect hiccup at the provider
-# surfaces as a user-facing 503. Read timeouts are deliberately NOT retried: the request already
-# consumed the full 120s window, and a retry would double a two-minute wait.
+# surfaces as a user-facing 503. RemoteProtocolError is in the set because the pooled client can
+# pick up a keep-alive connection the server has meanwhile closed ("server disconnected") — the
+# request never ran, so a retry on a fresh connection is safe. Read timeouts are deliberately NOT
+# retried: the request already consumed the full 120s window, and a retry would double the wait.
 LLM_RETRIES = 2
 RETRY_BACKOFF_S = 0.5  # multiplied by the attempt number
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
-_CONNECT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
+_CONNECT_ERRORS = (
+    httpx.ConnectError,
+    httpx.ConnectTimeout,
+    httpx.PoolTimeout,
+    httpx.RemoteProtocolError,
+)
 
 
 def _provider() -> str:

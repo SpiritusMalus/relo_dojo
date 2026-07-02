@@ -63,14 +63,23 @@ async def generate(
     if temperature is not None:
         payload["options"] = {"temperature": temperature}
     started = time.monotonic()
-    try:
-        resp = await http_client.client().post(url, json=payload)
-    except httpx.ConnectError as exc:
-        raise OllamaError(
-            f"Cannot reach Ollama at {OLLAMA_URL}. Is it running? Try `ollama serve`."
-        ) from exc
-    except httpx.TimeoutException as exc:
-        raise OllamaError("Ollama timed out — the model is taking too long to respond.") from exc
+    resp = None
+    for attempt in (1, 2):
+        try:
+            resp = await http_client.client().post(url, json=payload)
+            break
+        except httpx.RemoteProtocolError as exc:
+            # The pooled client picked up a keep-alive connection Ollama had already closed
+            # ("server disconnected") — the request never ran; one retry on a fresh connection.
+            if attempt == 2:
+                raise OllamaError("Ollama dropped the connection — try again.") from exc
+            logger.warning("llm retry name=Ollama model=%s attempt=%d cause=RemoteProtocolError", m, attempt)
+        except httpx.ConnectError as exc:
+            raise OllamaError(
+                f"Cannot reach Ollama at {OLLAMA_URL}. Is it running? Try `ollama serve`."
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise OllamaError("Ollama timed out — the model is taking too long to respond.") from exc
 
     if resp.status_code == 404:
         raise OllamaError(f"Model '{m}' not found. Pull it first: `ollama pull {m}`.")

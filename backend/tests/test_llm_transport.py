@@ -3,11 +3,13 @@ smart-tier model routing. Offline — the pooled client is swapped for a MockTra
 
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 import pytest
 
 from app.core.config import settings
-from app.services import http_client, llm
+from app.services import http_client, llm, ollama_client
 from app.services.llm import LLMError
 
 
@@ -31,6 +33,8 @@ def _install(monkeypatch, responses: list) -> dict:
     monkeypatch.setattr(
         http_client, "_client", httpx.AsyncClient(transport=httpx.MockTransport(handler))
     )
+    # client() is loop-affine — pin the injected client to the test's loop or it gets replaced.
+    monkeypatch.setattr(http_client, "_loop", asyncio.get_running_loop())
     return calls
 
 
@@ -69,7 +73,41 @@ async def test_post_gives_up_after_the_retry_budget(monkeypatch):
     await http_client.aclose()
 
 
+async def test_post_retries_a_stale_keepalive_connection(monkeypatch):
+    # The pooled client can pick up a keep-alive connection the server closed meanwhile —
+    # "server disconnected" must be retried on a fresh connection, not surfaced as a 503.
+    ok = httpx.Response(200, json={"ok": 1})
+    calls = _install(monkeypatch, [httpx.RemoteProtocolError("server disconnected"), ok])
+    data = await llm._post("https://api.test/v1", {}, {"model": "m"}, "Test")
+    assert data["ok"] == 1
+    assert calls["n"] == 2
+    await http_client.aclose()
+
+
+async def test_ollama_generate_retries_a_stale_keepalive(monkeypatch):
+    responses = [
+        httpx.RemoteProtocolError("server disconnected"),
+        httpx.Response(200, json={"response": " hi "}),
+    ]
+    calls = _install(monkeypatch, responses)
+    out = await ollama_client.generate("p")
+    assert out == "hi"
+    assert calls["n"] == 2
+    await http_client.aclose()
+
+
 # --- pooled client ------------------------------------------------------------------
+def test_pooled_client_survives_multiple_event_loops():
+    # Multi-asyncio.run scripts (evals) must not inherit a client whose loop is closed —
+    # that's the "RuntimeError: Event loop is closed" crash.
+    async def _use():
+        return http_client.client()
+
+    c1 = asyncio.run(_use())
+    c2 = asyncio.run(_use())
+    assert c2 is not c1  # the loop changed → a fresh client, never the loop-dead one
+
+
 async def test_pooled_client_is_reused_and_revived():
     c1 = http_client.client()
     assert http_client.client() is c1  # pooled: no per-call client
