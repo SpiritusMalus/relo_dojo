@@ -1,0 +1,52 @@
+# Test gate for every PR and push to main: backend pytest (fully offline — tests/conftest.py stubs
+# the required secrets; no DB or network is touched) + mobile jest (pure store/logic suites on the
+# jest-expo preset). The Android APK build stays in its own manual workflow (android-apk.yml).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A newer push to the same ref supersedes the running check — don't burn minutes on stale commits.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npx jest --ci
