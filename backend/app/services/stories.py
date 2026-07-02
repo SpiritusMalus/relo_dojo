@@ -14,6 +14,7 @@ Grading is unchanged: every beat carries its own Fernet-sealed token graded by `
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import random
 from typing import Any
@@ -481,12 +482,18 @@ async def build_story(
     context = context_override or scenario["context"]
     topics = scenario["topics"]
 
-    beats: list[dict[str, Any]] = []
-    for i in range(STORY_LEN):
-        topic = topics[i % len(topics)]
-        exercise = await grammar.generate_exercise(
-            topic=topic, level=level, ex_type=None, context=context, lang=lang
+    # Beats are independent generations (the narrative thread is curated above, not model-made),
+    # so run them concurrently — the story arrives in one generation's latency instead of three.
+    exercises = await asyncio.gather(
+        *(
+            grammar.generate_exercise(
+                topic=topics[i % len(topics)], level=level, ex_type=None, context=context, lang=lang
+            )
+            for i in range(STORY_LEN)
         )
+    )
+    beats: list[dict[str, Any]] = []
+    for i, exercise in enumerate(exercises):
         narration = scenario["narration"][i] if i < len(scenario["narration"]) else ""
         beats.append({"narration": narration, "exercise": exercise})
 

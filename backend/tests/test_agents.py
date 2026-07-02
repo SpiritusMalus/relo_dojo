@@ -69,7 +69,10 @@ async def test_run_progress_agent_keeps_memory_on_empty_output(monkeypatch):
 
 
 async def test_run_planner_saves_clamped_plan_with_goal_and_date(monkeypatch):
-    async def fake(prompt, schema, *, temperature=None):
+    seen: dict = {}
+
+    async def fake(prompt, schema, *, temperature=None, tier="fast"):
+        seen["tier"] = tier
         return {"topic_weights": {"articles": 3.0, "word order": 1.2}, "note": " Focus week. "}
 
     monkeypatch.setattr(agents, "generate_json", fake)
@@ -80,6 +83,7 @@ async def test_run_planner_saves_clamped_plan_with_goal_and_date(monkeypatch):
     assert prof.plan.note == "Focus week."
     assert prof.plan.date == "2026-06-11"
     assert prof.plan.goal == "interviews"
+    assert seen["tier"] == "smart"  # the Planner is mid-model work — routed to the smart slot
 
 
 def test_plan_prompt_mentions_bounds():

@@ -1,0 +1,131 @@
+{
+  "_comment": "Writing-judge eval set: short learner responses with hand-vetted CEFR expectations. `expected` lists every acceptable band (adjacent-band tolerance where a sample sits on a boundary) — band edges are inherently fuzzy, so a strict single-band gate would make the eval flaky without making the judge better. Run: python -m evals.run_eval --writing",
+  "items": [
+    {
+      "id": "w01",
+      "prompt": "Describe your typical workday.",
+      "text": "I is developer. I work in company. I go office at morning. I like work.",
+      "expected": ["A1"],
+      "note": "Isolated fragments, be/agreement broken, articles and prepositions missing throughout."
+    },
+    {
+      "id": "w02",
+      "prompt": "Write about your family.",
+      "text": "My family have four people. Mother, father, sister and me. Sister is student. We live Moscow.",
+      "expected": ["A1", "A2"],
+      "note": "Very basic phrases; agreement and preposition errors; no linking."
+    },
+    {
+      "id": "w03",
+      "prompt": "Describe your city.",
+      "text": "wgat i dont understand question sorry",
+      "expected": ["A1"],
+      "note": "Garbled/off-task — the conservative floor must hold."
+    },
+    {
+      "id": "w04",
+      "prompt": "Describe your weekend.",
+      "text": "On Saturday I went to shop and bought food. Then I cooked dinner and watched film. It was good day but weather was bad.",
+      "expected": ["A2"],
+      "note": "Short simple sentences joined with and/but/then; past simple mostly right; articles dropped."
+    },
+    {
+      "id": "w05",
+      "prompt": "Write to a colleague about tomorrow's meeting.",
+      "text": "Hi Anna, we have meeting tomorrow at 10. Please bring documents about new project. If you can not come, tell me. Thanks.",
+      "expected": ["A2", "B1"],
+      "note": "Functional message, simple structures accurate; articles missing — A2 with B1 traits."
+    },
+    {
+      "id": "w06",
+      "prompt": "Describe your city.",
+      "text": "My city is big and very beautiful. There are many parks and one big river. In summer many people walking near river. I like my city because here live my friends.",
+      "expected": ["A2"],
+      "note": "Simple everyday vocabulary; a broken progressive and word-order slips; basic linking only."
+    },
+    {
+      "id": "w07",
+      "prompt": "Explain a problem you solved at work.",
+      "text": "Last month we had a problem with our database. It was working very slow and customers complained. I checked the logs and found that one query was not optimized. After I fixed it, the system became much faster. I was proud because it was my first serious task.",
+      "expected": ["B1"],
+      "note": "Connected narrative on a familiar topic; simple structures accurate; limited complexity."
+    },
+    {
+      "id": "w08",
+      "prompt": "Write to your landlord about a broken heater.",
+      "text": "Dear Mr. Schmidt, I am writing because the heater in my flat stopped working two days ago. I tried to restart it, but nothing happened. Could you please send a technician this week? It is getting cold, and I am worried about the pipes. Thank you for your help.",
+      "expected": ["B1", "B2"],
+      "note": "Clean functional letter; accurate but structurally modest — solid B1, arguably B2."
+    },
+    {
+      "id": "w09",
+      "prompt": "Describe your plans for the future.",
+      "text": "I am planning to move to Germany next year because I received a job offer from a company in Berlin. First I need to prepare all documents and improve my English. If everything goes well, I will start in September. I hope that my family can join me after some months.",
+      "expected": ["B1"],
+      "note": "Connected, mostly accurate; first conditional handled; vocabulary plain."
+    },
+    {
+      "id": "w10",
+      "prompt": "Tell us about your student years.",
+      "text": "When I was studying in university, I have met many interesting people. Some of them became my close friends and we still keep in touch. If I would have more free time, I will visit them more often, but my job takes almost all my evenings.",
+      "expected": ["A2", "B1"],
+      "note": "B1 ambition (clauses, conditional) but systematic tense errors in every complex attempt."
+    },
+    {
+      "id": "w11",
+      "prompt": "Describe a challenge in your recent project.",
+      "text": "Although the deadline was extremely tight, our team managed to deliver the feature on time. The main challenge was that the requirements kept changing, which forced us to redesign the architecture twice. Looking back, I believe we should have pushed back earlier instead of silently absorbing every request. Still, the experience taught me how to negotiate scope with stakeholders.",
+      "expected": ["B2", "C1"],
+      "note": "Complex sentences under control, perfect modal for hindsight, precise vocabulary."
+    },
+    {
+      "id": "w12",
+      "prompt": "What do you think about remote work?",
+      "text": "In my opinion, remote work has changed the way we think about our careers. On the one hand, it gives people freedom to live wherever they want and saves hours of commuting. On the other hand, it can make communication slower and sometimes leads to misunderstandings between colleagues. Personally, I prefer a hybrid model, because it combines the advantages of both approaches.",
+      "expected": ["B2"],
+      "note": "Clear structured argument with discourse markers; good control; no advanced flexibility."
+    },
+    {
+      "id": "w13",
+      "prompt": "Write a complaint about an online order.",
+      "text": "Dear Sir or Madam, I am writing to complain about an order which I placed on your website three weeks ago. Despite several reminders, the package has still not arrived, and your support team has not provided any clear explanation. Unless I receive the delivery or a full refund within seven days, I will have to dispute the payment with my bank. I would appreciate a prompt response.",
+      "expected": ["B2", "C1"],
+      "note": "Formal register held throughout; complex conditionals ('unless') accurate."
+    },
+    {
+      "id": "w14",
+      "prompt": "What has moving abroad taught you?",
+      "text": "Moving to another country is a decision that affects every part of your life. Before I moved, I had read many articles about culture shock, but experiencing it myself was completely different. During the first months I was struggling with bureaucracy, which nobody had warned me about it. Nevertheless, I would make the same choice again.",
+      "expected": ["B2"],
+      "note": "Past perfect and gerund subject handled; one resumptive-pronoun slip ('about it') — non-impeding."
+    },
+    {
+      "id": "w15",
+      "prompt": "What makes a good engineering culture?",
+      "text": "Had I been asked this question five years ago, I would probably have listed technical practices: code review, testing, continuous deployment. Having led a team through two difficult launches since then, I now believe culture is defined by what happens when things go wrong. Do engineers feel safe admitting mistakes, or do they quietly patch over problems? A team that treats every incident as a learning opportunity will, in the long run, outperform one that merely punishes failure.",
+      "expected": ["B2", "C1"],
+      "note": "Inversion, participle clause, rhetorical control — C1; B2 accepted for a conservative judge."
+    },
+    {
+      "id": "w16",
+      "prompt": "Describe a difficult professional decision.",
+      "text": "Turning down a promotion is hardly something one boasts about, yet it remains the best professional decision I have ever made. The role would have doubled my responsibilities while pulling me away from the engineering work I genuinely enjoy. What tipped the scales was a conversation with my former manager, who pointed out that a title rarely compensates for dread on a Monday morning. I have never regretted the choice since.",
+      "expected": ["B2", "C1"],
+      "note": "Gerund subject, cleft sentence, idiomatic precision ('tipped the scales') — C1 territory."
+    },
+    {
+      "id": "w17",
+      "prompt": "Is AI a threat to your profession?",
+      "text": "Whether artificial intelligence will replace developers is, in my view, the wrong question. Tools have always reshaped our craft; compilers did not eliminate programmers, they elevated the problems we solve. What AI does change, however, is the premium placed on judgement — knowing which solution fits the constraints at hand. Those who treat the technology as a collaborator rather than a rival will find their skills appreciating, not depreciating.",
+      "expected": ["B2", "C1"],
+      "note": "Nominal clause subject, emphatic 'does', sustained abstraction and register."
+    },
+    {
+      "id": "w18",
+      "prompt": "Why are you learning English?",
+      "text": "i want write good but english very hard for me now i learn every day",
+      "expected": ["A1", "A2"],
+      "note": "No punctuation or structure; missing verbs and prepositions — bottom bands only."
+    }
+  ]
+}

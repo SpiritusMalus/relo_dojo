@@ -6,20 +6,23 @@ from app.services import _grammar_feedback as fb
 
 
 def _fake_json(payload, seen=None):
-    async def _fake(prompt, schema, temperature=0.0):  # noqa: ANN001 — matches generate_json
+    async def _fake(prompt, schema, temperature=0.0, tier="fast"):  # noqa: ANN001 — matches generate_json
         if seen is not None:
             seen["prompt"] = prompt
+            seen["tier"] = tier
         return payload
 
     return _fake
 
 
 async def test_maps_cefr_band_to_fixed_score(monkeypatch):
-    monkeypatch.setattr(fb, "generate_json", _fake_json({"cefr": "B2", "note": "Vary your linking words."}))
+    seen: dict = {}
+    monkeypatch.setattr(fb, "generate_json", _fake_json({"cefr": "B2", "note": "Vary your linking words."}, seen))
     out = await fb.assess_writing("Although the project was complex, we delivered it on time.")
     assert out["cefr"] == "B2"
     assert out["score"] == 3.5  # fixed midpoint, not an LLM-invented float
     assert out["note"]
+    assert seen["tier"] == "smart"  # band placement is judge-grade work — routed to the smart slot
 
 
 async def test_note_language_follows_lang(monkeypatch):

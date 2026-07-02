@@ -345,7 +345,9 @@ async def assess_writing(
         + f"Return 'cefr' (one of {list(WRITING_CEFR)}) and a one-sentence 'note' in {note_lang} on the "
         "single biggest thing to improve. Reply ONLY as JSON matching the schema."
     )
-    data = await generate_json(p, ASSESS_WRITING_SCHEMA, temperature=CHECK_TEMPERATURE)
+    # Smart tier: band placement is judge-grade work — one call per level test, so the stronger
+    # model costs almost nothing here while the band decides the learner's whole placement.
+    data = await generate_json(p, ASSESS_WRITING_SCHEMA, temperature=CHECK_TEMPERATURE, tier="smart")
     cefr = str(data.get("cefr") or "").strip().upper()
     if cefr not in _CEFR_SCORE:
         cefr = "A1"  # unparseable band → conservative floor (never over-credit)

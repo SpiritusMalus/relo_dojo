@@ -148,8 +148,10 @@ async def run_planner(
     today: str | None = None,
 ) -> LearnerProfileData:
     """Profile + stats → plan. Mutates and returns `profile` (caller persists)."""
+    # Smart tier: the Planner is the "mid-model work" of the Stage-2 split — it runs on rare
+    # triggers (weekly / goal change), so a stronger model here is quality without a cost story.
     data = await generate_json(
-        plan_prompt(profile, stats, lang), PLAN_SCHEMA, temperature=CHECK_TEMPERATURE
+        plan_prompt(profile, stats, lang), PLAN_SCHEMA, temperature=CHECK_TEMPERATURE, tier="smart"
     )
     profile.plan = PlanData(
         topicWeights=sanitize_weights(data.get("topic_weights")),
