@@ -65,7 +65,7 @@ from .schemas import (
     StoryIn,
     StoryOut,
 )
-from .services import ads, analytics, content, gating, grammar, learner_profile, miss_log, rewards, stories, tokens
+from .services import ads, analytics, content, gating, grammar, http_client, learner_profile, miss_log, rewards, stories, tokens
 from .services import wallet as wallet_service
 from .services.llm import LLMError as OllamaError  # one exception across providers
 from .services.llm import generate_stream as llm_generate_stream
@@ -94,6 +94,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception:  # never block startup on a cleanup hiccup
             logging.getLogger("uvicorn.error").exception("Events TTL purge failed — skipping.")
     yield
+    # Shutdown: release the pooled LLM HTTP connections (services.http_client).
+    await http_client.aclose()
 
 
 def _docs_kwargs(is_prod: bool) -> dict[str, Optional[str]]:

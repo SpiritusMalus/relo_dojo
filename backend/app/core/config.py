@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     # Read-aloud transcription model — must accept audio input; defaults to the text model (it does).
     OPENROUTER_TRANSCRIBE_MODEL: str = "google/gemini-3.1-flash-lite"
     LLM_MAX_TOKENS: int = 1024  # API providers require an explicit cap
+    # --- Smart tier (optional): a stronger model for judge/planner-grade calls ---
+    # services.llm.generate_json(tier="smart") reads the active provider's *_MODEL_SMART slot
+    # (today: the level-test writing judge and the weekly Planner). Empty = fall back to the base
+    # slot, so tiering is opt-in and enabling it is pure .env config — no code change.
+    ANTHROPIC_MODEL_SMART: str = ""
+    OPENAI_MODEL_SMART: str = ""
+    GEMINI_MODEL_SMART: str = ""
+    OPENROUTER_MODEL_SMART: str = ""
+    OLLAMA_MODEL_SMART: str = ""
 
     # --- Ollama (local dev path) ---
     OLLAMA_URL: str = "http://localhost:11434"

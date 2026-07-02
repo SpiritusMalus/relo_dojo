@@ -20,12 +20,16 @@ eval set against the target model (`python -m evals.run_eval --provider anthropi
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
+import time
 from typing import Any, AsyncIterator
 
 import httpx
 
 from ..core.config import settings
+from . import http_client
 from .ollama_client import OllamaError
 from .ollama_client import generate as _ollama_generate
 from .ollama_client import generate_json as _ollama_generate_json
@@ -34,24 +38,53 @@ from .ollama_client import generate_stream as _ollama_generate_stream
 # One exception type across providers; old name kept so existing imports/handlers still work.
 LLMError = OllamaError
 
+logger = logging.getLogger(__name__)
+
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
-TIMEOUT = 120.0
+TIMEOUT = http_client.TIMEOUT  # kept as a public constant; the pooled client owns the value
+
+# Transient-failure retry: blips that fail fast or clear quickly get LLM_RETRIES extra attempts
+# with a short growing backoff — without this, a single 429/5xx/connect hiccup at the provider
+# surfaces as a user-facing 503. Read timeouts are deliberately NOT retried: the request already
+# consumed the full 120s window, and a retry would double a two-minute wait.
+LLM_RETRIES = 2
+RETRY_BACKOFF_S = 0.5  # multiplied by the attempt number
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+_CONNECT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
 
 
 def _provider() -> str:
     return (settings.LLM_PROVIDER or "ollama").strip().lower()
 
 
+def _model_for(provider: str, tier: str) -> str:
+    """The configured model for (provider, tier). tier="smart" reads the *_MODEL_SMART slot and
+    falls back to the base slot when it's unset — enabling tiers is pure config, safe by default."""
+    smart = tier == "smart"
+    if provider == "anthropic":
+        return (settings.ANTHROPIC_MODEL_SMART if smart else "") or settings.ANTHROPIC_MODEL
+    if provider == "openai":
+        return (settings.OPENAI_MODEL_SMART if smart else "") or settings.OPENAI_MODEL
+    if provider == "openrouter":
+        return (settings.OPENROUTER_MODEL_SMART if smart else "") or settings.OPENROUTER_MODEL
+    if provider == "gemini":
+        return (settings.GEMINI_MODEL_SMART if smart else "") or settings.GEMINI_MODEL
+    return (settings.OLLAMA_MODEL_SMART if smart else "") or settings.OLLAMA_MODEL
+
+
 # --- pure payload builders / response parsers (unit-tested offline) -----------
 def build_anthropic_payload(
-    prompt: str, schema: dict[str, Any] | None = None, temperature: float | None = None
+    prompt: str,
+    schema: dict[str, Any] | None = None,
+    temperature: float | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
-        "model": settings.ANTHROPIC_MODEL,
+        "model": model or settings.ANTHROPIC_MODEL,
         "max_tokens": settings.LLM_MAX_TOKENS,
         "messages": [{"role": "user", "content": prompt}],
     }
@@ -242,34 +275,104 @@ def _raise_for_status(status: int, name: str, text: str = "") -> None:
         raise LLMError(f"{name} API error {status}: {text[:200]}")
 
 
-async def _post(url: str, headers: dict[str, str], payload: dict[str, Any], name: str) -> dict[str, Any]:
-    try:
-        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-    except httpx.ConnectError as exc:
-        raise LLMError(f"Cannot reach the {name} API — check the network.") from exc
-    except httpx.TimeoutException as exc:
-        raise LLMError(f"The {name} API timed out.") from exc
-    _raise_for_status(resp.status_code, name, resp.text)
-    return resp.json()
+def _usage_from(data: dict[str, Any]) -> tuple[Any, Any]:
+    """(input_tokens, output_tokens) from a provider response, best-effort — (None, None) when the
+    provider sent no usage. Shapes: OpenAI/OpenRouter `usage.{prompt,completion}_tokens`, Anthropic
+    `usage.{input,output}_tokens`, Gemini `usageMetadata.{promptTokenCount,candidatesTokenCount}`."""
+    u = data.get("usage")
+    if isinstance(u, dict):
+        return (
+            u.get("prompt_tokens", u.get("input_tokens")),
+            u.get("completion_tokens", u.get("output_tokens")),
+        )
+    u = data.get("usageMetadata")
+    if isinstance(u, dict):
+        return (u.get("promptTokenCount"), u.get("candidatesTokenCount"))
+    return (None, None)
+
+
+def _ms(started: float) -> int:
+    return int((time.monotonic() - started) * 1000)
+
+
+async def _post(
+    url: str, headers: dict[str, str], payload: dict[str, Any], name: str, model: str = ""
+) -> dict[str, Any]:
+    """POST with transient-failure retry and one telemetry line per call (the only place cost and
+    latency are visible in prod). `model` defaults from the payload; Gemini passes it explicitly
+    (its model rides in the URL)."""
+    model = model or str(payload.get("model") or "")
+    started = time.monotonic()
+    last_status = 0
+    for attempt in range(1, LLM_RETRIES + 2):
+        try:
+            resp = await http_client.client().post(url, json=payload, headers=headers)
+        except _CONNECT_ERRORS as exc:
+            if attempt <= LLM_RETRIES:
+                logger.warning("llm retry name=%s model=%s attempt=%d cause=%s", name, model, attempt, type(exc).__name__)
+                await asyncio.sleep(RETRY_BACKOFF_S * attempt)
+                continue
+            raise LLMError(f"Cannot reach the {name} API — check the network.") from exc
+        except httpx.TimeoutException as exc:
+            logger.warning("llm error name=%s model=%s ms=%d cause=timeout", name, model, _ms(started))
+            raise LLMError(f"The {name} API timed out.") from exc
+        last_status = resp.status_code
+        if resp.status_code in RETRYABLE_STATUS and attempt <= LLM_RETRIES:
+            logger.warning("llm retry name=%s model=%s attempt=%d status=%d", name, model, attempt, resp.status_code)
+            await asyncio.sleep(RETRY_BACKOFF_S * attempt)
+            continue
+        try:
+            _raise_for_status(resp.status_code, name, resp.text)
+        except LLMError:
+            logger.warning("llm error name=%s model=%s ms=%d status=%d", name, model, _ms(started), resp.status_code)
+            raise
+        data = resp.json()
+        tok_in, tok_out = _usage_from(data)
+        logger.info(
+            "llm ok name=%s model=%s ms=%d attempts=%d tok_in=%s tok_out=%s",
+            name, model, _ms(started), attempt, tok_in, tok_out,
+        )
+        return data
+    # Retries exhausted on a retryable status (the loop never got past the continue).
+    logger.warning("llm error name=%s model=%s ms=%d status=%d retries=exhausted", name, model, _ms(started), last_status)
+    _raise_for_status(last_status, name)
+    raise LLMError(f"{name} API error {last_status}.")  # pragma: no cover — _raise_for_status raised
 
 
 async def _stream_lines(
-    url: str, headers: dict[str, str], payload: dict[str, Any], name: str
+    url: str, headers: dict[str, str], payload: dict[str, Any], name: str, model: str = ""
 ) -> AsyncIterator[str]:
-    """POST and yield raw SSE lines, with the same LLMError mapping as _post."""
-    try:
-        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-            async with client.stream("POST", url, json=payload, headers=headers) as resp:
+    """POST and yield raw SSE lines, with the same LLMError mapping and retry policy as _post —
+    but only failures BEFORE the first byte are retried; a broken mid-stream is surfaced (the
+    caller already forwarded partial output)."""
+    model = model or str(payload.get("model") or "")
+    started = time.monotonic()
+    for attempt in range(1, LLM_RETRIES + 2):
+        yielded = False
+        try:
+            async with http_client.client().stream("POST", url, json=payload, headers=headers) as resp:
                 if resp.status_code >= 400:
                     body = (await resp.aread()).decode("utf-8", errors="replace")
+                    if resp.status_code in RETRYABLE_STATUS and attempt <= LLM_RETRIES:
+                        logger.warning("llm retry name=%s model=%s attempt=%d status=%d", name, model, attempt, resp.status_code)
+                        await asyncio.sleep(RETRY_BACKOFF_S * attempt)
+                        continue
+                    logger.warning("llm error name=%s model=%s ms=%d status=%d", name, model, _ms(started), resp.status_code)
                     _raise_for_status(resp.status_code, name, body)
                 async for line in resp.aiter_lines():
+                    yielded = True
                     yield line
-    except httpx.ConnectError as exc:
-        raise LLMError(f"Cannot reach the {name} API — check the network.") from exc
-    except httpx.TimeoutException as exc:
-        raise LLMError(f"The {name} API timed out.") from exc
+            logger.info("llm ok name=%s model=%s ms=%d attempts=%d stream=1", name, model, _ms(started), attempt)
+            return
+        except _CONNECT_ERRORS as exc:
+            if not yielded and attempt <= LLM_RETRIES:
+                logger.warning("llm retry name=%s model=%s attempt=%d cause=%s", name, model, attempt, type(exc).__name__)
+                await asyncio.sleep(RETRY_BACKOFF_S * attempt)
+                continue
+            raise LLMError(f"Cannot reach the {name} API — check the network.") from exc
+        except httpx.TimeoutException as exc:
+            logger.warning("llm error name=%s model=%s ms=%d cause=timeout stream=1", name, model, _ms(started))
+            raise LLMError(f"The {name} API timed out.") from exc
 
 
 def _require_key(key: str, env_name: str, provider: str) -> str:
@@ -278,37 +381,46 @@ def _require_key(key: str, env_name: str, provider: str) -> str:
     return key
 
 
-async def _anthropic(prompt: str, schema: dict[str, Any] | None, temperature: float | None) -> Any:
+async def _anthropic(
+    prompt: str, schema: dict[str, Any] | None, temperature: float | None, model: str | None = None
+) -> Any:
     headers = {
         "x-api-key": _require_key(settings.ANTHROPIC_API_KEY, "ANTHROPIC_API_KEY", "anthropic"),
         "anthropic-version": ANTHROPIC_VERSION,
     }
-    data = await _post(ANTHROPIC_URL, headers, build_anthropic_payload(prompt, schema, temperature), "Anthropic")
+    data = await _post(ANTHROPIC_URL, headers, build_anthropic_payload(prompt, schema, temperature, model), "Anthropic")
     return parse_anthropic_response(data, expect_json=schema is not None)
 
 
-async def _openai(prompt: str, schema: dict[str, Any] | None, temperature: float | None) -> Any:
+async def _openai(
+    prompt: str, schema: dict[str, Any] | None, temperature: float | None, model: str | None = None
+) -> Any:
     headers = {
         "Authorization": f"Bearer {_require_key(settings.OPENAI_API_KEY, 'OPENAI_API_KEY', 'openai')}"
     }
-    data = await _post(OPENAI_URL, headers, build_openai_payload(prompt, schema, temperature), "OpenAI")
+    data = await _post(OPENAI_URL, headers, build_openai_payload(prompt, schema, temperature, model), "OpenAI")
     return parse_openai_response(data, expect_json=schema is not None)
 
 
-async def _openrouter(prompt: str, schema: dict[str, Any] | None, temperature: float | None) -> Any:
+async def _openrouter(
+    prompt: str, schema: dict[str, Any] | None, temperature: float | None, model: str | None = None
+) -> Any:
     headers = {
         "Authorization": f"Bearer {_require_key(settings.OPENROUTER_API_KEY, 'OPENROUTER_API_KEY', 'openrouter')}"
     }
-    payload = build_openai_payload(prompt, schema, temperature, model=settings.OPENROUTER_MODEL)
+    payload = build_openai_payload(prompt, schema, temperature, model=model or settings.OPENROUTER_MODEL)
     data = await _post(OPENROUTER_URL, headers, payload, "OpenRouter")
     return parse_openai_response(data, expect_json=schema is not None)
 
 
-async def _gemini(prompt: str, schema: dict[str, Any] | None, temperature: float | None) -> Any:
+async def _gemini(
+    prompt: str, schema: dict[str, Any] | None, temperature: float | None, model: str | None = None
+) -> Any:
     key = _require_key(settings.GEMINI_API_KEY, "GEMINI_API_KEY", "gemini")
     headers = {"x-goog-api-key": key}
-    url = f"{GEMINI_BASE}/models/{settings.GEMINI_MODEL}:generateContent"
-    data = await _post(url, headers, build_gemini_payload(prompt, schema, temperature), "Gemini")
+    m = model or settings.GEMINI_MODEL
+    url = f"{GEMINI_BASE}/models/{m}:generateContent"
+    data = await _post(url, headers, build_gemini_payload(prompt, schema, temperature), "Gemini", model=m)
     return parse_gemini_response(data, expect_json=schema is not None)
 
 
@@ -375,18 +487,22 @@ async def generate(prompt: str, *, temperature: float | None = None) -> str:
 
 
 async def generate_json(
-    prompt: str, schema: dict[str, Any], *, temperature: float | None = None
+    prompt: str, schema: dict[str, Any], *, temperature: float | None = None, tier: str = "fast"
 ) -> dict[str, Any]:
+    """Structured generation, routed by provider. `tier="smart"` routes to the provider's
+    *_MODEL_SMART slot (judge/planner-grade calls: writing assessment, weekly Planner) and falls
+    back to the base model when the slot is unset — so tiering is opt-in, config-only."""
     p = _provider()
+    model = _model_for(p, tier)
     if p == "anthropic":
-        return await _anthropic(prompt, schema, temperature)
+        return await _anthropic(prompt, schema, temperature, model)
     if p == "openai":
-        return await _openai(prompt, schema, temperature)
+        return await _openai(prompt, schema, temperature, model)
     if p == "openrouter":
-        return await _openrouter(prompt, schema, temperature)
+        return await _openrouter(prompt, schema, temperature, model)
     if p == "gemini":
-        return await _gemini(prompt, schema, temperature)
-    return await _ollama_generate_json(prompt, schema, temperature=temperature)
+        return await _gemini(prompt, schema, temperature, model)
+    return await _ollama_generate_json(prompt, schema, temperature=temperature, model=model)
 
 
 async def generate_stream(prompt: str, *, temperature: float | None = None) -> AsyncIterator[str]:
@@ -416,15 +532,6 @@ async def generate_stream(prompt: str, *, temperature: float | None = None) -> A
         yield chunk
 
 
-def active_model() -> str:
-    """The model the current provider will use (for logs / eval reports)."""
-    p = _provider()
-    if p == "anthropic":
-        return settings.ANTHROPIC_MODEL
-    if p == "openai":
-        return settings.OPENAI_MODEL
-    if p == "openrouter":
-        return settings.OPENROUTER_MODEL
-    if p == "gemini":
-        return settings.GEMINI_MODEL
-    return settings.OLLAMA_MODEL
+def active_model(tier: str = "fast") -> str:
+    """The model the current provider will use for `tier` (for logs / eval reports)."""
+    return _model_for(_provider(), tier)

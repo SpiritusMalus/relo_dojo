@@ -128,11 +128,11 @@ def test_parse_gemini_sse_line():
 async def test_generate_json_routes_by_provider(monkeypatch):
     calls: list[str] = []
 
-    async def fake_ollama(prompt, schema, *, temperature=None):
+    async def fake_ollama(prompt, schema, *, temperature=None, model=None):
         calls.append("ollama")
         return {}
 
-    async def fake_api(prompt, schema, temperature):
+    async def fake_api(prompt, schema, temperature, model=None):
         calls.append("api")
         return {}
 
