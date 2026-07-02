@@ -14,7 +14,9 @@ from app.db import models  # noqa: F401  (import registers tables on Base.metada
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers defaults to True, which permanently kills every already-created
+    # app logger (llm telemetry, miss_log warnings) when auto-migrate runs inside the app process.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 
