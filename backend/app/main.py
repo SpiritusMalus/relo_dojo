@@ -70,6 +70,12 @@ from .services import wallet as wallet_service
 from .services.llm import LLMError as OllamaError  # one exception across providers
 from .services.llm import generate_stream as llm_generate_stream
 
+# Route app-level logs (services.llm telemetry, miss_log warnings) to stderr → journald. Under
+# uvicorn only the uvicorn.* loggers get handlers — the root logger has none, so every app INFO
+# line silently vanishes (verified on prod: an /exercise call logged no "llm ok"). basicConfig is
+# a no-op when a root handler already exists (pytest, scripts), so dev tooling is unaffected.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s [%(name)s] %(message)s")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Schema always matches the code: `alembic upgrade head` on boot (AUTO_MIGRATE to disable)."""
