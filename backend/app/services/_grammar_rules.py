@@ -68,10 +68,65 @@ GRAMMAR_RULES: dict[str, str] = {
 }
 
 
-def rules_clause(topic: str | None) -> str:
-    """A prompt clause stating the authoritative rule for `topic`. Empty for an unknown/blank topic
-    (so off-canon topics simply fall back to the model's own knowledge — no failure)."""
-    rule = GRAMMAR_RULES.get((topic or "").strip())
+# Per-band refinements: (topic, band) → the rule scoped to what that CEFR band actually drills.
+# Band is the CEFR letter (A = A1/A2, B = B1/B2, C = C1). Only topics whose canon genuinely differs
+# by band get entries; every other (topic, band) falls back to the base GRAMMAR_RULES clause. This
+# keeps an A-level prompt free of third-conditional noise and a C-level prompt free of basics — a
+# smaller, sharper anchor for the level being practiced (and fewer tokens, not more).
+GRAMMAR_RULES_BY_BAND: dict[tuple[str, str], str] = {
+    ("conditionals", "A"): (
+        "Zero: if + present, present (general truth). First: if + present, will + base (real future). "
+        "Never put 'will' in the if-clause. "
+        "e.g. 'If it rains, we will stay home'."
+    ),
+    ("conditionals", "B"): (
+        "Second: if + past, would + base (unreal present). Third: if + past perfect, would have + past "
+        "participle (unreal past). Never put 'would' in the if-clause. "
+        "e.g. 'If I had known, I would have called'."
+    ),
+    ("conditionals", "C"): (
+        "Mixed: if + past perfect, would + base (past cause, present result) and the reverse. Formal "
+        "inversion drops 'if': 'Had I known...', 'Were we to...', 'Should you need...'. "
+        "e.g. 'Had we left earlier, we would be home by now'."
+    ),
+    ("modal verbs", "A"): (
+        "Modal + bare infinitive (no 'to', no -s). can/can't = ability or permission, must = obligation, "
+        "should = advice. "
+        "e.g. 'She can swim'; 'You should rest'."
+    ),
+    ("modal verbs", "C"): (
+        "Perfect modals for deduction and hindsight: must have / can't have / might have + past "
+        "participle; should have = regret; needn't have done = did it, but it wasn't necessary. "
+        "e.g. 'She must have left'; 'You needn't have paid'."
+    ),
+    ("gerunds & infinitives", "A"): (
+        "like/love/hate/enjoy + -ing; want/need/decide + to + base. "
+        "e.g. 'I enjoy reading'; 'I want to go'."
+    ),
+    ("gerunds & infinitives", "C"): (
+        "Meaning switches: stop/remember/forget/regret/try change meaning with -ing vs to + base. "
+        "e.g. 'I stopped smoking' (quit) vs 'I stopped to smoke' (paused in order to)."
+    ),
+    ("comparatives & superlatives", "C"): (
+        "Parallel increase: 'the + comparative..., the + comparative...'. Grade the gap with "
+        "far/much/slightly; 'not nearly as ... as'. "
+        "e.g. 'The earlier we deploy, the safer the release'; 'far more reliable than'."
+    ),
+}
+
+
+def _band(level: str | None) -> str:
+    """CEFR letter band ('A'/'B'/'C') from a level like 'B1'; '' when absent or off-scale."""
+    letter = (level or "").strip()[:1].upper()
+    return letter if letter in {"A", "B", "C"} else ""
+
+
+def rules_clause(topic: str | None, level: str | None = None) -> str:
+    """A prompt clause stating the authoritative rule for `topic` — sharpened to the CEFR band when
+    a per-band refinement exists, else the base rule. Empty for an unknown/blank topic (so off-canon
+    topics simply fall back to the model's own knowledge — no failure)."""
+    t = (topic or "").strip()
+    rule = GRAMMAR_RULES_BY_BAND.get((t, _band(level))) or GRAMMAR_RULES.get(t)
     if not rule:
         return ""
     return (

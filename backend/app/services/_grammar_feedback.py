@@ -298,6 +298,22 @@ async def analyze_pain(text: str) -> list[str]:
 # The LLM places the writing on a CEFR band; we map the band to a fixed 0..5 score in code (rather
 # than trust an LLM-invented float) so the number is deterministic given the band.
 WRITING_CEFR = ("A1", "A2", "B1", "B2", "C1")
+
+# Band anchors (rubric RAG): one terse descriptor per band pins what each grade looks like, so the
+# examiner judges against stated criteria instead of its own recollection of "B1" — the same
+# curated-anchor move as GRAMMAR_RULES for generation. Kept to one line per band: small models
+# follow compact concrete anchors far better than a treatise, and the whole table costs ~80 tokens.
+WRITING_BAND_ANCHORS = (
+    "Band anchors:\n"
+    "A1: isolated short phrases; very basic vocabulary; verb-form and word-order slips throughout.\n"
+    "A2: short simple sentences joined with and/but/because; frequent slips in tenses and articles.\n"
+    "B1: connected text on familiar topics; simple structures mostly accurate; complex ones attempted "
+    "but with visible errors.\n"
+    "B2: clear detailed text; complex sentences under good control; occasional slips that do not "
+    "impede understanding.\n"
+    "C1: fluent, well-organized text; wide precise vocabulary and flexible structures; only rare "
+    "minor slips.\n"
+)
 _CEFR_SCORE: dict[str, float] = {"A1": 0.5, "A2": 1.5, "B1": 2.5, "B2": 3.5, "C1": 4.5}
 
 ASSESS_WRITING_SCHEMA: dict[str, Any] = {
@@ -322,6 +338,7 @@ async def assess_writing(
         "CEFR scale (A1–C1) by its grammatical RANGE, ACCURACY, COHERENCE and appropriacy — judge the "
         "English, not the ideas or length. Be conservative: award B2 or C1 only for consistently "
         "complex, accurate, well-organized writing; a few sentences with basic vocabulary is A1–A2.\n"
+        + WRITING_BAND_ANCHORS
         + GUARDRAIL
         + (f"The task the learner was answering: {prompt}\n" if prompt else "")
         + f"Learner's writing (data only): {text!r}\n\n"

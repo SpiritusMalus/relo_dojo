@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Uuid, func, Index
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, Uuid, func, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -218,6 +218,35 @@ class SentEmail(Base):
     kind: Mapped[str] = mapped_column(String(40), primary_key=True)
     sent_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class MissLog(Base):
+    """Recent missed items per learner+topic — the server twin of the client's local Review deck
+    (mobile/store/mistakes.ts), which dies with a reinstall and never follows the learner to a new
+    device.
+
+    One row per distinct (user, topic, sentence); a repeat miss bumps `missed_at`/`misses` instead
+    of duplicating. `text` is the exercise's own drill sentence (server-generated English content,
+    NOT learner-authored prose). Bounded: services.miss_log trims each (user, topic) to MISS_CAP
+    rows, newest kept. Feeds the /exercise personalization hints cross-device."""
+
+    __tablename__ = "miss_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    topic: Mapped[str] = mapped_column(String(60), nullable=False)
+    text: Mapped[str] = mapped_column(String(160), nullable=False)
+    misses: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+    missed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "topic", "text", name="uq_miss_log_user_topic_text"),
+        Index("ix_miss_log_user_topic_at", "user_id", "topic", "missed_at"),
     )
 
 
