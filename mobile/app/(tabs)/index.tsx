@@ -34,6 +34,7 @@ import { TOPIC_LABELS, minutesToGoal } from "../../store/onboarding";
 import { RU_TOPIC_LABELS } from "../../i18n/strings";
 import { isoDay } from "../../store/adaptive";
 import { requestPlan } from "../../services/api";
+import RuleSheet from "../../components/ui/RuleSheet";
 import Sensei, { type Mood } from "../../components/ui/Sensei";
 import SenseiBubble from "../../components/ui/SenseiBubble";
 import ProgressBar from "../../components/ui/ProgressBar";
@@ -93,6 +94,10 @@ export default function HomeScreen() {
 
   // Soft register wall (anon-first funnel): lesson count is bumped in practice; we just read it here.
   const [wall, setWall] = useState<WallState>(DEFAULT_WALL);
+
+  // Course Presentation step: a tapped path unit opens its rule card first; the drill starts from
+  // the card's CTA. Null = closed.
+  const [ruleTopic, setRuleTopic] = useState<string | null>(null);
 
   // Trigger: onboarding done → open the one-shot 24h starter offer (no-op if it ever existed).
   // In an effect, not the render body — render must stay side-effect-free.
@@ -277,14 +282,27 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Belt journey — interactive map (moved off Progress): tap a node to train that topic, or the
-          belt-test node to take the exam. Locked nodes (further along the path) stay non-tappable. */}
+      {/* Belt journey = the course track: tap a unit to READ ITS RULE first (Presentation, PPP),
+          then drill from the card's CTA; the belt-test node opens the exam. Locked units (past the
+          mastery gate) stay non-tappable. */}
       <JourneyPath
         onSelect={(node: PathNode) => {
           if (node.state === "test") router.push("/belt-exam");
-          else if (node.topic) router.push({ pathname: "/practice", params: { topic: node.topic.id } });
+          else if (node.topic) setRuleTopic(node.topic.id);
         }}
       />
+      {ruleTopic && (
+        <RuleSheet
+          topic={ruleTopic}
+          visible
+          onTrain={() => {
+            const topic = ruleTopic;
+            setRuleTopic(null);
+            router.push({ pathname: "/practice", params: { topic } });
+          }}
+          onClose={() => setRuleTopic(null)}
+        />
+      )}
 
       {/* The one daily action (starter — always open). Every other mode lives in the Train tab. */}
       <DailyMixButton onPress={() => router.push("/practice")} />

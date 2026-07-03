@@ -14,6 +14,8 @@ import ResultPanel from "../components/ResultPanel";
 import { useProgress, mergeSteering, DEFAULT_STEERING, type Steering } from "../store/progress";
 import { effectiveSkill, levelToCefr, selectNext, applySteeringAction, type SwerveAction } from "../store/adaptive";
 import SwerveSheet, { type SwerveScope } from "../components/ui/SwerveSheet";
+import RuleSheet from "../components/ui/RuleSheet";
+import { RULE_CARDS } from "../store/curriculum";
 import PronunciationCard from "../components/ui/PronunciationCard";
 import { canServePronunciation, voiceFeatureEnabled } from "../services/voice";
 import { useVoiceConsent } from "../store/voiceConsent";
@@ -127,6 +129,17 @@ export default function PracticeScreen() {
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const [showScroll, setShowScroll] = useState(false); // end-of-session summary + reward scroll
   const [swerveOpen, setSwerveOpen] = useState(false); // learner's "steer the lesson" sheet
+  const [ruleOpen, setRuleOpen] = useState(false); // 📖 rule card for the current card's topic
+  // "Topic mastered" moment: the course criterion (store/curriculum.ts) was met by THIS session's
+  // answer — celebrate once, on the result screen. Detected by diffing progress.course.mastered.
+  const [justMastered, setJustMastered] = useState<string | null>(null);
+  const masteredRef = useRef<Set<string>>(new Set(progress.course?.mastered ?? []));
+  useEffect(() => {
+    const prev = masteredRef.current;
+    const fresh = (progress.course?.mastered ?? []).find((topic) => !prev.has(topic));
+    if (fresh) setJustMastered(fresh);
+    masteredRef.current = new Set(progress.course?.mastered ?? []);
+  }, [progress.course?.mastered]);
   const { isPremium, coins } = useWallet();
   const { owned: ownedCosmetics } = useCosmetics();
   // XP at session start — the summary shows the delta (combo/boost included automatically).
@@ -145,6 +158,7 @@ export default function PracticeScreen() {
     reset();
     setResponse(null);
     setResponseDisplay("");
+    setJustMastered(null); // the mastered banner belongs to the answered card, not the next one
     setExercise(null);
     // Guests get the same daily allowance as a free account (store/guestLimit.ts). On exhaustion we
     // show the register wall instead of fetching — registering lifts the cap and adds sync. (The
@@ -315,6 +329,21 @@ export default function PracticeScreen() {
             {topicLabel}
             {exercise ? `  ·  ${levelToCefr(effectiveSkill(progress, exercise.topic))}` : ""}
           </Txt>
+          {/* 📖 the unit's rule card, one tap away mid-drill (the Presentation step stays reachable) */}
+          {exercise && !showScroll && RULE_CARDS[exercise.topic] && (
+            <Pressable
+              onPress={() => setRuleOpen(true)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={tr("course.rule")}
+              style={({ pressed }) => [
+                styles.swerveBtn,
+                { borderColor: t.c.line, backgroundColor: t.c.surface2, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Txt variant="caption" color={t.c.ink2}>{`📖 ${tr("course.rule")}`}</Txt>
+            </Pressable>
+          )}
           {exercise && !showScroll && (
             <Pressable
               onPress={() => setSwerveOpen(true)}
@@ -427,6 +456,18 @@ export default function PracticeScreen() {
           <PronunciationCard target={exercise.text} lang={lang} />
         )}
 
+        {/* Mastery-gate moment: this answer completed the unit's criterion — the next topic on the
+            path just opened. The peak beat of the course loop; shown above the result panel. */}
+        {justMastered && result && !showScroll && (
+          <Card>
+            <View style={{ alignItems: "center", gap: 4, paddingVertical: 6 }}>
+              <Txt variant="bodyStrong" color={t.c.accent}>{`🥋 ${tr("course.mastered")}`}</Txt>
+              <Txt variant="body" color={t.c.ink}>{labelFor(justMastered)}</Txt>
+              <Txt variant="secondary" color={t.c.ink2}>{tr("course.masteredSub")}</Txt>
+            </View>
+          </Card>
+        )}
+
         {result && exercise && !showScroll && (
           <ResultPanel
             result={result}
@@ -448,6 +489,9 @@ export default function PracticeScreen() {
           onClose={() => setSwerveOpen(false)}
         />
       )}
+
+      {/* Rule reference (📖): no train CTA — the learner is already training. */}
+      {exercise && <RuleSheet topic={exercise.topic} visible={ruleOpen} onClose={() => setRuleOpen(false)} />}
 
       {result?.correct && <Confetti />}
 

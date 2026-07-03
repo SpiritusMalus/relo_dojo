@@ -13,6 +13,59 @@ function progressWith(overrides: Partial<Progress>): Progress {
 const DAY = "2026-06-04";
 const at = (s: string) => new Date(`${s}T12:00:00`);
 
+describe("recordAnswer — course evidence (mastery gate)", () => {
+  const correctAt = (p: Progress, format: string, correct = true) =>
+    recordAnswer(p, "articles", correct, at(DAY), { format });
+
+  it("appends the answer with its format to the topic's rolling window", () => {
+    const next = correctAt(DEFAULT_PROGRESS, "build-the-sentence");
+    expect(next.course.history.articles).toEqual([{ c: true, f: "build-the-sentence" }]);
+  });
+
+  it("caps the window at 10 marks (oldest fall out)", () => {
+    let p = DEFAULT_PROGRESS;
+    for (let i = 0; i < 12; i++) p = correctAt(p, "multiple-choice", i >= 2); // 2 early misses
+    expect(p.course.history.articles).toHaveLength(10);
+    expect(p.course.history.articles.every((m) => m.c)).toBe(true); // the misses aged out
+  });
+
+  it("promotes the topic to mastered exactly when the criterion holds", () => {
+    let p = DEFAULT_PROGRESS;
+    for (let i = 0; i < 7; i++) p = correctAt(p, "multiple-choice");
+    p = correctAt(p, "tap-the-error");
+    expect(p.course.mastered).toEqual([]); // 8 correct but only 1 constructive — not yet
+    p = correctAt(p, "order-the-dialog");
+    expect(p.course.mastered).toEqual(["articles"]); // 9 correct, 2 constructive → gate met
+  });
+
+  it("never un-masters a unit on later misses (the lock only moves forward)", () => {
+    let p = DEFAULT_PROGRESS;
+    for (let i = 0; i < 8; i++) p = correctAt(p, "build-the-sentence");
+    expect(p.course.mastered).toEqual(["articles"]);
+    for (let i = 0; i < 10; i++) p = correctAt(p, "multiple-choice", false);
+    expect(p.course.mastered).toEqual(["articles"]);
+  });
+});
+
+describe("mergeProgress — course state", () => {
+  it("unions mastered units and keeps the longer per-topic history", () => {
+    const a: Progress = {
+      ...DEFAULT_PROGRESS,
+      course: { history: { articles: [{ c: true, f: "multiple-choice" }] }, mastered: ["word order"] },
+    };
+    const b: Progress = {
+      ...DEFAULT_PROGRESS,
+      course: {
+        history: { articles: [{ c: false, f: "multiple-choice" }, { c: true, f: "tap-the-error" }] },
+        mastered: ["prepositions"],
+      },
+    };
+    const m = mergeProgress(a, b);
+    expect(m.course.mastered.sort()).toEqual(["prepositions", "word order"]);
+    expect(m.course.history.articles).toHaveLength(2); // b's longer window wins
+  });
+});
+
 describe("recordAnswer", () => {
   it("increments attempts/correct and stamps lastSeen for the topic", () => {
     const next = recordAnswer(DEFAULT_PROGRESS, "articles", true, at(DAY));

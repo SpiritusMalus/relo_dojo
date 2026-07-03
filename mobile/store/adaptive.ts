@@ -7,6 +7,7 @@
 // toward weak/underpracticed areas while staying varied (weighted-random).
 import type { Progress, Steering } from "./progress";
 import type { ExerciseType } from "../services/api";
+import { CURRICULUM } from "./curriculum";
 
 export const START_LEVEL = 1.5; // ≈ A2/B1 boundary (Pre-Intermediate)
 export const TARGET_SUCCESS = 0.75;
@@ -234,6 +235,21 @@ export function topicWeight(p: Progress, topic: string, today: string = isoDay(n
 export const PIN_BOOST = 2.5; // weight multiplier for a learner-pinned focus topic (capped, keeps variety)
 export const DIFFICULTY_BIAS_RANGE = 1.0; // max served-level shift (≈ one CEFR band) at |difficultyBias| = 1
 
+/** Topics the course has opened: every mastered unit + the current one (the first unmastered in
+ *  syllabus order). Locked units never enter the mix — blocked practice on the current unit first,
+ *  interleaving over PASSED material after (the standard blocking→interleaving progression). The
+ *  old any-topic roulette read as noise: it drilled rules nobody had presented yet. */
+export function unlockedTopics(p: Progress): Set<string> {
+  const mastered = new Set(p.course?.mastered ?? []);
+  const open = new Set<string>();
+  for (const unit of CURRICULUM) {
+    open.add(unit.topic);
+    if (!mastered.has(unit.topic)) break; // the current unit — everything past it stays locked
+  }
+  for (const m of mastered) open.add(m); // defensive: out-of-order mastery stays practicable
+  return open;
+}
+
 /** Pick the next exercise's topic, difficulty (CEFR) and type from the learner model, honoring the
  *  learner's `steering` (pinned focus, muted topics/formats, difficulty bias). Pass `forcedTopic` to
  *  drill a chosen topic (difficulty/type still adapt to its level). */
@@ -244,10 +260,15 @@ export function selectNext(
   today: string = isoDay(new Date())
 ): { topic: string; cefr: Cefr; type: ExerciseType } {
   const all = Object.keys(TOPIC_PRIORS);
+  // The mix draws only from course-unlocked topics (mastered + current). A drilled `forcedTopic`
+  // below still wins unconditionally, so Review / coach / quest entries into any topic keep working.
+  const open = unlockedTopics(p);
+  const unlocked = all.filter((t) => open.has(t));
+  const pool = unlocked.length > 0 ? unlocked : all;
   // Muted topics drop out of the pool, but the pool is never emptied (mute everything → ignore it).
   const muted = new Set(steering?.mutedTopics ?? []);
-  let candidates = all.filter((t) => !muted.has(t));
-  if (candidates.length === 0) candidates = all;
+  let candidates = pool.filter((t) => !muted.has(t));
+  if (candidates.length === 0) candidates = pool;
 
   const pin = steering?.pinnedFocusTopic;
   const topic =

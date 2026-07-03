@@ -22,6 +22,7 @@ import { resetJourney } from "./journey";
 import { resetReviewHook } from "./reviewHook";
 import { useWallet } from "./wallet";
 import { updateSkill } from "./adaptive";
+import { masteryOf, MASTERY_WINDOW, type AnswerMark } from "./curriculum";
 import {
   MIN_REPAIRABLE_STREAK,
   repairOpen,
@@ -79,6 +80,16 @@ export type Steering = {
 
 export const DEFAULT_STEERING: Steering = { mutedTopics: [], formatPrefs: {}, difficultyBias: 0 };
 
+/** Course state (mastery-gated syllabus, store/curriculum.ts): the rolling per-topic answer
+ *  evidence and the set of units already passed. `mastered` only ever grows — the path never
+ *  re-locks a unit the learner has cleared, even if later answers dip. */
+export type CourseState = {
+  history: Record<string, AnswerMark[]>; // last MASTERY_WINDOW answers per topic
+  mastered: string[]; // unit topic ids passed by the mastery criterion
+};
+
+export const DEFAULT_COURSE: CourseState = { history: {}, mastered: [] };
+
 /** Field-wise merge of two steering slices (used on login reconcile + the "just now" session overlay).
  *  `b` wins where it carries intent: its pin, its non-zero bias, its explicit format prefs; muted
  *  topics are unioned so a mute is never silently dropped. */
@@ -113,6 +124,8 @@ export type Progress = {
   lastExamDate?: string; // local YYYY-MM-DD of the last exam attempt (one attempt per day)
   // Learner-set overrides on the adaptive model (visible, editable focus + format). Empty = default.
   steering: Steering;
+  // Mastery-gated course evidence (see CourseState above / store/curriculum.ts).
+  course: CourseState;
 };
 
 export const DEFAULT_PROGRESS: Progress = {
@@ -131,6 +144,7 @@ export const DEFAULT_PROGRESS: Progress = {
   brokenStreak: null,
   boostUntil: "",
   steering: DEFAULT_STEERING,
+  course: DEFAULT_COURSE,
 };
 
 /** Is the x2-XP boost active at `now`? */
@@ -189,8 +203,9 @@ function isYesterday(prev: string, today: Date): boolean {
 // --- Pure update -------------------------------------------------------------
 
 /** Optional grading signal for a difficulty-aware skill update (store/adaptive.ts). `score` is the
- *  partial credit (0..1); `difficulty` is the served item's difficulty on the 0..5 scale. */
-export type GradeSignal = { score?: number; difficulty?: number };
+ *  partial credit (0..1); `difficulty` is the served item's difficulty on the 0..5 scale; `format`
+ *  is the exercise type — course mastery weighs constructive formats above guessable ones. */
+export type GradeSignal = { score?: number; difficulty?: number; format?: string };
 
 /** Apply one answer to progress, returning a new immutable Progress. `now` is injectable for tests. */
 export function recordAnswer(
@@ -214,6 +229,21 @@ export function recordAnswer(
 
   const currentCorrectRun = correct ? prev.currentCorrectRun + 1 : 0;
   const bestCorrectRun = Math.max(prev.bestCorrectRun, currentCorrectRun);
+
+  // Course evidence: append this answer to the topic's rolling window and promote the unit to
+  // "mastered" the moment the criterion holds (see store/curriculum.ts). Promotion is one-way —
+  // a bad day never re-locks a cleared unit.
+  const prevCourse = prev.course ?? DEFAULT_COURSE;
+  const marks = [...(prevCourse.history[topic] ?? []), { c: correct, f: grade?.format ?? "" }].slice(
+    -MASTERY_WINDOW
+  );
+  const course: CourseState = {
+    history: { ...prevCourse.history, [topic]: marks },
+    mastered:
+      !prevCourse.mastered.includes(topic) && masteryOf(marks).met
+        ? [...prevCourse.mastered, topic]
+        : prevCourse.mastered,
+  };
 
   let dailyStreak: number;
   let brokenStreak: BrokenStreak | null = prev.brokenStreak ?? null;
@@ -253,6 +283,7 @@ export function recordAnswer(
     // Daily-goal counter: reset on a new local day, otherwise increment.
     todayDate: today,
     todayCount: prev.todayDate === today ? prev.todayCount + 1 : 1,
+    course,
   };
 
   // Recompute unlocked achievements (idempotent union — never un-unlocks).
@@ -335,7 +366,20 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     lastExamDate: (a.lastExamDate ?? "") >= (b.lastExamDate ?? "") ? a.lastExamDate : b.lastExamDate,
     // Learner steering: field-wise merge (server canonical wins where it carries intent).
     steering: mergeSteering(a.steering, b.steering),
+    course: mergeCourse(a.course ?? DEFAULT_COURSE, b.course ?? DEFAULT_COURSE),
   };
+}
+
+/** Course merge: mastered units are a one-way set (union); per-topic history keeps the side with
+ *  more evidence (longer window) — interleaving two devices' windows would fabricate an order. */
+function mergeCourse(a: CourseState, b: CourseState): CourseState {
+  const history: Record<string, AnswerMark[]> = {};
+  for (const key of new Set([...Object.keys(a.history), ...Object.keys(b.history)])) {
+    const ha = a.history[key] ?? [];
+    const hb = b.history[key] ?? [];
+    history[key] = hb.length > ha.length ? hb : ha;
+  }
+  return { history, mastered: Array.from(new Set([...a.mastered, ...b.mastered])) };
 }
 
 function pickLaterBreak(a: BrokenStreak | null, b: BrokenStreak | null): BrokenStreak | null {
@@ -361,6 +405,9 @@ async function load(): Promise<Progress> {
       brokenStreak: stored.brokenStreak ?? null,
       boostUntil: stored.boostUntil ?? "",
       steering: stored.steering ? { ...DEFAULT_STEERING, ...stored.steering } : DEFAULT_STEERING,
+      course: stored.course
+        ? { history: stored.course.history ?? {}, mastered: stored.course.mastered ?? [] }
+        : DEFAULT_COURSE,
     };
   } catch {
     return DEFAULT_PROGRESS;

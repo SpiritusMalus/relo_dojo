@@ -57,6 +57,16 @@ export const STRINGS = {
     "err.exercise.title": "Couldn't prepare the exercise",
     "err.exercise.hint": "It happens — one more try usually does it.",
 
+    "course.examples": "Examples",
+    "course.rule": "Rule",
+    "course.train": "Train this topic",
+    "course.review": "Review this topic",
+    "course.close": "Close",
+    "course.meter": "Mastery: {c}/{t} correct · {h}/{ht} constructive",
+    "course.meterHint": "8 correct out of the last 10 — at least 2 in constructive formats (not multiple choice) — unlock the next topic.",
+    "course.mastered": "Topic mastered!",
+    "course.masteredSub": "The next topic on your path is open.",
+
     "exit.title": "Leave the session?",
     "exit.msg": "Your progress in this session and the reward scroll will be lost.",
     "exit.msgStory": "Your progress in this story will be lost.",
@@ -506,6 +516,16 @@ export const STRINGS = {
 
     "err.exercise.title": "Не получилось подготовить задание",
     "err.exercise.hint": "Такое бывает — обычно помогает попробовать ещё раз.",
+
+    "course.examples": "Примеры",
+    "course.rule": "Правило",
+    "course.train": "Тренировать тему",
+    "course.review": "Повторить тему",
+    "course.close": "Закрыть",
+    "course.meter": "Освоение: {c}/{t} верных · {h}/{ht} без подсказок",
+    "course.meterHint": "8 верных из 10 последних — и минимум 2 из них не «выбор из вариантов» — открывают следующую тему.",
+    "course.mastered": "Тема освоена!",
+    "course.masteredSub": "Следующая тема на пути открыта.",
 
     "exit.title": "Выйти из тренировки?",
     "exit.msg": "Прогресс этой сессии и наградной свиток будут потеряны.",

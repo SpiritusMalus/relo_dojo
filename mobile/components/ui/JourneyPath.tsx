@@ -2,9 +2,11 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { useProgress } from "../../store/progress";
 import { useI18n } from "../../store/i18n";
 import { beltProgress, buildPath, type NodeState, type PathNode } from "../../store/dojo";
+import { MASTERY_MIN_CORRECT, MASTERY_MIN_HARD } from "../../store/curriculum";
 import { useTheme, type Belt } from "../../theme/theme";
 import BeltKnot from "./BeltKnot";
 import Icon from "./Icon";
+import ProgressBar from "./ProgressBar";
 import Sensei from "./Sensei";
 import Txt from "./Txt";
 
@@ -157,11 +159,31 @@ function NodeCard({ node, interactive }: { node: PathNode; interactive: boolean 
     <View style={styles.cardInner}>
       <View style={{ width: 16, height: 16, borderRadius: 5, backgroundColor: topic.belt.color, borderWidth: 1.5, borderColor: topic.belt.edge }} />
       <View style={{ flex: 1 }}>
-        <Txt variant="cardTitle">{topic.label}</Txt>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Txt variant="cardTitle">{topic.label}</Txt>
+          {/* CEFR band of the unit in the syllabus (the course is banded, not random) */}
+          {node.band && (
+            <Txt variant="caption" color={t.c.ink3}>{node.band}</Txt>
+          )}
+        </View>
         <Txt variant="secondary" color={node.state === "current" ? t.c.accent : t.c.ink3}>
           {sub[node.state as Exclude<NodeState, "test">]}
           {node.state === "done" ? `  ·  ${topic.acc}%` : ""}
         </Txt>
+        {/* Mastery meter on the active unit: the gate to the next topic, made visible */}
+        {node.state === "current" && node.mastery && (
+          <View style={{ marginTop: 6, gap: 3 }}>
+            <ProgressBar pct={node.mastery.pct} height={6} />
+            <Txt variant="caption" color={t.c.ink3}>
+              {tr("course.meter", {
+                c: node.mastery.correct,
+                t: MASTERY_MIN_CORRECT,
+                h: node.mastery.hard,
+                ht: MASTERY_MIN_HARD,
+              })}
+            </Txt>
+          </View>
+        )}
       </View>
       {node.state === "current" ? (
         <Sensei belt={topic.belt} size={40} mood="cheer" />
