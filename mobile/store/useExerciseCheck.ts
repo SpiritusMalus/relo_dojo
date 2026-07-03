@@ -24,6 +24,7 @@ export type Result = {
   correct_answer: string;
   score?: number;
   detail?: string;
+  per_item?: boolean[]; // per-element marks in display order (match rows, blanks, dialog lines)
   explanation?: string;
   tip?: string;
   coins_earned?: number; // koku earned (authenticated + correct only)

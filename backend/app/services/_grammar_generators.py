@@ -230,7 +230,9 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
         + f"Create 3 or 4 matching pairs to practice: {topic}.\n"
         "Each 'left' MUST be a short sentence containing exactly one blank shown as '___'. "
         "Each 'right' is the single word/phrase that fills that blank (it must actually complete the "
-        "sentence). Keep each side under 6 words. Pairs must be unambiguous. Reply ONLY as JSON.",
+        "sentence). ALL 'right' values must be DIFFERENT words — never repeat the same right value, "
+        "or the matching becomes a guessing game. Keep each side under 6 words. Pairs must be "
+        "unambiguous. Reply ONLY as JSON.",
         level,
         context,
         mistakes,
@@ -247,14 +249,34 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
         right = str(p.get("right") or "").strip()
         if left and right and "___" in left:  # left must have a blank to fill
             pairs.append({"left": left, "right": right})
-    # Need at least 3 distinct, non-duplicate pairs for a real matching exercise.
-    if len(pairs) < 3:
-        return _reject("match-pairs: fewer than 3 valid pairs (every 'left' needs exactly one '___')")
-    pairs = pairs[:4]
+    # Both sides must be UNIQUE (normalized): two visually identical right tiles ("will" twice)
+    # make the matching a coin flip — the learner cannot know which physical tile "belongs" to
+    # which sentence. Prod screenshot 2026-07-03: text-correct answers graded 2/4 exactly this way.
+    seen_left: set[str] = set()
+    seen_right: set[str] = set()
+    unique: list[dict[str, str]] = []
+    for p in pairs:
+        nl, nr = _norm(p["left"]), _norm(p["right"])
+        if nl in seen_left or nr in seen_right:
+            continue
+        seen_left.add(nl)
+        seen_right.add(nr)
+        unique.append(p)
+    if len(unique) < 3:
+        return _reject(
+            "match-pairs: need 3+ pairs where every 'left' has exactly one '___' and ALL 'right' values are DIFFERENT words"
+        )
+    pairs = unique[:4]
     left_items = [{"id": i, "text": p["left"]} for i, p in enumerate(pairs)]
-    right_items = [{"id": i, "text": p["right"]} for i, p in enumerate(pairs)]
-    random.shuffle(right_items)  # client must figure out the mapping
-    correct_answer = "; ".join(f"{p['left']} → {p['right']}" for p in pairs)
+    # Right ids are the SHUFFLED positions — opaque. (They used to equal the matching left's id,
+    # which put the full answer key in the client payload; the true mapping now lives only in the
+    # sealed token, with the rights' texts so identical tiles could still grade as interchangeable.)
+    shuffled = pairs[:]
+    random.shuffle(shuffled)
+    right_items = [{"id": j, "text": p["right"]} for j, p in enumerate(shuffled)]
+    mapping = {str(i): shuffled.index(p) for i, p in enumerate(pairs)}
+    # One pair per line: the reveal renders as a tidy list, not a "; "-glued blob.
+    correct_answer = "\n".join(f"{p['left']} → {p['right']}" for p in pairs)
     return {
         "type": "match-pairs",
         "topic": topic,
@@ -262,7 +284,13 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
         "left": left_items,
         "right": right_items,
         "token": tokens.seal(
-            {"t": "match-pairs", "ids": [p["id"] for p in left_items], "answer": correct_answer, "topic": topic}
+            {
+                "t": "match-pairs",
+                "map": mapping,
+                "rights": {str(j): _norm(p["right"]) for j, p in enumerate(shuffled)},
+                "answer": correct_answer,
+                "topic": topic,
+            }
         ),
     }
 

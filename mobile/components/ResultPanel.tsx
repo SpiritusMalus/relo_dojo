@@ -50,11 +50,7 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
         </View>
       </View>
 
-      {!result.correct && (
-        <Txt variant="mono" color={t.c.ink} style={{ marginTop: 4 }}>
-          {result.correct_answer}
-        </Txt>
-      )}
+      {!result.correct && <CorrectAnswer result={result} />}
       {result.correct && progress.currentCorrectRun >= 3 && (
         <Txt variant="bodyStrong" color={t.c.fire}>{tr("result.streak", { n: progress.currentCorrectRun })}</Txt>
       )}
@@ -88,7 +84,42 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
   );
 }
 
+// The correct-answer reveal. Multi-line answers (one element per line — match-pairs sends
+// "left → right" rows) render as a list; when the server's per-element marks line up, each row
+// gets its ✓/✗ so the learner sees WHICH rows went wrong, not just "2/4". Single-line answers
+// keep the compact mono style.
+function CorrectAnswer({ result }: { result: Result }) {
+  const t = useTheme();
+  const lines = result.correct_answer.split("\n").filter((l) => l.trim());
+  if (lines.length < 2) {
+    return (
+      <Txt variant="mono" color={t.c.ink} style={{ marginTop: 4 }}>
+        {result.correct_answer}
+      </Txt>
+    );
+  }
+  const marks = result.per_item && result.per_item.length === lines.length ? result.per_item : null;
+  return (
+    <View style={styles.answerList}>
+      {lines.map((line, i) => (
+        <View key={i} style={styles.answerRow}>
+          {marks && (
+            <Txt variant="bodyStrong" color={marks[i] ? t.c.accent : t.c.bad}>
+              {marks[i] ? "✓" : "✗"}
+            </Txt>
+          )}
+          <Txt variant="body" color={t.c.ink} style={{ flex: 1 }}>
+            {line}
+          </Txt>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   panel: { borderWidth: 2, padding: 16, gap: 8 },
   panelHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  answerList: { marginTop: 4, gap: 6 },
+  answerRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
 });

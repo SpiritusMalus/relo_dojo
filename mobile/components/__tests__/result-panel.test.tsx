@@ -87,4 +87,31 @@ describe("ResultPanel", () => {
     expect(explainButtons(r)).toHaveLength(0);
     expect(JSON.stringify(r.toJSON())).toContain("Use 'at' for places.");
   });
+
+  it("renders a multi-line correct answer as rows with per-item ✓/✗ marks", () => {
+    // match-pairs reveal: one "left → right" per line + the server's per-element marks,
+    // so the learner sees WHICH rows went wrong instead of hunting through a "; " blob.
+    const result: Result = {
+      correct: false,
+      correct_answer: "If code fails, it ___ errors. → shows\nIf you push, the build ___. → starts\nIf I merge, it ___ work. → will",
+      detail: "2/3",
+      score: 2 / 3,
+      per_item: [true, false, true],
+    };
+    const r = render(<ResultPanel {...base} result={result} onExplain={jest.fn()} />);
+    const out = JSON.stringify(r.toJSON());
+    expect(out).toContain("If you push, the build ___. → starts");
+    expect(out).toContain("✓");
+    expect(out).toContain("✗");
+    expect(out).not.toContain("; "); // no more glued-together blob
+  });
+
+  it("renders multi-line answers without marks when per_item is absent (old server)", () => {
+    const result: Result = { correct: false, correct_answer: "a → 1\nb → 2" };
+    const r = render(<ResultPanel {...base} result={result} onExplain={jest.fn()} />);
+    const out = JSON.stringify(r.toJSON());
+    expect(out).toContain("a → 1");
+    expect(out).not.toContain("✓");
+    expect(out).not.toContain("✗");
+  });
 });

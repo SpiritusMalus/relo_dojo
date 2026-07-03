@@ -73,12 +73,46 @@ def test_transform_the_sentence_grades_like_build():
 
 
 def test_match_pairs_all_or_nothing_with_partial_score():
+    # Legacy tokens (pre opaque-ids): right ids equal their left's id.
     sealed = {"t": "match-pairs", "ids": [0, 1, 2]}
     correct = grammar.grade(sealed, {"0": 0, "1": 1, "2": 2})
     assert correct["correct"] is True
     half = grammar.grade(sealed, {"0": 0, "1": 2, "2": 1})
     assert half["correct"] is False
     assert half["detail"] == "1/3"
+    assert half["per_item"] == [True, False, False]
+
+
+def test_match_pairs_sealed_map_grades_by_mapping_not_id():
+    # Current tokens: right ids are shuffled positions; the truth lives in the sealed map.
+    sealed = {
+        "t": "match-pairs",
+        "map": {"0": 2, "1": 0, "2": 1},
+        "rights": {"0": "starts", "1": "shows", "2": "will"},
+    }
+    correct = grammar.grade(sealed, {"0": 2, "1": 0, "2": 1})
+    assert correct["correct"] is True
+    one_wrong = grammar.grade(sealed, {"0": 2, "1": 1, "2": 0})
+    assert one_wrong["correct"] is False
+    assert one_wrong["detail"] == "1/3"
+    assert one_wrong["per_item"] == [True, False, False]
+
+
+def test_match_pairs_identical_text_tiles_are_interchangeable():
+    # Two tiles both reading "will" (prod screenshot 2026-07-03): the learner can't tell them
+    # apart, so crossing them must still count as correct.
+    sealed = {
+        "t": "match-pairs",
+        "map": {"0": 0, "1": 1, "2": 2, "3": 3},
+        "rights": {"0": "shows", "1": "starts", "2": "will", "3": "will"},
+    }
+    crossed = grammar.grade(sealed, {"0": 0, "1": 1, "2": 3, "3": 2})  # the two "will"s swapped
+    assert crossed["correct"] is True
+    assert crossed["per_item"] == [True, True, True, True]
+    # ...but a genuinely different text still fails.
+    wrong = grammar.grade(sealed, {"0": 0, "1": 2, "2": 3, "3": 1})
+    assert wrong["correct"] is False
+    assert wrong["per_item"] == [True, False, True, False]
 
 
 def test_unknown_kind_is_safe():
