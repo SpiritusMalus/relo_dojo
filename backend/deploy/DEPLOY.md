@@ -113,6 +113,12 @@ caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
   `google/gemini-3.1-flash-lite` for both text and read-aloud `/voice/transcribe` (it accepts audio
   input). The OpenRouter account **must have purchased credits** or every LLM/voice call returns
   **HTTP 402 "Insufficient credits"** (the model is paid) — top up at openrouter.ai/settings/credits.
+  **Set `OPENROUTER_REASONING_EFFORT=none`** (in .env, then restart): Gemini 3.x thinks by default,
+  which is ~10s instead of ~1.5s per exercise card and 6x-priced reasoning tokens for zero quality
+  gain on these tiny structured calls. A per-request **403** from OpenRouter is a moderation/guardrail
+  flag or key permissions, NOT a bad key — since the error-mapping fix the journald line
+  (`llm error ... body=...`) and the app's 503 detail carry OpenRouter's own reason; also check
+  openrouter.ai/activity.
   Verify both links with `scripts/verify_llm.py` + `scripts/verify_voice.py`. Until the key is set
   (and funded), the LLM-backed endpoints (`/exercise`, `/story`, `/check-answer`, `/explain`,
   `/review-text`, `/profile/analyze`, `/agent/*`, `/voice/transcribe`) 503/502; everything else works.

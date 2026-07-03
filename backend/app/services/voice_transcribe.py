@@ -21,6 +21,7 @@ from .llm import (
     _require_key,
     parse_gemini_response,
     parse_openai_response,
+    with_openrouter_reasoning,
 )
 
 # Verbatim-only instruction: no commentary, no translation, no correction — just what was said.
@@ -59,8 +60,9 @@ def build_transcribe_payload(audio_b64: str, mime: str, lang: str | None = None)
 
 
 def build_openrouter_transcribe_payload(audio_b64: str, mime: str, lang: str | None = None) -> dict:
-    """OpenRouter Chat Completions body with an input_audio part + the verbatim instruction (pure)."""
-    return {
+    """OpenRouter Chat Completions body with an input_audio part + the verbatim instruction (pure).
+    Verbatim transcription needs no thinking either — the reasoning knob applies here too."""
+    return with_openrouter_reasoning({
         "model": settings.OPENROUTER_TRANSCRIBE_MODEL,
         "messages": [
             {
@@ -73,7 +75,7 @@ def build_openrouter_transcribe_payload(audio_b64: str, mime: str, lang: str | N
         ],
         "max_tokens": settings.LLM_MAX_TOKENS,
         "temperature": 0,
-    }
+    })
 
 
 async def transcribe(audio_b64: str, mime: str, lang: str | None = None) -> str:

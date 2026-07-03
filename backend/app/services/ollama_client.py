@@ -23,6 +23,12 @@ class OllamaError(Exception):
     """Raised for user-actionable Ollama problems (not running, model missing, bad output)."""
 
 
+class OllamaTimeoutError(OllamaError):
+    """A generation that consumed the full HTTP timeout window. Kept as a subclass so callers with
+    their own retry loops (generate_exercise) can skip re-attempting these — every retry would add
+    another full timeout of user-facing wait — while still catching plain OllamaError blips."""
+
+
 def parse_ollama_stream_line(line: str) -> str:
     """Extract the text delta from one NDJSON line of Ollama's streaming /api/generate response.
 
@@ -79,7 +85,7 @@ async def generate(
                 f"Cannot reach Ollama at {OLLAMA_URL}. Is it running? Try `ollama serve`."
             ) from exc
         except httpx.TimeoutException as exc:
-            raise OllamaError("Ollama timed out — the model is taking too long to respond.") from exc
+            raise OllamaTimeoutError("Ollama timed out — the model is taking too long to respond.") from exc
 
     if resp.status_code == 404:
         raise OllamaError(f"Model '{m}' not found. Pull it first: `ollama pull {m}`.")
@@ -123,7 +129,7 @@ async def generate_stream(
             f"Cannot reach Ollama at {OLLAMA_URL}. Is it running? Try `ollama serve`."
         ) from exc
     except httpx.TimeoutException as exc:
-        raise OllamaError("Ollama timed out — the model is taking too long to respond.") from exc
+        raise OllamaTimeoutError("Ollama timed out — the model is taking too long to respond.") from exc
 
 
 async def generate_json(

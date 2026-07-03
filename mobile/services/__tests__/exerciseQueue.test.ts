@@ -101,9 +101,62 @@ describe("createExerciseQueue", () => {
       selectParams: () => PARAMS,
       fetch: () => Promise.reject(new Error("boom")),
       size: 2,
+      retryDelayMs: 0,
     });
     q.prefetch();
     await flush();
     expect(q.readyCount()).toBe(0); // failed fetches simply leave the buffer empty
+  });
+
+  it("re-tries a failed prefetch once, so a blip never reaches the learner", async () => {
+    let calls = 0;
+    const q = createExerciseQueue({
+      selectParams: () => PARAMS,
+      fetch: () => {
+        calls++;
+        return calls === 1 ? Promise.reject(new Error("blip")) : Promise.resolve(fakeExercise(calls));
+      },
+      size: 1,
+      retryDelayMs: 0,
+    });
+    q.prefetch();
+    await flush(); // initial fetch fails; the re-try is now scheduled
+    await flush(); // re-try fires and succeeds
+    expect(calls).toBe(2);
+    expect(q.readyCount()).toBe(1); // buffer warm again — next() stays instant
+  });
+
+  it("gives up after the single re-try (no infinite churn against a dead backend)", async () => {
+    let calls = 0;
+    const q = createExerciseQueue({
+      selectParams: () => PARAMS,
+      fetch: () => {
+        calls++;
+        return Promise.reject(new Error("down"));
+      },
+      size: 1,
+      retryDelayMs: 0,
+    });
+    q.prefetch();
+    for (let i = 0; i < 5; i++) await flush();
+    expect(calls).toBe(2); // the initial attempt + exactly one re-try
+    expect(q.readyCount()).toBe(0);
+  });
+
+  it("clear() cancels a pending prefetch re-try (stale generation)", async () => {
+    let calls = 0;
+    const q = createExerciseQueue({
+      selectParams: () => PARAMS,
+      fetch: () => {
+        calls++;
+        return Promise.reject(new Error("down"));
+      },
+      size: 1,
+      retryDelayMs: 0,
+    });
+    q.prefetch();
+    q.clear(); // topic changed before the failure was even handled
+    for (let i = 0; i < 5; i++) await flush();
+    expect(calls).toBe(1); // the stale slot never re-fired
   });
 });

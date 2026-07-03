@@ -30,13 +30,16 @@ import httpx
 
 from ..core.config import settings
 from . import http_client
-from .ollama_client import OllamaError
+from .ollama_client import OllamaError, OllamaTimeoutError
 from .ollama_client import generate as _ollama_generate
 from .ollama_client import generate_json as _ollama_generate_json
 from .ollama_client import generate_stream as _ollama_generate_stream
 
 # One exception type across providers; old name kept so existing imports/handlers still work.
 LLMError = OllamaError
+# Timeouts as a distinguishable subclass: callers with their own retry loops (generate_exercise)
+# must NOT re-attempt these — each retry adds another full timeout window of user-facing wait.
+LLMTimeoutError = OllamaTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +141,18 @@ def build_openai_payload(
             "type": "json_schema",
             "json_schema": {"name": "out", "schema": schema, "strict": False},
         }
+    return payload
+
+
+def with_openrouter_reasoning(payload: dict[str, Any]) -> dict[str, Any]:
+    """Attach the configured reasoning effort to an OpenRouter payload (in place, returned for
+    chaining). Gemini 3.x thinks by default; "none" turns that off for our short structured calls
+    — measured live at 1.5s vs 10s per exercise card. Empty setting = payload untouched, so the
+    knob is opt-in and rollback is deleting one .env line. OpenRouter-only: the OpenAI provider
+    shares this payload builder but has its own reasoning semantics, so it never goes through here."""
+    effort = (settings.OPENROUTER_REASONING_EFFORT or "").strip().lower()
+    if effort:
+        payload["reasoning"] = {"effort": effort}
     return payload
 
 
@@ -273,13 +288,41 @@ def parse_gemini_sse_line(line: str) -> str:
 
 
 # --- transport ----------------------------------------------------------------
+def _error_reason(text: str, limit: int = 200) -> str:
+    """The provider's own words for why a request failed, as one truncated line.
+
+    All four providers wrap errors as JSON with a message field (OpenAI/OpenRouter/Gemini:
+    `error.message`; Anthropic: `error.message` under type "error") — pull that out; fall back to
+    the raw body. OpenRouter moderation/guardrail 403s also carry `error.metadata.reasons`, which
+    is the ONLY place the flag cause is visible — keep it."""
+    reason = (text or "").strip()
+    try:
+        err = json.loads(reason).get("error")
+        if isinstance(err, dict):
+            reason = str(err.get("message") or "").strip() or reason
+            meta = err.get("metadata")
+            if isinstance(meta, dict) and meta.get("reasons"):
+                reason = f"{reason} (reasons: {meta['reasons']})"
+    except (json.JSONDecodeError, AttributeError):
+        pass
+    return " ".join(reason.split())[:limit]
+
+
 def _raise_for_status(status: int, name: str, text: str = "") -> None:
-    if status in (401, 403):
+    # 401 and 403 are NOT the same failure: 401 is bad credentials, while 403 (on OpenRouter) is a
+    # per-request refusal — content moderation/guardrail flag or key permissions. Telling the user
+    # to "check the key" for a 403 sends them (and us) debugging the wrong thing.
+    if status == 401:
         raise LLMError(f"{name} API key missing or rejected — check the key in .env.")
+    if status == 402:
+        raise LLMError(f"{name}: the account is out of credits — top up the provider balance.")
+    if status == 403:
+        reason = _error_reason(text) or "permissions or content guardrail"
+        raise LLMError(f"{name} refused this request ({reason}).")
     if status == 429:
         raise LLMError(f"{name} rate limit hit — try again shortly.")
     if status >= 400:
-        raise LLMError(f"{name} API error {status}: {text[:200]}")
+        raise LLMError(f"{name} API error {status}: {_error_reason(text)}")
 
 
 def _usage_from(data: dict[str, Any]) -> tuple[Any, Any]:
@@ -311,6 +354,7 @@ async def _post(
     model = model or str(payload.get("model") or "")
     started = time.monotonic()
     last_status = 0
+    last_text = ""
     for attempt in range(1, LLM_RETRIES + 2):
         try:
             resp = await http_client.client().post(url, json=payload, headers=headers)
@@ -322,8 +366,8 @@ async def _post(
             raise LLMError(f"Cannot reach the {name} API — check the network.") from exc
         except httpx.TimeoutException as exc:
             logger.warning("llm error name=%s model=%s ms=%d cause=timeout", name, model, _ms(started))
-            raise LLMError(f"The {name} API timed out.") from exc
-        last_status = resp.status_code
+            raise LLMTimeoutError(f"The {name} API timed out.") from exc
+        last_status, last_text = resp.status_code, resp.text
         if resp.status_code in RETRYABLE_STATUS and attempt <= LLM_RETRIES:
             logger.warning("llm retry name=%s model=%s attempt=%d status=%d", name, model, attempt, resp.status_code)
             await asyncio.sleep(RETRY_BACKOFF_S * attempt)
@@ -331,7 +375,12 @@ async def _post(
         try:
             _raise_for_status(resp.status_code, name, resp.text)
         except LLMError:
-            logger.warning("llm error name=%s model=%s ms=%d status=%d", name, model, _ms(started), resp.status_code)
+            # The body is the only place the provider says WHY (moderation reason, key limit,
+            # credit state) — without it a prod 403 is undebuggable from journald.
+            logger.warning(
+                "llm error name=%s model=%s ms=%d status=%d body=%s",
+                name, model, _ms(started), resp.status_code, _error_reason(resp.text),
+            )
             raise
         data = resp.json()
         tok_in, tok_out = _usage_from(data)
@@ -341,8 +390,11 @@ async def _post(
         )
         return data
     # Retries exhausted on a retryable status (the loop never got past the continue).
-    logger.warning("llm error name=%s model=%s ms=%d status=%d retries=exhausted", name, model, _ms(started), last_status)
-    _raise_for_status(last_status, name)
+    logger.warning(
+        "llm error name=%s model=%s ms=%d status=%d retries=exhausted body=%s",
+        name, model, _ms(started), last_status, _error_reason(last_text),
+    )
+    _raise_for_status(last_status, name, last_text)
     raise LLMError(f"{name} API error {last_status}.")  # pragma: no cover — _raise_for_status raised
 
 
@@ -364,7 +416,10 @@ async def _stream_lines(
                         logger.warning("llm retry name=%s model=%s attempt=%d status=%d", name, model, attempt, resp.status_code)
                         await asyncio.sleep(RETRY_BACKOFF_S * attempt)
                         continue
-                    logger.warning("llm error name=%s model=%s ms=%d status=%d", name, model, _ms(started), resp.status_code)
+                    logger.warning(
+                        "llm error name=%s model=%s ms=%d status=%d body=%s",
+                        name, model, _ms(started), resp.status_code, _error_reason(body),
+                    )
                     _raise_for_status(resp.status_code, name, body)
                 async for line in resp.aiter_lines():
                     yielded = True
@@ -379,7 +434,7 @@ async def _stream_lines(
             raise LLMError(f"Cannot reach the {name} API — check the network.") from exc
         except httpx.TimeoutException as exc:
             logger.warning("llm error name=%s model=%s ms=%d cause=timeout stream=1", name, model, _ms(started))
-            raise LLMError(f"The {name} API timed out.") from exc
+            raise LLMTimeoutError(f"The {name} API timed out.") from exc
 
 
 def _require_key(key: str, env_name: str, provider: str) -> str:
@@ -415,7 +470,9 @@ async def _openrouter(
     headers = {
         "Authorization": f"Bearer {_require_key(settings.OPENROUTER_API_KEY, 'OPENROUTER_API_KEY', 'openrouter')}"
     }
-    payload = build_openai_payload(prompt, schema, temperature, model=model or settings.OPENROUTER_MODEL)
+    payload = with_openrouter_reasoning(
+        build_openai_payload(prompt, schema, temperature, model=model or settings.OPENROUTER_MODEL)
+    )
     data = await _post(OPENROUTER_URL, headers, payload, "OpenRouter")
     return parse_openai_response(data, expect_json=schema is not None)
 
@@ -460,7 +517,9 @@ async def _openrouter_stream(prompt: str, temperature: float | None) -> AsyncIte
     headers = {
         "Authorization": f"Bearer {_require_key(settings.OPENROUTER_API_KEY, 'OPENROUTER_API_KEY', 'openrouter')}"
     }
-    payload = build_openai_payload(prompt, None, temperature, model=settings.OPENROUTER_MODEL)
+    payload = with_openrouter_reasoning(
+        build_openai_payload(prompt, None, temperature, model=settings.OPENROUTER_MODEL)
+    )
     payload["stream"] = True
     async for line in _stream_lines(OPENROUTER_URL, headers, payload, "OpenRouter"):
         delta = parse_openai_sse_line(line)
