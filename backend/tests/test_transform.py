@@ -34,6 +34,78 @@ async def test_accepts_a_clean_transform(monkeypatch):
     }
 
 
+async def test_transform_banks_the_dropped_word_as_a_trap(monkeypatch):
+    # A substitution transform ("fix the preposition") MUST put the discarded source word in the
+    # bank — with only the corrected word among the tiles, the card arrives pre-solved (prod
+    # screenshot 2026-07-03: "on 10 am" → bank held only "at", nothing to decide).
+    monkeypatch.setattr(
+        gen,
+        "generate_json",
+        _fake_json({
+            "instruction": "Исправьте предлог времени в предложении.",
+            "source": "We have the sprint planning on 10 am.",
+            "target": "We have the sprint planning at 10 am.",
+        }),
+    )
+    out = await gen._gen_transform_the_sentence("prepositions", level="A2")
+    assert out is not None
+    assert out["distractors"] == ["on"]  # the trap the learner must NOT pick
+    assert sorted(out["tiles"]) == sorted("We have the sprint planning at 10 am.".split())
+
+
+async def test_transform_traps_strip_punctuation_and_skip_target_words(monkeypatch):
+    # "works." (source-final) → trap "works" (bare tile); words that survive into the target
+    # ("She", "here") never become traps.
+    monkeypatch.setattr(
+        gen,
+        "generate_json",
+        _fake_json({
+            "instruction": "Make it negative",
+            "source": "She works here.",
+            "target": "She does not work here.",
+        }),
+    )
+    out = await gen._gen_transform_the_sentence("verb tenses", level="B1")
+    assert out is not None
+    assert out["distractors"] == ["works"]
+
+
+async def test_reorder_only_transform_has_no_traps(monkeypatch):
+    # Every source word survives into the target (a pure reorder) → nothing to trap with; the
+    # ordering itself is the task, so an empty list is fine (and old-payload clients see no change).
+    monkeypatch.setattr(
+        gen,
+        "generate_json",
+        _fake_json({"instruction": "Turn it into a question", "source": "You are ready.", "target": "Are you ready?"}),
+    )
+    out = await gen._gen_transform_the_sentence("word order", level="A2")
+    assert out is not None
+    assert out["distractors"] == []
+
+
+def test_trap_tiles_filters_duplicates_junk_and_caps():
+    words = "We have the sprint planning at 10 am.".split()
+    assert gen._trap_tiles(["on", "AT", "on", "", "in the very early morning", "in"], words, cap=2) == ["on", "in"]
+    # "AT" duplicates a sentence word (case/punctuation-insensitive) → dropped; long phrases dropped.
+
+
+async def test_build_keeps_validated_model_traps(monkeypatch):
+    # build-the-sentence traps come from the model (wrong forms); anything that already occurs in
+    # the sentence is filtered out so the bank never holds confusing duplicates.
+    monkeypatch.setattr(
+        gen,
+        "generate_json",
+        _fake_json({
+            "sentence_en": "She goes to work by bus.",
+            "sentence_ru": "Она ездит на работу на автобусе.",
+            "distractors": ["go", "goes", "busses"],
+        }),
+    )
+    out = await gen._gen_build_the_sentence("verb tenses", level="A2")
+    assert out is not None
+    assert out["distractors"] == ["go", "busses"]  # "goes" is already a tile → dropped
+
+
 async def test_rejects_noop_transform(monkeypatch):
     # target == source (after normalization) → nothing to do → reject.
     monkeypatch.setattr(

@@ -366,7 +366,16 @@ export default function PracticeScreen() {
 
         {error && !gated && !loading && (
           <View style={{ gap: 12, marginTop: 20 }}>
-            <Txt variant="body" color={t.c.bad} style={{ textAlign: "center" }}>
+            {/* Human words first (a raw provider line like "OpenRouter refused this request (PII
+                detected)" means nothing to a learner); the technical cause stays visible below,
+                small and dim — it's the only clue we get back in a bug-report screenshot. */}
+            <Txt variant="bodyStrong" style={{ textAlign: "center" }}>
+              {tr("err.exercise.title")}
+            </Txt>
+            <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
+              {tr("err.exercise.hint")}
+            </Txt>
+            <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center" }}>
               {error}
             </Txt>
             <Button label={tr("action.tryAgain")} variant="ghost" onPress={() => loadExercise()} />

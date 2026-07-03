@@ -150,6 +150,7 @@ export type Exercise = {
   instruction?: string; // transform-the-sentence: the grammar transform to apply to `prompt`
   options: string[];
   tiles: string[];
+  distractors?: string[]; // build/transform: extra WRONG tiles mixed into the word bank (never in the answer)
   tokens: string[];
   left: MatchItem[];
   right: MatchItem[];

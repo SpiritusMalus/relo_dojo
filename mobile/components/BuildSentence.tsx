@@ -8,19 +8,36 @@ import Icon from "./ui/Icon";
 import Txt from "./ui/Txt";
 
 // Build-the-sentence (RU → EN). Prompt card (mascot + RU) → dashed answer track → word bank.
-// Tap a bank tile to place it; tap a placed tile to remove. Submittable once every tile is placed.
+// Tap a bank tile to place it; tap a placed tile to remove. Submittable once enough tiles for the
+// full answer are placed — the bank may hold distractor traps that are meant to stay unused.
 // Reused for transform-the-sentence: same tile interaction + answer shape, only the prompt header
 // differs (a grammar instruction + the English source instead of the RU translation prompt).
 export default function BuildSentence({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
   const { t: tr } = useI18n();
-  const tiles = exercise.tiles;
+  const answerLen = exercise.tiles.length;
+  // Bank = answer tiles + server-sent traps (the word a transform removed, a broken verb form).
+  // Without traps the bank IS the answer and assembling degenerates into using everything up —
+  // a correction card arrives visibly pre-corrected. Merged + shuffled once per mount; with no
+  // traps the server order is kept (it's already shuffled with a not-the-answer guarantee).
+  const [bank] = useState<string[]>(() => {
+    const traps = exercise.distractors ?? [];
+    if (traps.length === 0) return exercise.tiles;
+    const merged = [...exercise.tiles, ...traps];
+    for (let i = merged.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [merged[i], merged[j]] = [merged[j], merged[i]];
+    }
+    return merged;
+  });
   const [order, setOrder] = useState<number[]>([]);
   const isTransform = exercise.type === "transform-the-sentence";
 
   function report(next: number[]) {
-    const complete = next.length === tiles.length;
-    const sentence = next.map((i) => tiles[i]).join(" ");
+    // Enough words for the full answer = submittable; leftover bank tiles are (ideally) the traps.
+    // Placing a trap instead of a real word is exactly the mistake being tested — still submittable.
+    const complete = next.length >= answerLen;
+    const sentence = next.map((i) => bank[i]).join(" ");
     onChange(complete ? sentence : null, sentence);
   }
   function place(i: number) {
@@ -35,7 +52,7 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
     setOrder(next);
     report(next);
   }
-  const available = tiles.map((_, i) => i).filter((i) => !order.includes(i));
+  const available = bank.map((_, i) => i).filter((i) => !order.includes(i));
 
   return (
     <View style={{ gap: t.spacing.gap }}>
@@ -64,7 +81,7 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
           </Txt>
         ) : (
           order.map((i) => (
-            <Tile key={i} label={tiles[i]} onPress={() => remove(i)} disabled={locked} placed />
+            <Tile key={i} label={bank[i]} onPress={() => remove(i)} disabled={locked} placed />
           ))
         )}
       </View>
@@ -72,7 +89,7 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
       {/* Word bank */}
       <View style={styles.bank}>
         {available.map((i) => (
-          <Tile key={i} label={tiles[i]} onPress={() => place(i)} disabled={locked} />
+          <Tile key={i} label={bank[i]} onPress={() => place(i)} disabled={locked} />
         ))}
       </View>
     </View>

@@ -59,6 +59,53 @@ describe("BuildSentence", () => {
     press(r, "here");
     expect(onChange).toHaveBeenLastCalledWith("I am here", "I am here"); // all placed
   });
+
+  // Distractor traps (e.g. the preposition a transform discarded) live in the bank but not in the
+  // answer: submittable once ENOUGH words are placed, so the traps are meant to stay unused —
+  // without them a correction card arrives visibly pre-corrected (prod screenshot 2026-07-03).
+  it("banks distractors and submits with the traps left over", () => {
+    const onChange = jest.fn();
+    const r = render(
+      <BuildSentence
+        exercise={ex({
+          type: "transform-the-sentence",
+          instruction: "Fix the preposition",
+          prompt: "We meet on 10 am.",
+          tiles: ["We", "meet", "at", "10", "am."],
+          distractors: ["on"],
+        })}
+        locked={false}
+        onChange={onChange}
+      />
+    );
+    // The trap renders as a tappable bank tile alongside the real words.
+    expect(
+      r.root.findAll((n) => n.props.accessibilityLabel === "on" && typeof n.props.onPress === "function").length
+    ).toBeGreaterThan(0);
+    for (const w of ["We", "meet", "at", "10"]) press(r, w);
+    expect(onChange).toHaveBeenLastCalledWith(null, "We meet at 10"); // 4 of 5 → not submittable yet
+    press(r, "am.");
+    // 5 placed = the full answer length → submittable while "on" stays in the bank.
+    expect(onChange).toHaveBeenLastCalledWith("We meet at 10 am.", "We meet at 10 am.");
+  });
+
+  it("lets the learner place a trap — a submittable wrong answer, not a dead end", () => {
+    const onChange = jest.fn();
+    const r = render(
+      <BuildSentence
+        exercise={ex({
+          type: "transform-the-sentence",
+          tiles: ["We", "meet", "at", "10", "am."],
+          distractors: ["on"],
+        })}
+        locked={false}
+        onChange={onChange}
+      />
+    );
+    for (const w of ["We", "meet", "on", "10", "am."]) press(r, w);
+    // Enough words placed (the trap among them) → submittable; the server grades it wrong.
+    expect(onChange).toHaveBeenLastCalledWith("We meet on 10 am.", "We meet on 10 am.");
+  });
 });
 
 describe("MatchPairs", () => {

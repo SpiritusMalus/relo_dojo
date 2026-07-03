@@ -13,7 +13,7 @@ from ..core.config import EXERCISE_TEMPERATURE
 from . import tokens
 from ._grammar_feedback import _explain_lang
 from .llm import LLMError as OllamaError
-from .llm import LLMTimeoutError, generate_json
+from .llm import LLMRefusedError, LLMTimeoutError, generate_json
 from ._grammar_prompts import (
     EXERCISE_TYPES,
     MC_LEN_SLACK,
@@ -66,6 +66,7 @@ BUILD_SCHEMA: dict[str, Any] = {
     "properties": {
         "sentence_en": {"type": "string"},
         "sentence_ru": {"type": "string"},
+        "distractors": {"type": "array", "items": {"type": "string"}},
     },
     "required": ["sentence_en", "sentence_ru"],
 }
@@ -140,6 +141,25 @@ TRANSFORM_SCHEMA: dict[str, Any] = {
 }
 
 
+def _trap_tiles(raw: Any, sentence_words: list[str], cap: int = 2) -> list[str]:
+    """Validated distractor tiles for word-bank exercises: extra words that go in the bank but
+    never in the answer. Keeps only short tokens that don't already occur in the sentence
+    (punctuation-stripped, case-insensitive) — a duplicate of a real word adds confusion, not
+    difficulty. Empty input degrades gracefully to a no-distractor card."""
+    seen = {_strip_word(w) for w in sentence_words}
+    out: list[str] = []
+    for d in raw or []:
+        word = str(d).strip().strip(".,!?;:'\"()")
+        key = _strip_word(word)
+        if not key or key in seen or len(word.split()) > 2:
+            continue
+        seen.add(key)
+        out.append(word)
+        if len(out) >= cap:
+            break
+    return out
+
+
 # --- per-type generators -----------------------------------------------------
 # Each returns the client payload (no answer) plus a sealed `token` carrying the answer.
 
@@ -192,6 +212,9 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
         f"levels) that illustrates: {topic}, then give its natural Russian translation.\n"
         "'sentence_en' is the English sentence (plain words, at most one comma, end with a period). "
         "'sentence_ru' is its Russian translation. "
+        "'distractors' is 1-2 extra WRONG word tiles: broken forms of words already in the sentence "
+        "(wrong tense, wrong number, wrong article — e.g. 'goes' when the sentence uses 'go'). Each "
+        "must NOT fit anywhere in the sentence and must never be a correct alternative. "
         "Draw the example from the learner's field when one is given; otherwise a clear everyday situation. "
         "Reply ONLY as JSON.",
         level,
@@ -220,6 +243,9 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
         "text": "Translate into English:",
         "prompt": sentence_ru,
         "tiles": tiles,
+        # Trap tiles (client mixes them into the bank): without them the bank is exactly the
+        # answer's words and assembling degenerates into using everything up.
+        "distractors": _trap_tiles(data.get("distractors"), words),
         "token": tokens.seal({"t": "build-the-sentence", "sentence": sentence, "topic": topic}),
     }
 
@@ -526,6 +552,11 @@ async def _gen_transform_the_sentence(topic: str, level: str | None = None, cont
         "instruction": instruction,
         "prompt": source,
         "tiles": tiles,
+        # Trap tiles = the source words the transform dropped/replaced (deterministic diff, no LLM).
+        # Without them a substitution transform arrives pre-solved: for "fix the preposition" over
+        # "on 10 am" the bank held only the corrected 'at' (prod screenshot 2026-07-03), so the
+        # learner had nothing to decide — now the discarded 'on' sits in the bank as the trap.
+        "distractors": _trap_tiles(source.split(), words, cap=3),
         "token": tokens.seal({"t": "transform-the-sentence", "sentence": target, "topic": topic}),
     }
 
@@ -575,19 +606,31 @@ async def generate_exercise(
     # level), then fall back to multiple-choice — never ship a broken or over-hard item. Retries are
     # not blind: the rejection reason from the failed attempt is fed into the next prompt
     # (feedback-retry), so the model gets to fix the specific defect instead of rolling the dice.
-    # A transient LLM failure (a guardrail 403 on one prompt, truncated JSON, an exhausted-5xx blip)
-    # spends an attempt the same way a validation reject does — one flaky provider response must not
-    # 503 the card while a whole retry+fallback ladder sits right here. Timeouts are the exception
-    # and re-raise immediately: each already ate the full HTTP window, retrying stacks another one.
+    # A transient LLM failure (truncated JSON, an exhausted-5xx blip) spends an attempt the same way
+    # a validation reject does — one flaky provider response must not 503 the card while a whole
+    # retry+fallback ladder sits right here. Timeouts are the exception and re-raise immediately:
+    # each already ate the full HTTP window, retrying stacks another one.
+    # A guardrail refusal (403) is deterministic on the prompt — the provider flags the INPUT, so an
+    # identical retry is refused again and again until the ladder is spent (prod 2026-07-03:
+    # OpenRouter "PII detected (PERSON)" on a person name inside a quoted recent miss burned all 5
+    # attempts and surfaced raw to the learner). After one refusal, drop the personalization clauses
+    # (profile context + miss hints — the only user-derived text in the prompt) so the retry
+    # actually changes the input; a generic on-topic card beats an error card.
     result = None
     note = ""
     last_exc: OllamaError | None = None
+    refused = False
     for _ in range(3):
         try:
-            result = await _GENERATORS[ex_type](topic, level, context, mistakes, lang, note)
+            result = await _GENERATORS[ex_type](
+                topic, level, None if refused else context, None if refused else mistakes, lang, note
+            )
             last_exc = None
         except LLMTimeoutError:
             raise
+        except LLMRefusedError as exc:
+            logger.warning("generation refused: type=%s topic=%s — retrying without personalization: %s", ex_type, topic, exc)
+            result, last_exc, refused = None, exc, True
         except OllamaError as exc:
             logger.warning("generation attempt error: type=%s topic=%s: %s", ex_type, topic, exc)
             result, last_exc = None, exc
@@ -600,10 +643,15 @@ async def generate_exercise(
         note = ""  # the failed type's defect is meaningless to the fallback generator
         for _ in range(2):
             try:
-                result = await _gen_multiple_choice(topic, level, context, mistakes, lang, note)
+                result = await _gen_multiple_choice(
+                    topic, level, None if refused else context, None if refused else mistakes, lang, note
+                )
                 last_exc = None
             except LLMTimeoutError:
                 raise
+            except LLMRefusedError as exc:
+                logger.warning("generation refused: type=multiple-choice topic=%s — retrying without personalization: %s", topic, exc)
+                result, last_exc, refused = None, exc, True
             except OllamaError as exc:
                 logger.warning("generation attempt error: type=multiple-choice topic=%s: %s", topic, exc)
                 result, last_exc = None, exc

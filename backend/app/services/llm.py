@@ -41,6 +41,15 @@ LLMError = OllamaError
 # must NOT re-attempt these — each retry adds another full timeout window of user-facing wait.
 LLMTimeoutError = OllamaTimeoutError
 
+
+class LLMRefusedError(LLMError):
+    """A per-request provider refusal (403: moderation/PII guardrail or key permissions).
+
+    Distinguishable because the guardrail judges the INPUT — resending the same prompt is refused
+    again deterministically (prod 2026-07-03: OpenRouter "PII detected (PERSON)" fired on every
+    attempt because each retry re-sent the same quoted learner miss containing a name). Callers
+    with retry loops must CHANGE the prompt (drop the user-derived clauses) before retrying."""
+
 logger = logging.getLogger(__name__)
 
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
@@ -325,7 +334,7 @@ def _raise_for_status(status: int, name: str, text: str = "") -> None:
         raise LLMError(f"{name}: the account is out of credits — top up the provider balance.")
     if status == 403:
         reason = _error_reason(text) or "permissions or content guardrail"
-        raise LLMError(f"{name} refused this request ({reason}).")
+        raise LLMRefusedError(f"{name} refused this request ({reason}).")
     if status == 429:
         raise LLMError(f"{name} rate limit hit — try again shortly.")
     if status >= 400:
