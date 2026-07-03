@@ -21,6 +21,7 @@ import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
 import { loadMistakes, mistakeHintsForTopic, type Mistake } from "../store/mistakes";
 import { loadingMessageFor } from "../i18n/loading";
+import { RU_TOPIC_LABELS } from "../i18n/strings";
 import { buildContext, TOPIC_LABELS } from "../store/onboarding";
 import { useTheme } from "../theme/theme";
 import Button from "../components/ui/Button";
@@ -61,7 +62,13 @@ export default function PracticeScreen() {
   const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
     useExerciseCheck();
   const params = useLocalSearchParams<{ topic?: string }>();
-  const forcedTopic = typeof params.topic === "string" ? params.topic : undefined;
+  const routeTopic = typeof params.topic === "string" ? params.topic : undefined;
+  // A mid-session topic swerve outranks the route's drilled topic: selectNext lets forcedTopic win
+  // unconditionally, so without this override "switch topic" silently never applied in a drilled
+  // session. undefined = untouched (follow the route), string = re-drilled onto that topic,
+  // null = drill released (the learner muted the drilled topic).
+  const [steeredTopic, setSteeredTopic] = useState<string | null | undefined>(undefined);
+  const forcedTopic = steeredTopic === undefined ? routeTopic : steeredTopic ?? undefined;
   // Latest progress/topic for selecting/grading without stale closures.
   const progressRef = useRef(progress);
   progressRef.current = progress;
@@ -171,11 +178,14 @@ export default function PracticeScreen() {
   }, [reset, token]);
 
   useEffect(() => {
-    // On mount, or when the drilled topic changes, drop any buffered cards (they may be off-topic)
-    // and load fresh. clear() on an empty queue is a no-op.
+    // On mount, or when the ROUTE's drilled topic changes, drop any buffered cards (they may be
+    // off-topic) and load fresh. Keyed on routeTopic, not the merged forcedTopic: a swerve-driven
+    // change refetches inside applySwerve already — reacting here too would double-fetch and
+    // double-charge the guest slot. clear() on an empty queue is a no-op.
+    setSteeredTopic(undefined);
     queueRef.current!.clear();
     loadExercise();
-  }, [forcedTopic, loadExercise]);
+  }, [routeTopic, loadExercise]);
 
   // Apply a swerve from the sheet. "remember" persists to the steering slice (adaptive.ts honors it
   // next time); "just now" layers a session-only overlay. Either way we drop the buffer and, if the
@@ -183,9 +193,26 @@ export default function PracticeScreen() {
   const applySwerve = useCallback(
     (action: SwerveAction, scope: SwerveScope) => {
       if (scope === "remember") {
-        setSteering(applySteeringAction(progressRef.current.steering, action));
+        const next = applySteeringAction(progressRef.current.steering, action);
+        // setSteering is async state — but the swap fetch below reads progressRef synchronously,
+        // so the fresh steering must land in the ref NOW or the new card is chosen under the OLD
+        // rules (the "remember" swerve sometimes visibly not applying). The ref realigns with the
+        // store on the next render either way.
+        progressRef.current = { ...progressRef.current, steering: next };
+        setSteering(next);
       } else {
         sessionSteeringRef.current = applySteeringAction(sessionSteeringRef.current ?? DEFAULT_STEERING, action);
+      }
+      // Topic gestures also override the route's drilled topic — selectNext lets forcedTopic win,
+      // so without this "switch topic" never applies in a drilled session, and muting the drilled
+      // topic would keep serving it. Ref first (the swap fetch is synchronous), state second
+      // (re-render + header).
+      if (action.kind === "pinTopic") {
+        forcedTopicRef.current = action.topic;
+        setSteeredTopic(action.topic);
+      } else if (action.kind === "muteTopic" && action.topic === forcedTopicRef.current) {
+        forcedTopicRef.current = undefined;
+        setSteeredTopic(null);
       }
       queueRef.current!.clear();
       if (!result) void loadExercise(true); // reuse the already-counted slot — no extra guest charge
@@ -245,7 +272,12 @@ export default function PracticeScreen() {
   }
 
   const canSubmit = response !== null && !checking;
-  const topicLabel = forcedTopic ? TOPIC_LABELS[forcedTopic] ?? forcedTopic : tr("btn.mix.title");
+  // The header names what's ACTUALLY on screen: the current card's topic (it can never lie, and it
+  // follows a mid-session swerve the moment the new card lands). Before the first card: the drilled
+  // topic if any, else the mix title. Lang-aware, same labels the swerve sheet shows.
+  const labelFor = (id: string) => (lang === "ru" ? RU_TOPIC_LABELS[id] : TOPIC_LABELS[id]) ?? TOPIC_LABELS[id] ?? id;
+  const headerTopic = exercise?.topic ?? forcedTopic;
+  const topicLabel = headerTopic ? labelFor(headerTopic) : tr("btn.mix.title");
 
   // X mid-session: confirm before discarding answered cards and the end-of-session scroll.
   // Free exit before the first answer and once the summary is showing (nothing left to lose).
