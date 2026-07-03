@@ -39,12 +39,17 @@ class Settings(BaseSettings):
     OPENROUTER_MODEL: str = "google/gemini-3.1-flash-lite"
     # Read-aloud transcription model — must accept audio input; defaults to the text model (it does).
     OPENROUTER_TRANSCRIBE_MODEL: str = "google/gemini-3.1-flash-lite"
-    # Gemini 3.x models THINK by default, and OpenRouter bills internal reasoning at 6x the input
-    # price — for our 1-sentence exercise cards that's pure latency (measured live: 1.5s vs 10s per
-    # card) and cost. Set to "none" to disable thinking, or "minimal"/"low"/"medium"/"high" to cap
-    # it (OpenRouter maps effort → Gemini thinkingLevel). Empty = parameter not sent (provider
-    # default, today's behavior). Applies to every OpenRouter call: text, smart tier, read-aloud.
+    # Reasoning cap for OpenRouter calls: "none" disables thinking, "minimal"/"low"/"medium"/"high"
+    # cap it (OpenRouter maps effort → Gemini thinkingLevel). Empty = parameter not sent. Measured
+    # live 2026-07-03: gemini-3.1-flash-lite reports tok_think=0 on our exercise calls either way,
+    # so for THAT model this is insurance (a future slug that thinks by default would silently eat
+    # 6x-priced reasoning tokens); it is NOT the per-call latency lever — provider routing is.
     OPENROUTER_REASONING_EFFORT: str = ""
+    # Upstream routing preference: "latency"/"throughput"/"price" → payload `provider.sort`.
+    # gemini-3.1-flash-lite is served by several upstreams with a 1.7s..9s TTFT spread (measured
+    # live on our cards); sorting by latency trims the slow tail. Empty = OpenRouter's default
+    # (load-balanced by price). The responding upstream is logged per call (`provider=` in llm ok).
+    OPENROUTER_PROVIDER_SORT: str = ""
     LLM_MAX_TOKENS: int = 1024  # API providers require an explicit cap
     # --- Smart tier (optional): a stronger model for judge/planner-grade calls ---
     # services.llm.generate_json(tier="smart") reads the active provider's *_MODEL_SMART slot

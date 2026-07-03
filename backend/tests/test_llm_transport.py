@@ -225,12 +225,16 @@ async def test_openrouter_reasoning_effort_reaches_the_payload(monkeypatch):
     monkeypatch.setattr(settings, "LLM_PROVIDER", "openrouter")
     monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "sk-or-test")
     monkeypatch.setattr(settings, "OPENROUTER_REASONING_EFFORT", "none")
+    monkeypatch.setattr(settings, "OPENROUTER_PROVIDER_SORT", "latency")
     await llm.generate_json("p", {"type": "object"})
-    assert seen["payload"]["reasoning"] == {"effort": "none"}  # Gemini 3.x: thinking off = 1.5s not 10s
+    assert seen["payload"]["reasoning"] == {"effort": "none"}
+    assert seen["payload"]["provider"] == {"sort": "latency"}  # trims the slow-upstream TTFT tail
 
     monkeypatch.setattr(settings, "OPENROUTER_REASONING_EFFORT", "")
+    monkeypatch.setattr(settings, "OPENROUTER_PROVIDER_SORT", "")
     await llm.generate_json("p", {"type": "object"})
     assert "reasoning" not in seen["payload"]  # empty = provider default, payload untouched
+    assert "provider" not in seen["payload"]
 
 
 def test_usage_from_extracts_reasoning_tokens():
