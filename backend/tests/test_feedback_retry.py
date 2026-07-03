@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 
 from app.services import _grammar_generators as gen
-from app.services.llm import LLMError, LLMTimeoutError
+from app.services.llm import LLMError, LLMRefusedError, LLMTimeoutError
 
 
 def test_retry_clause_empty_without_a_note():
@@ -122,6 +122,57 @@ async def test_all_attempts_failing_surfaces_the_provider_reason(monkeypatch):
     with pytest.raises(LLMError, match="refused this request"):  # not the generic "unusable" line
         await gen.generate_exercise(topic="prepositions", ex_type="match-pairs", level="A2")
     assert calls["n"] == 5  # 3 attempts + 2 fallback — same budget as validation rejects
+
+
+# --- guardrail refusals are deterministic on the prompt: the provider flags the INPUT (prod
+# 2026-07-03: OpenRouter "PII detected (PERSON)" on a person name inside a quoted miss), so an
+# identical retry is refused again. After one refusal the retries must drop the personalization
+# clauses (context + mistakes — the only user-derived text) so the prompt actually changes. ---
+async def test_a_refusal_retries_without_personalization(monkeypatch):
+    prompts: list[str] = []
+
+    async def fake(prompt, schema, temperature=0.0):
+        prompts.append(prompt)
+        if len(prompts) == 1:
+            raise LLMRefusedError("OpenRouter refused this request (Request blocked: PII detected (PERSON)).")
+        return {"text": "I arrive ___ 6 pm.", "options": ["at", "on"], "answer": "at"}
+
+    monkeypatch.setattr(gen, "generate_json", fake)
+    out = await gen.generate_exercise(
+        topic="prepositions",
+        ex_type="multiple-choice",
+        level="A2",
+        context="IT — QA engineering",
+        mistakes=["Anna sent the report ___ Monday."],
+    )
+    assert out["type"] == "multiple-choice"
+    assert len(prompts) == 2
+    assert "Anna" in prompts[0] and "QA engineering" in prompts[0]  # first attempt is personalized
+    assert "Anna" not in prompts[1] and "QA engineering" not in prompts[1]  # retry is scrubbed
+
+
+async def test_refusal_strip_carries_into_the_fallback(monkeypatch):
+    # The chosen type burns all 3 attempts on refusals → the multiple-choice fallback must also run
+    # scrubbed, or it re-sends the same flagged text and the learner still gets the error card.
+    prompts: list[str] = []
+
+    async def fake(prompt, schema, temperature=0.0):
+        prompts.append(prompt)
+        if "Anna" in prompt:
+            raise LLMRefusedError("OpenRouter refused this request (Request blocked: PII detected (PERSON)).")
+        return {"text": "I arrive ___ 6 pm.", "options": ["at", "on"], "answer": "at"}
+
+    monkeypatch.setattr(gen, "generate_json", fake)
+    out = await gen.generate_exercise(
+        topic="prepositions",
+        ex_type="match-pairs",
+        level="A2",
+        mistakes=["Anna sent the report ___ Monday."],
+    )
+    assert out["type"] == "multiple-choice"
+    # Attempt 1 (personalized) refused; attempts 2-3 scrubbed but match-pairs JSON is unusable for
+    # MC... — the point pinned here is narrower: no prompt after the first refusal carries "Anna".
+    assert all("Anna" not in p for p in prompts[1:])
 
 
 async def test_a_timeout_reraises_immediately(monkeypatch):

@@ -61,6 +61,10 @@ class ExerciseOut(BaseModel):
     instruction: str = ""  # transform-the-sentence: the grammar transform to apply to `prompt`
     options: list[str] = []
     tiles: list[str] = []
+    # build/transform: extra WRONG tiles the client mixes into the word bank (never part of the
+    # answer). Separate from `tiles` so older clients — which require every tile placed — keep
+    # working: they simply never see the traps.
+    distractors: list[str] = []
     tokens: list[str] = []
     left: list[MatchItem] = []
     right: list[MatchItem] = []

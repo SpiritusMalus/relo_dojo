@@ -54,6 +54,9 @@ export const STRINGS = {
     "action.finish": "Finish",
     "action.continue": "Next",
 
+    "err.exercise.title": "Couldn't prepare the exercise",
+    "err.exercise.hint": "It happens — one more try usually does it.",
+
     "exit.title": "Leave the session?",
     "exit.msg": "Your progress in this session and the reward scroll will be lost.",
     "exit.msgStory": "Your progress in this story will be lost.",
@@ -500,6 +503,9 @@ export const STRINGS = {
     "action.tryAgain": "Ещё раз",
     "action.finish": "Завершить",
     "action.continue": "Дальше",
+
+    "err.exercise.title": "Не получилось подготовить задание",
+    "err.exercise.hint": "Такое бывает — обычно помогает попробовать ещё раз.",
 
     "exit.title": "Выйти из тренировки?",
     "exit.msg": "Прогресс этой сессии и наградной свиток будут потеряны.",

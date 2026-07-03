@@ -216,7 +216,15 @@ export default function StoryScreen() {
 
         {error && !loading && (
           <View style={{ gap: 12, marginTop: 20 }}>
-            <Txt variant="body" color={t.c.bad} style={{ textAlign: "center" }}>
+            {/* Human words first; the raw cause below, small and dim (it's the only clue in a
+                bug-report screenshot). */}
+            <Txt variant="bodyStrong" style={{ textAlign: "center" }}>
+              {tr("err.exercise.title")}
+            </Txt>
+            <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
+              {tr("err.exercise.hint")}
+            </Txt>
+            <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center" }}>
               {error}
             </Txt>
             <Button label={tr("action.tryAgain")} variant="ghost" onPress={() => loadCatalog()} />
