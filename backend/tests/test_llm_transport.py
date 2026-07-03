@@ -233,6 +233,16 @@ async def test_openrouter_reasoning_effort_reaches_the_payload(monkeypatch):
     assert "reasoning" not in seen["payload"]  # empty = provider default, payload untouched
 
 
+def test_usage_from_extracts_reasoning_tokens():
+    # "47 output tokens in 8s" is inexplicable in prod logs until tok_think sits next to it.
+    openrouter = {"usage": {"prompt_tokens": 10, "completion_tokens": 5, "completion_tokens_details": {"reasoning_tokens": 900}}}
+    assert llm._usage_from(openrouter) == (10, 5, 900)
+    gemini = {"usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "thoughtsTokenCount": 42}}
+    assert llm._usage_from(gemini) == (10, 5, 42)
+    assert llm._usage_from({"usage": {"prompt_tokens": 1, "completion_tokens": 2}}) == (1, 2, None)
+    assert llm._usage_from({}) == (None, None, None)
+
+
 def test_error_reason_pulls_the_provider_message():
     body = '{"error": {"code": 403, "message": "Key limit exceeded", "metadata": {"reasons": ["limit"]}}}'
     assert llm._error_reason(body) == "Key limit exceeded (reasons: ['limit'])"

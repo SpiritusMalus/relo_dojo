@@ -325,20 +325,25 @@ def _raise_for_status(status: int, name: str, text: str = "") -> None:
         raise LLMError(f"{name} API error {status}: {_error_reason(text)}")
 
 
-def _usage_from(data: dict[str, Any]) -> tuple[Any, Any]:
-    """(input_tokens, output_tokens) from a provider response, best-effort — (None, None) when the
-    provider sent no usage. Shapes: OpenAI/OpenRouter `usage.{prompt,completion}_tokens`, Anthropic
-    `usage.{input,output}_tokens`, Gemini `usageMetadata.{promptTokenCount,candidatesTokenCount}`."""
+def _usage_from(data: dict[str, Any]) -> tuple[Any, Any, Any]:
+    """(input, output, reasoning) token counts from a provider response, best-effort — None for
+    anything the provider didn't send. Shapes: OpenAI/OpenRouter `usage.{prompt,completion}_tokens`
+    (+ `completion_tokens_details.reasoning_tokens`), Anthropic `usage.{input,output}_tokens` (no
+    reasoning split), Gemini `usageMetadata.{promptTokenCount,candidatesTokenCount,
+    thoughtsTokenCount}`. The reasoning count is prod-critical visibility: "47 output tokens in 8s"
+    is inexplicable until the log shows the hidden thinking tokens billed at 6x alongside it."""
     u = data.get("usage")
     if isinstance(u, dict):
+        det = u.get("completion_tokens_details")
         return (
             u.get("prompt_tokens", u.get("input_tokens")),
             u.get("completion_tokens", u.get("output_tokens")),
+            det.get("reasoning_tokens") if isinstance(det, dict) else None,
         )
     u = data.get("usageMetadata")
     if isinstance(u, dict):
-        return (u.get("promptTokenCount"), u.get("candidatesTokenCount"))
-    return (None, None)
+        return (u.get("promptTokenCount"), u.get("candidatesTokenCount"), u.get("thoughtsTokenCount"))
+    return (None, None, None)
 
 
 def _ms(started: float) -> int:
@@ -383,10 +388,10 @@ async def _post(
             )
             raise
         data = resp.json()
-        tok_in, tok_out = _usage_from(data)
+        tok_in, tok_out, tok_think = _usage_from(data)
         logger.info(
-            "llm ok name=%s model=%s ms=%d attempts=%d tok_in=%s tok_out=%s",
-            name, model, _ms(started), attempt, tok_in, tok_out,
+            "llm ok name=%s model=%s ms=%d attempts=%d tok_in=%s tok_out=%s tok_think=%s",
+            name, model, _ms(started), attempt, tok_in, tok_out, tok_think,
         )
         return data
     # Retries exhausted on a retryable status (the loop never got past the continue).
