@@ -144,16 +144,23 @@ def build_openai_payload(
     return payload
 
 
-def with_openrouter_reasoning(payload: dict[str, Any]) -> dict[str, Any]:
-    """Attach the configured reasoning effort to an OpenRouter payload (in place, returned for
-    chaining). Gemini 3.x thinks by default; "none" turns that off for our short structured calls
-    — measured live at 1.5s vs 10s per exercise card. Empty setting = payload untouched, so the
-    knob is opt-in and rollback is deleting one .env line. OpenRouter-only: the OpenAI provider
-    shares this payload builder but has its own reasoning semantics, so it never goes through here."""
+def with_openrouter_prefs(payload: dict[str, Any]) -> dict[str, Any]:
+    """Attach the configured OpenRouter-specific preferences to a payload (in place, returned for
+    chaining): a reasoning-effort cap and an upstream routing sort. Both are opt-in .env knobs —
+    empty settings leave the payload untouched, so rollback is deleting one .env line.
+    OpenRouter-only: the OpenAI provider shares the payload builder but has its own semantics for
+    these fields, so it never goes through here."""
     effort = (settings.OPENROUTER_REASONING_EFFORT or "").strip().lower()
     if effort:
         payload["reasoning"] = {"effort": effort}
+    sort = (settings.OPENROUTER_PROVIDER_SORT or "").strip().lower()
+    if sort:
+        payload["provider"] = {"sort": sort}
     return payload
+
+
+# Historical name (pre provider-sort); voice_transcribe and any out-of-tree callers keep working.
+with_openrouter_reasoning = with_openrouter_prefs
 
 
 def parse_openai_response(data: dict[str, Any], expect_json: bool) -> Any:
@@ -390,8 +397,9 @@ async def _post(
         data = resp.json()
         tok_in, tok_out, tok_think = _usage_from(data)
         logger.info(
-            "llm ok name=%s model=%s ms=%d attempts=%d tok_in=%s tok_out=%s tok_think=%s",
+            "llm ok name=%s model=%s ms=%d attempts=%d tok_in=%s tok_out=%s tok_think=%s provider=%s",
             name, model, _ms(started), attempt, tok_in, tok_out, tok_think,
+            data.get("provider"),  # which upstream OpenRouter routed to — the slow-tail suspect
         )
         return data
     # Retries exhausted on a retryable status (the loop never got past the continue).
