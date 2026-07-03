@@ -74,7 +74,9 @@ export function useExerciseCheck() {
         // Detect a CEFR level-up for this topic (compute the would-be new level before state updates).
         const before = effectiveSkill(progressRef.current, exercise.topic);
         const after = updateSkill(progressRef.current, exercise.topic, outcome, servedDifficulty)[exercise.topic];
-        recordAnswer(exercise.topic, res.correct, { score: res.score, difficulty: servedDifficulty });
+        // `format` feeds the course mastery evidence: constructive formats weigh more than
+        // guessable ones (store/curriculum.ts).
+        recordAnswer(exercise.topic, res.correct, { score: res.score, difficulty: servedDifficulty, format: exercise.type });
         if (after > before && levelToCefr(after) !== levelToCefr(before)) {
           setLevelUp(`${exercise.topic} is now ${levelToCefr(after)}`);
         }

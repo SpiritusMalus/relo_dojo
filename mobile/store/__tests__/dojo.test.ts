@@ -73,13 +73,27 @@ describe("display honesty — no fabricated progress before evidence", () => {
   });
 });
 
-describe("buildPath — mastery is evidence-gated, not seeded-skill-gated", () => {
+describe("buildPath — the mastery-gated course track", () => {
   const first = TOPIC_ORDER[0];
 
-  it("fresh account: no done nodes, node[0] is current", () => {
+  /** Drive one topic through the course criterion: 8 correct answers, 2 of them constructive. */
+  function master(p: Progress, topic: string): Progress {
+    for (let i = 0; i < 6; i++) p = recordAnswer(p, topic, true, at("2026-06-04"), { format: "multiple-choice" });
+    p = recordAnswer(p, topic, true, at("2026-06-04"), { format: "build-the-sentence" });
+    p = recordAnswer(p, topic, true, at("2026-06-04"), { format: "tap-the-error" });
+    return p;
+  }
+
+  it("the syllabus opens with word order (CEFR-banded course, not the priors order)", () => {
+    expect(first).toBe("word order");
+  });
+
+  it("fresh account: no done nodes, node[0] is current with a 0-progress mastery meter", () => {
     const { nodes, doneCount } = buildPath(DEFAULT_PROGRESS);
     expect(doneCount).toBe(0);
     expect(nodes[0].state).toBe("current");
+    expect(nodes[0].mastery).toEqual({ correct: 0, hard: 0, met: false, pct: 0 });
+    expect(nodes[0].band).toBe("A1");
   });
 
   it("a topic seeded ≥3.5 but never practiced is NOT done (no fabricated mastery)", () => {
@@ -87,21 +101,39 @@ describe("buildPath — mastery is evidence-gated, not seeded-skill-gated", () =
     const p: Progress = { ...DEFAULT_PROGRESS, skill: { [first]: 4.2 } };
     expect(topicRow(p, first).started).toBe(false);
     const { nodes, doneCount } = buildPath(p);
-    expect(nodes[0].state).not.toBe("done");
     expect(nodes[0].state).toBe("current");
     expect(doneCount).toBe(0);
   });
 
-  it("a practiced topic with skill ≥3.5 IS done", () => {
-    const p: Progress = {
-      ...DEFAULT_PROGRESS,
-      skill: { [first]: 4.2 },
-      topics: { [first]: { attempts: 5, correct: 5 } },
-    };
-    expect(topicRow(p, first).started).toBe(true);
+  it("high accuracy alone is NOT mastery — the course criterion (incl. constructive formats) is", () => {
+    // 7 correct multiple-choice answers: 90%+ accuracy, but below both the correct-count bar and
+    // the constructive-format bar → the unit must stay current.
+    let p = DEFAULT_PROGRESS;
+    for (let i = 0; i < 7; i++) p = recordAnswer(p, first, true, at("2026-06-04"), { format: "multiple-choice" });
+    const { nodes, doneCount } = buildPath(p);
+    expect(doneCount).toBe(0);
+    expect(nodes[0].state).toBe("current");
+    expect(nodes[0].mastery?.met).toBe(false);
+  });
+
+  it("meeting the criterion marks the unit done and advances current to the next unit", () => {
+    const p = master(DEFAULT_PROGRESS, first);
+    expect(p.course.mastered).toContain(first);
     const { nodes, doneCount } = buildPath(p);
     expect(nodes[0].state).toBe("done");
     expect(doneCount).toBe(1);
     expect(nodes[1].state).toBe("current");
+    expect(nodes[1].topic!.id).toBe(TOPIC_ORDER[1]);
+  });
+
+  it("windows the track so the current unit stays visible deep into the course", () => {
+    let p = DEFAULT_PROGRESS;
+    for (const id of TOPIC_ORDER.slice(0, 9)) p = master(p, id);
+    const { nodes, doneCount, total } = buildPath(p); // default count 6 of 11 topics
+    expect(doneCount).toBe(9);
+    expect(total).toBe(TOPIC_ORDER.length);
+    const current = nodes.find((n) => n.state === "current");
+    expect(current?.topic?.id).toBe(TOPIC_ORDER[9]);
+    expect(nodes[nodes.length - 1].state).toBe("test");
   });
 });

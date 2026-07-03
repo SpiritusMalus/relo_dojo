@@ -14,7 +14,9 @@ import {
   skillFor,
   START_LEVEL,
   TARGET_SUCCESS,
+  TOPIC_PRIORS,
   topicWeight,
+  unlockedTopics,
   updateSkill,
 } from "../adaptive";
 import { DEFAULT_PROGRESS, DEFAULT_STEERING, type Progress, type Steering } from "../progress";
@@ -272,21 +274,43 @@ describe("selectNext — learner steering", () => {
   });
 
   it("over-weights a pinned topic yet preserves variety", () => {
+    // Master the whole course so the mix pool is wide (course gating narrows a fresh account's
+    // pool to the first unit — variety is a property of the unlocked set).
+    const p = progressWith({ course: { history: {}, mastered: Object.keys(TOPIC_PRIORS) } });
     const pin = "punctuation"; // lowest prior — without help it's rarely picked
     const s = steer({ pinnedFocusTopic: pin });
     let pinned = 0;
     const seen = new Set<string>();
     for (let i = 0; i < ITER; i++) {
-      const t = selectNext(DEFAULT_PROGRESS, undefined, s).topic;
+      const t = selectNext(p, undefined, s).topic;
       if (t === pin) pinned++;
       seen.add(t);
     }
     let baseline = 0;
     for (let i = 0; i < ITER; i++) {
-      if (selectNext(DEFAULT_PROGRESS, undefined, DEFAULT_STEERING).topic === pin) baseline++;
+      if (selectNext(p, undefined, DEFAULT_STEERING).topic === pin) baseline++;
     }
     expect(pinned).toBeGreaterThan(baseline); // boosted
     expect(seen.size).toBeGreaterThan(1); // variety not starved — other topics still appear
+  });
+
+  it("course gate: a fresh account's mix serves only the first syllabus unit", () => {
+    for (let i = 0; i < 50; i++) {
+      expect(selectNext(DEFAULT_PROGRESS, undefined, DEFAULT_STEERING).topic).toBe("word order");
+    }
+  });
+
+  it("course gate: mastering units widens the mix to exactly the unlocked set", () => {
+    const p = progressWith({ course: { history: {}, mastered: ["word order", "prepositions"] } });
+    const open = new Set(["word order", "prepositions", "articles"]); // 2 mastered + current
+    expect(unlockedTopics(p)).toEqual(open);
+    for (let i = 0; i < 200; i++) {
+      expect(open.has(selectNext(p, undefined, DEFAULT_STEERING).topic)).toBe(true);
+    }
+  });
+
+  it("course gate: a forced topic (drill/review) still outranks the lock", () => {
+    expect(selectNext(DEFAULT_PROGRESS, "conditionals").topic).toBe("conditionals");
   });
 
   it("filters served formats by formatPrefs and never empties the type pool", () => {

@@ -2,6 +2,7 @@
 // Home "belt journey" path. Pure functions over the existing Progress snapshot; NOTHING is persisted
 // (the README requires deriving these, not storing new data).
 import { levelToCefr, skillFor, TOPIC_PRIORS } from "./adaptive";
+import { CURRICULUM, masteryOf, type Mastery } from "./curriculum";
 import { totalAttempts, type Progress } from "./progress";
 import { beltByCefr, beltByIndex, type Belt, type Cefr } from "../theme/theme";
 
@@ -27,8 +28,9 @@ export const TOPIC_META: Record<string, { label: string; hint: string }> = {
   punctuation: { label: "Punctuation", hint: ", ; : —" },
 };
 
-// Stable curriculum order for the journey path.
-export const TOPIC_ORDER = Object.keys(TOPIC_META);
+// The journey order IS the course syllabus (store/curriculum.ts): CEFR-banded, Core-Inventory
+// informed — not the TOPIC_META insertion order.
+export const TOPIC_ORDER = CURRICULUM.map((u) => u.topic);
 
 export type TopicRow = {
   id: string;
@@ -43,7 +45,6 @@ export type TopicRow = {
   started: boolean; // false until the learner has answered ≥1 item in this topic (not-started row)
 };
 
-const MASTERED_SKILL = 3.5; // ≈ B2 — counts as "mastered" on the path
 
 /** One display row per topic, derived from skill + attempt history. `skill`/`cefr` stay populated for
  *  internal callers (difficulty/path), but a topic with no attempts reads as not-started: no fabricated
@@ -120,30 +121,43 @@ export function beltProgress(p: Progress): BeltProgress {
 }
 
 export type NodeState = "done" | "current" | "next" | "locked" | "test";
-export type PathNode = { state: NodeState; topic?: TopicRow };
+export type PathNode = { state: NodeState; topic?: TopicRow; band?: Cefr; mastery?: Mastery };
 
-/** The Home "belt journey": the first `count` topics as a rail of nodes + a final belt-test node.
- *  States: done (mastered) → current (first unmastered) → next (the one after) → locked (rest). */
+/** The Home "belt journey" = the course track: syllabus-ordered units + a final belt-test node.
+ *  States: done → current (first unmastered) → next → locked.
+ *
+ *  Mastery is EVIDENCE, per the course criterion (store/curriculum.ts): enough recent correct
+ *  answers with a minimum in non-guessable formats, promoted one-way into `progress.course.mastered`
+ *  by recordAnswer. Neither a seeded/placement skill estimate nor a lucky single answer reads as
+ *  mastered (display-honesty rule) — and the gate is the point: the next unit opens only after the
+ *  current one is actually learned.
+ *
+ *  The path is computed over the WHOLE syllabus and windowed to `count` rows so the current unit is
+ *  always visible (before: slicing first-N hid the current unit once the learner passed N topics). */
 export function buildPath(p: Progress, count = 6): { nodes: PathNode[]; doneCount: number; total: number } {
-  const rows = TOPIC_ORDER.slice(0, count).map((id) => topicRow(p, id));
-  // Mastery requires EVIDENCE, not a seeded/placement skill estimate: a topic counts as "done" only
-  // when it has been practiced (`started`, i.e. attempts > 0) AND its skill is ≥ MASTERED_SKILL. This
-  // closes the JourneyPath gap left by #62 — the placement quiz can seed a topic at B2+ with zero
-  // attempts, and that self-assessment must never read as mastered. `current` = first non-mastered row.
-  const isMastered = (r: TopicRow) => r.started && r.skill >= MASTERED_SKILL;
-  const currentIdx = rows.findIndex((r) => !isMastered(r));
+  const mastered = new Set(p.course?.mastered ?? []);
+  const currentIdx = TOPIC_ORDER.findIndex((id) => !mastered.has(id));
 
-  const nodes: PathNode[] = rows.map((r, i) => {
+  const all: PathNode[] = TOPIC_ORDER.map((id, i) => {
     let state: NodeState;
-    if (currentIdx === -1) state = "done"; // everything mastered
-    else if (i < currentIdx) state = "done";
+    if (currentIdx === -1 || i < currentIdx) state = "done"; // everything before the current unit is passed
     else if (i === currentIdx) state = "current";
     else if (i === currentIdx + 1) state = "next";
     else state = "locked";
-    return { state, topic: r };
+    return {
+      state,
+      topic: topicRow(p, id),
+      band: CURRICULUM[i].band,
+      mastery: state === "current" || state === "next" ? masteryOf(p.course?.history[id]) : undefined,
+    };
   });
-  nodes.push({ state: "test" });
 
-  const doneCount = nodes.filter((n) => n.state === "done").length;
-  return { nodes, doneCount, total: rows.length };
+  const total = all.length;
+  const doneCount = all.filter((n) => n.state === "done").length;
+  // Window `count` rows with the current unit in view (one done row of context above it).
+  const anchor = currentIdx === -1 ? total : currentIdx;
+  const start = Math.max(0, Math.min(anchor - 1, total - count));
+  const nodes = all.slice(start, start + count);
+  nodes.push({ state: "test" });
+  return { nodes, doneCount, total };
 }
