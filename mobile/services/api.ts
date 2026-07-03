@@ -169,6 +169,7 @@ export type CheckResult = {
   correct_answer: string;
   score?: number; // fraction right (0..1); partial credit for multi-element types
   detail?: string; // e.g. "2/3" for multi-element answers; "" otherwise
+  per_item?: boolean[]; // per-element marks in display order (match rows, blanks, dialog lines)
   coins_earned?: number; // koku earned for this answer (authenticated + correct only)
   coins?: number | null; // new server balance after the award; null/absent for anonymous
   first_win_bonus?: number; // portion of coins_earned that was the once-per-day first-win bonus

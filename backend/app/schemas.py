@@ -136,6 +136,9 @@ class CheckOut(BaseModel):
     correct_answer: str
     score: float = 1.0  # fraction right (0..1); partial credit for multi-element types
     detail: str = ""  # e.g. "2/3" for multi-element answers; "" for single-answer types
+    # Per-element marks in display order (match rows, blanks, dialog lines) so the client can point
+    # at the exact rows that were wrong — "2/4" alone sends the learner hunting. [] = single-answer.
+    per_item: list[bool] = []
     # Koku earned for this answer (authenticated + correct only) and the new balance.
     # 0 / None for anonymous callers — fully backward compatible.
     coins_earned: int = 0

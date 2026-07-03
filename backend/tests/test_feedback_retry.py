@@ -49,6 +49,51 @@ async def test_fallback_to_multiple_choice_still_works(monkeypatch):
     assert calls["n"] == 4
 
 
+# --- match-pairs: duplicate rights make the matching a coin flip → rejected, and shipped cards
+# carry an opaque sealed mapping (right ids no longer leak the answer into the payload) ---
+async def test_match_pairs_rejects_duplicate_rights(monkeypatch):
+    dup = {"pairs": [
+        {"left": "If I merge, it ___ work.", "right": "will"},
+        {"left": "If you test, it ___ pass.", "right": "will"},
+        {"left": "If code fails, it ___ errors.", "right": "shows"},
+    ]}
+
+    async def fake(prompt, schema, temperature=0.0):
+        return dup
+
+    monkeypatch.setattr(gen, "generate_json", fake)
+    out = await gen._gen_match_pairs("conditionals")
+    assert out is None  # 2 unique rights left after dedupe — below the 3-pair floor
+    assert "DIFFERENT" in gen._last_reject.get()
+
+
+async def test_match_pairs_seals_an_opaque_mapping(monkeypatch):
+    from app.services import tokens
+    from app.services._grammar_grading import grade
+
+    data = {"pairs": [
+        {"left": "If code fails, it ___ errors.", "right": "shows"},
+        {"left": "If you push, the build ___.", "right": "starts"},
+        {"left": "If I merge, it ___ work.", "right": "will"},
+    ]}
+
+    async def fake(prompt, schema, temperature=0.0):
+        return data
+
+    monkeypatch.setattr(gen, "generate_json", fake)
+    out = await gen._gen_match_pairs("conditionals")
+    assert out is not None
+    sealed = tokens.unseal(out["token"])
+    assert "ids" not in sealed and isinstance(sealed["map"], dict)
+    # The reveal is one pair per line (renders as a list, not a "; " blob).
+    assert sealed["answer"].count("\n") == 2
+    # Grading the mapping reconstructed from the payload texts scores 3/3 — i.e. the sealed map
+    # matches what the learner sees, while right ids themselves are just shuffled positions.
+    right_by_text = {r["text"]: r["id"] for r in out["right"]}
+    truth = {str(l["id"]): right_by_text[p["right"]] for l, p in zip(out["left"], data["pairs"])}
+    assert grade(sealed, truth)["correct"] is True
+
+
 # --- transient LLM failures spend an attempt instead of 503ing the card (prod: a per-request
 # OpenRouter guardrail 403 on exercise 2 killed the lesson while the retry ladder sat unused) ---
 async def test_a_transient_llm_error_spends_one_attempt_not_the_card(monkeypatch):
