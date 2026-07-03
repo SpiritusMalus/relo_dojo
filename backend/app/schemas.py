@@ -384,6 +384,21 @@ class Steering(BaseModel):
     difficultyBias: float = 0.0
 
 
+class AnswerMark(BaseModel):
+    """One answered item in the course-evidence window: correct flag + exercise format."""
+
+    c: bool = False
+    f: str = ""
+
+
+class CourseState(BaseModel):
+    """Mastery-gated course evidence (client store/curriculum.ts): rolling per-topic answer window
+    + the one-way set of mastered units. Synced so the course position survives device changes."""
+
+    history: dict[str, list[AnswerMark]] = {}
+    mastered: list[str] = []
+
+
 class ProgressData(BaseModel):
     xp: int = 0
     dailyStreak: int = 0
@@ -403,6 +418,7 @@ class ProgressData(BaseModel):
     beltEarned: Optional[int] = None
     lastExamDate: str = ""
     steering: Steering = Field(default_factory=Steering)  # learner-set adaptive overrides (synced)
+    course: CourseState = Field(default_factory=CourseState)  # mastery-gate evidence (synced)
 
 
 # --- scroll rewards (variable reinforcement) ---
