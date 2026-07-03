@@ -10,15 +10,25 @@ It never prints the API key (only whether one is set), so it's safe to paste out
 
 Usage (from backend/, with .env holding LLM_PROVIDER + the provider's API key):
     python scripts/verify_llm.py
+    python scripts/verify_llm.py --bench 5   # + 5 exercise-shaped calls with per-call latency
 
-Exit code 0 if both calls succeed, 1 otherwise — usable as a deploy gate.
+`--bench N` profiles the real /exercise workload (structured JSON, exercise-style prompt) and
+echoes the `llm ok` telemetry lines (incl. tok_think) so reasoning overhead is visible per call.
+Combine with an env override to A/B the reasoning knob without touching .env:
+    OPENROUTER_REASONING_EFFORT= python scripts/verify_llm.py --bench 5      # provider default
+    OPENROUTER_REASONING_EFFORT=none python scripts/verify_llm.py --bench 5  # thinking off
+
+Exit code 0 if all calls succeed, 1 otherwise — usable as a deploy gate.
 """
 
 from __future__ import annotations
 
+import argparse
 import asyncio
+import logging
 import os
 import sys
+import time
 from pathlib import Path
 
 # config.py instantiates Settings() at import and requires these two secrets; the LLM path never
@@ -41,7 +51,39 @@ _KEY_ATTR = {
 }
 
 
-async def main() -> int:
+# Exercise-shaped workload for --bench: same schema/prompt style as _gen_multiple_choice, so the
+# measured latency is the one a learner actually waits for on each card.
+_BENCH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "text": {"type": "string"},
+        "options": {"type": "array", "items": {"type": "string"}},
+        "answer": {"type": "string"},
+    },
+    "required": ["text", "options", "answer"],
+}
+_BENCH_PROMPT = (
+    "Create ONE short multiple-choice exercise focused on: prepositions of time (in/on/at).\n"
+    "'text' is a sentence with a single blank shown as '___'. 'options' is 3-4 short choices. "
+    "'answer' is exactly one of the options (the correct one). Reply ONLY as JSON matching the schema."
+)
+
+
+async def _bench(n: int) -> int:
+    print(f"  bench: {n} exercise-shaped generate_json() calls")
+    failures = 0
+    for i in range(1, n + 1):
+        started = time.monotonic()
+        try:
+            await llm.generate_json(_BENCH_PROMPT, _BENCH_SCHEMA, temperature=0.7)
+            print(f"  {PASS} bench {i}/{n}: {int((time.monotonic() - started) * 1000)} ms")
+        except Exception as exc:
+            failures += 1
+            print(f"  {FAIL} bench {i}/{n}: {type(exc).__name__}: {exc}")
+    return failures
+
+
+async def main(bench_n: int = 0) -> int:
     provider = (settings.LLM_PROVIDER or "ollama").strip().lower()
     model = llm.active_model()
     print(f"\n\033[1mLive LLM-link check\033[0m")
@@ -86,13 +128,26 @@ async def main() -> int:
         failures += 1
         print(f"  {FAIL} generate_json()   → {type(exc).__name__}: {exc}")
 
+    if bench_n:
+        print()
+        failures += await _bench(bench_n)
+
     print()
     if failures:
         print(f"\033[31m{failures} call(s) FAILED\033[0m — the LLM link is not working.\n")
         return 1
-    print(f"\033[32mLLM link is live\033[0m — {provider}/{model} answered both calls.\n")
+    print(f"\033[32mLLM link is live\033[0m — {provider}/{model} answered all calls.\n")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    parser = argparse.ArgumentParser(description="Live LLM-link check (+ optional latency bench).")
+    parser.add_argument(
+        "--bench", type=int, default=0, metavar="N",
+        help="after the link check, run N exercise-shaped generate_json calls and print per-call latency",
+    )
+    args = parser.parse_args()
+    if args.bench:
+        # Surface the per-call `llm ok ... tok_think=` telemetry alongside the bench timings.
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s [%(name)s] %(message)s")
+    sys.exit(asyncio.run(main(args.bench)))
