@@ -13,7 +13,7 @@ from ..core.config import EXERCISE_TEMPERATURE
 from . import tokens
 from ._grammar_feedback import _explain_lang
 from .llm import LLMError as OllamaError
-from .llm import generate_json
+from .llm import LLMTimeoutError, generate_json
 from ._grammar_prompts import (
     EXERCISE_TYPES,
     MC_LEN_SLACK,
@@ -547,23 +547,46 @@ async def generate_exercise(
     # level), then fall back to multiple-choice — never ship a broken or over-hard item. Retries are
     # not blind: the rejection reason from the failed attempt is fed into the next prompt
     # (feedback-retry), so the model gets to fix the specific defect instead of rolling the dice.
+    # A transient LLM failure (a guardrail 403 on one prompt, truncated JSON, an exhausted-5xx blip)
+    # spends an attempt the same way a validation reject does — one flaky provider response must not
+    # 503 the card while a whole retry+fallback ladder sits right here. Timeouts are the exception
+    # and re-raise immediately: each already ate the full HTTP window, retrying stacks another one.
     result = None
     note = ""
+    last_exc: OllamaError | None = None
     for _ in range(3):
-        result = await _GENERATORS[ex_type](topic, level, context, mistakes, lang, note)
+        try:
+            result = await _GENERATORS[ex_type](topic, level, context, mistakes, lang, note)
+            last_exc = None
+        except LLMTimeoutError:
+            raise
+        except OllamaError as exc:
+            logger.warning("generation attempt error: type=%s topic=%s: %s", ex_type, topic, exc)
+            result, last_exc = None, exc
         if result is not None:
             break
-        note = _last_reject.get()
+        if last_exc is None:  # a validation reject left feedback; an LLM error has none to feed
+            note = _last_reject.get()
     if result is None and ex_type != "multiple-choice":
-        logger.info("generation fallback: %s unusable after retries (%s) — trying multiple-choice", ex_type, note)
+        logger.info("generation fallback: %s unusable after retries (%s) — trying multiple-choice", ex_type, last_exc or note)
         note = ""  # the failed type's defect is meaningless to the fallback generator
         for _ in range(2):
-            result = await _gen_multiple_choice(topic, level, context, mistakes, lang, note)
+            try:
+                result = await _gen_multiple_choice(topic, level, context, mistakes, lang, note)
+                last_exc = None
+            except LLMTimeoutError:
+                raise
+            except OllamaError as exc:
+                logger.warning("generation attempt error: type=multiple-choice topic=%s: %s", topic, exc)
+                result, last_exc = None, exc
             if result is not None:
                 break
-            note = _last_reject.get()
+            if last_exc is None:
+                note = _last_reject.get()
     if result is None:
-        logger.warning("generation failed: type=%s topic=%s level=%s (%s)", ex_type, topic, _cefr(level), note)
+        logger.warning("generation failed: type=%s topic=%s level=%s (%s)", ex_type, topic, _cefr(level), last_exc or note)
+        if last_exc is not None:
+            raise last_exc  # every attempt died at the provider — surface its own reason, not a generic line
         raise OllamaError("The model produced an unusable exercise. Try again.")
     # Stamp the effective CEFR so the client can score the answer difficulty-aware (adaptive.ts).
     result["level"] = _cefr(level)

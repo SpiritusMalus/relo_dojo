@@ -17,6 +17,8 @@ export type QueueDeps = {
   fetch?: (params: FetchParams) => Promise<Exercise>;
   /** Target number of cards ready-or-in-flight. */
   size?: number;
+  /** Delay before the single re-try of a failed background prefetch (tests shrink it). */
+  retryDelayMs?: number;
 };
 
 export type ExerciseQueue = {
@@ -33,20 +35,30 @@ export type ExerciseQueue = {
 export function createExerciseQueue(deps: QueueDeps): ExerciseQueue {
   const size = deps.size ?? 2;
   const fetchFn = deps.fetch ?? getExercise;
+  const retryDelayMs = deps.retryDelayMs ?? 1500;
   let ready: Exercise[] = [];
   let inFlight = 0;
   let gen = 0; // bumped on clear() so stragglers from a stale generation are dropped
 
   // Best-effort background fetch: failures are swallowed (next() re-fetches and surfaces the error
-  // only when the learner actually needs a card and none is buffered).
-  function prefetchOne(): void {
+  // only when the learner actually needs a card and none is buffered) — but each failed slot gets
+  // ONE delayed re-try first. Without it a transient backend blip leaves the buffer cold, and the
+  // learner pays on "Next" with a full-latency spinner or a visible error.
+  function prefetchOne(retriesLeft = 1): void {
     const myGen = gen;
     inFlight++;
     void fetchFn(deps.selectParams())
       .then((ex) => {
         if (myGen === gen) ready.push(ex);
       })
-      .catch(() => {})
+      .catch(() => {
+        if (retriesLeft > 0 && myGen === gen) {
+          setTimeout(() => {
+            // Re-check at fire time: the topic may have changed (gen) or next() may have refilled.
+            if (myGen === gen && ready.length + inFlight < size) prefetchOne(retriesLeft - 1);
+          }, retryDelayMs);
+        }
+      })
       .finally(() => {
         inFlight--;
       });

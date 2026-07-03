@@ -65,6 +65,43 @@ async def test_post_does_not_retry_auth_errors(monkeypatch):
     await http_client.aclose()
 
 
+async def test_post_maps_402_to_an_out_of_credits_message(monkeypatch):
+    # OpenRouter's paid models 402 the moment the account balance hits zero — the fix is topping
+    # up, not touching the key, and the message must say so.
+    calls = _install(monkeypatch, [httpx.Response(402, json={"error": {"message": "Insufficient credits", "code": 402}})])
+    with pytest.raises(LLMError, match="out of credits"):
+        await llm._post("https://api.test/v1", {}, {"model": "m"}, "Test")
+    assert calls["n"] == 1
+    await http_client.aclose()
+
+
+async def test_post_surfaces_the_provider_reason_on_403(monkeypatch):
+    # A 403 is a per-request refusal (moderation/guardrail flag or key permissions), NOT a bad key.
+    # The provider's own reason — the only clue to WHY — must reach the message and the logs.
+    body = {
+        "error": {
+            "code": 403,
+            "message": "Your input was flagged",
+            "metadata": {"reasons": ["violence"], "flagged_input": "…"},
+        }
+    }
+    calls = _install(monkeypatch, [httpx.Response(403, json=body)])
+    with pytest.raises(LLMError, match=r"refused this request.*flagged.*violence"):
+        await llm._post("https://api.test/v1", {}, {"model": "m"}, "Test")
+    assert calls["n"] == 1  # per-request refusal: transport-level retries would re-flag the same input
+    await http_client.aclose()
+
+
+async def test_post_raises_the_timeout_subclass(monkeypatch):
+    # Timeouts already consumed the full HTTP window; app-level retry loops key off this subclass
+    # to avoid stacking more of them. isinstance(LLMError) still holds for the 503 handler.
+    calls = _install(monkeypatch, [httpx.ReadTimeout("slow")])
+    with pytest.raises(llm.LLMTimeoutError):
+        await llm._post("https://api.test/v1", {}, {"model": "m"}, "Test")
+    assert calls["n"] == 1
+    await http_client.aclose()
+
+
 async def test_post_gives_up_after_the_retry_budget(monkeypatch):
     calls = _install(monkeypatch, [httpx.Response(503, text="down")])
     with pytest.raises(LLMError, match="503"):
@@ -174,3 +211,30 @@ async def test_generate_json_smart_tier_reaches_the_payload(monkeypatch):
     assert seen["model"] == "google/gemini-3.1-pro"
     await llm.generate_json("p", {"type": "object"})  # default tier stays on the base model
     assert seen["model"] == settings.OPENROUTER_MODEL
+
+
+# --- reasoning-effort knob (OpenRouter only) --------------------------------------------
+async def test_openrouter_reasoning_effort_reaches_the_payload(monkeypatch):
+    seen: dict = {}
+
+    async def fake_post(url, headers, payload, name, model=""):
+        seen["payload"] = payload
+        return {"choices": [{"message": {"content": "{}"}}]}
+
+    monkeypatch.setattr(llm, "_post", fake_post)
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "openrouter")
+    monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "sk-or-test")
+    monkeypatch.setattr(settings, "OPENROUTER_REASONING_EFFORT", "none")
+    await llm.generate_json("p", {"type": "object"})
+    assert seen["payload"]["reasoning"] == {"effort": "none"}  # Gemini 3.x: thinking off = 1.5s not 10s
+
+    monkeypatch.setattr(settings, "OPENROUTER_REASONING_EFFORT", "")
+    await llm.generate_json("p", {"type": "object"})
+    assert "reasoning" not in seen["payload"]  # empty = provider default, payload untouched
+
+
+def test_error_reason_pulls_the_provider_message():
+    body = '{"error": {"code": 403, "message": "Key limit exceeded", "metadata": {"reasons": ["limit"]}}}'
+    assert llm._error_reason(body) == "Key limit exceeded (reasons: ['limit'])"
+    assert llm._error_reason("plain\n  text  ") == "plain text"  # non-JSON bodies collapse to one line
+    assert llm._error_reason("") == ""
