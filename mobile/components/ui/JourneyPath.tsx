@@ -112,20 +112,21 @@ function NodeCircle({ state, belt }: { state: NodeState; belt: Belt }) {
   }
   const done = state === "done";
   const active = state === "current";
-  const greenBg = done || active;
+  const ready = state === "ready"; // meter full — the checkpoint (зачёт) awaits
   return (
     <View
       style={[
         styles.circle,
         {
-          backgroundColor: greenBg ? t.c.accent : t.c.surface3,
-          borderWidth: active ? 3 : 0,
-          borderColor: t.c.accentSoft2,
+          backgroundColor: ready ? t.c.gold : done || active ? t.c.accent : t.c.surface3,
+          borderWidth: active || ready ? 3 : 0,
+          borderColor: ready ? t.c.gold : t.c.accentSoft2,
         },
       ]}
     >
       {done && <Icon name="check" size={22} color={t.c.accentInk} />}
       {active && <Icon name="bolt" size={22} color={t.c.accentInk} />}
+      {ready && <Icon name="star" size={22} color={t.c.ink} />}
       {state === "next" && <Icon name="bolt" size={22} color={t.c.ink3} />}
       {state === "locked" && <Icon name="lock" size={20} color={t.c.ink3} />}
     </View>
@@ -151,6 +152,7 @@ function NodeCard({ node, interactive }: { node: PathNode; interactive: boolean 
   const topic = node.topic!;
   const sub: Record<Exclude<NodeState, "test">, string> = {
     done: `${tr("jp.mastered")} · ${topic.belt.name}`,
+    ready: tr("course.readyNode"),
     current: interactive ? tr("jp.continue") : tr("jp.inProgress"),
     next: interactive ? tr("jp.upNextTap") : tr("jp.upNext"),
     locked: tr("jp.locked"),
@@ -166,7 +168,7 @@ function NodeCard({ node, interactive }: { node: PathNode; interactive: boolean 
             <Txt variant="caption" color={t.c.ink3}>{node.band}</Txt>
           )}
         </View>
-        <Txt variant="secondary" color={node.state === "current" ? t.c.accent : t.c.ink3}>
+        <Txt variant="secondary" color={node.state === "current" ? t.c.accent : node.state === "ready" ? t.c.gold : t.c.ink3}>
           {sub[node.state as Exclude<NodeState, "test">]}
           {node.state === "done" ? `  ·  ${topic.acc}%` : ""}
         </Txt>

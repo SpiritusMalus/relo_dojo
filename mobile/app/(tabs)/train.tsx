@@ -6,7 +6,7 @@ import { useAuth } from "../../store/auth";
 import { useAccess } from "../../store/access";
 import { useI18n } from "../../store/i18n";
 import { beltProgress } from "../../store/dojo";
-import { mistakeCount } from "../../store/mistakes";
+import { dueCount } from "../../store/mistakes";
 import { getStoryCatalog } from "../../services/api";
 import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
@@ -39,7 +39,7 @@ export default function TrainScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      mistakeCount().then((n) => active && setMistakes(n));
+      dueCount().then((n) => active && setMistakes(n)); // SRS: only DUE items count — the button is a to-do, not an archive
       getStoryCatalog()
         .then((c) => {
           if (!active) return;

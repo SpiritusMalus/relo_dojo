@@ -36,6 +36,27 @@ export type Mastery = {
   pct: number; // 0..100 progress toward the correct-count bar (for meters)
 };
 
+// --- checkpoint (зачёт): the ceremony that turns evidence into mastery -------------
+// Meeting the mastery criterion makes the unit READY; the unit is MASTERED only after passing a
+// short closed-book quiz — CHECKPOINT_ITEMS fresh items in constructive formats, at most
+// CHECKPOINT_MAX_MISSES misses, no rule card mid-quiz. Failing costs nothing beyond the answers
+// themselves: quiz answers feed the same evidence window, so a failed run naturally lowers the
+// meter and re-earning it is the retry cooldown (no day-locks needed).
+export const CHECKPOINT_ITEMS = 5;
+export const CHECKPOINT_MAX_MISSES = 1;
+// Served formats: constructive only (a checkpoint must not be guessable), and available at every
+// CEFR band (transform/order are gated to B1+ in the normal mix).
+export const CHECKPOINT_FORMATS = ["build-the-sentence", "tap-the-error", "multiple-blanks"];
+
+export function checkpointPassed(misses: number): boolean {
+  return misses <= CHECKPOINT_MAX_MISSES;
+}
+
+/** Early abort: one miss past the allowance already decides the run. */
+export function checkpointFailedNow(misses: number): boolean {
+  return misses > CHECKPOINT_MAX_MISSES;
+}
+
 /** Mastery evidence over the last MASTERY_WINDOW answers of one topic. Pure; tolerant of missing
  *  history (a fresh topic reads as 0/0, not-met). */
 export function masteryOf(history: AnswerMark[] | undefined): Mastery {

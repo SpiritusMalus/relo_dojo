@@ -1,4 +1,15 @@
-import { MAX_MISTAKE_HINTS, MISTAKES_CAP, mistakeHintsForTopic, mistakeId, upsertMistake, type Mistake } from "../mistakes";
+import {
+  dueMistakes,
+  MAX_MISTAKE_HINTS,
+  MISTAKES_CAP,
+  mistakeHintsForTopic,
+  mistakeId,
+  nextDueAt,
+  promoteMistake,
+  SRS_INTERVALS_D,
+  upsertMistake,
+  type Mistake,
+} from "../mistakes";
 import type { Exercise } from "../../services/api";
 
 function ex(overrides: Partial<Exercise> = {}): Exercise {
@@ -89,5 +100,63 @@ describe("mistakeHintsForTopic", () => {
   it("dedupes identical sentences", () => {
     const list: Mistake[] = [mk({ text: "Same ___ here." }), mk({ text: "Same ___ here." })];
     expect(mistakeHintsForTopic(list, "articles")).toEqual(["Same ___ here."]);
+  });
+});
+
+describe("SRS ladder (Leitner)", () => {
+  const now = "2026-07-04T10:00:00.000Z";
+  const dayLater = (iso: string, days: number) => {
+    const d = new Date(iso);
+    d.setDate(d.getDate() + days);
+    return d.toISOString();
+  };
+
+  it("a fresh miss enters the learning phase: box 0, due immediately", () => {
+    const next = upsertMistake([], ex(), now);
+    expect(next[0].box).toBe(0);
+    expect(next[0].due).toBe(now);
+    expect(dueMistakes(next, now)).toHaveLength(1);
+  });
+
+  it("correct answers climb 1/3/7/21 days, then the item graduates off the deck", () => {
+    let list = upsertMistake([], ex(), now);
+    const id = list[0].id;
+    let clock = now;
+    for (let i = 0; i < SRS_INTERVALS_D.length; i++) {
+      list = promoteMistake(list, id, clock);
+      expect(list[0].box).toBe(i + 1);
+      expect(list[0].due).toBe(dayLater(clock, SRS_INTERVALS_D[i]));
+      expect(dueMistakes(list, clock)).toHaveLength(0); // scheduled out — not due today
+      clock = list[0].due!; // arrive exactly at the next review
+      expect(dueMistakes(list, clock)).toHaveLength(1); // due again on its date
+    }
+    list = promoteMistake(list, id, clock); // correct past the last interval
+    expect(list).toHaveLength(0); // graduated — proven across every spaced gap
+  });
+
+  it("a miss resets a climbed item back to box 0, due immediately", () => {
+    let list = upsertMistake([], ex(), now);
+    const id = list[0].id;
+    list = promoteMistake(list, id, now); // box 1, due +1d
+    list = upsertMistake(list, ex(), dayLater(now, 1)); // missed again on its review day
+    expect(list[0].id).toBe(id);
+    expect(list[0].box).toBe(0);
+    expect(list[0].due).toBe(dayLater(now, 1));
+  });
+
+  it("legacy items without SRS fields are due immediately and sort first", () => {
+    const legacy: Mistake = { ...upsertMistake([], ex({ text: "Old ___ one." }), now)[0] };
+    delete legacy.box;
+    delete legacy.due;
+    const scheduled = promoteMistake(upsertMistake([], ex(), now), mistakeId(ex()), now)[0];
+    const due = dueMistakes([scheduled, legacy], dayLater(now, 2));
+    expect(due.map((m) => m.id)).toEqual([legacy.id, scheduled.id]); // legacy first, then overdue by date
+  });
+
+  it("nextDueAt reports the earliest upcoming review, or null when nothing is scheduled", () => {
+    let list = upsertMistake([], ex(), now);
+    expect(nextDueAt(list, now)).toBeNull(); // due now = not upcoming
+    list = promoteMistake(list, list[0].id, now);
+    expect(nextDueAt(list, now)).toBe(dayLater(now, 1));
   });
 });

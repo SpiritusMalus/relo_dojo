@@ -1,7 +1,11 @@
 // Review mistakes: replay the exact items the learner missed (stored in store/mistakes.ts) and let
 // them fix each one. Same check / grade / result flow as Practice (useExerciseCheck + ResultPanel),
-// so a fixed item still feeds XP and the adaptive model. A correct answer resolves (removes) the
-// mistake; missing it again keeps it for next time. Stale/unusable items can be removed manually.
+// so a fixed item still feeds XP and the adaptive model.
+//
+// Spaced repetition: the session serves only items that are DUE (Leitner ladder in mistakes.ts) —
+// a correct answer climbs the item one box (next review in 1/3/7/21 days; past the ladder it
+// graduates off the deck), a miss resets it to the learning phase. Missing it again keeps it for
+// next time; stale/unusable items can be removed manually.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -13,7 +17,7 @@ import ResultPanel from "../components/ResultPanel";
 import { useProgress } from "../store/progress";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
-import { loadMistakes, resolveMistake, type Mistake } from "../store/mistakes";
+import { dueMistakes, loadMistakes, nextDueAt, promoteMistakeStored, resolveMistake, type Mistake } from "../store/mistakes";
 import { loadingMessageFor } from "../i18n/loading";
 import { useTheme } from "../theme/theme";
 import Button from "../components/ui/Button";
@@ -33,6 +37,7 @@ export default function ReviewScreen() {
     useExerciseCheck();
 
   const [items, setItems] = useState<Mistake[] | null>(null); // null = still loading
+  const [nextDue, setNextDue] = useState<string | null>(null); // earliest upcoming review (empty state)
   const [index, setIndex] = useState(0);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [responseDisplay, setResponseDisplay] = useState("");
@@ -42,8 +47,13 @@ export default function ReviewScreen() {
   const shake = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Snapshot the list at mount; resolving updates storage but we iterate the snapshot.
-    loadMistakes().then(setItems);
+    // Snapshot the DUE items at mount (SRS: not-yet-due items wait for their date); promoting
+    // updates storage but we iterate the snapshot.
+    loadMistakes().then((list) => {
+      const now = new Date().toISOString();
+      setItems(dueMistakes(list, now));
+      setNextDue(nextDueAt(list, now));
+    });
   }, []);
 
   function onChange(value: ResponseValue | null, display: string) {
@@ -72,8 +82,9 @@ export default function ReviewScreen() {
     const res = await check(current.exercise, response, runShake);
     if (res?.correct) {
       setFixed((n) => n + 1);
-      await resolveMistake(current.id); // mastered — drop it from storage
+      await promoteMistakeStored(current.id); // climb the SRS ladder (or graduate off the deck)
     }
+    // A miss needs no handling here: useExerciseCheck re-captures it → box 0, due immediately.
   }
 
   function onExplain() {
@@ -120,12 +131,14 @@ export default function ReviewScreen() {
           </View>
         )}
 
-        {/* Empty state */}
+        {/* Empty state: nothing due — the schedule is working, say when to come back */}
         {items !== null && total === 0 && !finished && (
           <View style={{ alignItems: "center", gap: 12, marginTop: 32 }}>
             <Sensei size={104} mood="happy" bob />
             <Txt variant="cardTitle" color={t.c.accent} style={{ textAlign: "center" }}>{tr("review.empty")}</Txt>
-            <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("review.emptySub")}</Txt>
+            <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
+              {nextDue ? tr("review.nextDue", { date: new Date(nextDue).toLocaleDateString() }) : tr("review.emptySub")}
+            </Txt>
           </View>
         )}
 

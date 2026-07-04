@@ -120,17 +120,18 @@ export function beltProgress(p: Progress): BeltProgress {
   return { overallSkill: mean, cefr, belt, nextBelt, pctToNext, atMax: belt.idx >= 5, started };
 }
 
-export type NodeState = "done" | "current" | "next" | "locked" | "test";
+export type NodeState = "done" | "ready" | "current" | "next" | "locked" | "test";
 export type PathNode = { state: NodeState; topic?: TopicRow; band?: Cefr; mastery?: Mastery };
 
 /** The Home "belt journey" = the course track: syllabus-ordered units + a final belt-test node.
- *  States: done → current (first unmastered) → next → locked.
+ *  States: done → ready/current (first unmastered) → next → locked.
  *
- *  Mastery is EVIDENCE, per the course criterion (store/curriculum.ts): enough recent correct
- *  answers with a minimum in non-guessable formats, promoted one-way into `progress.course.mastered`
- *  by recordAnswer. Neither a seeded/placement skill estimate nor a lucky single answer reads as
- *  mastered (display-honesty rule) — and the gate is the point: the next unit opens only after the
- *  current one is actually learned.
+ *  Mastery is EVIDENCE + a CEREMONY (store/curriculum.ts): enough recent correct answers with a
+ *  minimum in non-guessable formats makes the unit "ready" — then a closed-book checkpoint (зачёт)
+ *  promotes it to mastered (progress.course.mastered, one-way, via the checkpoint screen). Neither
+ *  a seeded/placement skill estimate nor a lucky single answer reads as mastered (display-honesty
+ *  rule) — and the gate is the point: the next unit opens only after this one is actually learned
+ *  and sealed.
  *
  *  The path is computed over the WHOLE syllabus and windowed to `count` rows so the current unit is
  *  always visible (before: slicing first-N hid the current unit once the learner passed N topics). */
@@ -139,16 +140,17 @@ export function buildPath(p: Progress, count = 6): { nodes: PathNode[]; doneCoun
   const currentIdx = TOPIC_ORDER.findIndex((id) => !mastered.has(id));
 
   const all: PathNode[] = TOPIC_ORDER.map((id, i) => {
+    const mastery = masteryOf(p.course?.history[id]);
     let state: NodeState;
     if (currentIdx === -1 || i < currentIdx) state = "done"; // everything before the current unit is passed
-    else if (i === currentIdx) state = "current";
+    else if (i === currentIdx) state = mastery.met ? "ready" : "current"; // meter full → зачёт awaits
     else if (i === currentIdx + 1) state = "next";
     else state = "locked";
     return {
       state,
       topic: topicRow(p, id),
       band: CURRICULUM[i].band,
-      mastery: state === "current" || state === "next" ? masteryOf(p.course?.history[id]) : undefined,
+      mastery: state === "ready" || state === "current" || state === "next" ? mastery : undefined,
     };
   });
 

@@ -1,5 +1,9 @@
 // The standards layer: syllabus integrity + the mastery criterion (store/curriculum.ts).
 import {
+  CHECKPOINT_FORMATS,
+  CHECKPOINT_MAX_MISSES,
+  checkpointFailedNow,
+  checkpointPassed,
   CURRICULUM,
   GUESSABLE_FORMATS,
   masteryOf,
@@ -60,6 +64,21 @@ describe("masteryOf — the gate criterion", () => {
     expect(m.correct).toBe(8);
     expect(m.hard).toBe(0);
     expect(m.met).toBe(false);
+  });
+});
+
+describe("checkpoint (зачёт) verdicts", () => {
+  it("passes at up to CHECKPOINT_MAX_MISSES misses, fails past it — and can fail early", () => {
+    expect(checkpointPassed(0)).toBe(true);
+    expect(checkpointPassed(CHECKPOINT_MAX_MISSES)).toBe(true);
+    expect(checkpointPassed(CHECKPOINT_MAX_MISSES + 1)).toBe(false);
+    expect(checkpointFailedNow(CHECKPOINT_MAX_MISSES)).toBe(false);
+    expect(checkpointFailedNow(CHECKPOINT_MAX_MISSES + 1)).toBe(true);
+  });
+
+  it("serves only constructive formats (a checkpoint must not be guessable)", () => {
+    expect(CHECKPOINT_FORMATS.length).toBeGreaterThan(0);
+    for (const f of CHECKPOINT_FORMATS) expect(GUESSABLE_FORMATS.has(f)).toBe(false);
   });
 });
 

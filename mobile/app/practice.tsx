@@ -15,7 +15,7 @@ import { useProgress, mergeSteering, DEFAULT_STEERING, type Steering } from "../
 import { effectiveSkill, levelToCefr, selectNext, applySteeringAction, type SwerveAction } from "../store/adaptive";
 import SwerveSheet, { type SwerveScope } from "../components/ui/SwerveSheet";
 import RuleSheet from "../components/ui/RuleSheet";
-import { RULE_CARDS } from "../store/curriculum";
+import { masteryOf, RULE_CARDS } from "../store/curriculum";
 import PronunciationCard from "../components/ui/PronunciationCard";
 import { canServePronunciation, voiceFeatureEnabled } from "../services/voice";
 import { useVoiceConsent } from "../store/voiceConsent";
@@ -130,16 +130,6 @@ export default function PracticeScreen() {
   const [showScroll, setShowScroll] = useState(false); // end-of-session summary + reward scroll
   const [swerveOpen, setSwerveOpen] = useState(false); // learner's "steer the lesson" sheet
   const [ruleOpen, setRuleOpen] = useState(false); // 📖 rule card for the current card's topic
-  // "Topic mastered" moment: the course criterion (store/curriculum.ts) was met by THIS session's
-  // answer — celebrate once, on the result screen. Detected by diffing progress.course.mastered.
-  const [justMastered, setJustMastered] = useState<string | null>(null);
-  const masteredRef = useRef<Set<string>>(new Set(progress.course?.mastered ?? []));
-  useEffect(() => {
-    const prev = masteredRef.current;
-    const fresh = (progress.course?.mastered ?? []).find((topic) => !prev.has(topic));
-    if (fresh) setJustMastered(fresh);
-    masteredRef.current = new Set(progress.course?.mastered ?? []);
-  }, [progress.course?.mastered]);
   const { isPremium, coins } = useWallet();
   const { owned: ownedCosmetics } = useCosmetics();
   // XP at session start — the summary shows the delta (combo/boost included automatically).
@@ -158,7 +148,6 @@ export default function PracticeScreen() {
     reset();
     setResponse(null);
     setResponseDisplay("");
-    setJustMastered(null); // the mastered banner belongs to the answered card, not the next one
     setExercise(null);
     // Guests get the same daily allowance as a free account (store/guestLimit.ts). On exhaustion we
     // show the register wall instead of fetching — registering lifts the cap and adds sync. (The
@@ -456,17 +445,28 @@ export default function PracticeScreen() {
           <PronunciationCard target={exercise.text} lang={lang} />
         )}
 
-        {/* Mastery-gate moment: this answer completed the unit's criterion — the next topic on the
-            path just opened. The peak beat of the course loop; shown above the result panel. */}
-        {justMastered && result && !showScroll && (
-          <Card>
-            <View style={{ alignItems: "center", gap: 4, paddingVertical: 6 }}>
-              <Txt variant="bodyStrong" color={t.c.accent}>{`🥋 ${tr("course.mastered")}`}</Txt>
-              <Txt variant="body" color={t.c.ink}>{labelFor(justMastered)}</Txt>
-              <Txt variant="secondary" color={t.c.ink2}>{tr("course.masteredSub")}</Txt>
-            </View>
-          </Card>
-        )}
+        {/* Mastery-gate moment: the evidence meter for this unit is full — the checkpoint (зачёт)
+            is open. Persistent nudge on every result until the quiz is passed. */}
+        {(() => {
+          if (!exercise || !result || showScroll) return null;
+          const mastered = (progress.course?.mastered ?? []).includes(exercise.topic);
+          if (mastered || !RULE_CARDS[exercise.topic]) return null;
+          if (!masteryOf(progress.course?.history[exercise.topic]).met) return null;
+          return (
+            <Card>
+              <View style={{ alignItems: "center", gap: 6, paddingVertical: 6 }}>
+                <Txt variant="bodyStrong" color={t.c.gold}>{`⭐ ${tr("course.ready")}`}</Txt>
+                <Txt variant="secondary" color={t.c.ink2} style={{ textAlign: "center" }}>
+                  {tr("course.readySub")}
+                </Txt>
+                <Button
+                  label={tr("course.takeCheckpoint")}
+                  onPress={() => router.push({ pathname: "/checkpoint", params: { topic: exercise.topic } })}
+                />
+              </View>
+            </Card>
+          );
+        })()}
 
         {result && exercise && !showScroll && (
           <ResultPanel
