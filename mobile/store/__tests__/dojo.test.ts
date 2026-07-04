@@ -1,5 +1,5 @@
 import { beltProgress, buildPath, hasEvidence, topicRow, topicRows, TOPIC_ORDER } from "../dojo";
-import { DEFAULT_PROGRESS, recordAnswer, type Progress } from "../progress";
+import { DEFAULT_PROGRESS, recordAnswer, withUnitMastered, type Progress } from "../progress";
 import { selectNext } from "../adaptive";
 
 const at = (s: string) => new Date(`${s}T12:00:00`);
@@ -76,12 +76,16 @@ describe("display honesty — no fabricated progress before evidence", () => {
 describe("buildPath — the mastery-gated course track", () => {
   const first = TOPIC_ORDER[0];
 
-  /** Drive one topic through the course criterion: 8 correct answers, 2 of them constructive. */
-  function master(p: Progress, topic: string): Progress {
+  /** Fill one topic's evidence meter: 8 correct answers, 2 of them constructive. */
+  function fillMeter(p: Progress, topic: string): Progress {
     for (let i = 0; i < 6; i++) p = recordAnswer(p, topic, true, at("2026-06-04"), { format: "multiple-choice" });
     p = recordAnswer(p, topic, true, at("2026-06-04"), { format: "build-the-sentence" });
     p = recordAnswer(p, topic, true, at("2026-06-04"), { format: "tap-the-error" });
     return p;
+  }
+  /** Meter + a passed checkpoint = mastered unit. */
+  function master(p: Progress, topic: string): Progress {
+    return withUnitMastered(fillMeter(p, topic), topic);
   }
 
   it("the syllabus opens with word order (CEFR-banded course, not the priors order)", () => {
@@ -116,7 +120,16 @@ describe("buildPath — the mastery-gated course track", () => {
     expect(nodes[0].mastery?.met).toBe(false);
   });
 
-  it("meeting the criterion marks the unit done and advances current to the next unit", () => {
+  it("a full meter makes the unit READY (зачёт awaits) — not yet done", () => {
+    const p = fillMeter(DEFAULT_PROGRESS, first);
+    const { nodes, doneCount } = buildPath(p);
+    expect(nodes[0].state).toBe("ready");
+    expect(nodes[0].mastery?.met).toBe(true);
+    expect(doneCount).toBe(0); // the checkpoint hasn't been passed
+    expect(nodes[1].state).toBe("next"); // and the next unit is still not unlocked as current
+  });
+
+  it("a passed checkpoint marks the unit done and advances current to the next unit", () => {
     const p = master(DEFAULT_PROGRESS, first);
     expect(p.course.mastered).toContain(first);
     const { nodes, doneCount } = buildPath(p);

@@ -288,6 +288,8 @@ export default function HomeScreen() {
       <JourneyPath
         onSelect={(node: PathNode) => {
           if (node.state === "test") router.push("/belt-exam");
+          else if (node.state === "ready" && node.topic)
+            router.push({ pathname: "/checkpoint", params: { topic: node.topic.id } }); // зачёт awaits
           else if (node.topic) setRuleTopic(node.topic.id);
         }}
       />

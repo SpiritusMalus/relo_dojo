@@ -22,7 +22,7 @@ import { resetJourney } from "./journey";
 import { resetReviewHook } from "./reviewHook";
 import { useWallet } from "./wallet";
 import { updateSkill } from "./adaptive";
-import { masteryOf, MASTERY_WINDOW, type AnswerMark } from "./curriculum";
+import { MASTERY_WINDOW, type AnswerMark } from "./curriculum";
 import {
   MIN_REPAIRABLE_STREAK,
   repairOpen,
@@ -230,19 +230,16 @@ export function recordAnswer(
   const currentCorrectRun = correct ? prev.currentCorrectRun + 1 : 0;
   const bestCorrectRun = Math.max(prev.bestCorrectRun, currentCorrectRun);
 
-  // Course evidence: append this answer to the topic's rolling window and promote the unit to
-  // "mastered" the moment the criterion holds (see store/curriculum.ts). Promotion is one-way —
-  // a bad day never re-locks a cleared unit.
+  // Course evidence: append this answer to the topic's rolling window. Meeting the criterion makes
+  // the unit READY for its checkpoint (зачёт) — mastery itself is granted only by passing that quiz
+  // (withUnitMastered, called from the checkpoint screen). Never granted here, never revoked.
   const prevCourse = prev.course ?? DEFAULT_COURSE;
   const marks = [...(prevCourse.history[topic] ?? []), { c: correct, f: grade?.format ?? "" }].slice(
     -MASTERY_WINDOW
   );
   const course: CourseState = {
     history: { ...prevCourse.history, [topic]: marks },
-    mastered:
-      !prevCourse.mastered.includes(topic) && masteryOf(marks).met
-        ? [...prevCourse.mastered, topic]
-        : prevCourse.mastered,
+    mastered: prevCourse.mastered,
   };
 
   let dailyStreak: number;
@@ -294,6 +291,14 @@ export function recordAnswer(
   next.achievements = Array.from(unlocked);
 
   return next;
+}
+
+/** Pure: promote a unit to mastered — the checkpoint (зачёт) was passed. One-way and idempotent;
+ *  the only place mastery is granted (recordAnswer only accumulates evidence). */
+export function withUnitMastered(prev: Progress, topic: string): Progress {
+  const course = prev.course ?? DEFAULT_COURSE;
+  if (course.mastered.includes(topic)) return prev;
+  return { ...prev, course: { ...course, mastered: [...course.mastered, topic] } };
 }
 
 // --- Merge (sync) ------------------------------------------------------------
@@ -435,6 +440,8 @@ type ProgressContextValue = {
   updateProfile: (patch: Partial<Profile>) => void;
   /** Record a belt-exam attempt; on pass the target belt becomes the worn (earned) one. */
   recordExamResult: (passed: boolean, targetIdx: number, date: string) => void;
+  /** Promote a course unit to mastered — called by the checkpoint screen on a passed зачёт. */
+  masterUnit: (topic: string) => void;
   /** Apply a completed full Level Test (store/levelTest.ts): set the (uncapped) skill estimate and
    *  raise the worn belt to the placed one. This is the path that lifts the onboarding B2 cap. */
   applyLevelTest: (skill: Record<string, number>, beltIdx: number, date: string) => void;
@@ -668,6 +675,20 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [schedulePush]
   );
 
+  const masterUnit = useCallback(
+    (topic: string) => {
+      setProgress((prev) => {
+        const next = withUnitMastered(prev, topic);
+        if (next !== prev) {
+          void save(next);
+          schedulePush(next);
+        }
+        return next;
+      });
+    },
+    [schedulePush]
+  );
+
   const recordExamResult = useCallback(
     (passed: boolean, targetIdx: number, date: string) => {
       setProgress((prev) => {
@@ -752,6 +773,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       resetOnboarding,
       updateProfile,
       recordExamResult,
+      masterUnit,
       applyLevelTest,
       awardQuestBonus,
       repairStreak,
@@ -759,7 +781,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       activateBoost,
       setSteering,
     }),
-    [progress, ready, synced, record, completeOnboarding, resetOnboarding, updateProfile, recordExamResult, applyLevelTest, awardQuestBonus, repairStreak, dismissBrokenStreak, activateBoost, setSteering]
+    [progress, ready, synced, record, completeOnboarding, resetOnboarding, updateProfile, recordExamResult, masterUnit, applyLevelTest, awardQuestBonus, repairStreak, dismissBrokenStreak, activateBoost, setSteering]
   );
 
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;

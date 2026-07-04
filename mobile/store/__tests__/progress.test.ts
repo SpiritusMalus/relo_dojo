@@ -2,9 +2,11 @@ import {
   DEFAULT_PROGRESS,
   mergeProgress,
   recordAnswer,
+  withUnitMastered,
   XP_PER_CORRECT,
   type Progress,
 } from "../progress";
+import { masteryOf } from "../curriculum";
 
 function progressWith(overrides: Partial<Progress>): Progress {
   return { ...DEFAULT_PROGRESS, ...overrides };
@@ -29,21 +31,19 @@ describe("recordAnswer — course evidence (mastery gate)", () => {
     expect(p.course.history.articles.every((m) => m.c)).toBe(true); // the misses aged out
   });
 
-  it("promotes the topic to mastered exactly when the criterion holds", () => {
-    let p = DEFAULT_PROGRESS;
-    for (let i = 0; i < 7; i++) p = correctAt(p, "multiple-choice");
-    p = correctAt(p, "tap-the-error");
-    expect(p.course.mastered).toEqual([]); // 8 correct but only 1 constructive — not yet
-    p = correctAt(p, "order-the-dialog");
-    expect(p.course.mastered).toEqual(["articles"]); // 9 correct, 2 constructive → gate met
-  });
-
-  it("never un-masters a unit on later misses (the lock only moves forward)", () => {
+  it("accumulates evidence but NEVER grants mastery itself — that's the checkpoint's job", () => {
     let p = DEFAULT_PROGRESS;
     for (let i = 0; i < 8; i++) p = correctAt(p, "build-the-sentence");
+    expect(masteryOf(p.course.history.articles).met).toBe(true); // meter full = checkpoint ready
+    expect(p.course.mastered).toEqual([]); // but not mastered until the зачёт is passed
+  });
+
+  it("withUnitMastered promotes one-way and idempotently (checkpoint passed)", () => {
+    let p = withUnitMastered(DEFAULT_PROGRESS, "articles");
     expect(p.course.mastered).toEqual(["articles"]);
+    expect(withUnitMastered(p, "articles")).toBe(p); // idempotent — same object back
     for (let i = 0; i < 10; i++) p = correctAt(p, "multiple-choice", false);
-    expect(p.course.mastered).toEqual(["articles"]);
+    expect(p.course.mastered).toEqual(["articles"]); // later misses never un-master
   });
 });
 
