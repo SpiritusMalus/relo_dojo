@@ -95,6 +95,15 @@ async def transcribe(audio_b64: str, mime: str, lang: str | None = None) -> str:
         data = await _post(OPENROUTER_URL, headers, payload, "OpenRouter")
         return str(parse_openai_response(data, expect_json=False) or "").strip()
 
+    # Only openrouter and gemini can transcribe audio. For any other configured provider
+    # (anthropic/openai/ollama) fail with a clear message instead of falling through to the Gemini
+    # path and raising a misleading "GEMINI_API_KEY is not set" error the operator would misdiagnose.
+    if provider != "gemini":
+        raise LLMError(
+            f"Voice transcription is not supported for the '{provider}' provider — set LLM_PROVIDER "
+            "to 'openrouter' or 'gemini' for voice."
+        )
+
     key = _require_key(settings.GEMINI_API_KEY, "GEMINI_API_KEY", "gemini")
     headers = {"x-goog-api-key": key}
     url = f"{GEMINI_BASE}/models/{settings.GEMINI_MODEL}:generateContent"

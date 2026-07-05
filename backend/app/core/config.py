@@ -99,6 +99,12 @@ class Settings(BaseSettings):
     # /voice/transcribe + /voice/live-token (keyed by client IP). Both require auth.
     VOICE_RATE_LIMIT: int = 20
     VOICE_RATE_WINDOW_S: int = 60
+    # Check bucket (koku-faucet guard) — keyed by client IP; covers the deterministic /check grade
+    # endpoint, which mints koku for authed callers. The token supply (/exercise is LLM-rate-limited)
+    # already bounds real earning; this is defence-in-depth so /check can't be spammed on its own
+    # (miss-log/combo writes) faster than a human ever grades. Sized well above any real play pace.
+    CHECK_RATE_LIMIT: int = 90
+    CHECK_RATE_WINDOW_S: int = 60
     # Trust the first hop of X-Forwarded-For for the client IP. Enable ONLY behind a proxy you
     # control (nginx/Caddy on the VPS) — otherwise the header is client-spoofable and defeats the
     # IP keying. Off by default (direct connect on the Mac uses request.client.host).

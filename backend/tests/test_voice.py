@@ -7,6 +7,7 @@ in a response. The live model resolution is unit-tested as a pure function.
 
 import base64
 import uuid
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -19,7 +20,7 @@ B64 = base64.b64encode(b"\x00\x01\x02\x03fake-audio").decode()
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
-def _client(monkeypatch, *, enabled=True, authed=True):
+def _client(monkeypatch, *, enabled=True, authed=True, consent=True):
     from app import main
     from app.core.config import settings as _settings
     from app import deps
@@ -31,7 +32,11 @@ def _client(monkeypatch, *, enabled=True, authed=True):
     # voice endpoints don't use the DB; stub get_db so unauth paths never touch Postgres.
     main.app.dependency_overrides[deps.get_db] = lambda: None
     if authed:
-        main.app.dependency_overrides[deps.get_current_user] = lambda: SimpleNamespace(id=uuid.uuid4())
+        # Voice requires the recorded cross-border consent; pd_consent_at=None simulates no consent.
+        pd_consent_at = datetime.now(timezone.utc) if consent else None
+        main.app.dependency_overrides[deps.get_current_user] = lambda: SimpleNamespace(
+            id=uuid.uuid4(), pd_consent_at=pd_consent_at
+        )
     return TestClient(main.app)
 
 
@@ -70,6 +75,24 @@ def test_transcribe_happy_path_returns_transcript(monkeypatch):
         r = client.post("/voice/transcribe", json={"audio": B64, "mime": "audio/m4a", "lang": "en"})
         assert r.status_code == 200
         assert r.json() == {"transcript": "I went to the shop"}
+    finally:
+        _clear()
+
+
+def test_transcribe_403_without_cross_border_consent(monkeypatch):
+    # Audio is a cross-border transfer of personal data — no recorded consent → 403, no provider call.
+    client = _client(monkeypatch, enabled=True, authed=True, consent=False)
+    try:
+        r = client.post("/voice/transcribe", json={"audio": B64, "mime": "audio/m4a"})
+        assert r.status_code == 403
+    finally:
+        _clear()
+
+
+def test_live_token_403_without_cross_border_consent(monkeypatch):
+    client = _client(monkeypatch, enabled=True, authed=True, consent=False)
+    try:
+        assert client.post("/voice/live-token").status_code == 403
     finally:
         _clear()
 

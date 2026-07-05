@@ -403,7 +403,13 @@ async def _post(
                 name, model, _ms(started), resp.status_code, _error_reason(resp.text),
             )
             raise
-        data = resp.json()
+        try:
+            data = resp.json()
+        except ValueError as exc:  # a 2xx with a truncated/non-JSON body (proxy, gateway, captive)
+            logger.warning(
+                "llm bad-body name=%s model=%s ms=%d status=%d", name, model, _ms(started), resp.status_code
+            )
+            raise LLMError(f"The {name} API returned an invalid response body.") from exc
         tok_in, tok_out, tok_think = _usage_from(data)
         logger.info(
             "llm ok name=%s model=%s ms=%d attempts=%d tok_in=%s tok_out=%s tok_think=%s provider=%s",

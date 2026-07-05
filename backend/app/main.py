@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .core.config import settings
 from .db.models import User
-from .deps import get_current_user, get_current_user_optional, get_db, llm_rate_limit
+from .deps import check_rate_limit, get_current_user, get_current_user_optional, get_db, llm_rate_limit
 from .routers import agents as agents_router
 from .routers import auth as auth_router
 from .routers import billing as billing_router
@@ -296,7 +296,7 @@ async def content_buy(
     return ContentBuyOut(owned=content.owned_ids(user), coins=user.coins)
 
 
-@app.post("/check", response_model=CheckOut)
+@app.post("/check", response_model=CheckOut, dependencies=[Depends(check_rate_limit)])
 async def check(
     payload: CheckIn,
     user: Optional[User] = Depends(get_current_user_optional),

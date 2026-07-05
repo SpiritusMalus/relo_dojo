@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from typing import NamedTuple, Optional
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -48,6 +49,20 @@ PLANS: dict[str, Plan] = {
 def get_plan(plan_id: str) -> Optional[Plan]:
     """The plan for an id, or None for an unknown/typo id (caller 404s/ignores)."""
     return PLANS.get(plan_id)
+
+
+def amount_matches(plan: Plan, value: str, currency: str) -> bool:
+    """True iff a captured payment's amount matches the plan's price (whole RUB). Defence-in-depth
+    for the webhook: even though we set the amount server-side at checkout, we re-verify the actually
+    captured `value`/`currency` before granting, so a payment carrying a plan in its metadata can
+    never grant that plan for a mismatched or short capture. Pure — exact Decimal compare."""
+    if currency != "RUB":
+        return False
+    try:
+        paid = Decimal(value)
+    except (InvalidOperation, TypeError, ValueError):
+        return False
+    return paid == Decimal(plan.price_rub)
 
 
 def _now() -> datetime:

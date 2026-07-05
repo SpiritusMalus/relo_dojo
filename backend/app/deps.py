@@ -74,6 +74,7 @@ _auth_limiter = SlidingWindowLimiter(settings.AUTH_RATE_LIMIT, settings.AUTH_RAT
 _llm_limiter = SlidingWindowLimiter(settings.LLM_RATE_LIMIT, settings.LLM_RATE_WINDOW_S)
 _events_limiter = SlidingWindowLimiter(settings.EVENTS_RATE_LIMIT, settings.EVENTS_RATE_WINDOW_S)
 _voice_limiter = SlidingWindowLimiter(settings.VOICE_RATE_LIMIT, settings.VOICE_RATE_WINDOW_S)
+_check_limiter = SlidingWindowLimiter(settings.CHECK_RATE_LIMIT, settings.CHECK_RATE_WINDOW_S)
 
 
 def _client_ip(request: Request) -> str:
@@ -119,3 +120,8 @@ async def events_rate_limit(request: Request) -> None:
 async def voice_rate_limit(request: Request) -> None:
     """Cost guard for the voice endpoints (audio→Gemini is pricier than text; per client IP)."""
     _enforce(_voice_limiter, request, "voice")
+
+
+async def check_rate_limit(request: Request) -> None:
+    """Faucet guard for the deterministic /check grade endpoint (koku minting; per client IP)."""
+    _enforce(_check_limiter, request, "check")
