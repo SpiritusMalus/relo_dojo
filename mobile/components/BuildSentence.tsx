@@ -15,15 +15,16 @@ import Txt from "./ui/Txt";
 export default function BuildSentence({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
   const { t: tr } = useI18n();
-  const answerLen = exercise.tiles.length;
+  const tiles = exercise.tiles ?? [];
+  const answerLen = tiles.length;
   // Bank = answer tiles + server-sent traps (the word a transform removed, a broken verb form).
   // Without traps the bank IS the answer and assembling degenerates into using everything up —
   // a correction card arrives visibly pre-corrected. Merged + shuffled once per mount; with no
   // traps the server order is kept (it's already shuffled with a not-the-answer guarantee).
   const [bank] = useState<string[]>(() => {
     const traps = exercise.distractors ?? [];
-    if (traps.length === 0) return exercise.tiles;
-    const merged = [...exercise.tiles, ...traps];
+    if (traps.length === 0) return tiles;
+    const merged = [...tiles, ...traps];
     for (let i = merged.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [merged[i], merged[j]] = [merged[j], merged[i]];

@@ -125,7 +125,15 @@ async function request<T>(
   }
   // 204 No Content (e.g. DELETE /auth/account) has no body — don't try to parse JSON.
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  // Parse the success body defensively: an empty or non-JSON 200 (an endpoint that returns no content,
+  // or a proxy/captive-portal that swallowed the body) otherwise throws a raw SyntaxError that the
+  // callers' catch treats as a network failure. Surface it as a typed ApiError so it routes like any
+  // other backend error, not "can't reach the backend".
+  try {
+    return (await res.json()) as T;
+  } catch {
+    throw new ApiError("Malformed response from the backend.", res.status);
+  }
 }
 
 export type MatchItem = { id: number; text: string };

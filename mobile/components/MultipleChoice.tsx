@@ -9,14 +9,16 @@ import Txt from "./ui/Txt";
 export default function MultipleChoice({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
   const { t: tr } = useI18n();
-  const [selected, setSelected] = useState<string | null>(null);
+  // Track selection by index (not string): two options with identical text must be distinguishable.
+  const [selected, setSelected] = useState<number | null>(null);
+  const options = exercise.options ?? [];
   // For odd-one-out the backend `text` is a fixed English instruction and the options carry the
   // content; show a localized instruction instead. For multiple-choice `text` is the content sentence.
   const prompt = exercise.type === "odd-one-out" ? tr("ex.oddOneOut") : exercise.text;
 
-  function pick(opt: string) {
+  function pick(i: number, opt: string) {
     if (locked) return;
-    setSelected(opt);
+    setSelected(i);
     onChange(opt, opt);
   }
 
@@ -26,12 +28,12 @@ export default function MultipleChoice({ exercise, locked, onChange }: ExerciseP
         {prompt}
       </Txt>
       <View style={{ gap: 10 }}>
-        {exercise.options.map((opt) => {
-          const on = selected === opt;
+        {options.map((opt, i) => {
+          const on = selected === i;
           return (
             <Pressable
-              key={opt}
-              onPress={() => pick(opt)}
+              key={`${i}-${opt}`}
+              onPress={() => pick(i, opt)}
               disabled={locked}
               accessibilityRole="button"
               accessibilityLabel={opt}

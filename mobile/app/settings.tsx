@@ -38,15 +38,24 @@ export default function SettingsScreen() {
   const [deleting, setDeleting] = useState(false);
 
   // Store-compliance: export the caller's data (GET /auth/export) and hand it to the OS share sheet
-  // so they can save/send the JSON. Read-only on the server.
+  // so they can save/send the JSON. Read-only on the server. Only a genuine fetch failure is an
+  // "export failed"; the share sheet being dismissed/cancelled (which can reject on some platforms)
+  // is a normal outcome and must NOT surface an error — so the fetch and the share are guarded apart.
   async function onExportData() {
     if (exporting) return;
     setExporting(true);
+    let data: unknown;
     try {
-      const data = await exportMyData();
-      await Share.share({ message: JSON.stringify(data, null, 2) });
+      data = await exportMyData();
     } catch {
+      setExporting(false);
       Alert.alert(tr("settings.exportData"), tr("settings.exportFail"));
+      return;
+    }
+    try {
+      await Share.share({ message: JSON.stringify(data, null, 2), title: tr("settings.exportData") });
+    } catch {
+      // The user dismissed the share sheet (or the platform rejected a cancel) — not an export failure.
     } finally {
       setExporting(false);
     }

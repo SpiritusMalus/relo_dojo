@@ -55,7 +55,9 @@ export function upsertMistake(list: Mistake[], ex: Exercise, now: string): Mista
 
 function addDays(iso: string, days: number): string {
   const d = new Date(iso);
-  d.setDate(d.getDate() + days);
+  // Guard a non-finite interval (e.g. an out-of-range box → SRS_INTERVALS_D[i] === undefined): adding
+  // NaN days yields an Invalid Date and `.toISOString()` throws. Treat it as 0 spacing (due same day).
+  d.setDate(d.getDate() + (Number.isFinite(days) ? days : 0));
   return d.toISOString();
 }
 
@@ -65,24 +67,41 @@ export function promoteMistake(list: Mistake[], id: string, now: string): Mistak
   const item = list.find((m) => m.id === id);
   if (!item) return list;
   const box = item.box ?? 0;
-  // Correct past the last interval (box == length, i.e. the +21d review) → graduated.
+  // Graduation boundary: SRS_INTERVALS_D has one entry per spaced gap (1/3/7/21). A correct answer at
+  // box `i` uses interval[i] to schedule the next review, climbing to box i+1 — so box `length` (4) is
+  // the terminal box reached by the +21d schedule. A correct answer AT the last interval (box ==
+  // length-1, i.e. the +21d review is now behind us and this box holds no further interval) graduates
+  // the item: it has been retrieved across every gap 1/3/7/21, so there is no extra 0-spacing review.
+  // `>=` (not `>`) makes box == length terminal — never index SRS_INTERVALS_D[length] (undefined→NaN due).
   if (box >= SRS_INTERVALS_D.length) return list.filter((m) => m.id !== id);
   // Otherwise climb one box; the gap that EARNS the promotion is the one at the current box.
   const promoted: Mistake = { ...item, box: box + 1, due: addDays(now, SRS_INTERVALS_D[box]) };
   return list.map((m) => (m.id === id ? promoted : m));
 }
 
-/** Pure: items due for review at `now` (legacy items with no `due` are due immediately),
- *  longest-overdue first. */
+// Day-granular scheduling: `due` is a full ISO timestamp, but the SRS intervals are in whole days, so
+// "due" means the whole calendar day — an item missed at 23:00 is due from the start of that day, not
+// at 23:00. Comparing on the YYYY-MM-DD prefix makes a day-N item due for all of day N (the morning
+// Review no longer under-counts items whose timestamp is later than "now" but on the same/earlier day).
+// Read `due` through this everywhere so scheduling stays consistent; legacy items (no due) read as "".
+function dayKey(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+/** Pure: items due for review on/before `now`'s calendar day (legacy items with no `due` are due
+ *  immediately), longest-overdue first. */
 export function dueMistakes(list: Mistake[], now: string): Mistake[] {
+  const today = dayKey(now);
   return list
-    .filter((m) => (m.due ?? "") <= now)
+    .filter((m) => dayKey(m.due ?? "") <= today)
     .sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""));
 }
 
-/** Pure: the earliest upcoming due date among not-yet-due items, or null when nothing is scheduled. */
+/** Pure: the earliest upcoming due date among items scheduled for a LATER calendar day, or null when
+ *  nothing is scheduled ahead. */
 export function nextDueAt(list: Mistake[], now: string): string | null {
-  const upcoming = list.map((m) => m.due ?? "").filter((d) => d > now);
+  const today = dayKey(now);
+  const upcoming = list.map((m) => m.due ?? "").filter((d) => d && dayKey(d) > today);
   return upcoming.length ? upcoming.sort()[0] : null;
 }
 

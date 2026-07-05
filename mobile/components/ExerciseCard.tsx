@@ -31,6 +31,8 @@ export default function ExerciseCard(props: ExerciseProps) {
     case "free-text":
       return <FreeText {...props} />;
     default:
-      return <MultipleChoice {...props} />;
+      // Unknown/unsupported type: don't route into a component that assumes a specific array
+      // field exists (that would throw during render and white out the whole screen). Render nothing.
+      return null;
   }
 }

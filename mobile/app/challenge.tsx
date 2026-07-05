@@ -89,6 +89,14 @@ export default function ChallengeScreen() {
 
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flash = useRef(new Animated.Value(0)).current;
+  // Kept in sync with `timeLeft` so the post-feedback setTimeout below reads the CURRENT clock, not
+  // the value captured at check-time (which would be stale by FEEDBACK_MS and could load a card after
+  // the run finished).
+  const timeLeftRef = useRef(timeLeft);
+  timeLeftRef.current = timeLeft;
+  // Synchronous in-flight guard: `checking` only flips inside the async check(), one render late, so
+  // a fast double-tap could submit twice before it takes effect. This ref bails immediately.
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     loadBestScore().then(setBest);
@@ -178,23 +186,30 @@ export default function ChallengeScreen() {
   }
 
   async function onCheck() {
-    if (!exercise || response === null || checking || phase !== "solving") return;
-    const res = await check(exercise, response);
-    if (!res) return; // network error — surfaced via checkError
-    // Funnel + daily contracts: a Challenge answer is an answered exercise too (mode tags it), so it
-    // counts toward the "answer N / N correct" contracts exactly like Practice (same event).
-    trackExerciseAnswered({ topic: exercise.topic, correct: res.correct, level: exercise.level, mode: "challenge" });
-    const step = scoreAnswer(combo, res.correct, res.score ?? (res.correct ? 1 : 0));
-    setScore((s) => s + step.points);
-    setCombo(step.combo);
-    setBestCombo((b) => Math.max(b, step.combo));
-    setAnswered((n) => n + 1);
-    if (res.correct) setCorrect((n) => n + 1);
-    setPhase("feedback");
-    runFlash();
-    advanceTimer.current = setTimeout(() => {
-      if (timeLeft > 0) loadExercise();
-    }, FEEDBACK_MS);
+    if (!exercise || response === null || checking || phase !== "solving" || submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      const res = await check(exercise, response);
+      if (!res) return; // network error — surfaced via checkError
+      // Funnel + daily contracts: a Challenge answer is an answered exercise too (mode tags it), so it
+      // counts toward the "answer N / N correct" contracts exactly like Practice (same event).
+      trackExerciseAnswered({ topic: exercise.topic, correct: res.correct, level: exercise.level, mode: "challenge" });
+      const step = scoreAnswer(combo, res.correct, res.score ?? (res.correct ? 1 : 0));
+      setScore((s) => s + step.points);
+      setCombo(step.combo);
+      setBestCombo((b) => Math.max(b, step.combo));
+      setAnswered((n) => n + 1);
+      if (res.correct) setCorrect((n) => n + 1);
+      setPhase("feedback");
+      runFlash();
+      advanceTimer.current = setTimeout(() => {
+        // Read the live clock from the ref: only load another card if time actually remains, so no
+        // exercise loads after the run has finished (finish() runs at timeLeft <= 0).
+        if (timeLeftRef.current > 0) loadExercise();
+      }, FEEDBACK_MS);
+    } finally {
+      submittingRef.current = false;
+    }
   }
 
   const canSubmit = response !== null && !checking;

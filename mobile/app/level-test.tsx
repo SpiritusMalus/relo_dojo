@@ -76,11 +76,12 @@ export default function LevelTestScreen() {
     }
   }, [item]);
 
-  // Auto-play a listening item once it appears (replayable via the button); stop any speech on unmount.
+  // Auto-play a listening item once it appears (replayable via the button); stop any in-flight speech
+  // when the item/phase changes or the screen unmounts, so audio from a previous item can't bleed over.
   useEffect(() => {
     if (phase === "solving" && item?.skill === "listening") playListening();
+    return () => { try { Speech.stop(); } catch { /* noop */ } };
   }, [item, phase, playListening]);
-  useEffect(() => () => { try { Speech.stop(); } catch { /* noop */ } }, []);
 
   // The MCQ section is done → hand off to the writing task (prompt chosen at the placed level).
   const toWriting = useCallback(() => {

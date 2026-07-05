@@ -348,7 +348,15 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     achievements: Array.from(new Set([...a.achievements, ...b.achievements])),
     skill,
     onboarded: a.onboarded || b.onboarded,
-    profile: b.profile ?? a.profile,
+    // Profile follows the more-recently-active side (same recency rule as dailyStreak/todayCount),
+    // so an offline profile edit on the current device isn't clobbered by an older server snapshot.
+    // Tie → server (canonical). Falls back to whichever side actually has a profile.
+    profile:
+      a.lastActiveDate === b.lastActiveDate
+        ? b.profile ?? a.profile
+        : a.lastActiveDate > b.lastActiveDate
+        ? a.profile ?? b.profile
+        : b.profile ?? a.profile,
     // Daily counter: keep the later day; if the same day, the higher count.
     todayDate: a.todayDate >= b.todayDate ? a.todayDate : b.todayDate,
     todayCount:
@@ -382,7 +390,9 @@ function mergeCourse(a: CourseState, b: CourseState): CourseState {
   for (const key of new Set([...Object.keys(a.history), ...Object.keys(b.history)])) {
     const ha = a.history[key] ?? [];
     const hb = b.history[key] ?? [];
-    history[key] = hb.length > ha.length ? hb : ha;
+    // Keep the side with more evidence, capped to the window so an oversized legacy/corrupt stored
+    // array can't win the merge and persist unbounded (masteryOf re-slices on read anyway).
+    history[key] = (hb.length > ha.length ? hb : ha).slice(-MASTERY_WINDOW);
   }
   return { history, mastered: Array.from(new Set([...a.mastered, ...b.mastered])) };
 }
@@ -516,6 +526,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     }
     syncedToken.current = token;
     setSynced(false); // new token → hold onboarding routing until the server snapshot lands
+    // Cancel any debounced push still holding a PRE-merge snapshot: the reconcile below pushes the
+    // merged state itself, so a stale queued push must not fire afterward and clobber the server.
+    if (pushTimer.current) clearTimeout(pushTimer.current);
     (async () => {
       try {
         const server = await getProgress();
@@ -540,7 +553,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     reconciled.current = true;
     const now = new Date();
     const p = progressRef.current;
-    // Expire a stale repair offer first (the window closed — the loss is final).
+    // Expire a stale repair offer first (the window closed — the loss is final). The break was
+    // already finalized when it was first recorded, so we clear the offer and STOP: falling through
+    // to the break-detection below would read the just-cleared brokenStreak as null and re-open a
+    // fresh repair offer for the same, already-finalized loss (the offer would spring back to life).
     if (p.brokenStreak && !repairOpen(p.brokenStreak, now)) {
       setProgress((prev) => {
         const next = { ...prev, brokenStreak: null };
@@ -548,6 +564,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         schedulePush(next);
         return next;
       });
+      return;
     }
     const status = streakStatus(p.dailyStreak, p.lastActiveDate, now);
     if (status.kind !== "broken") return;

@@ -5,7 +5,7 @@
 // the path opens. Fail → nothing is lost, but the quiz answers feed the same evidence window, so
 // the meter drops and re-earning it is the natural retry cooldown (no day locks). Modeled on
 // belt-exam.tsx; answers flow through useExerciseCheck, so XP / streak / skill update as usual.
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -93,6 +93,18 @@ export default function CheckpointScreen() {
   const [answered, setAnswered] = useState(0);
   const [misses, setMisses] = useState(0);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Synchronous in-flight guard: `checking` flips one render late, so a fast double-tap could submit
+  // twice before it takes effect. This ref bails immediately.
+  const submittingRef = useRef(false);
+
+  // The advance timer is otherwise only cleared inside finish(); mirror challenge.tsx and clear it on
+  // unmount so a pending setTimeout can't fire (and load / mutate) after the screen is gone.
+  useEffect(
+    () => () => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    },
+    []
+  );
 
   const loadExercise = useCallback(async () => {
     setLoading(true);
@@ -131,20 +143,25 @@ export default function CheckpointScreen() {
   }
 
   async function onCheck() {
-    if (!exercise || response === null || checking || phase !== "solving") return;
-    const res = await check(exercise, response);
-    if (!res) return;
-    const newAnswered = answered + 1;
-    const newMisses = misses + (res.correct ? 0 : 1);
-    setAnswered(newAnswered);
-    setMisses(newMisses);
-    answeredRef.current = newAnswered;
-    setPhase("feedback");
-    advanceTimer.current = setTimeout(() => {
-      if (checkpointFailedNow(newMisses)) finish(false);
-      else if (newAnswered >= CHECKPOINT_ITEMS) finish(checkpointPassed(newMisses));
-      else loadExercise();
-    }, FEEDBACK_MS);
+    if (!exercise || response === null || checking || phase !== "solving" || submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      const res = await check(exercise, response);
+      if (!res) return;
+      const newAnswered = answered + 1;
+      const newMisses = misses + (res.correct ? 0 : 1);
+      setAnswered(newAnswered);
+      setMisses(newMisses);
+      answeredRef.current = newAnswered;
+      setPhase("feedback");
+      advanceTimer.current = setTimeout(() => {
+        if (checkpointFailedNow(newMisses)) finish(false);
+        else if (newAnswered >= CHECKPOINT_ITEMS) finish(checkpointPassed(newMisses));
+        else loadExercise();
+      }, FEEDBACK_MS);
+    } finally {
+      submittingRef.current = false;
+    }
   }
 
   // Not eligible (deep link / already passed / meter not full) — bounce gracefully.

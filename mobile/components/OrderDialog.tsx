@@ -9,7 +9,7 @@ import Txt from "./ui/Txt";
 export default function OrderDialog({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
   const { t: tr } = useI18n();
-  const tiles = exercise.tiles;
+  const tiles = exercise.tiles ?? [];
   const [order, setOrder] = useState<number[]>([]);
 
   function report(next: number[]) {
