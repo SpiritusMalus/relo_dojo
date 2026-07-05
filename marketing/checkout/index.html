@@ -57,6 +57,12 @@
          border-radius:14px; border:0; cursor:pointer; text-align:center; background:var(--accent); color:#fff; margin-top:16px; }
   .btn[disabled] { opacity:.5; cursor:default; }
   .fine { color:var(--ink3); font-size:13px; text-align:center; margin:12px 0 0; }
+  .fine a { color:var(--ink2); text-decoration:underline; }
+  .agree { display:flex; align-items:flex-start; gap:9px; margin:16px 0 0; font-size:13px; color:var(--ink2); line-height:1.45; cursor:pointer; }
+  .agree input { margin-top:2px; flex:0 0 auto; width:17px; height:17px; accent-color:var(--accent); }
+  .agree a { color:var(--accent-press); text-decoration:underline; }
+  .legal { color:var(--ink3); font-size:12px; line-height:1.5; margin:14px 0 0; text-align:center; }
+  .legal a { color:var(--ink2); text-decoration:underline; }
   .note { font-size:14px; padding:12px 14px; border-radius:12px; margin:14px 0 0; }
   .note.err { background:var(--bad-soft); color:var(--bad); }
   .note.warn { background:#FDF6E3; color:#8A6D1A; }
@@ -81,8 +87,25 @@
   <div class="card" id="picker">
     <div id="plans"></div>
     <div id="err" class="note err hidden"></div>
+
+    <label class="agree">
+      <input type="checkbox" id="agree" />
+      <span id="agreeText"></span>
+    </label>
+
     <button class="btn" id="pay" disabled></button>
     <p class="fine" id="fine"></p>
+    <p class="fine" id="refund"></p>
+
+    <!--
+      SELLER LEGAL DETAILS — required in the visible checkout fine print for a paid RU offer.
+      [INSERT] the operator's real details below (do NOT invent them); wire them into `seller` in
+      the T table if you prefer per-language rendering. Leave the [INSERT ...] markers until filled.
+        Legal entity / seller: [INSERT LEGAL NAME / ИП ...]
+        ИНН / ОГРНИП:          [INSERT ИНН] / [INSERT ОГРНИП]
+        Support email:         [INSERT SUPPORT EMAIL]
+    -->
+    <p class="legal" id="seller"></p>
   </div>
 </div>
 
@@ -93,6 +116,10 @@
   var api = (hash.get("api") || "").replace(/\/+$/, "");
   var token = hash.get("token") || "";
   var lang = hash.get("lang") === "en" ? "en" : "ru";
+
+  // Public legal documents (served from the operator's site). Shown in the checkout fine print.
+  var TERMS_URL = "https://family-pie.ru/relo_dojo/terms";     // Оферта / Terms of Use
+  var PRIVACY_URL = "https://family-pie.ru/relo_dojo/privacy"; // Политика конфиденциальности
 
   // Defense-in-depth: the bearer token must only ever be sent to OUR backend. `api` comes from the
   // URL fragment, so refuse to call (and never attach the token to) any host outside this allowlist —
@@ -113,19 +140,27 @@
       h1: "Чёрный пояс", lead: "Безлимит, двойные коку и «Проверь мой текст» без ограничений.",
       pay: "Оплатить", paying: "Создаём оплату…",
       mo: "мес", best: "выгодно",
-      fine: "Безопасная оплата у провайдера. Доступ откроется в приложении автоматически.",
+      fine: "Безопасная оплата через YooKassa. Данные карты вводятся на стороне YooKassa — мы их не храним. Доступ откроется в приложении автоматически.",
+      agree: 'Разовый платёж без автопродления. Я принимаю условия <a href="' + TERMS_URL + '" target="_blank" rel="noopener">Оферты</a> и <a href="' + PRIVACY_URL + '" target="_blank" rel="noopener">Политики конфиденциальности</a>.',
+      refund: "Возврат — по заявлению в поддержку в соответствии с законом (ЗоЗПП).",
+      seller: "Продавец: [INSERT LEGAL NAME / ИП] · ИНН [INSERT ИНН] · поддержка: [INSERT SUPPORT EMAIL]",
       noToken: "Открой эту страницу из приложения Relo Dojo (Профиль → Чёрный пояс), чтобы оплатить свой аккаунт.",
       errPlans: "Не удалось загрузить тарифы. Обнови страницу.",
-      errPay: "Не удалось создать оплату. Попробуй ещё раз."
+      errPay: "Не удалось создать оплату. Попробуй ещё раз.",
+      errAgree: "Отметь согласие с условиями Оферты, чтобы продолжить."
     },
     en: {
       h1: "Black Belt", lead: "No daily cap, double koku and unlimited “Review my text”.",
       pay: "Pay", paying: "Creating payment…",
       mo: "mo", best: "best value",
-      fine: "Secure checkout at the provider. Access unlocks in the app automatically.",
+      fine: "Secure checkout via YooKassa. Card details are entered on YooKassa’s side — we don’t store them. Access unlocks in the app automatically.",
+      agree: 'One-time payment, no auto-renewal. I accept the <a href="' + TERMS_URL + '" target="_blank" rel="noopener">Terms of Use</a> and <a href="' + PRIVACY_URL + '" target="_blank" rel="noopener">Privacy Policy</a>.',
+      refund: "Refunds are handled on request to support in line with applicable law.",
+      seller: "Seller: [INSERT LEGAL NAME] · Tax ID (ИНН) [INSERT ИНН] · support: [INSERT SUPPORT EMAIL]",
       noToken: "Open this page from the Relo Dojo app (Profile → Black Belt) to pay for your account.",
       errPlans: "Couldn’t load the plans. Refresh the page.",
-      errPay: "Couldn’t start the payment. Try again."
+      errPay: "Couldn’t start the payment. Try again.",
+      errAgree: "Please accept the Terms to continue."
     }
   }[lang];
 
@@ -135,6 +170,8 @@
   document.documentElement.lang = lang;
   $("h1").textContent = T.h1; $("lead").textContent = T.lead;
   $("pay").textContent = T.pay; $("fine").textContent = T.fine;
+  $("agreeText").innerHTML = T.agree; // trusted, static template (links only) — safe as innerHTML
+  $("refund").textContent = T.refund; $("seller").textContent = T.seller;
 
   if (!sessionOk) { var n = $("noToken"); n.textContent = T.noToken; n.classList.remove("hidden"); }
 
@@ -161,8 +198,17 @@
       el.onclick = function () { selected = p.id; render(); };
       box.appendChild(el);
     });
-    $("pay").disabled = !selected || !sessionOk;
+    syncPay();
   }
+
+  // The pay button is enabled only with a chosen plan, a valid session, AND the accepted-terms tick.
+  function syncPay() {
+    $("pay").disabled = !selected || !sessionOk || !$("agree").checked;
+  }
+  $("agree").addEventListener("change", function () {
+    syncPay();
+    if ($("agree").checked) $("err").classList.add("hidden");
+  });
 
   // load the catalog (only from the trusted backend; a tampered `api` is treated as no session)
   if (sessionOk) {
@@ -175,6 +221,10 @@
   // pay → ask the backend for a provider checkout url, then redirect
   $("pay").addEventListener("click", function () {
     if (!selected || !sessionOk) return;
+    if (!$("agree").checked) {
+      var ea = $("err"); ea.textContent = T.errAgree; ea.classList.remove("hidden");
+      return;
+    }
     var btn = $("pay"); btn.disabled = true; btn.textContent = T.paying;
     $("err").classList.add("hidden");
     fetch(api + "/billing/checkout", {

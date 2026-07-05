@@ -523,7 +523,7 @@ export const STRINGS = {
 
     "action.check": "Проверить",
     "action.checking": "Проверяем…",
-    "action.next": "Дальше",
+    "action.next": "Следующее",
     "action.tryAgain": "Ещё раз",
     "action.finish": "Завершить",
     "action.continue": "Дальше",
@@ -601,7 +601,7 @@ export const STRINGS = {
     "login.enter": "Войти в додзё",
     "login.haveAccount": "Уже есть аккаунт? Войти",
     "login.newHere": "Впервые здесь? Создать аккаунт",
-    "login.gmailBlocked": "Извините, gmail запрещён в России для регистрации",
+    "login.gmailBlocked": "Извините, регистрация через Gmail в России недоступна.",
     "login.skip": "Продолжить без аккаунта",
     "wall.title": "Сохрани свой прогресс",
     "wall.body": "Создай бесплатный аккаунт — пояс, серия и коку будут с тобой на любом устройстве.",
@@ -841,7 +841,7 @@ export const STRINGS = {
 
     // 152-ФЗ cross-border personal-data consent (standalone screen + the point-of-input guard).
     "consent.title": "Согласие на обработку и передачу данных",
-    "consent.intro": "Чтобы проверять и составлять упражнения, введённый вами текст отправляется в ИИ-модель за рубежом. По российскому закону на это нужно отдельное согласие — оно не входит в Условия использования.",
+    "consent.intro": "Чтобы проверять и составлять упражнения, введённый вами текст отправляется в ИИ-модель за рубежом. По российскому закону на это нужно отдельное согласие — оно не входит в Оферту.",
     "consent.whoLabel": "Кто получает",
     "consent.who": "Google LLC (Gemini), США.",
     "consent.whatLabel": "Что отправляется",
@@ -866,9 +866,9 @@ export const STRINGS = {
     "settings.privacyPolicy": "Политика конфиденциальности",
     "settings.terms": "Оферта",
 
-    // Свайп-настройка урока — ученик правит урок из любого упражнения.
-    "swerve.open": "Свернуть",
-    "swerve.title": "Свернуть урок",
+    // Настройка урока «на лету» — ученик правит (рулит) урок из любого упражнения.
+    "swerve.open": "Настроить",
+    "swerve.title": "Настроить урок",
     "swerve.now": "Сейчас",
     "swerve.remember": "Запомнить",
     "swerve.scopeHint": "«Запомнить» сохранит выбор на будущее.",
