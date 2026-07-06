@@ -2,7 +2,7 @@
 // Home "belt journey" path. Pure functions over the existing Progress snapshot; NOTHING is persisted
 // (the README requires deriving these, not storing new data).
 import { levelToCefr, skillFor, TOPIC_PRIORS } from "./adaptive";
-import { CURRICULUM, masteryOf, type Mastery } from "./curriculum";
+import { CURRICULUM, masteryOf, unitDecayed, type Mastery } from "./curriculum";
 import { totalAttempts, type Progress } from "./progress";
 import { beltByCefr, beltByIndex, type Belt, type Cefr } from "../theme/theme";
 
@@ -122,7 +122,9 @@ export function beltProgress(p: Progress): BeltProgress {
   return { overallSkill, cefr, belt, nextBelt, pctToNext, atMax: belt.idx >= 5, started };
 }
 
-export type NodeState = "done" | "ready" | "current" | "next" | "locked" | "test";
+// "review" = a passed unit whose RECENT answers dipped (unitDecayed) — mastery stays (one-way),
+// but the node visibly asks for a recertification (the re-зачёт on the checkpoint screen).
+export type NodeState = "done" | "review" | "ready" | "current" | "next" | "locked" | "test";
 export type PathNode = { state: NodeState; topic?: TopicRow; band?: Cefr; mastery?: Mastery };
 
 /** The Home "belt journey" = the course track: syllabus-ordered units + a final belt-test node.
@@ -144,7 +146,11 @@ export function buildPath(p: Progress, count = 6): { nodes: PathNode[]; doneCoun
   const all: PathNode[] = TOPIC_ORDER.map((id, i) => {
     const mastery = masteryOf(p.course?.history[id]);
     let state: NodeState;
-    if (currentIdx === -1 || i < currentIdx) state = "done"; // everything before the current unit is passed
+    if (currentIdx === -1 || i < currentIdx) {
+      // Passed units stay passed — but one whose recent answers dipped surfaces as "review"
+      // (просадка): the node offers the recertification instead of reading as quietly done.
+      state = unitDecayed(p.course?.history[id]) ? "review" : "done";
+    }
     else if (i === currentIdx) state = mastery.met ? "ready" : "current"; // meter full → зачёт awaits
     else if (i === currentIdx + 1) state = "next";
     else state = "locked";
@@ -157,7 +163,8 @@ export function buildPath(p: Progress, count = 6): { nodes: PathNode[]; doneCoun
   });
 
   const total = all.length;
-  const doneCount = all.filter((n) => n.state === "done").length;
+  // A decayed ("review") unit is still a PASSED unit — the счётчик must not un-count it.
+  const doneCount = all.filter((n) => n.state === "done" || n.state === "review").length;
   // Window `count` rows with the current unit in view (one done row of context above it).
   const anchor = currentIdx === -1 ? total : currentIdx;
   const start = Math.max(0, Math.min(anchor - 1, total - count));

@@ -125,42 +125,50 @@ export function updateSkill(
 
 // Exercise-type mix by level — recognition first, production later. free-text stays disabled.
 // odd-one-out is recognition (fine early); multiple-blanks is mid; order-the-dialog needs cohesion
-// (later). Anything at weight 0 is filtered out before the weighted pick.
-function typeWeightsForLevel(level: number): Array<[ExerciseType, number]> {
+// (later). Listening joins at every band (comprehension is trained from day one) but the typed
+// retelling waits for B1 — writing a summary at A1 is a wall, not practice. Anything at weight 0
+// is filtered out before the weighted pick. Exported for tests.
+export function typeWeightsForLevel(level: number): Array<[ExerciseType, number]> {
   const cefr = levelToCefr(level);
   if (cefr === "A1" || cefr === "A2") {
     return [
-      ["multiple-choice", 45],
-      ["match-pairs", 25],
+      ["multiple-choice", 40],
+      ["match-pairs", 22],
       ["build-the-sentence", 12],
-      ["odd-one-out", 18],
+      ["odd-one-out", 16],
       ["tap-the-error", 0],
       ["multiple-blanks", 0],
       ["order-the-dialog", 4],
       ["transform-the-sentence", 0], // production type is B1+ (transforms need a grammar base)
+      ["listen-and-answer", 12],
+      ["listen-and-retell", 0],
     ];
   }
   if (cefr === "B1") {
     return [
-      ["multiple-choice", 22],
-      ["match-pairs", 15],
-      ["build-the-sentence", 22],
-      ["tap-the-error", 15],
-      ["odd-one-out", 12],
+      ["multiple-choice", 20],
+      ["match-pairs", 13],
+      ["build-the-sentence", 20],
+      ["tap-the-error", 14],
+      ["odd-one-out", 10],
       ["multiple-blanks", 10],
-      ["order-the-dialog", 12],
+      ["order-the-dialog", 11],
       ["transform-the-sentence", 10],
+      ["listen-and-answer", 12],
+      ["listen-and-retell", 6],
     ];
   }
   return [
     ["multiple-choice", 8],
-    ["match-pairs", 10],
-    ["build-the-sentence", 26],
-    ["tap-the-error", 28],
-    ["odd-one-out", 8],
-    ["multiple-blanks", 12],
-    ["order-the-dialog", 16],
-    ["transform-the-sentence", 14],
+    ["match-pairs", 8],
+    ["build-the-sentence", 24],
+    ["tap-the-error", 25],
+    ["odd-one-out", 6],
+    ["multiple-blanks", 11],
+    ["order-the-dialog", 14],
+    ["transform-the-sentence", 13],
+    ["listen-and-answer", 8],
+    ["listen-and-retell", 11],
   ];
 }
 

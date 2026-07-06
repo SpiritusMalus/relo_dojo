@@ -139,6 +139,21 @@ TRANSFORM_SCHEMA: dict[str, Any] = {
     },
     "required": ["instruction", "source", "target"],
 }
+LISTEN_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "passage": {"type": "string"},
+        "question": {"type": "string"},
+        "options": {"type": "array", "items": {"type": "string"}},
+        "answer": {"type": "string"},
+    },
+    "required": ["passage", "question", "options", "answer"],
+}
+RETELL_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {"passage": {"type": "string"}},
+    "required": ["passage"],
+}
 
 
 def _trap_tiles(raw: Any, sentence_words: list[str], cap: int = 2) -> list[str]:
@@ -561,6 +576,108 @@ async def _gen_transform_the_sentence(topic: str, level: str | None = None, cont
     }
 
 
+# --- listening comprehension (аудирование) -----------------------------------
+# The passage is SPOKEN to the learner (client-side TTS reads `speak`; the text is never shown), so
+# it must be plain speakable prose. Longer than a single drill sentence — the whole point is holding
+# meaning in memory — but bounded per level so an A1 learner isn't read a paragraph.
+_LISTEN_MIN_WORDS = 5
+
+
+def _listen_max_words(level: str | None) -> int:
+    return 4 * _max_words(level)
+
+
+_LISTEN_PASSAGE_RULES = (
+    "'passage' is a short spoken monologue of 2-4 sentences that will be read ALOUD to the learner "
+    "(they never see the text), so write plain speakable prose: no headings, no quotes-heavy "
+    "dialogue markup, no blanks ('___'), no parentheses. Weave in natural use of the topic.\n"
+)
+
+
+def _clean_listen_passage(raw: Any, level: str | None) -> str | None:
+    """Validated spoken passage, or None (with the reject reason recorded) when unusable."""
+    passage = " ".join(str(raw or "").split())
+    words = passage.split()
+    if len(words) < _LISTEN_MIN_WORDS:
+        return _reject("listening: passage too short — write 2-4 full sentences")
+    if len(words) > _listen_max_words(level):
+        return _reject(f"listening: passage over {_listen_max_words(level)} words — write a shorter one")
+    if "___" in passage:
+        return _reject("listening: the passage must not contain blanks ('___')")
+    return passage
+
+
+async def _gen_listen_answer(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None, retry_note: str = "") -> dict[str, Any] | None:
+    prompt = _tutor_intro(
+        _retry_clause(retry_note)
+        + f"Create ONE listening-comprehension exercise to practice: {topic}.\n"
+        + _LISTEN_PASSAGE_RULES
+        + "'question' asks about ONE concrete fact from the passage (who/what/where/when/why — "
+        "answerable only by someone who understood what was said, e.g. \"Was the door green or "
+        "red?\"). 'options' is 3 short choices; the distractors must be plausible alternatives of "
+        "the same kind (another color, another time, another place). 'answer' is exactly one of "
+        "the options (the correct one). Use the learner's field when given, else everyday. "
+        "Reply ONLY as JSON matching the schema.",
+        level,
+        context,
+        mistakes,
+        scenario=True,
+        topic=topic,
+    )
+    data = await generate_json(prompt, LISTEN_SCHEMA, temperature=EXERCISE_TEMPERATURE)
+    passage = _clean_listen_passage(data.get("passage"), level)
+    if passage is None:
+        return None
+    question = " ".join(str(data.get("question") or "").split())
+    options = [str(o).strip() for o in (data.get("options") or []) if str(o).strip()]
+    answer = str(data.get("answer") or "").strip()
+    if not question or "___" in question:
+        return _reject("listening: missing a plain content question")
+    if len(options) < 2 or not answer:
+        return _reject("listening: need 3 options and an answer")
+    if _norm(answer) not in {_norm(o) for o in options}:
+        options.append(answer)  # model forgot to include the answer — add it
+    random.shuffle(options)
+    return {
+        "type": "listen-and-answer",
+        "topic": topic,
+        "text": question,  # shown; the passage rides ONLY in `speak` (audio) + the sealed token
+        "speak": passage,
+        "options": options[:4],
+        "token": tokens.seal({"t": "listen-and-answer", "answer": answer, "topic": topic, "text": passage}),
+    }
+
+
+async def _gen_listen_retell(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None, retry_note: str = "") -> dict[str, Any] | None:
+    prompt = _tutor_intro(
+        _retry_clause(retry_note)
+        + f"Write ONE short spoken passage for a listen-and-retell exercise practicing: {topic}.\n"
+        + _LISTEN_PASSAGE_RULES
+        + "It must carry 2-3 concrete facts a learner can retell in their own words (what happened, "
+        "to whom, with what outcome). Use the learner's field when given, else everyday. "
+        "Reply ONLY as JSON matching the schema.",
+        level,
+        context,
+        mistakes,
+        scenario=True,
+        topic=topic,
+    )
+    data = await generate_json(prompt, RETELL_SCHEMA, temperature=EXERCISE_TEMPERATURE)
+    passage = _clean_listen_passage(data.get("passage"), level)
+    if passage is None:
+        return None
+    # `text` stays empty — the client shows its own localized "retell what you heard" instruction.
+    # The passage is sealed so /check-retell grades against exactly what was generated (and the
+    # endpoint stays usable only with our tokens, not as a free-form LLM proxy).
+    return {
+        "type": "listen-and-retell",
+        "topic": topic,
+        "text": "",
+        "speak": passage,
+        "token": tokens.seal({"t": "listen-and-retell", "passage": passage, "topic": topic}),
+    }
+
+
 _GENERATORS = {
     "multiple-choice": _gen_multiple_choice,
     "build-the-sentence": _gen_build_the_sentence,
@@ -571,11 +688,17 @@ _GENERATORS = {
     "order-the-dialog": _gen_order_the_dialog,
     "transform-the-sentence": _gen_transform_the_sentence,
     "free-text": _gen_free_text,
+    "listen-and-answer": _gen_listen_answer,
+    "listen-and-retell": _gen_listen_retell,
 }
 
 
 _TOPIC_NAMES = {t for t, _ in TOPICS}
 _ENABLED_TYPES = {t for t, w in EXERCISE_TYPES if w > 0}
+# Request-only types: a new client may ask for them explicitly, but the server never picks them
+# from the weighted defaults (weight 0) — an older client can't render the audio card, so these
+# must never arrive unsolicited.
+_REQUESTABLE_TYPES = {"listen-and-answer", "listen-and-retell"}
 
 
 async def generate_exercise(
@@ -599,7 +722,7 @@ async def generate_exercise(
     """
     if topic not in _TOPIC_NAMES:
         topic = pick_topic()
-    if ex_type not in _ENABLED_TYPES:
+    if ex_type not in _ENABLED_TYPES and ex_type not in _REQUESTABLE_TYPES:
         ex_type = _weighted(EXERCISE_TYPES)
 
     # Retry the chosen generator a few times (output may fail validation, e.g. too long for the

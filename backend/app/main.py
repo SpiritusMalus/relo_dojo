@@ -6,6 +6,7 @@ Public (no auth):
 - POST /story        -> generate a themed mini-story (a sequence of linked exercises)
 - POST /check        -> deterministic grade of an interactive answer (no LLM)
 - POST /check-answer -> LLM grade of a free-text answer + explanation
+- POST /check-retell -> LLM grade of a listen-and-retell answer (content coverage)
 - POST /explain      -> on-demand LLM teaching note for an interactive miss
 
 Accounts (Phase 4):
@@ -46,6 +47,7 @@ from .schemas import (
     AnalyzeOut,
     CheckIn,
     CheckOut,
+    CheckRetellIn,
     CheckTextIn,
     CheckTextOut,
     ExerciseIn,
@@ -354,6 +356,40 @@ async def check_answer(
         )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return CheckTextOut(**data)
+
+
+@app.post("/check-retell", response_model=CheckTextOut, dependencies=[Depends(llm_rate_limit)])
+async def check_retell(
+    payload: CheckRetellIn,
+    user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+) -> CheckTextOut:
+    """LLM grade of a listen-and-retell answer: content coverage, not grammar (the rubric lives in
+    grammar.check_retell). The passage comes out of the exercise's sealed token, so this endpoint
+    only ever grades passages our generator spoke — it can't be driven as a free-form LLM proxy.
+    `correct_answer` is the original passage: the reveal after answering IS the learning payoff.
+    No koku here (mirrors /check-answer): an LLM verdict must not mint coins."""
+    try:
+        sealed = tokens.unseal(payload.token)
+    except tokens.TokenError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if sealed.get("t") != "listen-and-retell" or not sealed.get("passage"):
+        raise HTTPException(status_code=400, detail="Not a listen-and-retell token.")
+    prof = await learner_profile.get_data(user, db)
+    try:
+        data = await grammar.check_retell(
+            str(sealed["passage"]),
+            payload.retell,
+            payload.lang,
+            tone=prof.tone if prof else None,
+            weak_spots=prof.weakSpots if prof else None,
+        )
+    except OllamaError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not data.get("correct"):
+        # Same weak-spot memory as /check: a missed retelling is a listening miss on this topic.
+        await miss_log.record_miss(db, user, sealed.get("topic"), sealed.get("passage"))
     return CheckTextOut(**data)
 
 

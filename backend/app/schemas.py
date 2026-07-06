@@ -48,6 +48,8 @@ class ExerciseOut(BaseModel):
     - order-the-dialog: tiles (shuffled dialog lines to reorder)
     - transform-the-sentence: prompt (source sentence) + instruction (the transform) + tiles
     - free-text: text (typed answer, LLM-graded)
+    - listen-and-answer: speak (TTS-only passage) + text (the question) + options
+    - listen-and-retell: speak (TTS-only passage); the typed retelling goes to /check-retell
 
     `token` seals the answer for interactive types (graded server-side); it is None for free-text.
     The correct answer is intentionally NOT exposed in plaintext.
@@ -59,6 +61,9 @@ class ExerciseOut(BaseModel):
     text: str = ""
     prompt: str = ""  # source line for translation exercises (e.g. the Russian sentence)
     instruction: str = ""  # transform-the-sentence: the grammar transform to apply to `prompt`
+    # listen-and-answer / listen-and-retell: the passage the client reads ALOUD via TTS and never
+    # shows (the whole point is understanding by ear). Empty for every other type.
+    speak: str = ""
     options: list[str] = []
     tiles: list[str] = []
     # build/transform: extra WRONG tiles the client mixes into the word bank (never part of the
@@ -166,6 +171,16 @@ class CheckTextOut(BaseModel):
     correct_answer: str
     explanation: str
     tip: str
+
+
+# --- listen-and-retell check (LLM) ---
+class CheckRetellIn(BaseModel):
+    """The retell answer rides with the exercise's sealed token (which carries the passage), so the
+    endpoint grades only passages our generator produced — not arbitrary caller text."""
+
+    token: str = Field(min_length=1, max_length=MAX_TOKEN)
+    retell: str = Field(min_length=1, max_length=MAX_TEXT)
+    lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language for the explanation
 
 
 # --- on-demand explanation (LLM) ---

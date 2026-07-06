@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   checkFreeText,
   checkInteractive,
+  checkRetell,
   explain,
   explainStream,
   type Exercise,
@@ -65,9 +66,14 @@ export function useExerciseCheck() {
       setChecking(true);
       setError(null);
       try {
-        const res: Result = exercise.token
-          ? await checkInteractive(exercise.token, response)
-          : await checkFreeText(exercise.text, String(response));
+        // Retell rides its own LLM endpoint (content-coverage rubric + the sealed passage);
+        // every other tokened type grades deterministically; tokenless free-text goes to the LLM.
+        const res: Result =
+          exercise.type === "listen-and-retell" && exercise.token
+            ? await checkRetell(exercise.token, String(response))
+            : exercise.token
+            ? await checkInteractive(exercise.token, response)
+            : await checkFreeText(exercise.text, String(response));
         if (!isMounted.current) return res; // screen gone mid-check — skip the state updates
         setResult(res);
         // Koku earned server-side on a correct answer — patch the cached wallet balance.

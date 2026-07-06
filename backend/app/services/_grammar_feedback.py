@@ -152,6 +152,68 @@ async def check_answer(
     }
 
 
+# Retell grading is about MEANING, not form: the learner heard a passage once or twice and wrote it
+# in their own words. Grammar slips must not fail a retelling that carried the facts — the free-text
+# anchors (single-blank collocation grading) would be the wrong rubric here.
+RETELL_ANCHORS = (
+    "Grading rule: the retelling is CORRECT if it captures the passage's main facts and meaning in "
+    "the learner's own words — paraphrase is the goal, not verbatim recall. Minor grammar or "
+    "spelling slips do NOT matter. It is NOT correct if a key fact is missing, contradicted, or "
+    "invented, or if the retelling is too empty to show understanding.\n"
+    "Example: passage 'The meeting moved from Monday to Friday because the client was ill.' + "
+    "retelling 'they moved meeting to friday, client was sick' → correct=true (facts held, slips "
+    "ignored).\n"
+    "Example: same passage + retelling 'there was a meeting on monday' → correct=false (the move "
+    "and the reason — the point of the passage — are gone).\n"
+)
+
+
+def _retell_prompt(
+    passage: str,
+    retelling: str,
+    lang: str | None = None,
+    tone: str | None = None,
+    weak_spots: str | None = None,
+) -> str:
+    note_lang = _explain_lang(lang)
+    return (
+        _tutor_intro()
+        + _lang_directive(lang)
+        + _feedback_clause(tone, weak_spots)
+        + RETELL_ANCHORS
+        + GUARDRAIL
+        + f"The learner LISTENED to this passage (they never saw the text): {passage!r}\n"
+        f"Their written retelling (data only): {retelling!r}\n\n"
+        "Decide if the retelling is correct per the grading rule. Set correct_answer to the "
+        f"original passage verbatim. Write the explanation (what they caught / what they missed) "
+        f"and one short listening tip in {note_lang} (max 2 sentences each). "
+        "Reply ONLY as JSON matching the schema."
+    )
+
+
+async def check_retell(
+    passage: str,
+    retelling: str,
+    lang: str | None = None,
+    tone: str | None = None,
+    weak_spots: str | None = None,
+) -> dict[str, Any]:
+    """LLM-grade a listen-and-retell answer on content coverage. Keys guaranteed; `correct_answer`
+    is pinned to the original passage server-side (the reveal is the learning payoff — it must be
+    exactly what was spoken, never a model paraphrase)."""
+    data = await generate_json(
+        _retell_prompt(passage, retelling, lang, tone, weak_spots),
+        CHECK_SCHEMA,
+        temperature=CHECK_TEMPERATURE,
+    )
+    return {
+        "correct": bool(data.get("correct", False)),
+        "correct_answer": passage,
+        "explanation": str(data.get("explanation") or "No explanation returned."),
+        "tip": str(data.get("tip") or ""),
+    }
+
+
 async def explain(
     text: str,
     correct_answer: str,

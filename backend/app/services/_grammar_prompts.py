@@ -36,6 +36,9 @@ TOPICS: list[tuple[str, int]] = [
 # (exercise type, weight) — all tap-based. free-text is disabled (weight 0): with no options and
 # no hint the learner can't know the expected word. Code is kept for a future "advanced" mode.
 # Used only when the client doesn't steer `type`; the adaptive client picks per level (adaptive.ts).
+# The listening types also sit at weight 0 — NOT disabled, but request-only (_REQUESTABLE_TYPES in
+# _grammar_generators.py): a client built before the audio card existed can't render `speak`, so
+# the server must never pick them unsolicited; new clients ask for them explicitly.
 EXERCISE_TYPES: list[tuple[str, int]] = [
     ("multiple-choice", 30),
     ("build-the-sentence", 25),
@@ -46,6 +49,8 @@ EXERCISE_TYPES: list[tuple[str, int]] = [
     ("order-the-dialog", 10),
     ("transform-the-sentence", 10),
     ("free-text", 0),
+    ("listen-and-answer", 0),
+    ("listen-and-retell", 0),
 ]
 
 

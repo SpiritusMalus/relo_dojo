@@ -149,4 +149,17 @@ describe("buildPath — the mastery-gated course track", () => {
     expect(current?.topic?.id).toBe(TOPIC_ORDER[9]);
     expect(nodes[nodes.length - 1].state).toBe("test");
   });
+
+  it("a mastered unit whose recent answers dip reads as REVIEW (переаттестация), still counted done", () => {
+    let p = master(DEFAULT_PROGRESS, first);
+    // The unit decays: a fresh streak of misses floods its rolling window.
+    for (let i = 0; i < 8; i++) p = recordAnswer(p, first, false, at("2026-06-05"), { format: "multiple-choice" });
+    const { nodes, doneCount } = buildPath(p);
+    expect(nodes[0].state).toBe("review");
+    expect(doneCount).toBe(1); // decayed ≠ un-passed: the счётчик keeps it
+    expect(nodes[1].state).toBe("current"); // and the path itself never re-locks
+    // Recovery: a recert-length run of mostly-correct constructive answers replaces the window.
+    for (let i = 0; i < 10; i++) p = recordAnswer(p, first, true, at("2026-06-06"), { format: "build-the-sentence" });
+    expect(buildPath(p).nodes[0].state).toBe("done");
+  });
 });

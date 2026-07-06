@@ -23,6 +23,8 @@ export const SWERVE_FORMATS: ExerciseType[] = [
   "multiple-blanks",
   "order-the-dialog",
   "transform-the-sentence",
+  "listen-and-answer",
+  "listen-and-retell",
 ];
 
 export const FMT_LABEL_KEY: Record<ExerciseType, StringKey> = {
@@ -35,6 +37,8 @@ export const FMT_LABEL_KEY: Record<ExerciseType, StringKey> = {
   "order-the-dialog": "fmt.order-the-dialog",
   "transform-the-sentence": "fmt.transform-the-sentence",
   "free-text": "fmt.free-text",
+  "listen-and-answer": "fmt.listen-and-answer",
+  "listen-and-retell": "fmt.listen-and-retell",
 };
 
 // Low-noise bottom sheet: the learner steers the lesson — easier/harder, switch/hide topic, drop the

@@ -10,7 +10,12 @@ import {
   MASTERY_MIN_CORRECT,
   MASTERY_MIN_HARD,
   MASTERY_WINDOW,
+  RECERT_ITEMS,
+  RECERT_MAX_MISSES,
+  recertFailedNow,
+  recertPassed,
   RULE_CARDS,
+  unitDecayed,
   unitFor,
   type AnswerMark,
 } from "../curriculum";
@@ -112,5 +117,43 @@ describe("CURRICULUM — syllabus integrity", () => {
   it("unitFor resolves canonical ids and rejects strays", () => {
     expect(unitFor("prepositions")?.band).toBe("A2");
     expect(unitFor("not-a-topic")).toBeUndefined();
+  });
+});
+
+describe("recertification (переаттестация) — decay detection + the re-зачёт bar", () => {
+  const marks = (spec: string): AnswerMark[] =>
+    [...spec].map((ch) => ({ c: ch === "1", f: "build-the-sentence" }));
+
+  it("unitDecayed needs enough recent evidence before a dip counts", () => {
+    expect(unitDecayed(undefined)).toBe(false);
+    expect(unitDecayed(marks("00000"))).toBe(false); // 5 marks < REVIEW_MIN_EVIDENCE — no verdict yet
+    expect(unitDecayed(marks("000000"))).toBe(true); // 6 marks at 0% — decayed
+  });
+
+  it("flags a sub-threshold window and clears at/above it", () => {
+    expect(unitDecayed(marks("1010001000"))).toBe(true); // 3/10 = 30%
+    expect(unitDecayed(marks("1111110000"))).toBe(false); // 6/10 = 60% — at the threshold, healthy
+    expect(unitDecayed(marks("1111100000"))).toBe(true); // 5/10 = 50% — under it
+  });
+
+  it("judges only the rolling window — ancient misses age out", () => {
+    // 10 old misses followed by 10 fresh correct answers: the window is the fresh ten.
+    expect(unitDecayed([...marks("0000000000"), ...marks("1111111111")])).toBe(false);
+  });
+
+  it("a passed recert run replaces the window and clears the flag by construction", () => {
+    // The recert spans the whole evidence window, so the quiz marks ARE the window afterward;
+    // the worst passing run (exactly RECERT_MAX_MISSES misses) must read healthy again.
+    expect(RECERT_ITEMS).toBe(MASTERY_WINDOW);
+    const worstPass = marks("1".repeat(RECERT_ITEMS - RECERT_MAX_MISSES) + "0".repeat(RECERT_MAX_MISSES));
+    expect(recertPassed(RECERT_MAX_MISSES)).toBe(true);
+    expect(unitDecayed(worstPass)).toBe(false);
+    expect(recertFailedNow(RECERT_MAX_MISSES)).toBe(false);
+    expect(recertFailedNow(RECERT_MAX_MISSES + 1)).toBe(true);
+  });
+
+  it("listening formats never count as hard mastery evidence (comprehension ≠ production)", () => {
+    expect(GUESSABLE_FORMATS.has("listen-and-answer")).toBe(true);
+    expect(GUESSABLE_FORMATS.has("listen-and-retell")).toBe(true);
   });
 });

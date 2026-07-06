@@ -336,6 +336,8 @@ export default function HomeScreen() {
           if (node.state === "test") router.push("/belt-exam");
           else if (node.state === "ready" && node.topic)
             router.push({ pathname: "/checkpoint", params: { topic: node.topic.id } }); // зачёт awaits
+          else if (node.state === "review" && node.topic)
+            router.push({ pathname: "/checkpoint", params: { topic: node.topic.id } }); // переаттестация (the screen self-detects recert mode)
           else if (node.topic) setRuleTopic(node.topic.id);
         }}
       />

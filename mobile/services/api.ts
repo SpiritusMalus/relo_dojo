@@ -147,7 +147,9 @@ export type ExerciseType =
   | "multiple-blanks"
   | "order-the-dialog"
   | "transform-the-sentence"
-  | "free-text";
+  | "free-text"
+  | "listen-and-answer"
+  | "listen-and-retell";
 
 export type Exercise = {
   type: ExerciseType;
@@ -163,6 +165,9 @@ export type Exercise = {
   left: MatchItem[];
   right: MatchItem[];
   blankOptions: string[][]; // multiple-blanks: choices per blank, left-to-right
+  // listen-and-answer / listen-and-retell: the passage read aloud via TTS, NEVER shown (the point
+  // is understanding by ear); absent/empty for every other type.
+  speak?: string;
   token: string | null; // sealed answer for interactive types; null for free-text
 };
 
@@ -320,6 +325,12 @@ export function checkInteractive(token: string, response: ResponseValue): Promis
 // LLM grade for free-text answers (includes an explanation, in the learner's language).
 export function checkFreeText(text: string, userAnswer: string): Promise<TextCheckResult> {
   return request<TextCheckResult>("/check-answer", { text, user_answer: userAnswer, lang: apiLang });
+}
+
+// listen-and-retell: LLM-graded content coverage of the typed retelling. The sealed token carries
+// the spoken passage; `correct_answer` comes back as that passage — the post-answer reveal.
+export function checkRetell(token: string, retell: string): Promise<TextCheckResult> {
+  return request<TextCheckResult>("/check-retell", { token, retell, lang: apiLang });
 }
 
 // On-demand teaching note for an interactive miss.
