@@ -12,19 +12,24 @@ GEMINI_API_KEY already pending for llm-provider-gemini.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from datetime import datetime, timedelta, timezone
 
 import httpx
 
 from ..core.config import settings
+from . import http_client
 from .llm import GEMINI_BASE, LLMError, _raise_for_status, _require_key
 
 GEMINI_ALPHA = "https://generativelanguage.googleapis.com/v1alpha"
 # Ephemeral tokens are deliberately short-lived (single session, low-minute TTL).
 LIVE_TOKEN_TTL_SECONDS = 30 * 60
+# Per-call timeout for the two Google calls (the pooled client's default is the longer LLM timeout).
+_HTTP_TIMEOUT = 30.0
 
 _cached_model: str | None = None
+_model_lock = asyncio.Lock()
 
 
 def pick_live_model(models: list[str]) -> str | None:
@@ -41,8 +46,9 @@ def pick_live_model(models: list[str]) -> str | None:
 
 async def _list_models(key: str) -> list[str]:
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(f"{GEMINI_BASE}/models", headers={"x-goog-api-key": key})
+        resp = await http_client.client().get(
+            f"{GEMINI_BASE}/models", headers={"x-goog-api-key": key}, timeout=_HTTP_TIMEOUT
+        )
     except httpx.ConnectError as exc:
         raise LLMError("Cannot reach the Gemini API — check the network.") from exc
     except httpx.TimeoutException as exc:
@@ -53,16 +59,20 @@ async def _list_models(key: str) -> list[str]:
 
 
 async def resolve_live_model(key: str | None = None) -> str:
-    """Resolve (and cache) the live model id. Raises LLMError if none is available."""
+    """Resolve (and cache) the live model id. Raises LLMError if none is available. A lock serializes
+    the first cold resolution so a burst of first sessions makes one model-list call, not N."""
     global _cached_model
     if _cached_model:
         return _cached_model
-    k = key or _require_key(settings.GEMINI_API_KEY, "GEMINI_API_KEY", "gemini")
-    model = pick_live_model(await _list_models(k))
-    if not model:
-        raise LLMError("No Gemini live (flash native-audio) model available.")
-    _cached_model = model
-    return model
+    async with _model_lock:
+        if _cached_model:  # another caller populated it while we waited for the lock
+            return _cached_model
+        k = key or _require_key(settings.GEMINI_API_KEY, "GEMINI_API_KEY", "gemini")
+        model = pick_live_model(await _list_models(k))
+        if not model:
+            raise LLMError("No Gemini live (flash native-audio) model available.")
+        _cached_model = model
+        return _cached_model
 
 
 def _reset_model_cache() -> None:

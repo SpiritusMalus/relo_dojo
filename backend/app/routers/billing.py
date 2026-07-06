@@ -15,6 +15,7 @@ metadata), never raw client input.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Optional
 
@@ -27,6 +28,8 @@ from ..deps import get_current_user, get_db
 from ..schemas import BillingPlanOut, CheckoutIn, CheckoutOut, PlansOut
 from ..services import billing, yookassa
 from ..services.yookassa import BillingError
+
+logger = logging.getLogger("relo.billing")
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -92,5 +95,16 @@ async def yookassa_webhook(request: Request, db: AsyncSession = Depends(get_db))
     pid, pay_status, user_id, plan = yookassa.parse_payment(payment)
     uid = _as_uuid(user_id)
     if pay_status == "succeeded" and uid is not None and plan:
+        # Re-verify the CAPTURED amount against the plan before granting (defence-in-depth): the
+        # amount is server-set at checkout, but a payment whose metadata plan disagrees with what was
+        # actually captured must not grant that plan for a mismatched/short capture.
+        plan_obj = billing.get_plan(plan)
+        value, currency = yookassa.payment_amount(payment)
+        if plan_obj is None or not billing.amount_matches(plan_obj, value, currency):
+            logger.warning(
+                "yookassa webhook amount mismatch: payment=%s plan=%s captured=%s %s — not granting",
+                pid, plan, value, currency,
+            )
+            return {"ok": True}
         await billing.apply_payment(db, billing.PROVIDER_YOOKASSA, pid, uid, plan)
     return {"ok": True}

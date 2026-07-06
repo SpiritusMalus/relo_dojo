@@ -98,16 +98,23 @@ by the operator. We do not send marketing email unless you separately opt in.
 
 ## Payments
 
-The current version does not process payments and does not collect payment-card data. Premium status
-is an internal flag. If in-app purchases are added later, they will be handled by the platform store
-(Apple App Store / Google Play) under their terms, and this policy will be updated.
+Relo Dojo offers an optional paid premium ("Black Belt"). Payments for premium are processed by our
+payment provider **YooKassa (ЮMoney / YooKassa)**. When you choose to pay, you are taken to
+YooKassa's secure checkout and enter your card (or other supported method) details there: we do
+**not** collect, see, or store your full card number, CVV, or other card data — YooKassa handles that
+as the payment operator. We receive from YooKassa only what we need to grant and support your
+purchase: the payment status, an order/transaction identifier, the amount and currency, and the
+premium plan you bought (we do not store card data). Premium status is then recorded against your
+account as an internal flag. YooKassa processes payment data as an independent operator under its own
+terms and privacy policy.
 
 ## Sharing
 
 We share data only with service providers that help us run the app — our server/hosting, the email
-provider, and the AI provider (**Google LLC**, for the text-processing features described above) —
-each processing data on our behalf. We may disclose data if required by law. We do not sell personal
-data and do not share it for advertising.
+provider, the AI provider (**Google LLC**, for the text-processing features described above), and,
+when you make a purchase, our payment provider **YooKassa (ЮMoney / YooKassa)**, which processes your
+payment and card data as described in "Payments" above. We may disclose data if required by law. We do
+not sell personal data and do not share it for advertising.
 
 ## Retention
 

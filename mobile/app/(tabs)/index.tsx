@@ -128,9 +128,17 @@ export default function HomeScreen() {
   }, [progress, updateProfile]);
 
   // Weekly quest scroll: pay the one-shot completion bonus the moment all goals are done.
+  // Guard against a re-render race double-paying: the awardQuestBonus() state update re-runs this
+  // effect before bonusPaidPatch settles, so we latch per planDate (mirrors planAskedRef above) and
+  // only pay once. `progress.profile &&` keeps the non-null assertion from crashing on a partial snapshot.
   const quests = buildQuests(progress);
+  const bonusPaidForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (bonusDue(progress)) awardQuestBonus(QUEST_BONUS_XP, bonusPaidPatch(progress.profile!));
+    const planDate = progress.profile?.planDate ?? null;
+    if (progress.profile && bonusDue(progress) && bonusPaidForRef.current !== planDate) {
+      bonusPaidForRef.current = planDate;
+      awardQuestBonus(QUEST_BONUS_XP, bonusPaidPatch(progress.profile));
+    }
   }, [progress, awardQuestBonus]);
 
   useFocusEffect(

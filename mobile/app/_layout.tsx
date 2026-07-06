@@ -136,7 +136,10 @@ function RootNav() {
       let id = await AsyncStorage.getItem(ANON_KEY).catch(() => null);
       if (!id) {
         id = newAnonId();
-        AsyncStorage.setItem(ANON_KEY, id).catch(() => {});
+        // Await the write (best-effort) so the persisted id is settled before configure(): otherwise
+        // a crash/relaunch between generating and persisting could split one user across two anon
+        // cohorts. configure() already uses this generated id even while the write is in flight.
+        await AsyncStorage.setItem(ANON_KEY, id).catch(() => {});
       }
       analytics.configure({
         sender: (batch) => postEvents(batch.anon_id, batch.events).then(() => {}),

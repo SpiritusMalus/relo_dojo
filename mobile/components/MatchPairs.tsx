@@ -10,7 +10,8 @@ import Txt from "./ui/Txt";
 export default function MatchPairs({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
   const { t: tr } = useI18n();
-  const { left, right } = exercise;
+  const left = exercise.left ?? [];
+  const right = exercise.right ?? [];
   const [map, setMap] = useState<Record<number, number>>({});
   const [pendingLeft, setPendingLeft] = useState<number | null>(null);
 

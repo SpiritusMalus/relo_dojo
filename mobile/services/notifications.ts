@@ -158,7 +158,11 @@ export type ScheduleState = {
 export async function rescheduleAll(state: ScheduleState, now: Date = new Date()): Promise<void> {
   if (!Notifications) return; // Notifications unavailable (e.g., Expo Go on Android)
   configureOnce();
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  // Build the full plan list BEFORE cancelling, so a throw while computing it can't leave the user
+  // with an empty schedule (nothing is cancelled until we know what replaces it). The cancel→schedule
+  // window that remains is inherently non-atomic — there's no "replace all" primitive in expo-
+  // notifications — but it's a sub-millisecond gap while the app is foregrounded, and the very next
+  // reschedule (every open / relevant state change) self-heals any partial set.
   const seed = now.getDate();
   const plans: { date: Date; body: string }[] = [];
   const { daily, escalation } = plannedHours(state.remindHour);
@@ -184,6 +188,8 @@ export async function rescheduleAll(state: ScheduleState, now: Date = new Date()
     plans.push({ date: nextWeekday(RECAP_DOW, RECAP_HOUR, now), body: RECAP[state.lang](state.recap) });
   }
 
+  // Plan is fully built — now clear the old set and lay down the new one.
+  await Notifications.cancelAllScheduledNotificationsAsync();
   await Promise.all(
     plans
       .filter((p) => p.date.getTime() > now.getTime())

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { StatusBar } from "expo-status-bar";
@@ -34,6 +34,16 @@ export default function PremiumScreen() {
   const belt = beltProgress(progress).belt;
   const [restoring, setRestoring] = useState(false);
   const [buying, setBuying] = useState(false);
+  // The checkout flow awaits an in-app browser and schedules a delayed re-fetch; the user can leave
+  // this screen in between. Gate the post-await setState + the timer callback on this ref so we don't
+  // update an unmounted component.
+  const activeRef = useRef(true);
+  useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     trackPaywallView({ kind: "premium", belt: belt.id });
@@ -55,13 +65,15 @@ export default function PremiumScreen() {
     try {
       await WebBrowser.openAuthSessionAsync(url, "relodojo://premium");
     } catch {
-      Linking.openURL(url); // fall back to the system browser if the Custom Tab can't open
-      setBuying(false);
+      Linking.openURL(url).catch(() => {}); // fall back to the system browser if the Custom Tab can't open
+      if (activeRef.current) setBuying(false);
       return;
     }
     await refreshEntitlement();
+    if (!activeRef.current) return; // left the screen during checkout — don't touch state
     setBuying(false);
     setTimeout(() => {
+      if (!activeRef.current) return; // webhook-lag retry after unmount is pointless
       refreshEntitlement().catch(() => {});
     }, 2500);
   }

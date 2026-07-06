@@ -31,6 +31,17 @@ def _require_enabled() -> None:
         raise HTTPException(status_code=404, detail="Not found.")
 
 
+def _require_consent(user: User) -> None:
+    """Voice sends the learner's microphone audio to a third-party model in the US — a cross-border
+    transfer of personal data. Gate it on the same recorded 152-ФЗ consent the rest of the app checks
+    before any text egress (see main.py), so audio never leaves the server without it."""
+    if user.pd_consent_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Voice features require cross-border data-transfer consent.",
+        )
+
+
 def _map_llm_error(exc: LLMError) -> HTTPException:
     """Map a provider error to HTTP: a missing/rejected key or model is a 502 (our config), not the
     client's fault; everything else surfaces as a 502 too with a safe message."""
@@ -45,6 +56,7 @@ async def transcribe(
 ) -> TranscribeOut:
     """Transcribe a read-aloud clip to verbatim text (the binary compare is client-side)."""
     _require_enabled()
+    _require_consent(user)
     # Enforce the byte guard on the decoded audio (413) before spending a Gemini call.
     try:
         raw = base64.b64decode(payload.audio, validate=True)
@@ -69,6 +81,7 @@ async def live_token(
 ) -> LiveTokenOut:
     """Mint a short-lived ephemeral Live token + resolved model so the client never holds the key."""
     _require_enabled()
+    _require_consent(user)
     try:
         model = await voice_live.resolve_live_model()
         token, expires_at = await voice_live.mint_live_token()

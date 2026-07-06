@@ -45,12 +45,18 @@ are not redeemable outside the App. We may adjust, expire, or remove virtual ite
 and earning rules to balance the game or for operational reasons. Time-limited offers expire as
 stated and are not recoverable once expired.
 
-## 6. Purchases (if/when offered)
+## 6. Purchases
 
-The current version does not sell in-app purchases. If purchases are introduced, they will be
-processed by the platform store (Apple App Store / Google Play) under their terms, and any refunds
-are governed by those store policies. "Premium" features provide only the benefits described in the
-App at the time of purchase.
+Relo Dojo offers optional premium access ("Black Belt"). Premium is a **one-time, non-renewing** paid
+access that you buy from within the App: the App opens a secure web checkout and the payment is
+processed by our payment provider **YooKassa (ЮMoney / YooKassa)** under its terms. It is not a
+subscription and does not auto-renew; access lasts for the period stated for the plan you buy. Prices
+are shown before you pay. "Premium" provides only the benefits described in the App at the time of
+purchase; we may change what future premium plans include.
+
+Refunds are handled by us in accordance with applicable law, including, for consumers in Russia, the
+Law "On Protection of Consumer Rights" (Закон «О защите прав потребителей», ЗоЗПП). To request a
+refund or raise a payment issue, contact us at [INSERT CONTACT EMAIL].
 
 ## 7. Your content
 

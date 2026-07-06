@@ -15,7 +15,7 @@ export default function FreeText({ exercise, locked, onChange }: ExerciseProps) 
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.sentence}>{exercise.text}</Text>
+      <Text style={styles.sentence}>{exercise.text ?? ""}</Text>
       <TextInput
         style={styles.input}
         placeholder="Your answer"

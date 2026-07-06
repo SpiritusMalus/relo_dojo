@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import random
 import re
+import unicodedata
 from typing import Any
 
 from ._grammar_rules import rules_clause
@@ -59,9 +60,28 @@ def pick_topic() -> str:
     return _weighted(TOPICS)
 
 
+# Typographic glyphs small models emit inconsistently: curly vs straight quotes/apostrophes, en/em
+# dashes, a real ellipsis, and no-break spaces. They are visually identical to their ASCII forms, so
+# a correct answer must not fail an exact compare just because the sealed answer used one form and
+# the shown option used another (e.g. "it's" vs "it's"). We fold ONLY these equivalent glyphs — not
+# meaningful punctuation, which a punctuation exercise legitimately grades on.
+_TYPOGRAPHIC = str.maketrans(
+    {
+        "’": "'", "‘": "'", "‛": "'", "ʼ": "'",  # ’ ‘ ‛ ʼ → '
+        "“": '"', "”": '"', "„": '"',                  # “ ” „ → "
+        "–": "-", "—": "-", "−": "-",                  # – — − → -
+        "…": "...",                                              # … → ...
+        " ": " ",                                                # nbsp → space
+    }
+)
+
+
 def _norm(s: Any) -> str:
-    """Case/space-insensitive normalization for deterministic comparisons."""
-    return " ".join(str(s).strip().lower().split())
+    """Case/space-insensitive normalization for deterministic comparisons. Also folds Unicode to NFC
+    and equivalent typographic glyphs (curly quotes, dashes, ellipsis) to ASCII so a correct answer
+    isn't failed on a model's inconsistent glyph choice; meaningful punctuation is preserved."""
+    text = unicodedata.normalize("NFC", str(s)).translate(_TYPOGRAPHIC)
+    return " ".join(text.strip().lower().split())
 
 
 # --- generation repair helpers (repair-before-reject) ------------------------

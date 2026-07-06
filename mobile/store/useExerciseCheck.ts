@@ -4,7 +4,7 @@
 // behavior on "Check": grade the answer (deterministic /check or LLM /check-answer), feed the
 // difficulty-aware skill signal, award XP/streak via recordAnswer, and detect a per-topic CEFR
 // level-up. Keeping it here means the two screens can't drift apart.
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   checkFreeText,
   checkInteractive,
@@ -48,6 +48,15 @@ export function useExerciseCheck() {
   const [explainLoading, setExplainLoading] = useState(false);
   // In-flight explanation stream, so a new card (reset) can cancel a half-streamed note.
   const explainAbort = useRef<AbortController | null>(null);
+  // check() / doExplain() setState after an await; if the screen unmounts mid-request, gate the
+  // setters so we don't update an unmounted component.
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Grade `response` for `exercise`, record the answer, and return the result (or null on error).
   // `onWrong` lets the caller trigger UI feedback (e.g. a shake) without re-deriving correctness.
@@ -59,6 +68,7 @@ export function useExerciseCheck() {
         const res: Result = exercise.token
           ? await checkInteractive(exercise.token, response)
           : await checkFreeText(exercise.text, String(response));
+        if (!isMounted.current) return res; // screen gone mid-check — skip the state updates
         setResult(res);
         // Koku earned server-side on a correct answer — patch the cached wallet balance.
         applyCheckReward(res.coins);
@@ -82,10 +92,10 @@ export function useExerciseCheck() {
         }
         return res;
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to check answer");
+        if (isMounted.current) setError(e instanceof Error ? e.message : "Failed to check answer");
         return null;
       } finally {
-        setChecking(false);
+        if (isMounted.current) setChecking(false);
       }
     },
     [recordAnswer, applyCheckReward]
@@ -107,6 +117,7 @@ export function useExerciseCheck() {
         correct,
         responseDisplay,
         (full) => {
+          if (!isMounted.current) return; // screen gone mid-stream — stop updating state
           // First token in: drop the spinner and start showing the growing note.
           if (!started) {
             started = true;
@@ -116,17 +127,18 @@ export function useExerciseCheck() {
         },
         controller.signal
       );
-      setExplained({ explanation: finalText, tip: "" });
+      if (isMounted.current) setExplained({ explanation: finalText, tip: "" });
     } catch (e) {
       if (controller.signal.aborted) return; // cancelled by the next card — stay silent
       try {
-        setExplained(await explain(exercise.text, correct, responseDisplay));
+        const note = await explain(exercise.text, correct, responseDisplay);
+        if (isMounted.current) setExplained(note);
       } catch (e2) {
-        setError(e2 instanceof Error ? e2.message : "Failed to explain");
+        if (isMounted.current) setError(e2 instanceof Error ? e2.message : "Failed to explain");
       }
     } finally {
       if (explainAbort.current === controller) explainAbort.current = null;
-      setExplainLoading(false);
+      if (isMounted.current) setExplainLoading(false);
     }
   }, [result, explainLoading]);
 

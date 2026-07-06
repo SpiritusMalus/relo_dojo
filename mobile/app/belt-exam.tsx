@@ -3,7 +3,7 @@
 // pinned to the target belt) and every answer goes through useExerciseCheck, so XP / streak /
 // the learner model update like normal practice. Pass → ceremony (the worn belt changes —
 // store/exam.ts holds the rules); fail → no loss, but the retry waits until tomorrow.
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
@@ -72,6 +72,18 @@ export default function BeltExamScreen() {
   const [answered, setAnswered] = useState(0);
   const [misses, setMisses] = useState(0);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Synchronous in-flight guard: `checking` flips one render late, so a fast double-tap could submit
+  // twice before it takes effect. This ref bails immediately.
+  const submittingRef = useRef(false);
+
+  // The advance timer is otherwise only cleared inside finish(); mirror challenge.tsx and clear it on
+  // unmount so a pending setTimeout can't fire (and load / mutate) after the screen is gone.
+  useEffect(
+    () => () => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    },
+    []
+  );
 
   const loadExercise = useCallback(async () => {
     setLoading(true);
@@ -109,19 +121,24 @@ export default function BeltExamScreen() {
   }
 
   async function onCheck() {
-    if (!exercise || response === null || checking || phase !== "solving") return;
-    const res = await check(exercise, response);
-    if (!res) return;
-    const newAnswered = answered + 1;
-    const newMisses = misses + (res.correct ? 0 : 1);
-    setAnswered(newAnswered);
-    setMisses(newMisses);
-    setPhase("feedback");
-    advanceTimer.current = setTimeout(() => {
-      if (examFailedNow(newMisses)) finish(false);
-      else if (newAnswered >= EXAM_ITEMS) finish(examPassed(newMisses));
-      else loadExercise();
-    }, FEEDBACK_MS);
+    if (!exercise || response === null || checking || phase !== "solving" || submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      const res = await check(exercise, response);
+      if (!res) return;
+      const newAnswered = answered + 1;
+      const newMisses = misses + (res.correct ? 0 : 1);
+      setAnswered(newAnswered);
+      setMisses(newMisses);
+      setPhase("feedback");
+      advanceTimer.current = setTimeout(() => {
+        if (examFailedNow(newMisses)) finish(false);
+        else if (newAnswered >= EXAM_ITEMS) finish(examPassed(newMisses));
+        else loadExercise();
+      }, FEEDBACK_MS);
+    } finally {
+      submittingRef.current = false;
+    }
   }
 
   // No exam on offer (deep link / state changed) — bounce home gracefully.

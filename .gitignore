@@ -24,7 +24,11 @@ web-build/
 # === Secrets / env ===
 .env
 *.env
+# Also ignore env-as-prefix files (deploy convention: .env.local, .env.prod, .env.production) —
+# `*.env` only catches name.env, not these. The shipped *.env*.example templates stay tracked.
+.env.*
 !*.env.example
+!.env.*.example
 
 # === OS / editor ===
 .DS_Store

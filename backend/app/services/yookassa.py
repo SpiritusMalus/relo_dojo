@@ -49,6 +49,13 @@ def parse_payment(obj: dict[str, Any]) -> tuple[str, str, Optional[str], Optiona
     )
 
 
+def payment_amount(obj: dict[str, Any]) -> tuple[str, str]:
+    """(value, currency) from a YooKassa payment object, e.g. ('690.00', 'RUB'). Pure. The webhook
+    re-verifies this against the plan price before granting (billing.amount_matches)."""
+    amt = obj.get("amount") or {}
+    return (str(amt.get("value", "")), str(amt.get("currency", "")))
+
+
 def confirmation_url(payment: dict[str, Any]) -> str:
     """The hosted-checkout URL the buyer must be redirected to (from a created payment). Pure."""
     return str((payment.get("confirmation") or {}).get("confirmation_url", ""))

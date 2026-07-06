@@ -9,12 +9,13 @@ import Txt from "./ui/Txt";
 export default function TapError({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
   const { t: tr } = useI18n();
+  const tokens = exercise.tokens ?? [];
   const [selected, setSelected] = useState<number | null>(null);
 
   function tap(i: number) {
     if (locked) return;
     setSelected(i);
-    onChange(i, exercise.tokens[i]);
+    onChange(i, tokens[i]);
   }
 
   return (
@@ -23,7 +24,7 @@ export default function TapError({ exercise, locked, onChange }: ExerciseProps) 
         {tr("ex.tapError")}
       </Txt>
       <View style={styles.sentence}>
-        {exercise.tokens.map((word, i) => {
+        {tokens.map((word, i) => {
           const on = selected === i;
           return (
             <Pressable

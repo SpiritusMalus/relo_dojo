@@ -165,10 +165,19 @@ function typeWeightsForLevel(level: number): Array<[ExerciseType, number]> {
 }
 
 function weightedPick<T>(items: T[], weights: number[]): T {
-  const total = weights.reduce((a, b) => a + b, 0);
+  // Sanitize weights: a forced/pinned topic absent from TOPIC_PRIORS yields an undefined→NaN weight,
+  // which would poison `total` (NaN) and make every `r <= 0` test false, silently always returning the
+  // last item. Treat any non-finite or negative weight as 0.
+  const safe = items.map((_, i) => (Number.isFinite(weights[i]) && weights[i]! > 0 ? weights[i]! : 0));
+  const total = safe.reduce((a, b) => a + b, 0);
+  // No positive weight left (all-zero / empty after sanitizing) → fall back to a uniform random pick.
+  // Guard the empty-array case so we never index items[-1]/return undefined.
+  if (!(total > 0)) {
+    return items.length > 0 ? items[Math.floor(Math.random() * items.length)] : (undefined as T);
+  }
   let r = Math.random() * total;
   for (let i = 0; i < items.length; i++) {
-    r -= weights[i];
+    r -= safe[i];
     if (r <= 0) return items[i];
   }
   return items[items.length - 1];

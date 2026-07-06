@@ -117,7 +117,9 @@ export function beltProgress(p: Progress): BeltProgress {
     belt = beltByIndex(Math.min(earned, 5)); // earned is authoritative once set (sync quirks)
   }
   const nextBelt = beltByIndex(belt.idx + 1);
-  return { overallSkill: mean, cefr, belt, nextBelt, pctToNext, atMax: belt.idx >= 5, started };
+  // Return the CLAMPED skill (same min(4.999, mean) that cefr/belt/pct are derived from) so every field
+  // in this object is consistent — the raw uncapped mean could read as C1 (5.0) while cefr caps at 4.999.
+  return { overallSkill, cefr, belt, nextBelt, pctToNext, atMax: belt.idx >= 5, started };
 }
 
 export type NodeState = "done" | "ready" | "current" | "next" | "locked" | "test";

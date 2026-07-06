@@ -78,7 +78,11 @@ export default function StoryScreen() {
       // (universal story frame, field-specific examples). Empty context falls back to the scenario.
       const level = beltProgress(progress).cefr;
       const context = buildContext(progress.profile);
-      setStory(await getStory({ level, context, id }));
+      const set = await getStory({ level, context, id });
+      // A story with no beats has nothing to play — the Check button would be permanently dead. Treat
+      // an empty/malformed set as a load failure so the retry/error state shows instead of a stuck screen.
+      if (!set.beats?.length) throw new Error("The story came back empty. Try again.");
+      setStory(set);
     } catch (e) {
       // Stories are verified-only on the server; any 403 here is an account gate, not an error.
       if (gateKind(e)) setGated(true);

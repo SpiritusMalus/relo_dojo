@@ -61,9 +61,14 @@ def _send_sync(msg: EmailMessage) -> None:
 
 
 async def send_verification_email(to: str, link: str) -> None:
-    """Send the activation link. No-op (logs the link) when SMTP isn't configured."""
+    """Send the activation link. No-op when SMTP isn't configured — in dev the log IS the delivery
+    channel (link printed); in prod an unconfigured SMTP is a misconfiguration, so we never write the
+    link (it embeds a verify-scope JWT) or the address to the lower-trust logs."""
     if not settings.SMTP_HOST:
-        logger.warning("SMTP not configured — verification link for %s: %s", to, link)
+        if settings.is_prod:
+            logger.error("SMTP not configured in production — verification email could not be sent.")
+        else:
+            logger.warning("SMTP not configured — verification link for %s: %s", to, link)
         return
     msg = _build_message(to, link)
     try:

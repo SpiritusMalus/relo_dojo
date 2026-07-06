@@ -1,7 +1,9 @@
 # Store Listing — Relo Dojo
 
 Draft copy for Google Play and the Apple App Store. Trim to each store's character limits (noted
-below). Keep claims truthful — avoid promising features that aren't shipped (e.g. voice, payments).
+below). Keep claims truthful — avoid promising features that aren't shipped (e.g. voice). Paid
+premium ("Black Belt") IS shipped and is processed via YooKassa, so it's fine to mention and must be
+reflected in the data-safety section below; voice is still not shipped, so do not promise it.
 
 ## App name
 **Relo Dojo — English for IT relocation**
@@ -60,7 +62,8 @@ english,it relocation,relocate,developer,tech english,interview,workplace,esl,gr
 ## Data safety / privacy labels (answer to match the Privacy Policy)
 Declare collected: **Email address** (account), **App activity / progress** (functionality),
 **App interactions / analytics** (analytics, privacy-preserving), **User-provided text** (processed
-for functionality), **Approximate technical data / IP** (security). Declare:
+for functionality), **Purchase history / payment info** (for the paid "Black Belt" tier, processed by
+YooKassa — see below), **Approximate technical data / IP** (security). Declare:
 - Data is **not** sold or shared for advertising.
 - Data **is** encrypted in transit.
 - Users **can request deletion** (via [INSERT CONTACT EMAIL]).
@@ -68,6 +71,10 @@ for functionality), **Approximate technical data / IP** (security). Declare:
 - **User-provided text** is shared with a third-party AI processor — **Google LLC** (Gemini), in the
   **United States** — for the text-processing features, on the basis of the user's separate in-app
   consent. Declare this transfer and the "Data shared" → "User-provided text" recipient accordingly.
+- **Payments** for the paid "Black Belt" tier are processed by **YooKassa (ЮMoney / YooKassa)** via a
+  secure web checkout. Full card data is entered on YooKassa's side and is **not** collected or stored
+  by the app; we receive only the payment status, transaction id, amount, and plan. Declare purchase/
+  payment info accordingly and list YooKassa as the payment-processing recipient.
 
 ## Required links
 - Privacy Policy URL: https://family-pie.ru/relo_dojo/privacy

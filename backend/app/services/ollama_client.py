@@ -87,6 +87,8 @@ async def generate(
         except httpx.TimeoutException as exc:
             raise OllamaTimeoutError("Ollama timed out — the model is taking too long to respond.") from exc
 
+    if resp is None:  # unreachable today (the loop breaks or raises), but guards resp for future edits
+        raise OllamaError("Ollama did not return a response — try again.")
     if resp.status_code == 404:
         raise OllamaError(f"Model '{m}' not found. Pull it first: `ollama pull {m}`.")
     resp.raise_for_status()
