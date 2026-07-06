@@ -32,7 +32,9 @@ def grade(sealed: dict[str, Any], response: Any) -> dict[str, Any]:
     Returns {correct, correct_answer, score, detail}."""
     kind = sealed.get("t")
 
-    if kind in ("multiple-choice", "odd-one-out"):
+    # listen-and-answer grades exactly like a multiple-choice pick — the listening happened
+    # client-side (TTS); what reaches us is the tapped option vs the sealed answer.
+    if kind in ("multiple-choice", "odd-one-out", "listen-and-answer"):
         answer = str(sealed.get("answer") or "")
         return _result(_norm(response) == _norm(answer), answer)
 

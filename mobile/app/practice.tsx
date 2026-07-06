@@ -441,7 +441,9 @@ export default function PracticeScreen() {
           </Animated.View>
         )}
 
-        {showPronun && exercise && !loading && !showScroll && (
+        {/* `!!exercise.text` skips cards with nothing to read aloud (listen-and-retell has an
+            empty text — its content is audio-only, so a read-aloud target would be blank). */}
+        {showPronun && exercise && !!exercise.text && !loading && !showScroll && (
           <PronunciationCard target={exercise.text} lang={lang} />
         )}
 

@@ -26,8 +26,16 @@ export const MASTERY_MIN_HARD = 2; // of them, at least this many in non-guessab
 
 // Formats a learner can pass by tapping around: one pick out of 3-6 visible options. Constructive
 // formats (build/transform/order/match/blanks/tap-the-error) require producing or locating the
-// answer, so correct answers there are stronger evidence of mastery.
-export const GUESSABLE_FORMATS = new Set(["multiple-choice", "odd-one-out"]);
+// answer, so correct answers there are stronger evidence of mastery. The listening types also sit
+// here — not because retell is guessable (it isn't), but because both grade COMPREHENSION of a
+// topic-flavored passage, not production of the unit's grammar, so they never count as the "hard"
+// mastery evidence (they still count toward the correct total like any answer).
+export const GUESSABLE_FORMATS = new Set([
+  "multiple-choice",
+  "odd-one-out",
+  "listen-and-answer",
+  "listen-and-retell",
+]);
 
 export type Mastery = {
   correct: number; // correct answers in the window
@@ -55,6 +63,34 @@ export function checkpointPassed(misses: number): boolean {
 /** Early abort: one miss past the allowance already decides the run. */
 export function checkpointFailedNow(misses: number): boolean {
   return misses > CHECKPOINT_MAX_MISSES;
+}
+
+// --- recertification (переаттестация): the re-зачёт for a decayed mastered unit -----
+// Mastery stays one-way (a unit never re-locks), but skills fade — a mastered unit whose RECENT
+// answers dip reads as "в просадке" and offers a heavier checkpoint. The run spans the whole
+// evidence window on purpose: RECERT_ITEMS == MASTERY_WINDOW, so the quiz marks REPLACE the window
+// entirely and a passed run (≤2 misses = ≥80% in-window) clears the decay flag purely derived —
+// no new persisted state, nothing extra to sync or merge.
+export const RECERT_ITEMS = MASTERY_WINDOW;
+export const RECERT_MAX_MISSES = 2;
+export const REVIEW_MIN_EVIDENCE = 6; // recent marks needed before a dip counts as decay
+export const REVIEW_MAX_ACC = 0.6; // window accuracy below this = decayed
+
+export function recertPassed(misses: number): boolean {
+  return misses <= RECERT_MAX_MISSES;
+}
+
+/** Early abort: one miss past the recert allowance already decides the run. */
+export function recertFailedNow(misses: number): boolean {
+  return misses > RECERT_MAX_MISSES;
+}
+
+/** Has a MASTERED unit visibly decayed? Judged on the recent evidence window only — lifetime
+ *  accuracy is too sticky for heavy users (hundreds of old answers drown a real current dip). */
+export function unitDecayed(history: AnswerMark[] | undefined): boolean {
+  const window = (history ?? []).slice(-MASTERY_WINDOW);
+  if (window.length < REVIEW_MIN_EVIDENCE) return false;
+  return window.filter((m) => m.c).length / window.length < REVIEW_MAX_ACC;
 }
 
 /** Mastery evidence over the last MASTERY_WINDOW answers of one topic. Pure; tolerant of missing

@@ -1,5 +1,6 @@
 import BuildSentence from "./BuildSentence";
 import FreeText from "./FreeText";
+import Listen from "./Listen";
 import MatchPairs from "./MatchPairs";
 import MultipleBlanks from "./MultipleBlanks";
 import MultipleChoice from "./MultipleChoice";
@@ -30,6 +31,11 @@ export default function ExerciseCard(props: ExerciseProps) {
       return <OrderDialog {...props} />;
     case "free-text":
       return <FreeText {...props} />;
+    case "listen-and-answer":
+    case "listen-and-retell":
+      // One audio-first component for both: plays `speak` via TTS, then routes to a
+      // multiple-choice pick (answer) or a typed retelling (retell).
+      return <Listen {...props} />;
     default:
       // Unknown/unsupported type: don't route into a component that assumes a specific array
       // field exists (that would throw during render and white out the whole screen). Render nothing.

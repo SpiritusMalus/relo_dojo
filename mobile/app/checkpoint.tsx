@@ -24,7 +24,12 @@ import {
   checkpointPassed,
   CURRICULUM,
   masteryOf,
+  recertFailedNow,
+  recertPassed,
+  RECERT_ITEMS,
+  RECERT_MAX_MISSES,
   RULE_CARDS,
+  unitDecayed,
 } from "../store/curriculum";
 import { effectiveSkill, levelToCefr } from "../store/adaptive";
 import { useProgress } from "../store/progress";
@@ -57,13 +62,23 @@ export default function CheckpointScreen() {
   const topic = typeof params.topic === "string" ? params.topic : "";
   const labelFor = (id: string) => (lang === "ru" ? RU_TOPIC_LABELS[id] : TOPIC_LABELS[id]) ?? TOPIC_LABELS[id] ?? id;
 
-  // Eligibility is read once at mount: mid-quiz evidence changes must not move the goalposts.
+  // Mode + eligibility are read once at mount: mid-quiz evidence changes must not move the
+  // goalposts. Two ceremonies share this screen:
+  //  - first зачёт: unit not yet mastered, mastery meter full → CHECKPOINT_ITEMS, pass grants mastery;
+  //  - переаттестация (recert): unit mastered but its recent window dipped (unitDecayed) →
+  //    RECERT_ITEMS spans the whole evidence window, so a passed run REPLACES it and the decay
+  //    flag clears purely derived — nothing is written (mastery already exists, one-way).
+  const alreadyMastered = (progress.course?.mastered ?? []).includes(topic);
+  const recertRef = useRef(alreadyMastered && unitDecayed(progress.course?.history[topic]));
+  const recert = recertRef.current;
   const eligibleRef = useRef(
     !!RULE_CARDS[topic] &&
-      !(progress.course?.mastered ?? []).includes(topic) &&
-      masteryOf(progress.course?.history[topic]).met
+      (recertRef.current || (!alreadyMastered && masteryOf(progress.course?.history[topic]).met))
   );
-  const alreadyMastered = (progress.course?.mastered ?? []).includes(topic);
+  const quizItems = recert ? RECERT_ITEMS : CHECKPOINT_ITEMS;
+  const quizMaxMisses = recert ? RECERT_MAX_MISSES : CHECKPOINT_MAX_MISSES;
+  const quizFailedNow = recert ? recertFailedNow : checkpointFailedNow;
+  const quizPassed = recert ? recertPassed : checkpointPassed;
 
   const progressRef = useRef(progress);
   progressRef.current = progress;
@@ -128,10 +143,13 @@ export default function CheckpointScreen() {
     }
   }, [reset]);
 
-  function finish(passedRun: boolean) {
+  function finish(passed: boolean) {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    if (passedRun) masterUnit(topic); // the one place mastery is granted
-    setPhase(passedRun ? "passed" : "failed");
+    // The one place mastery is granted. A passed recert writes NOTHING: mastery already exists
+    // (one-way), and the quiz answers themselves refilled the evidence window — the decay flag
+    // clears derived, so there is no state to flip.
+    if (passed && !recert) masterUnit(topic);
+    setPhase(passed ? "passed" : "failed");
   }
 
   function start() {
@@ -155,8 +173,8 @@ export default function CheckpointScreen() {
       answeredRef.current = newAnswered;
       setPhase("feedback");
       advanceTimer.current = setTimeout(() => {
-        if (checkpointFailedNow(newMisses)) finish(false);
-        else if (newAnswered >= CHECKPOINT_ITEMS) finish(checkpointPassed(newMisses));
+        if (quizFailedNow(newMisses)) finish(false);
+        else if (newAnswered >= quizItems) finish(quizPassed(newMisses));
         else loadExercise();
       }, FEEDBACK_MS);
     } finally {
@@ -181,9 +199,11 @@ export default function CheckpointScreen() {
     return (
       <Centered insets={insets} onClose={() => router.back()}>
         <Sensei size={96} mood="think" />
-        <Txt variant="hero" style={{ textAlign: "center" }}>{tr("cp.title", { topic: labelFor(topic) })}</Txt>
+        <Txt variant="hero" style={{ textAlign: "center" }}>
+          {tr(recert ? "cp.recertTitle" : "cp.title", { topic: labelFor(topic) })}
+        </Txt>
         <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
-          {tr("cp.rules", { items: CHECKPOINT_ITEMS, misses: CHECKPOINT_MAX_MISSES })}
+          {tr(recert ? "cp.recertRules" : "cp.rules", { items: quizItems, misses: quizMaxMisses })}
         </Txt>
         <Button label={tr("cp.start")} onPress={start} style={{ alignSelf: "stretch" }} />
       </Centered>
@@ -196,10 +216,16 @@ export default function CheckpointScreen() {
     return (
       <Centered insets={insets}>
         <Sensei size={112} mood="cheer" bob />
-        <Txt variant="hero" style={{ textAlign: "center" }}>{`🥋 ${tr("course.mastered")}`}</Txt>
+        <Txt variant="hero" style={{ textAlign: "center" }}>
+          {recert ? `✅ ${tr("cp.recertPassed")}` : `🥋 ${tr("course.mastered")}`}
+        </Txt>
         <Txt variant="bodyStrong" style={{ textAlign: "center" }}>{labelFor(topic)}</Txt>
         <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
-          {next ? tr("cp.passedNext", { topic: labelFor(next.topic) }) : tr("cp.passedAll")}
+          {recert
+            ? tr("cp.recertPassedSub")
+            : next
+            ? tr("cp.passedNext", { topic: labelFor(next.topic) })
+            : tr("cp.passedAll")}
         </Txt>
         <Button label={tr("ch.backHome")} onPress={() => router.back()} style={{ alignSelf: "stretch" }} />
         <Confetti />
@@ -224,12 +250,12 @@ export default function CheckpointScreen() {
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
       <StatusBar style={t.name === "dark" ? "light" : "dark"} />
       <View style={styles.header}>
-        <Txt variant="bodyStrong">{tr("exam.progress", { n: Math.min(answered + 1, CHECKPOINT_ITEMS), total: CHECKPOINT_ITEMS })}</Txt>
+        <Txt variant="bodyStrong">{tr("exam.progress", { n: Math.min(answered + 1, quizItems), total: quizItems })}</Txt>
         <View style={{ flex: 1, marginHorizontal: 14 }}>
-          <ProgressBar pct={(answered / CHECKPOINT_ITEMS) * 100} height={10} color={t.c.gold} />
+          <ProgressBar pct={(answered / quizItems) * 100} height={10} color={t.c.gold} />
         </View>
         <Txt variant="bodyStrong" color={misses > 0 ? t.c.bad : t.c.ink3}>
-          {`✖ ${misses}/${CHECKPOINT_MAX_MISSES}`}
+          {`✖ ${misses}/${quizMaxMisses}`}
         </Txt>
       </View>
 

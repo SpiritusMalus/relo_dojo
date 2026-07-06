@@ -79,6 +79,10 @@ export const STRINGS = {
     "cp.passedAll": "That was the last topic of the track. Outstanding.",
     "cp.failed": "Not this time",
     "cp.failedSub": "A bit more practice and the checkpoint reopens — the meter shows the way.",
+    "cp.recertTitle": "Recertification: {topic}",
+    "cp.recertRules": "This topic has slipped. {items} fresh tasks in constructive formats, at most {misses} misses — pass to knock the rust off.",
+    "cp.recertPassed": "Topic restored",
+    "cp.recertPassedSub": "Fresh answers cleared the dip. The path stays yours.",
 
     "exit.title": "Leave the session?",
     "exit.msg": "Your progress in this session and the reward scroll will be lost.",
@@ -141,6 +145,7 @@ export const STRINGS = {
     "jp.upNextTap": "Up next · tap to start",
     "jp.upNext": "Up next",
     "jp.locked": "Locked",
+    "jp.review": "Slipping — tap to recertify",
 
     "settings.title": "Settings",
     "settings.account": "Account",
@@ -427,6 +432,11 @@ export const STRINGS = {
     "fmt.order-the-dialog": "Order the dialog",
     "fmt.transform-the-sentence": "Rewrite the sentence",
     "fmt.free-text": "Free writing",
+    "fmt.listen-and-answer": "Listening: question",
+    "fmt.listen-and-retell": "Listening: retell",
+    "ex.transcriptShown": "Audio isn't available on this build — here's the transcript:",
+    "ex.retellPrompt": "Retell what you heard in your own words (in English).",
+    "ex.retellPlaceholder": "Type your retelling in English…",
 
     // Voice direction (opt-in pronunciation; dormant until the flag + legal gate clear).
     // NB: consent copy is a DRAFT pending legal/DPO sign-off (brief voice-direction steps 1–3).
@@ -567,6 +577,10 @@ export const STRINGS = {
     "cp.passedAll": "Это была последняя тема пути. Мощно.",
     "cp.failed": "Пока не зачёт",
     "cp.failedSub": "Ещё немного тренировки — и зачёт снова откроется, метр подскажет.",
+    "cp.recertTitle": "Переаттестация: {topic}",
+    "cp.recertRules": "Тема просела. {items} новых заданий в конструктивных форматах, максимум промахов: {misses}. Сдай — и ржавчина слетит.",
+    "cp.recertPassed": "Тема восстановлена",
+    "cp.recertPassedSub": "Свежие ответы перекрыли просадку. Путь снова твой.",
 
     "exit.title": "Выйти из тренировки?",
     "exit.msg": "Прогресс этой сессии и наградной свиток будут потеряны.",
@@ -629,6 +643,7 @@ export const STRINGS = {
     "jp.upNextTap": "Дальше · нажми, чтобы начать",
     "jp.upNext": "Дальше",
     "jp.locked": "Закрыто",
+    "jp.review": "Просадка — тапни для переаттестации",
 
     "settings.title": "Настройки",
     "settings.account": "Аккаунт",
@@ -915,6 +930,11 @@ export const STRINGS = {
     "fmt.order-the-dialog": "Порядок реплик",
     "fmt.transform-the-sentence": "Переписать фразу",
     "fmt.free-text": "Свободный ответ",
+    "fmt.listen-and-answer": "Аудирование: вопрос",
+    "fmt.listen-and-retell": "Аудирование: пересказ",
+    "ex.transcriptShown": "Аудио недоступно на этой сборке — вот текст:",
+    "ex.retellPrompt": "Перескажи услышанное своими словами (на английском).",
+    "ex.retellPlaceholder": "Напиши пересказ на английском…",
 
     // Голосовое направление (опциональное произношение; спит до флага + юр. гейта).
     // ВНИМАНИЕ: текст согласия — ЧЕРНОВИК до проверки юристом/DPO (бриф voice-direction, шаги 1–3).

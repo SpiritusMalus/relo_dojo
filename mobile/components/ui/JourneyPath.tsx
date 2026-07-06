@@ -38,7 +38,7 @@ export default function JourneyPath({
             node={node}
             isFirst={i === 0}
             isLast={i === nodes.length - 1}
-            prevDone={nodes[i - 1]?.state === "done"}
+            prevDone={nodes[i - 1]?.state === "done" || nodes[i - 1]?.state === "review"}
             belt={bp.belt}
             onPress={onSelect && node.state !== "locked" ? () => onSelect(node) : undefined}
           />
@@ -67,7 +67,7 @@ function PathRow({
   const accent = t.c.accent;
   const line = t.c.line2;
   const topDone = prevDone;
-  const bottomDone = node.state === "done";
+  const bottomDone = node.state === "done" || node.state === "review"; // review is still a passed unit
 
   return (
     <View style={styles.row}>
@@ -113,18 +113,20 @@ function NodeCircle({ state, belt }: { state: NodeState; belt: Belt }) {
   const done = state === "done";
   const active = state === "current";
   const ready = state === "ready"; // meter full — the checkpoint (зачёт) awaits
+  const review = state === "review"; // passed unit that slipped — recertification awaits
   return (
     <View
       style={[
         styles.circle,
         {
-          backgroundColor: ready ? t.c.gold : done || active ? t.c.accent : t.c.surface3,
-          borderWidth: active || ready ? 3 : 0,
-          borderColor: ready ? t.c.gold : t.c.accentSoft2,
+          backgroundColor: review ? t.c.surface : ready ? t.c.gold : done || active ? t.c.accent : t.c.surface3,
+          borderWidth: active || ready || review ? 3 : 0,
+          borderColor: review ? t.c.bad : ready ? t.c.gold : t.c.accentSoft2,
         },
       ]}
     >
       {done && <Icon name="check" size={22} color={t.c.accentInk} />}
+      {review && <Icon name="target" size={22} color={t.c.bad} />}
       {active && <Icon name="bolt" size={22} color={t.c.accentInk} />}
       {ready && <Icon name="star" size={22} color={t.c.ink} />}
       {state === "next" && <Icon name="bolt" size={22} color={t.c.ink3} />}
@@ -152,6 +154,7 @@ function NodeCard({ node, interactive }: { node: PathNode; interactive: boolean 
   const topic = node.topic!;
   const sub: Record<Exclude<NodeState, "test">, string> = {
     done: `${tr("jp.mastered")} · ${topic.belt.name}`,
+    review: tr("jp.review"),
     ready: tr("course.readyNode"),
     current: interactive ? tr("jp.continue") : tr("jp.inProgress"),
     next: interactive ? tr("jp.upNextTap") : tr("jp.upNext"),
@@ -168,7 +171,18 @@ function NodeCard({ node, interactive }: { node: PathNode; interactive: boolean 
             <Txt variant="caption" color={t.c.ink3}>{node.band}</Txt>
           )}
         </View>
-        <Txt variant="secondary" color={node.state === "current" ? t.c.accent : node.state === "ready" ? t.c.gold : t.c.ink3}>
+        <Txt
+          variant="secondary"
+          color={
+            node.state === "current"
+              ? t.c.accent
+              : node.state === "ready"
+              ? t.c.gold
+              : node.state === "review"
+              ? t.c.bad
+              : t.c.ink3
+          }
+        >
           {sub[node.state as Exclude<NodeState, "test">]}
           {node.state === "done" ? `  ·  ${topic.acc}%` : ""}
         </Txt>

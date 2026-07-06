@@ -16,6 +16,7 @@ import {
   TARGET_SUCCESS,
   TOPIC_PRIORS,
   topicWeight,
+  typeWeightsForLevel,
   unlockedTopics,
   updateSkill,
 } from "../adaptive";
@@ -315,9 +316,15 @@ describe("selectNext — learner steering", () => {
 
   it("filters served formats by formatPrefs and never empties the type pool", () => {
     // Mute every A2 format except multiple-choice → only it should ever be served at A2.
-    // (order-the-dialog now carries a small A2 weight, so it must be muted here too.)
+    // (order-the-dialog and listen-and-answer carry A2 weight too, so they're muted here as well.)
     const s = steer({
-      formatPrefs: { "match-pairs": false, "build-the-sentence": false, "odd-one-out": false, "order-the-dialog": false },
+      formatPrefs: {
+        "match-pairs": false,
+        "build-the-sentence": false,
+        "odd-one-out": false,
+        "order-the-dialog": false,
+        "listen-and-answer": false,
+      },
     });
     const p = progressWith({ skill: { articles: 1.5 } }); // A2
     for (let i = 0; i < ITER; i++) {
@@ -394,4 +401,34 @@ it("uses a sane target-success and start level", () => {
   expect(TARGET_SUCCESS).toBeGreaterThan(0.5);
   expect(TARGET_SUCCESS).toBeLessThan(1);
   expect(START_LEVEL).toBeGreaterThan(0);
+});
+
+describe("type mix — listening in the daily loop", () => {
+  const weightOf = (level: number, type: string) =>
+    typeWeightsForLevel(level).find(([t]) => t === type)?.[1] ?? 0;
+
+  it("listen-and-answer is served at every band (comprehension trains from day one)", () => {
+    expect(weightOf(0.5, "listen-and-answer")).toBeGreaterThan(0); // A1
+    expect(weightOf(2.5, "listen-and-answer")).toBeGreaterThan(0); // B1
+    expect(weightOf(4.5, "listen-and-answer")).toBeGreaterThan(0); // C1
+  });
+
+  it("the typed retelling waits for B1 (writing a summary at A1 is a wall)", () => {
+    expect(weightOf(0.5, "listen-and-retell")).toBe(0);
+    expect(weightOf(1.5, "listen-and-retell")).toBe(0);
+    expect(weightOf(2.5, "listen-and-retell")).toBeGreaterThan(0);
+    expect(weightOf(3.5, "listen-and-retell")).toBeGreaterThan(0);
+  });
+
+  it("a muted listening format drops out of selection like any other format pref", () => {
+    const steering: Steering = {
+      ...DEFAULT_STEERING,
+      formatPrefs: { "listen-and-answer": false, "listen-and-retell": false },
+    };
+    for (let i = 0; i < 40; i++) {
+      const { type } = selectNext(DEFAULT_PROGRESS, undefined, steering);
+      expect(type).not.toBe("listen-and-answer");
+      expect(type).not.toBe("listen-and-retell");
+    }
+  });
 });
