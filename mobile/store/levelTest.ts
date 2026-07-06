@@ -11,7 +11,7 @@
 // and fails around θ, the estimate has bracketed their true level and the test stops. (A target-success
 // controller like adaptive.ts would instead converge to the 75%-success point, never the ceiling —
 // wrong for placement, right for ongoing practice.)
-import { pickItem, type CalItem, type CalSkill } from "./calibrationBank";
+import { pickItem, skillOf, type CalItem, type CalSkill } from "./calibrationBank";
 import { levelToCefr, START_LEVEL, type Cefr } from "./adaptive";
 import { beltByCefr } from "../theme/theme";
 
@@ -31,17 +31,21 @@ export function levelTestStep(answered: number): number {
   return Math.max(0.25, 0.7 / (1 + Math.max(0, answered) / 4));
 }
 
+/** One graded answer, kept for the post-test skill diagnosis (which skill, how hard, hit or miss). */
+export type SkillAnswer = { skill: CalSkill; level: number; correct: boolean };
+
 export type LevelTestState = {
   theta: number; // ability estimate on the 0..5 skill scale (same scale as adaptive.ts)
   answered: number;
   used: Set<string>;
   recent: boolean[]; // last few outcomes — drives the bracket/stop rule
+  answers: SkillAnswer[]; // full answer log — feeds the per-skill diagnosis (skillReport)
 };
 
 /** Begin a test. `seed` is the starting ability (e.g. the learner's current overall skill, or
  *  START_LEVEL for a fresh account) — the staircase converges regardless, it just starts nearer. */
 export function startLevelTest(seed: number = START_LEVEL): LevelTestState {
-  return { theta: clamp(seed, 0, 5), answered: 0, used: new Set(), recent: [] };
+  return { theta: clamp(seed, 0, 5), answered: 0, used: new Set(), recent: [], answers: [] };
 }
 
 /** The next item to serve: rotate to the next skill (for balanced coverage) and pick the unused item
@@ -62,6 +66,7 @@ export function recordAnswer(s: LevelTestState, item: CalItem, correct: boolean)
     answered: s.answered + 1,
     used,
     recent: [...s.recent, correct].slice(-BRACKET_WINDOW),
+    answers: [...s.answers, { skill: skillOf(item), level: item.level, correct }],
   };
 }
 
@@ -90,4 +95,22 @@ export function combineLevels(receptive: number, writing: number): LevelTestResu
   const level = clamp((2 * receptive + writing) / 3, 0, 5);
   const cefr = levelToCefr(level);
   return { level, cefr, beltIdx: beltByCefr(cefr).idx };
+}
+
+/** Per-skill DIAGNOSIS from the answer log — a coarse estimate per sampled skill ("writing" is added
+ *  by the screen from its LLM score). With only ~2–4 items per skill this is a direction indicator,
+ *  not a placement: each answer reads as "handles items at this difficulty" (level + ½ band) or
+ *  "struggles at it" (level − ½ band), averaged and clamped to the 0..5 scale. Skills the run never
+ *  sampled are simply absent. */
+export function skillReport(s: LevelTestState): Partial<Record<CalSkill, number>> {
+  const sums = new Map<CalSkill, { total: number; n: number }>();
+  for (const a of s.answers) {
+    const acc = sums.get(a.skill) ?? { total: 0, n: 0 };
+    acc.total += clamp(a.level + (a.correct ? 0.5 : -0.5), 0, 5);
+    acc.n += 1;
+    sums.set(a.skill, acc);
+  }
+  const report: Partial<Record<CalSkill, number>> = {};
+  for (const [skill, { total, n }] of sums) report[skill] = clamp(total / n, 0, 5);
+  return report;
 }

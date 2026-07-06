@@ -4,12 +4,13 @@ import {
   levelTestResult,
   nextItem,
   recordAnswer,
+  skillReport,
   startLevelTest,
   LT_MAX_ITEMS,
   LT_MIN_ITEMS,
   type LevelTestState,
 } from "../levelTest";
-import { isCoreItem, pickOnboardingItem, pickWritingPrompt, skillOf } from "../calibrationBank";
+import { isCoreItem, pickOnboardingItem, pickWritingPrompt, skillOf, type CalItem, type CalSkill } from "../calibrationBank";
 import { levelToCefr } from "../adaptive";
 
 // Drive the engine to completion modelling a learner of `trueAbility`: they reliably handle items at
@@ -99,6 +100,56 @@ describe("level test engine — multi-skill coverage", () => {
       expect(["reading", "listening"]).not.toContain(skillOf(it));
       used.add(it.id);
     }
+  });
+});
+
+describe("level test engine — per-skill diagnosis (skillReport)", () => {
+  const item = (skill: CalSkill, level: number, id: string): CalItem => ({
+    id,
+    topic: skill,
+    skill,
+    level,
+    text: "",
+    options: ["a", "b"],
+    answer: "a",
+  });
+
+  test("estimates each sampled skill from its own answers; unsampled skills are absent", () => {
+    let s = startLevelTest(2.5);
+    // Listening: missed at 1.5 and 2.5 → reads as struggling low (1.0, 2.0 → 1.5).
+    s = recordAnswer(s, item("listening", 1.5, "l1"), false);
+    s = recordAnswer(s, item("listening", 2.5, "l2"), false);
+    // Grammar: handled at 2.5 and 3.5 → reads solidly higher (3.0, 4.0 → 3.5).
+    s = recordAnswer(s, item("grammar", 2.5, "g1"), true);
+    s = recordAnswer(s, item("grammar", 3.5, "g2"), true);
+    const r = skillReport(s);
+    expect(r.listening).toBeCloseTo(1.5, 5);
+    expect(r.grammar).toBeCloseTo(3.5, 5);
+    expect(r.listening!).toBeLessThan(r.grammar!); // the whole point: the gap becomes visible
+    expect(r.reading).toBeUndefined();
+    expect(r.vocab).toBeUndefined();
+  });
+
+  test("estimates stay clamped to the 0..5 scale at the extremes", () => {
+    let s = startLevelTest(2.5);
+    s = recordAnswer(s, item("vocab", 0.5, "v1"), false); // 0.0 after clamp
+    s = recordAnswer(s, item("reading", 4.5, "r1"), true); // 5.0 after clamp
+    const r = skillReport(s);
+    expect(r.vocab).toBe(0);
+    expect(r.reading).toBe(5);
+  });
+
+  test("a full run reports exactly the skills it sampled", () => {
+    let s = startLevelTest(2.5);
+    let guard = 0;
+    while (!isDone(s) && guard++ < 100) {
+      const it = nextItem(s);
+      if (!it) break;
+      s = recordAnswer(s, it, it.level <= 2.5);
+    }
+    const sampled = Array.from(new Set(s.answers.map((a) => a.skill))).sort();
+    expect(Object.keys(skillReport(s)).sort()).toEqual(sampled);
+    expect(sampled.length).toBeGreaterThanOrEqual(3); // rotation covered more than grammar
   });
 });
 

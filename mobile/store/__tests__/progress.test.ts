@@ -1,9 +1,11 @@
 import {
   DEFAULT_PROGRESS,
+  LEVEL_HISTORY_MAX,
   mergeProgress,
   recordAnswer,
   withUnitMastered,
   XP_PER_CORRECT,
+  type LevelSnapshot,
   type Progress,
 } from "../progress";
 import { masteryOf } from "../curriculum";
@@ -44,6 +46,48 @@ describe("recordAnswer — course evidence (mastery gate)", () => {
     expect(withUnitMastered(p, "articles")).toBe(p); // idempotent — same object back
     for (let i = 0; i < 10; i++) p = correctAt(p, "multiple-choice", false);
     expect(p.course.mastered).toEqual(["articles"]); // later misses never un-master
+  });
+});
+
+describe("mergeProgress — level test trail", () => {
+  const snap = (date: string, level: number, extra: Partial<LevelSnapshot> = {}): LevelSnapshot => ({
+    date,
+    level,
+    cefr: "B1",
+    skills: {},
+    ...extra,
+  });
+
+  it("keeps the later lastLevelTestDate and unions histories by date (b wins a same-day collision)", () => {
+    const a = progressWith({
+      lastLevelTestDate: "2026-01-05",
+      levelHistory: [snap("2026-01-05", 2.5), snap("2026-04-05", 2.8)],
+    });
+    const b = progressWith({
+      lastLevelTestDate: "2026-04-05",
+      levelHistory: [snap("2026-04-05", 3.0, { cefr: "B2", skills: { listening: 2.0 } })],
+    });
+    const m = mergeProgress(a, b);
+    expect(m.lastLevelTestDate).toBe("2026-04-05");
+    expect(m.levelHistory).toHaveLength(2);
+    expect(m.levelHistory![0].date).toBe("2026-01-05");
+    expect(m.levelHistory![1].level).toBe(3.0); // b's richer same-day snapshot won
+    expect(m.levelHistory![1].skills.listening).toBe(2.0);
+  });
+
+  it("caps the merged history at LEVEL_HISTORY_MAX, dropping the oldest", () => {
+    const many = Array.from({ length: LEVEL_HISTORY_MAX + 3 }, (_, i) =>
+      snap(`2026-01-${String(i + 1).padStart(2, "0")}`, 2)
+    );
+    const m = mergeProgress(progressWith({ levelHistory: many }), DEFAULT_PROGRESS);
+    expect(m.levelHistory).toHaveLength(LEVEL_HISTORY_MAX);
+    expect(m.levelHistory![0].date).toBe("2026-01-04"); // the 3 oldest fell off
+  });
+
+  it("stays absent when neither side has taken the test (legacy accounts)", () => {
+    const m = mergeProgress(DEFAULT_PROGRESS, DEFAULT_PROGRESS);
+    expect(m.lastLevelTestDate).toBeUndefined();
+    expect(m.levelHistory).toBeUndefined();
   });
 });
 

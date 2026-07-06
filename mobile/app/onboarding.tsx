@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { analyzePain, type Exercise, type ResponseValue } from "../services/api";
 import ExerciseCard from "../components/ExerciseCard";
@@ -231,10 +232,12 @@ function Reveal({
   profile,
   estimatedLevel,
   onStart,
+  onFullTest,
 }: {
   profile: Profile;
   estimatedLevel: number;
   onStart: () => void;
+  onFullTest: () => void;
 }) {
   const t = useTheme();
   const { t: tr, lang } = useI18n();
@@ -269,6 +272,9 @@ function Reveal({
       </Card>
 
       <Button label={tr("ob.startPracticing")} onPress={onStart} />
+      {/* The warm-up above is deliberately short (and B2-capped) — learners who want a serious
+          placement get the full 4-skill test right away instead of judging us by 10 easy MCQs. */}
+      <Button label={tr("ob.fullTestCta")} variant="ghost" onPress={onFullTest} />
     </View>
   );
 }
@@ -291,6 +297,7 @@ export default function OnboardingScreen() {
   const t = useTheme();
   const { t: tr, lang } = useI18n();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { completeOnboarding } = useProgress();
   const [step, setStep] = useState(0);
   const [goals, setGoals] = useState<string[]>([]);
@@ -492,7 +499,20 @@ export default function OnboardingScreen() {
           />
         )}
 
-        {step === 9 && <Reveal profile={buildProfile()} estimatedLevel={estimatedLevel} onStart={() => finish(calibratedSkill)} />}
+        {step === 9 && (
+          <Reveal
+            profile={buildProfile()}
+            estimatedLevel={estimatedLevel}
+            onStart={() => finish(calibratedSkill)}
+            onFullTest={() => {
+              // Finish onboarding with the warm-up seed first (the test needs a live profile), then
+              // open the full test on top. Backing out of it lands on the onboarding route for a
+              // frame — the root-layout redirect (`onboarded && onOnboarding`) swaps it to the tabs.
+              finish(calibratedSkill);
+              router.push("/level-test");
+            }}
+          />
+        )}
       </ScrollView>
 
       {step === 9 && <Confetti />}

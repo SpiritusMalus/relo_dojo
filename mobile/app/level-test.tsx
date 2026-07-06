@@ -16,16 +16,18 @@ import {
   levelTestResult,
   nextItem,
   recordAnswer,
+  skillReport,
   startLevelTest,
   LT_MAX_ITEMS,
   type LevelTestResult,
   type LevelTestState,
 } from "../store/levelTest";
-import { isoDay } from "../store/adaptive";
-import { beltProgress } from "../store/dojo";
+import { isoDay, levelToCefr } from "../store/adaptive";
+import { beltProgress, weakTopics } from "../store/dojo";
 import { seedSkillFromLevel } from "../store/onboarding";
-import { useProgress } from "../store/progress";
+import { useProgress, type LevelSnapshot } from "../store/progress";
 import { useI18n } from "../store/i18n";
+import { RU_TOPIC_LABELS } from "../i18n/strings";
 import { beltByCefr, useTheme } from "../theme/theme";
 import ExerciseCard from "../components/ExerciseCard";
 import BeltKnot from "../components/ui/BeltKnot";
@@ -39,12 +41,22 @@ import Txt from "../components/ui/Txt";
 
 type Phase = "intro" | "solving" | "feedback" | "writing" | "scoring" | "done";
 
+// Diagnosis rows render in this fixed order; skills the run never sampled are skipped.
+const SKILL_ORDER = ["grammar", "vocab", "reading", "listening", "writing"] as const;
+const SKILL_LABEL_KEY = {
+  grammar: "lt.skillGrammar",
+  vocab: "lt.skillVocab",
+  reading: "lt.skillReading",
+  listening: "lt.skillListening",
+  writing: "lt.skillWriting",
+} as const;
+
 export default function LevelTestScreen() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress, applyLevelTest } = useProgress();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
 
   // Seed from the learner's current overall skill so a returning user converges fast (the adaptive
   // selection corrects from anywhere — this just starts nearer).
@@ -59,6 +71,7 @@ export default function LevelTestScreen() {
   const [done, setDone] = useState<LevelTestResult | null>(null);
   // Writing section (productive skill): runs after the adaptive MCQ part, then folds into the level.
   const receptiveRef = useRef(0); // the MCQ-section estimate, blended with the writing score
+  const writingScoreRef = useRef<number | null>(null); // LLM writing score — joins the skill diagnosis
   const [writingPrompt, setWritingPrompt] = useState("");
   const [writingText, setWritingText] = useState("");
 
@@ -105,6 +118,7 @@ export default function LevelTestScreen() {
 
   const start = useCallback(() => {
     stRef.current = startLevelTest(seed);
+    writingScoreRef.current = null;
     setCount(0);
     loadNext();
   }, [seed, loadNext]);
@@ -134,6 +148,7 @@ export default function LevelTestScreen() {
     setPhase("scoring");
     try {
       const w = await assessWriting(writingText.trim(), writingPrompt);
+      writingScoreRef.current = w.score;
       setDone(combineLevels(receptiveRef.current, w.score));
       setPhase("done");
     } catch {
@@ -141,12 +156,28 @@ export default function LevelTestScreen() {
     }
   }, [writingText, writingPrompt, finishWithReceptiveOnly]);
 
+  // The per-skill diagnosis behind the result: the MCQ answer log per skill + the LLM writing score.
+  // Recomputed only when the run completes (`done` flips) — stRef is final by then.
+  const report = useMemo<Record<string, number>>(() => {
+    if (!done) return {};
+    const r: Record<string, number> = { ...skillReport(stRef.current) };
+    if (writingScoreRef.current !== null) r.writing = writingScoreRef.current;
+    return r;
+  }, [done]);
+
+  // The previous saved test, for the "vs last time" deltas (null on the first run ever).
+  const prevSnap = useMemo<LevelSnapshot | null>(() => {
+    const hist = progress.levelHistory ?? [];
+    return hist.length ? hist[hist.length - 1] : null;
+  }, [progress.levelHistory]);
+
   const onSave = useCallback(() => {
     if (!done) return;
     const skill = seedSkillFromLevel(done.level, progress.profile?.focusTopics ?? []);
-    applyLevelTest(skill, done.beltIdx, isoDay(new Date()));
+    const date = isoDay(new Date());
+    applyLevelTest(skill, done.beltIdx, date, { date, level: done.level, cefr: done.cefr, skills: report });
     router.back();
-  }, [done, progress.profile, applyLevelTest, router]);
+  }, [done, progress.profile, applyLevelTest, router, report]);
 
   if (phase === "intro") {
     return (
@@ -195,12 +226,55 @@ export default function LevelTestScreen() {
 
   if (phase === "done" && done) {
     const belt = beltByCefr(done.cefr);
+    const weak = weakTopics(progress).slice(0, 3);
     return (
       <Centered insets={insets}>
         <Sensei size={112} mood="cheer" bob />
         <BeltKnot belt={belt} size={96} />
         <Txt variant="hero" style={{ textAlign: "center" }}>{tr("lt.resultTitle", { cefr: done.cefr })}</Txt>
         <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("lt.resultSub", { n: count })}</Txt>
+        {prevSnap && (
+          <Txt variant="secondary" color={t.c.ink3} style={{ textAlign: "center" }}>
+            {tr("lt.prevCompare", { date: prevSnap.date, prev: prevSnap.cefr, cur: done.cefr })}
+          </Txt>
+        )}
+
+        {/* Per-skill diagnosis: what this run actually measured, band by band ("аудирование A2 при
+            общем B1" is the insight the single number hides). */}
+        <Card style={{ alignSelf: "stretch", gap: 10 }}>
+          <Txt variant="label">{tr("lt.bySkill")}</Txt>
+          {SKILL_ORDER.filter((s) => report[s] !== undefined).map((s) => {
+            const cur = levelToCefr(report[s]);
+            const prevLevel = prevSnap?.skills?.[s];
+            const prev = prevLevel === undefined ? null : levelToCefr(prevLevel);
+            return (
+              <View key={s} style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+                <Txt variant="secondary" color={t.c.ink2}>{tr(SKILL_LABEL_KEY[s])}</Txt>
+                <Txt variant="bodyStrong" color={prev && prev !== cur ? t.c.accent : t.c.ink}>
+                  {prev && prev !== cur ? `${prev} → ${cur}` : cur}
+                </Txt>
+              </View>
+            );
+          })}
+        </Card>
+
+        {/* Weak practice topics (accuracy-based, store/dojo.ts) — the "темы в просадке" list; the
+            adaptive mix already over-serves them, this just makes that visible. */}
+        {weak.length > 0 && (
+          <Card style={{ alignSelf: "stretch", gap: 10 }}>
+            <Txt variant="label">{tr("lt.weakTitle")}</Txt>
+            {weak.map((r) => (
+              <View key={r.id} style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+                <Txt variant="secondary" color={t.c.ink2}>
+                  {lang === "ru" ? RU_TOPIC_LABELS[r.id] ?? r.label : r.label}
+                </Txt>
+                <Txt variant="bodyStrong" color={t.c.bad}>{`${r.acc}%`}</Txt>
+              </View>
+            ))}
+            <Txt variant="caption" color={t.c.ink3}>{tr("lt.weakHint")}</Txt>
+          </Card>
+        )}
+
         <Button label={tr("lt.save")} onPress={onSave} style={{ alignSelf: "stretch" }} />
         <Confetti />
       </Centered>
