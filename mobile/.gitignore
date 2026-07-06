@@ -1,7 +1,9 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
+# dependencies (bare form too: in git worktrees node_modules is a symlink, which `node_modules/`
+# — a directory-only pattern — does not match)
 node_modules/
+node_modules
 
 # Expo
 .expo/

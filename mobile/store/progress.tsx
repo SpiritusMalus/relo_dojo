@@ -21,7 +21,7 @@ import { resetGuestLimit } from "./guestLimit";
 import { resetJourney } from "./journey";
 import { resetReviewHook } from "./reviewHook";
 import { useWallet } from "./wallet";
-import { updateSkill } from "./adaptive";
+import { LISTENING_FORMATS, updateListening, updateSkill, type ListeningStat } from "./adaptive";
 import { MASTERY_WINDOW, type AnswerMark } from "./curriculum";
 import {
   MIN_REPAIRABLE_STREAK,
@@ -143,6 +143,9 @@ export type Progress = {
   steering: Steering;
   // Mastery-gated course evidence (see CourseState above / store/curriculum.ts).
   course: CourseState;
+  // Live listening-modality estimate from daily listening exercises (store/adaptive.ts). Feeds the
+  // Level Test diagnosis between tests; absent until the first listening answer.
+  listening?: ListeningStat;
 };
 
 export const DEFAULT_PROGRESS: Progress = {
@@ -294,6 +297,11 @@ export function recordAnswer(
     // Prefer the partial score + served difficulty when available (difficulty-aware update);
     // otherwise fall back to the boolean correctness.
     skill: updateSkill(prev, topic, grade?.score ?? correct, grade?.difficulty),
+    // Listening exercises also feed the modality estimate (Level Test diagnosis between tests).
+    listening:
+      grade?.format && LISTENING_FORMATS.has(grade.format)
+        ? updateListening(prev.listening, grade?.score ?? correct, grade?.difficulty)
+        : prev.listening,
     // Daily-goal counter: reset on a new local day, otherwise increment.
     todayDate: today,
     todayCount: prev.todayDate === today ? prev.todayCount + 1 : 1,
@@ -400,7 +408,15 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     // Learner steering: field-wise merge (server canonical wins where it carries intent).
     steering: mergeSteering(a.steering, b.steering),
     course: mergeCourse(a.course ?? DEFAULT_COURSE, b.course ?? DEFAULT_COURSE),
+    listening: mergeListening(a.listening, b.listening),
   };
+}
+
+/** Listening estimate: the side with more evidence wins (same rule as the per-topic skill). */
+function mergeListening(a?: ListeningStat, b?: ListeningStat): ListeningStat | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return b.attempts > a.attempts ? b : a;
 }
 
 /** Level-test snapshots merge as a union keyed by date (each side may hold tests the other missed);
@@ -769,6 +785,13 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
             ? [...(prev.levelHistory ?? []), snapshot].slice(-LEVEL_HISTORY_MAX)
             : prev.levelHistory,
           beltEarned: Math.max(prev.beltEarned ?? 0, beltIdx),
+          // A test that measured listening re-anchors the live modality estimate to the saved
+          // (already practice-blended) value; the evidence count stays — it keeps weighting the
+          // next diagnosis blend and the step decay.
+          listening:
+            snapshot?.skills?.listening !== undefined
+              ? { level: snapshot.skills.listening, attempts: prev.listening?.attempts ?? 0 }
+              : prev.listening,
         };
         void save(next);
         schedulePush(next);

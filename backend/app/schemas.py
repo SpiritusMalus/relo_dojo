@@ -424,6 +424,14 @@ class LevelSnapshot(BaseModel):
     skills: dict[str, float] = {}
 
 
+class ListeningStat(BaseModel):
+    """Live listening-modality estimate (client store/adaptive.ts): folded from daily
+    listen-and-answer / listen-and-retell results, blended into the Level Test diagnosis."""
+
+    level: float = 0.0  # 0..5, same scale as the per-topic skill
+    attempts: int = 0  # evidence count (drives step decay + blend weight)
+
+
 class ProgressData(BaseModel):
     xp: int = 0
     dailyStreak: int = 0
@@ -448,6 +456,7 @@ class ProgressData(BaseModel):
     levelHistory: list[LevelSnapshot] = []
     steering: Steering = Field(default_factory=Steering)  # learner-set adaptive overrides (synced)
     course: CourseState = Field(default_factory=CourseState)  # mastery-gate evidence (synced)
+    listening: Optional[ListeningStat] = None  # listening-modality estimate (synced)
 
 
 # --- scroll rewards (variable reinforcement) ---

@@ -49,6 +49,42 @@ describe("recordAnswer — course evidence (mastery gate)", () => {
   });
 });
 
+describe("recordAnswer — listening modality estimate", () => {
+  it("folds a listening answer into progress.listening (and only listening formats)", () => {
+    const heard = recordAnswer(DEFAULT_PROGRESS, "articles", true, at(DAY), {
+      format: "listen-and-answer",
+      difficulty: 2.5,
+    });
+    expect(heard.listening).toBeDefined();
+    expect(heard.listening!.attempts).toBe(1);
+
+    const typed = recordAnswer(DEFAULT_PROGRESS, "articles", true, at(DAY), {
+      format: "multiple-choice",
+    });
+    expect(typed.listening).toBeUndefined();
+  });
+
+  it("accumulates evidence across answers (retell counts too, via its score)", () => {
+    let p = recordAnswer(DEFAULT_PROGRESS, "articles", true, at(DAY), { format: "listen-and-answer" });
+    const before = p.listening!.level;
+    p = recordAnswer(p, "prepositions", false, at(DAY), { format: "listen-and-retell", score: 0 });
+    expect(p.listening!.attempts).toBe(2);
+    expect(p.listening!.level).toBeLessThan(before); // the miss pulled the estimate down
+  });
+});
+
+describe("mergeProgress — listening modality estimate", () => {
+  it("keeps the side with more evidence; a missing side never wipes the other", () => {
+    const a = progressWith({ listening: { level: 2.0, attempts: 3 } });
+    const b = progressWith({ listening: { level: 3.0, attempts: 10 } });
+    expect(mergeProgress(a, b).listening).toEqual({ level: 3.0, attempts: 10 });
+    expect(mergeProgress(b, a).listening).toEqual({ level: 3.0, attempts: 10 });
+    expect(mergeProgress(a, DEFAULT_PROGRESS).listening).toEqual({ level: 2.0, attempts: 3 });
+    expect(mergeProgress(DEFAULT_PROGRESS, b).listening).toEqual({ level: 3.0, attempts: 10 });
+    expect(mergeProgress(DEFAULT_PROGRESS, DEFAULT_PROGRESS).listening).toBeUndefined();
+  });
+});
+
 describe("mergeProgress — level test trail", () => {
   const snap = (date: string, level: number, extra: Partial<LevelSnapshot> = {}): LevelSnapshot => ({
     date,
