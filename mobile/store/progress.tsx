@@ -90,6 +90,19 @@ export type CourseState = {
 
 export const DEFAULT_COURSE: CourseState = { history: {}, mastered: [] };
 
+/** One saved Level Test result — the diagnosis trail behind the quarterly re-check. `skills` holds
+ *  the per-skill estimates (grammar/vocab/reading/listening/writing, 0..5) actually sampled that run. */
+export type LevelSnapshot = {
+  date: string; // local YYYY-MM-DD the test was saved
+  level: number; // blended overall estimate (0..5)
+  cefr: string;
+  skills: Record<string, number>;
+};
+
+// Keep the last 12 snapshots (~3 years at the quarterly cadence) — enough for every delta the UI
+// shows, bounded so the synced payload can't grow forever.
+export const LEVEL_HISTORY_MAX = 12;
+
 /** Field-wise merge of two steering slices (used on login reconcile + the "just now" session overlay).
  *  `b` wins where it carries intent: its pin, its non-zero bias, its explicit format prefs; muted
  *  topics are unioned so a mute is never silently dropped. */
@@ -122,6 +135,10 @@ export type Progress = {
   // Belt exam: highest belt idx EARNED through an exam (worn belt). undefined = legacy, skill belt shown.
   beltEarned?: number;
   lastExamDate?: string; // local YYYY-MM-DD of the last exam attempt (one attempt per day)
+  // Full Level Test trail: when it was last taken (drives the quarterly re-check nudge) and the saved
+  // per-test snapshots (drives the "vs last time" diagnosis). Absent on accounts predating the feature.
+  lastLevelTestDate?: string;
+  levelHistory?: LevelSnapshot[];
   // Learner-set overrides on the adaptive model (visible, editable focus + format). Empty = default.
   steering: Steering;
   // Mastery-gated course evidence (see CourseState above / store/curriculum.ts).
@@ -377,10 +394,24 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
         ? a.beltEarned
         : Math.max(a.beltEarned, b.beltEarned),
     lastExamDate: (a.lastExamDate ?? "") >= (b.lastExamDate ?? "") ? a.lastExamDate : b.lastExamDate,
+    lastLevelTestDate:
+      (a.lastLevelTestDate ?? "") >= (b.lastLevelTestDate ?? "") ? a.lastLevelTestDate : b.lastLevelTestDate,
+    levelHistory: mergeLevelHistory(a.levelHistory, b.levelHistory),
     // Learner steering: field-wise merge (server canonical wins where it carries intent).
     steering: mergeSteering(a.steering, b.steering),
     course: mergeCourse(a.course ?? DEFAULT_COURSE, b.course ?? DEFAULT_COURSE),
   };
+}
+
+/** Level-test snapshots merge as a union keyed by date (each side may hold tests the other missed);
+ *  on a same-day collision `b` (the server-canonical side on login) wins. Sorted, capped to the tail. */
+function mergeLevelHistory(a?: LevelSnapshot[], b?: LevelSnapshot[]): LevelSnapshot[] | undefined {
+  if (!a?.length && !b?.length) return a ?? b;
+  const byDate = new Map<string, LevelSnapshot>();
+  for (const s of [...(a ?? []), ...(b ?? [])]) byDate.set(s.date, s);
+  return Array.from(byDate.values())
+    .sort((x, y) => (x.date < y.date ? -1 : 1))
+    .slice(-LEVEL_HISTORY_MAX);
 }
 
 /** Course merge: mastered units are a one-way set (union); per-topic history keeps the side with
@@ -453,8 +484,9 @@ type ProgressContextValue = {
   /** Promote a course unit to mastered — called by the checkpoint screen on a passed зачёт. */
   masterUnit: (topic: string) => void;
   /** Apply a completed full Level Test (store/levelTest.ts): set the (uncapped) skill estimate and
-   *  raise the worn belt to the placed one. This is the path that lifts the onboarding B2 cap. */
-  applyLevelTest: (skill: Record<string, number>, beltIdx: number, date: string) => void;
+   *  raise the worn belt to the placed one. This is the path that lifts the onboarding B2 cap.
+   *  `snapshot` is the per-skill diagnosis appended to the level history (quarterly re-check trail). */
+  applyLevelTest: (skill: Record<string, number>, beltIdx: number, date: string, snapshot?: LevelSnapshot) => void;
   /** Pay the weekly-quest completion bonus: +xp once, and mark the plan as paid. */
   awardQuestBonus: (xp: number, profilePatch: Partial<Profile>) => void;
   /** Buy back the broken streak ("отработка у Сэнсэя"). Charges koku server-side; throws on 409. */
@@ -723,7 +755,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   );
 
   const applyLevelTest = useCallback(
-    (skill: Record<string, number>, beltIdx: number, date: string) => {
+    (skill: Record<string, number>, beltIdx: number, date: string, snapshot?: LevelSnapshot) => {
       // The full adaptive test is legitimate evidence, so it both re-seeds the skill estimate
       // (uncapped — can place at C1) and raises the worn belt. Only RAISES the belt (max) so a
       // retake never strips a belt already earned via exams.
@@ -732,6 +764,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           ...prev,
           skill,
           lastExamDate: date,
+          lastLevelTestDate: date,
+          levelHistory: snapshot
+            ? [...(prev.levelHistory ?? []), snapshot].slice(-LEVEL_HISTORY_MAX)
+            : prev.levelHistory,
           beltEarned: Math.max(prev.beltEarned ?? 0, beltIdx),
         };
         void save(next);

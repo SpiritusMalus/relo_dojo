@@ -399,6 +399,16 @@ class CourseState(BaseModel):
     mastered: list[str] = []
 
 
+class LevelSnapshot(BaseModel):
+    """One saved full Level Test result (client store/progress.tsx): the diagnosis trail behind the
+    quarterly re-check. `skills` maps skill name (grammar/vocab/reading/listening/writing) → 0..5."""
+
+    date: str = ""  # local YYYY-MM-DD the test was saved
+    level: float = 0.0  # blended overall estimate (0..5)
+    cefr: str = ""
+    skills: dict[str, float] = {}
+
+
 class ProgressData(BaseModel):
     xp: int = 0
     dailyStreak: int = 0
@@ -417,6 +427,10 @@ class ProgressData(BaseModel):
     # Belt exam (client mechanic; synced so the worn belt survives device changes).
     beltEarned: Optional[int] = None
     lastExamDate: str = ""
+    # Full Level Test trail (client mechanic): last-taken date drives the quarterly re-check nudge,
+    # snapshots drive the "vs last time" diagnosis. Mirrored so sync never silently drops them.
+    lastLevelTestDate: str = ""
+    levelHistory: list[LevelSnapshot] = []
     steering: Steering = Field(default_factory=Steering)  # learner-set adaptive overrides (synced)
     course: CourseState = Field(default_factory=CourseState)  # mastery-gate evidence (synced)
 

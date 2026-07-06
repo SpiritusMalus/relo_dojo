@@ -28,6 +28,8 @@ import { tickDiary } from "../../store/diary";
 import ProgressBarUi from "../../components/ui/ProgressBar";
 import { senseiGreeting, weakestTopic } from "../../store/greeting";
 import { canAttemptToday, examOffer } from "../../store/exam";
+import { levelCheckDue } from "../../store/levelCheck";
+import Icon from "../../components/ui/Icon";
 import { beltByIndex } from "../../theme/theme";
 import BeltKnot from "../../components/ui/BeltKnot";
 import { TOPIC_LABELS, minutesToGoal } from "../../store/onboarding";
@@ -274,6 +276,42 @@ export default function HomeScreen() {
               </Txt>
               <Txt variant="secondary" color={target.ink} style={{ opacity: 0.8 }}>
                 {allowed ? tr("exam.btnSub") : tr("exam.tomorrow")}
+              </Txt>
+            </View>
+          </Pressable>
+        );
+      })()}
+
+      {/* Level check (store/levelCheck.ts): the periodic "переаттестация" invite to the full Level
+          Test — first after real practice accumulates, then quarterly. One ritual card at a time:
+          hidden while the belt exam is offered (the exam is the more urgent ceremony). */}
+      {(() => {
+        if (examOffer(progress)) return null;
+        const due = levelCheckDue(progress, isoDay(new Date()));
+        if (!due) return null;
+        return (
+          <Pressable
+            onPress={() => router.push("/level-test")}
+            accessibilityRole="button"
+            accessibilityLabel="Level check"
+            style={({ pressed }) => [
+              styles.examBtn,
+              {
+                backgroundColor: t.c.surface,
+                borderRadius: t.spacing.radius,
+                borderWidth: 1,
+                borderColor: t.c.line,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <Icon name="target" size={28} color={t.c.accent} />
+            <View style={{ flex: 1 }}>
+              <Txt variant="cardTitle">
+                {tr(due === "first" ? "home.lcFirstTitle" : "home.lcQuarterTitle")}
+              </Txt>
+              <Txt variant="secondary" color={t.c.ink2}>
+                {tr(due === "first" ? "home.lcFirstSub" : "home.lcQuarterSub")}
               </Txt>
             </View>
           </Pressable>
