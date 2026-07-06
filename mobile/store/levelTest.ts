@@ -97,6 +97,36 @@ export function combineLevels(receptive: number, writing: number): LevelTestResu
   return { level, cefr, beltIdx: beltByCefr(cefr).idx };
 }
 
+// --- Listening blend -----------------------------------------------------------
+// The run samples only ~2–4 listening items — a thin, noisy read. Daily listening practice
+// (listen-and-answer / listen-and-retell, progress.listening) accumulates far more evidence, so the
+// diagnosis blends the two: test items stay primary (one unit of evidence each), practice contributes
+// up to BLEND_PRACTICE_CAP units as attempts pile up. One lucky practice answer can't yank a test
+// sample around, but weeks of daily listening meaningfully correct it.
+
+export const PRACTICE_PER_UNIT = 3; // this many practice answers ≈ one test item of evidence
+export const BLEND_PRACTICE_CAP = 4; // max evidence units practice can contribute to the blend
+export const MIN_PRACTICE_FOR_SOLO = 3; // attempts needed to show a practice-only listening row
+
+/** Blend the run's listening sample with the live practice estimate. Returns the blended 0..5 level,
+ *  the practice-only level when the run never sampled listening (but real evidence exists), or
+ *  undefined when there is no signal from either side. */
+export function blendListening(
+  sample: { estimate?: number; n: number },
+  live?: { level: number; attempts: number }
+): number | undefined {
+  if (sample.estimate === undefined || sample.n <= 0) {
+    return live && live.attempts >= MIN_PRACTICE_FOR_SOLO ? live.level : sample.estimate;
+  }
+  const practiceUnits = live ? Math.min(BLEND_PRACTICE_CAP, live.attempts / PRACTICE_PER_UNIT) : 0;
+  if (practiceUnits <= 0) return sample.estimate;
+  return clamp(
+    (sample.estimate * sample.n + live!.level * practiceUnits) / (sample.n + practiceUnits),
+    0,
+    5
+  );
+}
+
 /** Per-skill DIAGNOSIS from the answer log — a coarse estimate per sampled skill ("writing" is added
  *  by the screen from its LLM score). With only ~2–4 items per skill this is a direction indicator,
  *  not a placement: each answer reads as "handles items at this difficulty" (level + ½ band) or

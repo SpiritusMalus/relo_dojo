@@ -437,6 +437,7 @@ export const STRINGS = {
     "ex.transcriptShown": "Audio isn't available on this build — here's the transcript:",
     "ex.retellPrompt": "Retell what you heard in your own words (in English).",
     "ex.retellPlaceholder": "Type your retelling in English…",
+    "ex.retellSpeak": "🎙 Dictate your retelling",
 
     // Voice direction (opt-in pronunciation; dormant until the flag + legal gate clear).
     // NB: consent copy is a DRAFT pending legal/DPO sign-off (brief voice-direction steps 1–3).
@@ -455,6 +456,8 @@ export const STRINGS = {
     "voice.talk": "Talk with Sensei",
     "voice.endTalk": "End conversation",
     "voice.unavailable": "Voice practice isn't available right now.",
+    "voice.transcribing": "Transcribing…",
+    "voice.sttFailed": "Couldn't catch that — try again or type it.",
 
     // Fixed on-card task instructions / chrome (the exercise *content* stays English; these are the
     // localized "what to do" labels the learner reads — see components/*.tsx).
@@ -935,6 +938,7 @@ export const STRINGS = {
     "ex.transcriptShown": "Аудио недоступно на этой сборке — вот текст:",
     "ex.retellPrompt": "Перескажи услышанное своими словами (на английском).",
     "ex.retellPlaceholder": "Напиши пересказ на английском…",
+    "ex.retellSpeak": "🎙 Надиктовать пересказ",
 
     // Голосовое направление (опциональное произношение; спит до флага + юр. гейта).
     // ВНИМАНИЕ: текст согласия — ЧЕРНОВИК до проверки юристом/DPO (бриф voice-direction, шаги 1–3).
@@ -953,6 +957,8 @@ export const STRINGS = {
     "voice.talk": "Поговорить с Сэнсэем",
     "voice.endTalk": "Завершить разговор",
     "voice.unavailable": "Голосовая практика сейчас недоступна.",
+    "voice.transcribing": "Расшифровываю…",
+    "voice.sttFailed": "Не расслышал — попробуй ещё раз или напиши текстом.",
 
     "ex.matchPairs": "Соедини каждый элемент с его парой.",
     "ex.tapError": "Нажми на слово с ошибкой.",

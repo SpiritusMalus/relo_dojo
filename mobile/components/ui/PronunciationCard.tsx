@@ -4,7 +4,7 @@ import { getVoiceLiveToken, transcribeAudio } from "../../services/api";
 import { useI18n } from "../../store/i18n";
 import { useVoiceConsent } from "../../store/voiceConsent";
 import { canUseVoice, gradeReadAloud, voiceFeatureEnabled } from "../../services/voice";
-import { requestMicPermission, startRecording, stopRecording } from "../../services/voiceCapture";
+import { requestMicPermission, startRecording, stopRecording, uriToBase64 } from "../../services/voiceCapture";
 import { openLiveSession, type LiveSession } from "../../services/geminiLive";
 import { useTheme } from "../../theme/theme";
 import Button from "./Button";
@@ -32,17 +32,6 @@ export default function PronunciationCard({ target, lang }: { target: string; la
   const [talking, setTalking] = useState(false);
   const recRef = useRef<Awaited<ReturnType<typeof startRecording>> | null>(null);
   const liveRef = useRef<LiveSession | null>(null);
-
-  // Read a captured file URI as base64 (RN globals; no extra native dep).
-  const uriToBase64 = useCallback(async (uri: string): Promise<string> => {
-    const blob = await (await fetch(uri)).blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(reader.error);
-      reader.onloadend = () => resolve(String(reader.result).split(",")[1] ?? "");
-      reader.readAsDataURL(blob);
-    });
-  }, []);
 
   // Guard: never proceed without flag + consent. Missing consent → prompt; flag off → unavailable.
   const ensureGate = useCallback((): boolean => {
@@ -77,7 +66,7 @@ export default function PronunciationCard({ target, lang }: { target: string; la
     } catch {
       setPhase("retry");
     }
-  }, [lang, target, uriToBase64]);
+  }, [lang, target]);
 
   const toggleTalk = useCallback(async () => {
     if (talking) {

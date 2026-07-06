@@ -123,6 +123,36 @@ export function updateSkill(
   return { ...p.skill, [topic]: next };
 }
 
+// --- Listening modality estimate ----------------------------------------------
+// Listening is a MODALITY, not a grammar topic: its estimate lives beside the per-topic `skill`
+// map (never inside it), so it can't join the topic mix or the belt math. It exists to keep the
+// Level Test diagnosis honest between tests — the test samples ~2–4 listening items, while daily
+// listen-and-answer / listen-and-retell practice accumulates far more evidence.
+
+/** The exercise formats that count as listening evidence. */
+export const LISTENING_FORMATS: ReadonlySet<string> = new Set(["listen-and-answer", "listen-and-retell"]);
+
+/** Live listening estimate from daily listening exercises (level on the same 0..5 scale;
+ *  `attempts` is the evidence count — it drives the step decay and the diagnosis blend weight). */
+export type ListeningStat = { level: number; attempts: number };
+
+/** Fold one graded listening answer into the running estimate — the same Elo/IRT-lite step as
+ *  `updateSkill` (decaying k, difficulty-aware expected outcome), applied to the modality. */
+export function updateListening(
+  prev: ListeningStat | undefined,
+  outcome: number | boolean,
+  difficulty?: number
+): ListeningStat {
+  const o = typeof outcome === "boolean" ? (outcome ? 1 : 0) : clamp(outcome, 0, 1);
+  const cur = prev ?? { level: START_LEVEL, attempts: 0 };
+  const k = Math.max(0.15, 0.5 / (1 + cur.attempts / 20));
+  const expected = expectedOutcome(cur.level, difficulty ?? cur.level);
+  return {
+    level: clamp(cur.level + k * (o - expected), LEVEL_MIN, LEVEL_MAX),
+    attempts: cur.attempts + 1,
+  };
+}
+
 // Exercise-type mix by level — recognition first, production later. free-text stays disabled.
 // odd-one-out is recognition (fine early); multiple-blanks is mid; order-the-dialog needs cohesion
 // (later). Listening joins at every band (comprehension is trained from day one) but the typed

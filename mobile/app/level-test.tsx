@@ -11,6 +11,7 @@ import * as Speech from "expo-speech";
 import { assessWriting, type ResponseValue } from "../services/api";
 import { itemToExercise, pickWritingPrompt, type CalItem } from "../store/calibrationBank";
 import {
+  blendListening,
   combineLevels,
   isDone,
   levelTestResult,
@@ -162,8 +163,13 @@ export default function LevelTestScreen() {
     if (!done) return {};
     const r: Record<string, number> = { ...skillReport(stRef.current) };
     if (writingScoreRef.current !== null) r.writing = writingScoreRef.current;
+    // Listening: this run's few items are a thin sample — blend in the live estimate accumulated
+    // from daily listening practice (a run that skipped listening still gets a practice-only row).
+    const sampleN = stRef.current.answers.filter((a) => a.skill === "listening").length;
+    const listening = blendListening({ estimate: r.listening, n: sampleN }, progress.listening);
+    if (listening !== undefined) r.listening = listening;
     return r;
-  }, [done]);
+  }, [done, progress.listening]);
 
   // The previous saved test, for the "vs last time" deltas (null on the first run ever).
   const prevSnap = useMemo<LevelSnapshot | null>(() => {

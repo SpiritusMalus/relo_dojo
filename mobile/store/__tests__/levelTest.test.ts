@@ -1,4 +1,5 @@
 import {
+  blendListening,
   combineLevels,
   isDone,
   levelTestResult,
@@ -6,8 +7,11 @@ import {
   recordAnswer,
   skillReport,
   startLevelTest,
+  BLEND_PRACTICE_CAP,
   LT_MAX_ITEMS,
   LT_MIN_ITEMS,
+  MIN_PRACTICE_FOR_SOLO,
+  PRACTICE_PER_UNIT,
   type LevelTestState,
 } from "../levelTest";
 import { isCoreItem, pickOnboardingItem, pickWritingPrompt, skillOf, type CalItem, type CalSkill } from "../calibrationBank";
@@ -150,6 +154,42 @@ describe("level test engine — per-skill diagnosis (skillReport)", () => {
     const sampled = Array.from(new Set(s.answers.map((a) => a.skill))).sort();
     expect(Object.keys(skillReport(s)).sort()).toEqual(sampled);
     expect(sampled.length).toBeGreaterThanOrEqual(3); // rotation covered more than grammar
+  });
+});
+
+describe("level test engine — listening blend (daily practice → diagnosis)", () => {
+  test("no practice evidence → the test sample passes through untouched", () => {
+    expect(blendListening({ estimate: 2.0, n: 3 })).toBe(2.0);
+    expect(blendListening({ estimate: 2.0, n: 3 }, { level: 4, attempts: 0 })).toBe(2.0);
+  });
+
+  test("practice evidence pulls a thin test sample toward the live estimate", () => {
+    // 3 test items at 1.5 + 9 practice answers (3 units) at 3.0 → (1.5*3 + 3*3)/6 = 2.25.
+    const blended = blendListening({ estimate: 1.5, n: 3 }, { level: 3.0, attempts: 9 });
+    expect(blended).toBeCloseTo(2.25, 5);
+    // The test stays primary: the blend sits between the two, nearer neither extreme.
+    expect(blended!).toBeGreaterThan(1.5);
+    expect(blended!).toBeLessThan(3.0);
+  });
+
+  test("practice weight saturates at the cap — a mountain of practice can't drown the test", () => {
+    const capped = blendListening({ estimate: 2.0, n: 2 }, { level: 4.0, attempts: 10_000 });
+    // Weight caps at BLEND_PRACTICE_CAP units: (2*2 + 4*cap)/(2+cap).
+    const expected = (2 * 2 + 4 * BLEND_PRACTICE_CAP) / (2 + BLEND_PRACTICE_CAP);
+    expect(capped).toBeCloseTo(expected, 5);
+  });
+
+  test("a run that never sampled listening shows the practice-only estimate once it has evidence", () => {
+    expect(blendListening({ n: 0 }, { level: 2.8, attempts: MIN_PRACTICE_FOR_SOLO })).toBe(2.8);
+    // ...but not from a single lucky answer.
+    expect(blendListening({ n: 0 }, { level: 2.8, attempts: MIN_PRACTICE_FOR_SOLO - 1 })).toBeUndefined();
+    expect(blendListening({ n: 0 })).toBeUndefined();
+  });
+
+  test("practice answers convert to evidence units at the documented rate", () => {
+    // attempts == PRACTICE_PER_UNIT → exactly one test-item of weight.
+    const one = blendListening({ estimate: 2.0, n: 1 }, { level: 4.0, attempts: PRACTICE_PER_UNIT });
+    expect(one).toBeCloseTo(3.0, 5);
   });
 });
 

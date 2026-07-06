@@ -6,6 +6,9 @@ import { Audio } from "expo-av";
 
 export type Utterance = { uri: string };
 
+/** Opaque handle for an in-flight recording (type-only import stays out of the runtime graph). */
+export type RecordingHandle = Audio.Recording;
+
 /** Ask for microphone permission (OS prompt). Returns true if granted. */
 export async function requestMicPermission(): Promise<boolean> {
   const { granted } = await Audio.requestPermissionsAsync();
@@ -27,4 +30,16 @@ export async function stopRecording(rec: Audio.Recording): Promise<Utterance> {
   const uri = rec.getURI();
   if (!uri) throw new Error("No audio captured");
   return { uri };
+}
+
+/** Read a captured file URI as base64 (RN globals; no extra native dep) — the /voice/transcribe
+ *  upload format. Shared by every capture surface (read-aloud, voice retell). */
+export async function uriToBase64(uri: string): Promise<string> {
+  const blob = await (await fetch(uri)).blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onloadend = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.readAsDataURL(blob);
+  });
 }

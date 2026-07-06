@@ -18,7 +18,9 @@ import {
   topicWeight,
   typeWeightsForLevel,
   unlockedTopics,
+  updateListening,
   updateSkill,
+  LISTENING_FORMATS,
 } from "../adaptive";
 import { DEFAULT_PROGRESS, DEFAULT_STEERING, type Progress, type Steering } from "../progress";
 
@@ -131,6 +133,44 @@ describe("updateSkill", () => {
     const k = 0.5; // attempts 0
     const expected = 2 + k * (1 - TARGET_SUCCESS);
     expect(updateSkill(p, "articles", true).articles).toBeCloseTo(expected, 6);
+  });
+});
+
+describe("updateListening (listening-modality estimate)", () => {
+  it("covers exactly the two listening exercise formats", () => {
+    expect(LISTENING_FORMATS.has("listen-and-answer")).toBe(true);
+    expect(LISTENING_FORMATS.has("listen-and-retell")).toBe(true);
+    expect(LISTENING_FORMATS.has("multiple-choice")).toBe(false);
+  });
+
+  it("cold-starts at START_LEVEL and moves like updateSkill", () => {
+    const up = updateListening(undefined, true);
+    const down = updateListening(undefined, false);
+    expect(up.attempts).toBe(1);
+    expect(up.level).toBeGreaterThan(START_LEVEL);
+    expect(down.level).toBeLessThan(START_LEVEL);
+    // Same controller: a miss moves more than a hit at the ~75% target.
+    expect(START_LEVEL - down.level).toBeGreaterThan(up.level - START_LEVEL);
+  });
+
+  it("shrinks the step as evidence accumulates and clamps to [0, 5]", () => {
+    const fresh = updateListening({ level: 2, attempts: 0 }, true);
+    const seasoned = updateListening({ level: 2, attempts: 200 }, true);
+    expect(seasoned.level - 2).toBeLessThan(fresh.level - 2);
+    expect(updateListening({ level: 5, attempts: 0 }, true).level).toBeLessThanOrEqual(5);
+    expect(updateListening({ level: 0, attempts: 0 }, false).level).toBeGreaterThanOrEqual(0);
+  });
+
+  it("is difficulty-aware: nailing a hard item moves more than nailing an easy one", () => {
+    const hard = updateListening({ level: 2, attempts: 0 }, true, 3.5);
+    const easy = updateListening({ level: 2, attempts: 0 }, true, 0.5);
+    expect(hard.level).toBeGreaterThan(easy.level);
+  });
+
+  it("accepts the partial score (0..1) like the retell grader emits", () => {
+    const partial = updateListening({ level: 2, attempts: 0 }, 0.5);
+    const full = updateListening({ level: 2, attempts: 0 }, 1);
+    expect(partial.level).toBeLessThan(full.level);
   });
 });
 
