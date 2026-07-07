@@ -89,9 +89,14 @@ async def register(payload: RegisterIn, db: AsyncSession = Depends(get_db)) -> T
 
 @router.post("/login", response_model=TokenOut, dependencies=[Depends(auth_rate_limit)])
 async def login(payload: LoginIn, db: AsyncSession = Depends(get_db)) -> TokenOut:
-    # Note: the Gmail block lives on /register only. Login must stay open so any pre-existing account
-    # (e.g. created before the block, or via another path) is never locked out of its own data.
-    user = await _get_by_email(db, payload.email.lower())
+    email = payload.email.lower()
+    # The RU ban covers signing IN through foreign email services, not just sign-up, so the Google
+    # block applies here too — even a pre-existing Gmail account is refused (the earlier "never lock
+    # out an existing account" stance lost to the legal risk). Checked before the DB lookup: the 400
+    # is uniform for the whole domain, so it discloses nothing about whether an account exists.
+    if is_blocked_email(email):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=BLOCKED_EMAIL_MESSAGE)
+    user = await _get_by_email(db, email)
     # Constant-ish timing: run an argon2 verify even when the email is unknown, against a fixed dummy
     # hash, so a missing account doesn't return faster than a wrong password (login user-enumeration
     # via a timing oracle). Either branch ends in the same generic 401.
