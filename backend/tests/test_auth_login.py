@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.routers import auth
-from app.schemas import LoginIn
+from app.schemas import LoginIn, RegisterIn
 
 
 class _FakeResult:
@@ -62,3 +62,31 @@ async def test_login_success_returns_token(monkeypatch):
     out = await auth.login(LoginIn(email="real@example.org", password="right"), _FakeDB(user))
 
     assert out.access_token
+
+
+@pytest.mark.parametrize("email", ["owner@gmail.com", "Old.User@googlemail.com"])
+async def test_login_google_email_blocked_before_any_lookup(monkeypatch, email):
+    """RU restriction: Google-mail sign-IN is refused outright — even for an account that exists.
+    The 400 must fire before credentials are touched, so no verify (and no timing signal) runs."""
+    monkeypatch.setattr(
+        auth, "verify_password", lambda pw, h: pytest.fail("blocked email must not reach verify")
+    )
+    existing = SimpleNamespace(id=uuid.uuid4(), password_hash="$argon2id$real")
+
+    with pytest.raises(auth.HTTPException) as exc:
+        await auth.login(LoginIn(email=email, password="whatever"), _FakeDB(existing))
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == auth.BLOCKED_EMAIL_MESSAGE
+
+
+async def test_register_google_email_blocked(monkeypatch):
+    monkeypatch.setattr(
+        auth, "verify_password", lambda pw, h: pytest.fail("blocked email must not reach verify")
+    )
+
+    with pytest.raises(auth.HTTPException) as exc:
+        await auth.register(RegisterIn(email="new@google.com", password="password123"), _FakeDB(None))
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == auth.BLOCKED_EMAIL_MESSAGE

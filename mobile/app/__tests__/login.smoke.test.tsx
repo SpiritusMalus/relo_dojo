@@ -66,4 +66,18 @@ describe("Login screen (smoke)", () => {
     expect(mockRegister).not.toHaveBeenCalled();
     act(() => r.unmount());
   });
+
+  it("blocks Google email in LOGIN mode too: banner shown, submit inert (RU restriction)", async () => {
+    const r = render(<LoginScreen />);
+    act(() => inputByLabel(r, "login.email").props.onChangeText("old.account@gmail.com"));
+    act(() => inputByLabel(r, "login.password").props.onChangeText("password123"));
+
+    expect(JSON.stringify(r.toJSON())).toContain("login.gmailBlocked");
+    await act(async () => {
+      await buttons(r)[0].props.onPress();
+    });
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockRegister).not.toHaveBeenCalled();
+    act(() => r.unmount());
+  });
 });

@@ -1,4 +1,4 @@
-"""Gmail sign-up block (app.core.email_policy.is_blocked_email)."""
+"""Google-mail auth block (app.core.email_policy.is_blocked_email) — sign-up AND sign-in."""
 
 import pytest
 
@@ -12,9 +12,11 @@ from app.core.email_policy import is_blocked_email
         "USER@GMAIL.COM",
         "first.last+tag@gmail.com",
         "someone@googlemail.com",
+        "employee@google.com",
+        "list@googlegroups.com",
     ],
 )
-def test_blocks_gmail_and_aliases(email):
+def test_blocks_google_mail_domains(email):
     assert is_blocked_email(email) is True
 
 
@@ -26,6 +28,7 @@ def test_blocks_gmail_and_aliases(email):
         "user@outlook.com",
         "user@notgmail.com",  # different domain that merely contains the word
         "user@gmail.com.evil.ru",  # gmail is not the actual domain
+        "user@mail.google.com.example.org",  # ditto for google.com
         "malformed-without-at",
     ],
 )

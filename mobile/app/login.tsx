@@ -24,8 +24,9 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const isRegister = mode === "register";
-  // Gmail is blocked for NEW sign-ups only; existing accounts must still be able to log in.
-  const gmailBlocked = isRegister && isBlockedEmail(email);
+  // Google mail is blocked for BOTH sign-up and sign-in (RU restriction) — mirrors the server-side
+  // check in backend email_policy.py, which also refuses pre-existing Gmail accounts.
+  const gmailBlocked = isBlockedEmail(email);
   const canSubmit = email.includes("@") && password.length >= 8 && !busy && !gmailBlocked;
 
   async function onSubmit() {
