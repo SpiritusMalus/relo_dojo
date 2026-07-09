@@ -196,6 +196,19 @@ class ExplainOut(BaseModel):
     tip: str
 
 
+# --- on-demand word/phrase translation (LLM) ---
+# The learner long-presses an English word (or short phrase) in an exercise to see what it means in
+# their UI language. `context` is the sentence it came from, so the model disambiguates by sense.
+class TranslateIn(BaseModel):
+    text: str = Field(min_length=1, max_length=MAX_ANSWER)
+    context: str = Field(default="", max_length=MAX_TEXT)
+    lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language (target)
+
+
+class TranslateOut(BaseModel):
+    translation: str
+
+
 # --- accounts (Phase 4) ---
 MIN_PASSWORD = 8
 MAX_PASSWORD = 128

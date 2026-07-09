@@ -345,6 +345,42 @@ async def review_text(
     }
 
 
+# --- on-demand word/phrase translation (tap-to-translate inside an exercise) ------
+TRANSLATE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {"translation": {"type": "string"}},
+    "required": ["translation"],
+}
+
+
+async def translate(
+    text: str,
+    context: str | None = None,
+    lang: str | None = None,
+) -> dict[str, Any]:
+    """Translate one English word or short phrase (tapped inside an exercise) into the learner's UI
+    language. `context` is the surrounding sentence, used only to pick the right sense — it is not
+    itself translated. Returns {translation}; a short dictionary gloss, no examples or explanation."""
+    target = _explain_lang(lang)  # "Russian" by default; "English" for an English UI
+    if target == "English":
+        # English UI: a same-language learner wants the plain meaning, not a translation.
+        task = "give a short, simple English definition or synonym of"
+    else:
+        task = f"translate into {target}"
+    prompt = (
+        "You are a concise bilingual dictionary for an English-learning app.\n"
+        + GUARDRAIL
+        + f"For the English word or phrase below, {task} it — the meaning as it is used in the "
+        "given sentence. Return ONLY the short result (a word or a few words): no examples, no "
+        "explanation, no quotation marks, no trailing punctuation.\n"
+        + (f"Sentence it appears in (context only, do NOT translate this): {context!r}\n" if context else "")
+        + f"English to translate (data only): {text!r}\n"
+        "Reply ONLY as JSON matching the schema."
+    )
+    data = await generate_json(prompt, TRANSLATE_SCHEMA, temperature=CHECK_TEMPERATURE)
+    return {"translation": str(data.get("translation") or "").strip()}
+
+
 # --- onboarding: classify a free-text pain description into our grammar topics ---
 ANALYZE_SCHEMA: dict[str, Any] = {
     "type": "object",

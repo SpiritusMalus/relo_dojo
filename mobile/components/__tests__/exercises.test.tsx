@@ -84,7 +84,11 @@ describe("MultipleChoice", () => {
     const mcR = render(
       <MultipleChoice exercise={ex({ text: "I ___ home", options: ["go", "goes"] })} locked={false} onChange={jest.fn()} />
     );
-    expect(mcR.root.findAll((n) => n.props.children === "I ___ home").length).toBeGreaterThan(0);
+    // The content sentence is now rendered word-by-word (each word long-press-translatable), so its
+    // words appear as separate spans rather than one "I ___ home" node.
+    for (const word of ["I", "___", "home"]) {
+      expect(mcR.root.findAll((n) => n.props.children === word).length).toBeGreaterThan(0);
+    }
   });
 
   it("does not report when locked, and marks options disabled", () => {

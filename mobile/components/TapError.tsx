@@ -4,12 +4,15 @@ import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import Txt from "./ui/Txt";
+import { useTranslator } from "./ui/TranslationPopover";
 
 // Tap the single wrong word in the sentence. Response is the tapped token index.
 export default function TapError({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
   const { t: tr } = useI18n();
+  const { translateAt } = useTranslator();
   const tokens = exercise.tokens ?? [];
+  const sentence = tokens.join(" ");
   const [selected, setSelected] = useState<number | null>(null);
 
   function tap(i: number) {
@@ -30,10 +33,13 @@ export default function TapError({ exercise, locked, onChange }: ExerciseProps) 
             <Pressable
               key={`${i}-${word}`}
               onPress={() => tap(i)}
+              onLongPress={(e) =>
+                translateAt(word, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }, sentence)
+              }
               disabled={locked}
               accessibilityRole="button"
               accessibilityLabel={`Word: ${word}`}
-              accessibilityHint="Tap if this word is the mistake"
+              accessibilityHint="Tap if this word is the mistake; long-press to translate it"
               accessibilityState={{ selected: on, disabled: locked }}
               style={{
                 borderWidth: on ? 2 : 1,

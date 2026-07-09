@@ -82,6 +82,7 @@ from ._grammar_feedback import (
     REVIEW_MAX_ISSUES,
     REVIEW_SCHEMA,
     TONE_LINES,
+    TRANSLATE_SCHEMA,
     _check_prompt,
     _explain_lang,
     _feedback_clause,
@@ -95,6 +96,7 @@ from ._grammar_feedback import (
     explain,
     explain_text_prompt,
     review_text,
+    translate,
 )
 
 # The "one exception across providers" re-export some callers expect from this module.
@@ -111,6 +113,7 @@ __all__ = [
     "check_answer",
     "check_retell",
     "explain",
+    "translate",
     "review_text",
     "analyze_pain",
     "assess_writing",
