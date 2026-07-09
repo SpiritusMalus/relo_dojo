@@ -8,6 +8,7 @@ Public (no auth):
 - POST /check-answer -> LLM grade of a free-text answer + explanation
 - POST /check-retell -> LLM grade of a listen-and-retell answer (content coverage)
 - POST /explain      -> on-demand LLM teaching note for an interactive miss
+- POST /translate    -> tap-to-translate one English word/phrase into the learner's UI language
 
 Accounts (Phase 4):
 - POST /auth/register, /auth/login ; GET /auth/me
@@ -54,6 +55,8 @@ from .schemas import (
     ExerciseOut,
     ExplainIn,
     ExplainOut,
+    TranslateIn,
+    TranslateOut,
     ReviewIn,
     ContentBuyOut,
     ContentIn,
@@ -444,6 +447,18 @@ async def explain_stream(
             yield f"\n[unavailable: {exc}]"
 
     return StreamingResponse(_stream(), media_type="text/plain; charset=utf-8")
+
+
+@app.post("/translate", response_model=TranslateOut, dependencies=[Depends(llm_rate_limit)])
+async def translate(payload: TranslateIn) -> TranslateOut:
+    """Tap-to-translate: one English word/phrase from an exercise → its meaning in the learner's UI
+    language. `context` (the surrounding sentence) picks the right sense; no auth needed (it reads
+    nothing about the learner), but it shares the LLM rate limit like every other model-backed route."""
+    try:
+        data = await grammar.translate(payload.text, payload.context, payload.lang)
+    except OllamaError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return TranslateOut(**data)
 
 
 @app.post("/review-text", response_model=ReviewOut, dependencies=[Depends(llm_rate_limit)])

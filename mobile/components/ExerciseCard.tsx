@@ -7,9 +7,15 @@ import MultipleChoice from "./MultipleChoice";
 import OrderDialog from "./OrderDialog";
 import TapError from "./TapError";
 import type { ExerciseProps } from "./types";
+import { TranslationProvider } from "./ui/TranslationPopover";
 
-// Renders the right interactive component for the exercise's type.
+// Renders the right interactive component for the exercise's type. Wrapped in a TranslationProvider so
+// any English word inside the card can be long-pressed to see its meaning (tap-to-translate).
 export default function ExerciseCard(props: ExerciseProps) {
+  return <TranslationProvider>{renderBody(props)}</TranslationProvider>;
+}
+
+function renderBody(props: ExerciseProps) {
   switch (props.exercise.type) {
     case "multiple-choice":
       return <MultipleChoice {...props} />;

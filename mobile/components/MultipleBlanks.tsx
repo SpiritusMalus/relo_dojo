@@ -1,14 +1,36 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
 import Txt from "./ui/Txt";
+import { useTranslator } from "./ui/TranslationPopover";
 
 // Sentence with several '___' blanks; pick one option per blank. Response is the picks in order.
 export default function MultipleBlanks({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
+  const { translateAt } = useTranslator();
   const blanks = exercise.blankOptions ?? [];
-  const segments = (exercise.text ?? "").split("___");
+  const sentence = exercise.text ?? "";
+  const segments = sentence.split("___");
+
+  // Render a prose segment as long-press-translatable word spans (the blanks between segments are
+  // filled options, handled separately). Whitespace stays as plain strings to preserve the layout.
+  const words = (seg: string) =>
+    seg.split(/(\s+)/).map((part, wi) =>
+      /\S/.test(part) ? (
+        <Text
+          key={wi}
+          suppressHighlighting
+          onLongPress={(e) =>
+            translateAt(part, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }, sentence)
+          }
+        >
+          {part}
+        </Text>
+      ) : (
+        part
+      )
+    );
   // Track the picked option index per blank (not the string): duplicate option texts within a blank
   // must be distinguishable. The value reported to the grader is still the picked strings, in order.
   const [picks, setPicks] = useState<(number | null)[]>(() => blanks.map(() => null));
@@ -28,7 +50,7 @@ export default function MultipleBlanks({ exercise, locked, onChange }: ExerciseP
       <Txt variant="cardTitle" style={{ fontSize: 19, lineHeight: 27 }}>
         {segments.map((seg, i) => (
           <Txt key={i} variant="cardTitle" style={{ fontSize: 19, lineHeight: 27 }}>
-            {seg}
+            {words(seg)}
             {i < blanks.length ? (
               <Txt variant="mono" color={picks[i] != null ? t.c.accent : t.c.ink3}>
                 {picks[i] != null ? blanks[i][picks[i]!] : " _____ "}
@@ -48,6 +70,9 @@ export default function MultipleBlanks({ exercise, locked, onChange }: ExerciseP
                 <Pressable
                   key={`${oi}-${opt}`}
                   onPress={() => choose(bi, oi)}
+                  onLongPress={(e) =>
+                    translateAt(opt, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }, sentence)
+                  }
                   disabled={locked}
                   accessibilityRole="button"
                   accessibilityLabel={`Blank ${bi + 1}, option ${opt}`}

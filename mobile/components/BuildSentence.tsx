@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, View } from "react-native";
+import { Animated, Pressable, StyleSheet, View, type GestureResponderEvent } from "react-native";
 import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import Sensei from "./ui/Sensei";
 import Icon from "./ui/Icon";
 import Txt from "./ui/Txt";
+import TranslatableText from "./ui/TranslatableText";
+import { useTranslator } from "./ui/TranslationPopover";
 
 // Build-the-sentence (RU → EN). Prompt card (mascot + RU) → dashed answer track → word bank.
 // Tap a bank tile to place it; tap a placed tile to remove. Submittable once enough tiles for the
@@ -32,7 +34,13 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
     return merged;
   });
   const [order, setOrder] = useState<number[]>([]);
+  const { translateAt } = useTranslator();
   const isTransform = exercise.type === "transform-the-sentence";
+  // The tiles (in answer order) form the English sentence — used only as sense context when a single
+  // tile is translated (never shown to the learner, so it doesn't reveal the answer).
+  const tileContext = tiles.join(" ");
+  const translateTile = (word: string) => (e: GestureResponderEvent) =>
+    translateAt(word, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }, tileContext);
 
   function report(next: number[]) {
     // Enough words for the full answer = submittable; leftover bank tiles are (ideally) the traps.
@@ -62,9 +70,19 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
         <Sensei size={48} mood="think" />
         <View style={{ flex: 1 }}>
           <Txt variant="label">{isTransform ? exercise.instruction || tr("ex.rewrite") : tr("ex.translate")}</Txt>
-          <Txt variant="cardTitle" style={{ fontSize: 21, lineHeight: 27, marginTop: 4 }}>
-            {exercise.prompt || exercise.text}
-          </Txt>
+          {isTransform ? (
+            // Transform shows the English source sentence → make each word long-press-translatable.
+            <TranslatableText
+              text={exercise.prompt || exercise.text}
+              variant="cardTitle"
+              style={{ fontSize: 21, lineHeight: 27, marginTop: 4 }}
+            />
+          ) : (
+            // Build shows the Russian source to translate INTO English — nothing to translate here.
+            <Txt variant="cardTitle" style={{ fontSize: 21, lineHeight: 27, marginTop: 4 }}>
+              {exercise.prompt || exercise.text}
+            </Txt>
+          )}
         </View>
         <Icon name="sound" size={22} color={t.c.ink3} />
       </View>
@@ -82,7 +100,14 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
           </Txt>
         ) : (
           order.map((i) => (
-            <Tile key={i} label={bank[i]} onPress={() => remove(i)} disabled={locked} placed />
+            <Tile
+              key={i}
+              label={bank[i]}
+              onPress={() => remove(i)}
+              onLongPress={translateTile(bank[i])}
+              disabled={locked}
+              placed
+            />
           ))
         )}
       </View>
@@ -90,7 +115,13 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
       {/* Word bank */}
       <View style={styles.bank}>
         {available.map((i) => (
-          <Tile key={i} label={bank[i]} onPress={() => place(i)} disabled={locked} />
+          <Tile
+            key={i}
+            label={bank[i]}
+            onPress={() => place(i)}
+            onLongPress={translateTile(bank[i])}
+            disabled={locked}
+          />
         ))}
       </View>
     </View>
@@ -100,11 +131,13 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
 function Tile({
   label,
   onPress,
+  onLongPress,
   disabled,
   placed = false,
 }: {
   label: string;
   onPress: () => void;
+  onLongPress?: (e: GestureResponderEvent) => void;
   disabled?: boolean;
   placed?: boolean;
 }) {
@@ -119,6 +152,7 @@ function Tile({
     <Animated.View style={{ transform: [{ scale }] }}>
       <Pressable
         onPress={onPress}
+        onLongPress={onLongPress}
         disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={label}

@@ -347,6 +347,28 @@ export function explain(
   });
 }
 
+// Tap-to-translate: one English word (or short phrase) from an exercise → its meaning in the current
+// UI language. `context` is the sentence it came from, so the backend picks the right sense. Results
+// are cached in-process (keyed by lang + word + context): the learner often taps the same word twice,
+// and a word's meaning doesn't change within a session — so a repeat tap is instant and free.
+const translateCache = new Map<string, string>();
+
+export async function translate(text: string, context?: string): Promise<string> {
+  const word = text.trim();
+  if (!word) return "";
+  const key = `${apiLang} ${word} ${context ?? ""}`;
+  const cached = translateCache.get(key);
+  if (cached !== undefined) return cached;
+  const { translation } = await request<{ translation: string }>("/translate", {
+    text: word,
+    context: context ?? "",
+    lang: apiLang,
+  });
+  const result = (translation ?? "").trim();
+  translateCache.set(key, result);
+  return result;
+}
+
 // Minimal reader shape (a ReadableStream<Uint8Array> default reader) so this is testable with a fake.
 type Uint8StreamReader = { read(): Promise<{ done: boolean; value?: Uint8Array }> };
 

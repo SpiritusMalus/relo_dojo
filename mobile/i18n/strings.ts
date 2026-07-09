@@ -470,6 +470,10 @@ export const STRINGS = {
     "ex.rewrite": "Rewrite the sentence",
     "ex.buildHint": "Tap the words below to build it…",
     "ex.rewriteHint": "Tap the words to rewrite it…",
+    // Tap-to-translate popover (long-press any English word → its meaning in the UI language).
+    "ex.translating": "Translating…",
+    "ex.translateFail": "No translation",
+    "ex.translateHint": "Long-press to translate",
 
     "lt.entry": "Level test",
     "lt.entrySub": "A full adaptive test — can reach C1",
@@ -967,6 +971,9 @@ export const STRINGS = {
     "ex.orderDialogHint": "Нажимай реплики ниже по порядку…",
     "ex.translate": "Переведи на английский",
     "ex.rewrite": "Перепиши предложение",
+    "ex.translating": "Перевожу…",
+    "ex.translateFail": "Нет перевода",
+    "ex.translateHint": "Удерживай, чтобы перевести",
     "ex.buildHint": "Нажимай слова ниже, чтобы собрать…",
     "ex.rewriteHint": "Нажимай слова, чтобы переписать…",
 
