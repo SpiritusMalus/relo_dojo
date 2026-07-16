@@ -363,6 +363,14 @@ async def _gen_tap_the_error(topic: str, level: str | None = None, context: str 
     error_index = next((i for i, w in enumerate(words) if _strip_word(w) == target), -1)
     if error_index < 0:
         return _reject("tap-the-error: wrong_word does not appear verbatim in the sentence")
+    # The fix must be a real substitution: the correction has to differ from the wrong word, and it
+    # must not already sit elsewhere in the sentence — otherwise "correcting" it produces a duplicate
+    # (e.g. "...update frequently usually..." with wrong='frequently'→'usually'), which reads as broken.
+    corr_norm = _strip_word(correction)
+    if corr_norm == target:
+        return _reject("tap-the-error: correction must differ from the wrong word")
+    if any(i != error_index and _strip_word(w) == corr_norm for i, w in enumerate(words)):
+        return _reject("tap-the-error: correction already appears elsewhere in the sentence")
     return {
         "type": "tap-the-error",
         "topic": topic,
@@ -495,7 +503,9 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
         "The lines must make sense in EXACTLY ONE order — build strong cohesion: open with a greeting or "
         "question, put every answer after its question, and only use back-references ('it', 'that', "
         "'then', 'sure') after the thing they point to. Avoid lines that could stand in more than one "
-        "position. Set it in the learner's field when given, else everyday. Reply ONLY as JSON.",
+        "position. The LAST line must close the conversation — a reply, confirmation, or sign-off, "
+        "never a dangling question left unanswered. "
+        "Set it in the learner's field when given, else everyday. Reply ONLY as JSON.",
         level,
         context,
         mistakes,

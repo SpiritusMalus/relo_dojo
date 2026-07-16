@@ -94,7 +94,7 @@ export const STRINGS = {
     "result.wrong": "Not quite",
     "result.almost": "Almost — {detail} right",
     "result.explain": "Explain",
-    "result.streak": "🔥 {n} correct in a row!",
+    "result.streak": "⚔️ {n} correct in a row!",
     "result.xp": "+{n} XP",
     "result.firstWin": "🌅 First win today +{n} koku",
     "result.combo": "🎯 Combo +{n} koku",
@@ -235,6 +235,7 @@ export const STRINGS = {
     "scroll.omamori": "An omamori! Your streak is under protection",
     "scroll.kensei": "Kensei mode: x2 XP for 15 minutes",
     "scroll.rare": "A rare find!",
+    "scroll.spent": "You've already opened your scroll today — a fresh one waits tomorrow.",
 
     "summary.title": "Session complete",
     "summary.stats": "{correct} of {total} correct",
@@ -599,7 +600,7 @@ export const STRINGS = {
     "result.wrong": "Мимо",
     "result.almost": "Почти — {detail} верно",
     "result.explain": "Объяснить",
-    "result.streak": "🔥 {n} верных подряд!",
+    "result.streak": "⚔️ {n} верных подряд!",
     "result.xp": "+{n} XP",
     "result.firstWin": "🌅 Первая победа дня +{n} коку",
     "result.combo": "🎯 Комбо +{n} коку",
@@ -740,6 +741,7 @@ export const STRINGS = {
     "scroll.omamori": "Омамори! Твоя серия под защитой",
     "scroll.kensei": "Режим кэнсэй: x2 XP на 15 минут",
     "scroll.rare": "Редкая находка!",
+    "scroll.spent": "Свиток на сегодня уже открыт — новый будет завтра.",
 
     "summary.title": "Сессия завершена",
     "summary.stats": "Верно: {correct} из {total}",
