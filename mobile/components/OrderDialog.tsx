@@ -6,15 +6,20 @@ import { useI18n } from "../store/i18n";
 import Txt from "./ui/Txt";
 
 // Reorder shuffled dialog lines. Tap a bank line to append (numbered); tap a placed line to remove.
+// When `anchor` is present the opening line is given (fixed at position 1) and the learner only
+// orders the remaining tiles — the submitted order is [anchor, ...their picks].
 export default function OrderDialog({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
   const { t: tr } = useI18n();
   const tiles = exercise.tiles ?? [];
+  const anchor = exercise.anchor?.trim() ? exercise.anchor : null;
+  const base = anchor ? 1 : 0; // positions occupied before the learner's first placed line
   const [order, setOrder] = useState<number[]>([]);
 
   function report(next: number[]) {
     const complete = next.length === tiles.length;
-    const lines = next.map((i) => tiles[i]);
+    const picks = next.map((i) => tiles[i]);
+    const lines = anchor ? [anchor, ...picks] : picks;
     onChange(complete ? lines : null, lines.join(" → "));
   }
   function place(i: number) {
@@ -36,7 +41,23 @@ export default function OrderDialog({ exercise, locked, onChange }: ExerciseProp
       <Txt variant="label">{tr("ex.orderDialog")}</Txt>
 
       <View style={{ gap: 8, minHeight: 52 }}>
-        {order.length === 0 ? (
+        {/* Given opening line — fixed at position 1, not removable. */}
+        {anchor && (
+          <View style={[styles.placed, { backgroundColor: t.c.surface2, borderColor: t.c.line2 }]}>
+            <View style={[styles.num, { backgroundColor: t.c.ink3 }]}>
+              <Txt variant="caption" color={t.c.surface}>
+                1
+              </Txt>
+            </View>
+            <Txt variant="bodyStrong" color={t.c.ink2} style={{ flex: 1 }}>
+              {anchor}
+            </Txt>
+            <Txt variant="caption" color={t.c.ink3}>
+              {tr("ex.orderDialogGiven")}
+            </Txt>
+          </View>
+        )}
+        {order.length === 0 && !anchor ? (
           <Txt variant="body" color={t.c.ink3} style={{ fontStyle: "italic" }}>
             {tr("ex.orderDialogHint")}
           </Txt>
@@ -47,14 +68,14 @@ export default function OrderDialog({ exercise, locked, onChange }: ExerciseProp
               onPress={() => remove(i)}
               disabled={locked}
               accessibilityRole="button"
-              accessibilityLabel={`Position ${pos + 1}: ${tiles[i]}`}
+              accessibilityLabel={`Position ${pos + 1 + base}: ${tiles[i]}`}
               accessibilityHint="Tap to remove this line from your order"
               accessibilityState={{ disabled: locked }}
               style={[styles.placed, { backgroundColor: t.c.accentSoft, borderColor: t.c.accent }]}
             >
               <View style={[styles.num, { backgroundColor: t.c.accent }]}>
                 <Txt variant="caption" color={t.c.accentInk}>
-                  {pos + 1}
+                  {pos + 1 + base}
                 </Txt>
               </View>
               <Txt variant="bodyStrong" color={t.c.accent} style={{ flex: 1 }}>

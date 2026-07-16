@@ -52,3 +52,43 @@ async def test_rejects_noop_correction(monkeypatch):
         _fake_json({"sentence": "He runs the tests daily now.", "wrong_word": "daily", "correction": "daily"}),
     )
     assert await gen._gen_tap_the_error("adverbs", level="B1") is None
+
+
+async def test_single_preposition_transform_becomes_gap_fill(monkeypatch):
+    # A one-word closed-class swap (in→on) should render as a focused single-blank multiple-choice,
+    # not a full sentence rebuild.
+    monkeypatch.setattr(
+        gen,
+        "generate_json",
+        _fake_json(
+            {
+                "instruction": "Fix the time preposition",
+                "source": "The meeting is at 2 pm in Tuesday.",
+                "target": "The meeting is at 2 pm on Tuesday.",
+            }
+        ),
+    )
+    out = await gen._gen_transform_the_sentence("prepositions", level="B1")
+    assert out is not None
+    assert out["type"] == "multiple-choice"
+    assert out["text"] == "The meeting is at 2 pm ___ Tuesday."
+    assert "on" in out["options"] and "in" in out["options"]
+    assert tokens.unseal(out["token"])["answer"] == "on"
+
+
+async def test_multiword_transform_stays_a_builder(monkeypatch):
+    # A tense change touches several tokens → keep the tile-builder (transform-the-sentence).
+    monkeypatch.setattr(
+        gen,
+        "generate_json",
+        _fake_json(
+            {
+                "instruction": "Rewrite in the past simple",
+                "source": "She writes the report today.",
+                "target": "She wrote the report yesterday.",
+            }
+        ),
+    )
+    out = await gen._gen_transform_the_sentence("verbs", level="B1")
+    assert out is not None
+    assert out["type"] == "transform-the-sentence"

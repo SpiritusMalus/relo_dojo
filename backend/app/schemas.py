@@ -45,7 +45,7 @@ class ExerciseOut(BaseModel):
     - tap-the-error: tokens (tappable words)
     - odd-one-out: options (one doesn't belong; tap it)
     - multiple-blanks: text (with several '___') + blankOptions (choices per blank, in order)
-    - order-the-dialog: tiles (shuffled dialog lines to reorder)
+    - order-the-dialog: tiles (shuffled dialog lines to reorder) + anchor (given opening line)
     - transform-the-sentence: prompt (source sentence) + instruction (the transform) + tiles
     - free-text: text (typed answer, LLM-graded)
     - listen-and-answer: speak (TTS-only passage) + text (the question) + options
@@ -74,6 +74,7 @@ class ExerciseOut(BaseModel):
     left: list[MatchItem] = []
     right: list[MatchItem] = []
     blankOptions: list[list[str]] = []  # multiple-blanks: choices per blank, left-to-right
+    anchor: str = ""  # order-the-dialog: the opening line, given to the learner (they order the rest)
     token: Optional[str] = None
 
 

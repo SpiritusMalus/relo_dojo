@@ -517,18 +517,70 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
     # Need 4-8 distinct lines for a richer, still-unambiguous ordering task.
     if not (4 <= len(lines) <= 8) or len({_norm(line) for line in lines}) != len(lines):
         return _reject("order-the-dialog: need 4 to 8 lines, all distinct")
-    tiles = lines[:]
+    # The opening line is given to the learner as a foothold; they order the remaining lines. This
+    # cuts blind guessing on the first move and reads more like a real "continue the chat" task. The
+    # sealed order still holds ALL lines (anchor at index 0), so grading is unchanged — the client
+    # submits [anchor, ...their order].
+    anchor, rest = lines[0], lines[1:]
+    tiles = rest[:]
     for _ in range(8):
         random.shuffle(tiles)
-        if tiles != lines:
+        if tiles != rest:
             break
     return {
         "type": "order-the-dialog",
         "topic": topic,
         "text": "Put the conversation in the right order.",
+        "anchor": anchor,
         "tiles": tiles,
         "token": tokens.seal({"t": "order-the-dialog", "order": lines, "topic": topic}),
     }
+
+
+# Closed word-classes where a one-word swap is best drilled as a focused "pick the right word" gap,
+# not by rebuilding the whole sentence tile-by-tile (dogfood 2026-07: changing 'in'→'on' in a
+# 10-word sentence meant re-assembling all 10 tiles for a single decision). If BOTH the wrong word
+# and its fix live in the same set, we render the transform as a one-blank multiple-choice.
+_CONFUSABLE_SETS: tuple[frozenset[str], ...] = (
+    frozenset({"in", "on", "at", "by", "to", "for", "of", "from", "with", "into", "over", "under", "about"}),
+    frozenset({"a", "an", "the"}),
+    frozenset({"this", "that", "these", "those"}),
+    frozenset({"some", "any", "much", "many", "few", "little", "a lot"}),
+    frozenset({"since", "for", "ago", "during", "while"}),
+    frozenset({"do", "does", "did", "done", "doing"}),
+    frozenset({"is", "are", "was", "were", "am", "be", "been", "being"}),
+    frozenset({"has", "have", "had", "having"}),
+    frozenset({"and", "but", "or", "so", "because", "although"}),
+)
+
+
+def _single_swap_gap(source_words: list[str], target_words: list[str]) -> tuple[str, list[str], str] | None:
+    """If source→target differs by exactly one aligned, same-class word, return (blank_text, options,
+    answer) for a one-blank multiple-choice; else None (keep the full tile-builder)."""
+    if len(source_words) != len(target_words):
+        return None
+    diffs = [i for i, (s, w) in enumerate(zip(source_words, target_words)) if _norm(s) != _norm(w)]
+    if len(diffs) != 1:
+        return None
+    i = diffs[0]
+    correct, wrong = target_words[i], source_words[i]
+    cn, wn = _strip_word(correct), _strip_word(wrong)
+    pool = next((s for s in _CONFUSABLE_SETS if cn in s and wn in s), None)
+    if pool is None:
+        return None
+    # Options: correct + the original (now-wrong) word + fillers from the same class, up to 4.
+    options = [correct, wrong]
+    seen = {cn, wn}
+    for w in sorted(pool):
+        if len(options) >= 4:
+            break
+        if w not in seen:
+            options.append(w)
+            seen.add(w)
+    random.shuffle(options)
+    blanked = target_words[:]
+    blanked[i] = "___"
+    return " ".join(blanked), options, correct
 
 
 async def _gen_transform_the_sentence(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None, retry_note: str = "") -> dict[str, Any] | None:
@@ -564,6 +616,19 @@ async def _gen_transform_the_sentence(topic: str, level: str | None = None, cont
         return _reject("transform-the-sentence: missing parts, or the target equals the source")
     if len(words) < 3 or len(words) > _max_words(level):
         return _reject(f"transform-the-sentence: the target must be 3 to {_max_words(level)} words")
+    # A one-word swap in a closed class (prepositions, articles, aux…) is a focused pick, not a
+    # rebuild — render it as a single-blank multiple-choice (reuses MC grading + UI).
+    gap = _single_swap_gap(source.split(), words)
+    if gap is not None:
+        text, options, answer = gap
+        return {
+            "type": "multiple-choice",
+            "topic": topic,
+            "text": text,
+            "instruction": instruction,
+            "options": options,
+            "token": tokens.seal({"t": "multiple-choice", "answer": answer, "topic": topic, "text": text}),
+        }
     tiles = words[:]
     # Shuffle until the order changes (so it isn't already solved).
     for _ in range(8):

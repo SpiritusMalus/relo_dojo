@@ -165,6 +165,7 @@ export type Exercise = {
   left: MatchItem[];
   right: MatchItem[];
   blankOptions: string[][]; // multiple-blanks: choices per blank, left-to-right
+  anchor?: string; // order-the-dialog: the opening line, given (learner orders the remaining tiles)
   // listen-and-answer / listen-and-retell: the passage read aloud via TTS, NEVER shown (the point
   // is understanding by ear); absent/empty for every other type.
   speak?: string;
