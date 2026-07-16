@@ -19,7 +19,7 @@ export default function Scroll({ onDone }: { onDone: () => void }) {
   const { t: tr } = useI18n();
   const { refresh } = useWallet();
   const { activateBoost } = useProgress();
-  const [phase, setPhase] = useState<"sealed" | "opening" | "open" | "gone">("sealed");
+  const [phase, setPhase] = useState<"sealed" | "opening" | "open" | "spent">("sealed");
   const [reward, setReward] = useState<ScrollReward | null>(null);
   const pop = useRef(new Animated.Value(0)).current;
 
@@ -38,13 +38,26 @@ export default function Scroll({ onDone }: { onDone: () => void }) {
         Animated.spring(pop, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
       }, t.reduceMotion ? 0 : 900);
     } catch {
-      // Daily scroll cap (403) or offline — no drama, the session summary just ends.
-      setPhase("gone");
-      onDone();
+      // Daily scroll cap (403) or offline. Don't silently pop to the menu — that reads as a bug
+      // ("I tapped and got thrown out"). Show a calm "come back tomorrow" note and let the learner
+      // tap Finish deliberately.
+      setPhase("spent");
     }
   }
 
-  if (phase === "gone") return null;
+  if (phase === "spent") {
+    return (
+      <Card>
+        <View style={{ alignItems: "center", gap: 12, paddingVertical: 10 }}>
+          <Txt style={{ fontSize: 52, textAlign: "center" }}>📜</Txt>
+          <Txt variant="bodyStrong" style={{ textAlign: "center" }}>
+            {tr("scroll.spent")}
+          </Txt>
+          <Button label={tr("action.finish")} onPress={onDone} />
+        </View>
+      </Card>
+    );
+  }
 
   const rare = reward && reward.kind !== "koku";
   const rewardText =
