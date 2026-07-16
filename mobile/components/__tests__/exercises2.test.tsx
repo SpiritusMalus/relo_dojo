@@ -159,6 +159,25 @@ describe("OrderDialog", () => {
     lines.forEach((l) => press(r, l));
     expect(onChange).toHaveBeenLastCalledWith(lines, lines.join(" → "));
   });
+
+  it("with a given anchor, prepends it and completes once the rest are placed", () => {
+    const onChange = jest.fn();
+    const r = render(
+      <OrderDialog
+        exercise={ex({ type: "order-the-dialog", anchor: "Hi there.", tiles: ["I'm good.", "How are you?"] })}
+        locked={false}
+        onChange={onChange}
+      />
+    );
+    // Only the two remaining lines are tappable; the anchor rides at position 1 automatically.
+    press(r, "How are you?");
+    expect(onChange).toHaveBeenLastCalledWith(null, "Hi there. → How are you?"); // incomplete
+    press(r, "I'm good.");
+    expect(onChange).toHaveBeenLastCalledWith(
+      ["Hi there.", "How are you?", "I'm good."],
+      "Hi there. → How are you? → I'm good."
+    );
+  });
 });
 
 describe("ExerciseCard routing", () => {

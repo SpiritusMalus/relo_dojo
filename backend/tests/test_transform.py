@@ -34,10 +34,11 @@ async def test_accepts_a_clean_transform(monkeypatch):
     }
 
 
-async def test_transform_banks_the_dropped_word_as_a_trap(monkeypatch):
-    # A substitution transform ("fix the preposition") MUST put the discarded source word in the
-    # bank — with only the corrected word among the tiles, the card arrives pre-solved (prod
-    # screenshot 2026-07-03: "on 10 am" → bank held only "at", nothing to decide).
+async def test_single_word_preposition_swap_becomes_gap_fill(monkeypatch):
+    # A one-word closed-class swap ("fix the preposition", on→at) is a single decision — rebuilding
+    # the whole sentence tile-by-tile is busywork (dogfood 2026-07). It now renders as a focused
+    # single-blank multiple-choice: the sentence with the target position blanked + a small choice
+    # set (correct + the discarded word + same-class fillers), graded by the MC path.
     monkeypatch.setattr(
         gen,
         "generate_json",
@@ -49,8 +50,15 @@ async def test_transform_banks_the_dropped_word_as_a_trap(monkeypatch):
     )
     out = await gen._gen_transform_the_sentence("prepositions", level="A2")
     assert out is not None
-    assert out["distractors"] == ["on"]  # the trap the learner must NOT pick
-    assert sorted(out["tiles"]) == sorted("We have the sprint planning at 10 am.".split())
+    assert out["type"] == "multiple-choice"
+    assert out["text"] == "We have the sprint planning ___ 10 am."
+    assert "at" in out["options"] and "on" in out["options"]  # correct + the discarded word
+    assert tokens.unseal(out["token"]) == {
+        "t": "multiple-choice",
+        "answer": "at",
+        "topic": "prepositions",
+        "text": "We have the sprint planning ___ 10 am.",
+    }
 
 
 async def test_transform_traps_strip_punctuation_and_skip_target_words(monkeypatch):

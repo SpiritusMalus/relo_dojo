@@ -20,9 +20,12 @@ async def test_accepts_eight_lines(monkeypatch):
     out = await gen._gen_order_the_dialog("word order", level="C1")
     assert out is not None
     assert out["type"] == "order-the-dialog"
-    assert len(out["tiles"]) == 8
-    # Tiles are shuffled away from the solution; the sealed order keeps the correct sequence.
-    assert out["tiles"] != lines
+    # The opening line is given; the learner orders the remaining 7 tiles.
+    assert out["anchor"] == lines[0]
+    assert len(out["tiles"]) == 7
+    assert sorted(out["tiles"]) == sorted(lines[1:])
+    # Tiles are shuffled away from the solution; the sealed order keeps the FULL correct sequence.
+    assert out["tiles"] != lines[1:]
     assert tokens.unseal(out["token"])["order"] == lines
 
 
@@ -31,7 +34,23 @@ async def test_accepts_four_lines(monkeypatch):
     monkeypatch.setattr(gen, "generate_json", _fake_json({"lines": lines}))
     out = await gen._gen_order_the_dialog("word order", level="A2")
     assert out is not None
-    assert len(out["tiles"]) == 4
+    assert out["anchor"] == "Hi there."
+    assert len(out["tiles"]) == 3
+
+
+async def test_anchored_order_grades_full_sequence(monkeypatch):
+    # The client submits [anchor, ...its picks]; grading compares that against the sealed full order.
+    lines = ["Hi there.", "How are you?", "I'm good, thanks.", "Glad to hear it."]
+    monkeypatch.setattr(gen, "generate_json", _fake_json({"lines": lines}))
+    out = await gen._gen_order_the_dialog("word order", level="A2")
+    sealed = tokens.unseal(out["token"])
+    submitted = [out["anchor"], *out["tiles"]]  # learner leaves the shuffled tiles as-is
+    graded = grammar.grade(sealed, submitted)
+    # anchor is correct at position 0, so at least one line always lands right.
+    assert graded["per_item"][0] is True
+    # A fully correct submission (anchor + tiles already in order) scores 1.0.
+    perfect = grammar.grade(sealed, lines)
+    assert perfect["correct"] is True and perfect["score"] == 1.0
 
 
 async def test_rejects_three_lines(monkeypatch):

@@ -28,6 +28,8 @@ export default function MultipleChoice({ exercise, locked, onChange }: ExerciseP
 
   return (
     <View style={styles.wrap}>
+      {/* Instruction (e.g. a transform rendered as a one-blank gap-fill) — the task the blank tests. */}
+      {!isOddOneOut && !!exercise.instruction && <Txt variant="label">{exercise.instruction}</Txt>}
       {isOddOneOut ? (
         // Localized instruction, not English content — nothing to translate.
         <Txt variant="cardTitle" style={{ fontSize: 19, lineHeight: 26 }}>
