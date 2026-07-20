@@ -45,6 +45,40 @@ async def test_rejects_correction_already_in_sentence(monkeypatch):
     assert await gen._gen_tap_the_error("word order", level="B1") is None
 
 
+async def test_rejects_word_order_error_dressed_as_a_substitution(monkeypatch):
+    # Prod 2026-07-19: a misplaced adverb shipped as 'walks'→'always walks'. The card can only swap
+    # ONE tapped word for ONE word, so the learner who taps the actually-misplaced 'always' is marked
+    # wrong, and applying the stored fix would duplicate it.
+    monkeypatch.setattr(
+        gen,
+        "generate_json",
+        _fake_json(
+            {
+                "sentence": "The tired nurse walks always to the busy ward at night.",
+                "wrong_word": "walks",
+                "correction": "always walks",
+            }
+        ),
+    )
+    assert await gen._gen_tap_the_error("word order", level="B1") is None
+
+
+async def test_rejects_wrong_word_appearing_twice(monkeypatch):
+    # Two identical tiles = no single right tile to tap; the sealed index would be a coin flip.
+    monkeypatch.setattr(
+        gen,
+        "generate_json",
+        _fake_json(
+            {
+                "sentence": "The team meets in Monday and in Friday every week.",
+                "wrong_word": "in",
+                "correction": "on",
+            }
+        ),
+    )
+    assert await gen._gen_tap_the_error("prepositions", level="B1") is None
+
+
 async def test_rejects_noop_correction(monkeypatch):
     monkeypatch.setattr(
         gen,
