@@ -7,9 +7,11 @@ from __future__ import annotations
 import logging
 import random
 from contextvars import ContextVar
+from functools import partial
 from typing import Any
 
 from ..core.config import EXERCISE_TEMPERATURE
+from . import _item_blueprints as blueprints
 from . import tokens
 from ._grammar_feedback import _explain_lang
 from .llm import LLMError as OllamaError
@@ -850,6 +852,96 @@ async def _gen_listen_retell(topic: str, level: str | None = None, context: str 
     }
 
 
+# --- key-first generation (blueprints) ---------------------------------------
+# For topics whose canon is machine-decidable, the key is computed by our rule BEFORE the model is
+# asked (see _item_blueprints). The model only writes a sentence around a pinned phrase; if it
+# drifts off the frame we reject, because an item whose key we cannot prove is the whole class of
+# defect this path exists to remove. Rendered into the two types a decided slot supports: a blank
+# (multiple-choice) and a planted error (tap-the-error).
+BLUEPRINT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {"sentence": {"type": "string"}},
+    "required": ["sentence"],
+}
+
+BLUEPRINT_TYPES = frozenset({"multiple-choice", "tap-the-error"})
+
+
+async def _gen_from_blueprint(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None, retry_note: str = "", ex_type: str = "multiple-choice") -> dict[str, Any] | None:
+    bp = blueprints.pick(topic)
+    if bp is None:  # topic has no decidable canon — caller shouldn't have routed here
+        return _reject(f"blueprint: no decidable frame for topic '{topic}'")
+    prompt = _tutor_intro(
+        _retry_clause(retry_note)
+        + f"Write ONE natural English sentence about {bp.ask}.\n"
+        f"The sentence MUST contain the exact phrase \"{bp.phrase}\", spelled exactly like that and "
+        "used only once. Keep the phrase in the middle or at the end — never start the sentence with "
+        "it. Write a plain statement of 6 to 12 words, ending with a period. "
+        "Set it in the learner's field when one is given, otherwise a clear everyday situation. "
+        "Reply ONLY as JSON.",
+        level,
+        context,
+        mistakes,
+        scenario=True,
+        topic=topic,
+    )
+    data = await generate_json(prompt, BLUEPRINT_SCHEMA, temperature=EXERCISE_TEMPERATURE)
+    sentence = " ".join(str(data.get("sentence") or "").split())
+    if len(sentence.split()) > _max_words(level) + MC_LEN_SLACK:
+        return _reject(f"blueprint: sentence over {_max_words(level)} words — write a shorter one")
+    item = blueprints.build(bp, sentence)
+    if item is None:
+        return _reject(
+            f"blueprint: the sentence must contain \"{bp.phrase}\" exactly once, not at the start, "
+            "with nothing attached to it"
+        )
+    # Planted-error rendering: swap the proven-right word for a proven-wrong one. Needs a distractor
+    # that occurs nowhere else, else there are two identical tiles and no single right tap.
+    if ex_type == "tap-the-error":
+        wrong = blueprints.wrong_word_for(item)
+        if wrong is not None:
+            words = item.sentence[:]
+            words[item.index] = wrong
+            return {
+                "type": "tap-the-error",
+                "topic": topic,
+                "text": "Tap the word that is wrong.",
+                "tokens": words,
+                "token": tokens.seal(
+                    {
+                        "t": "tap-the-error",
+                        "index": item.index,
+                        "answer": f"'{wrong}' → '{item.answer}'",
+                        "topic": topic,
+                        "text": " ".join(words),
+                        "rule": item.rule,
+                    }
+                ),
+            }
+        # No usable planted error — fall through to the blank rendering rather than lose the item.
+    options = [item.answer, *item.distractors]
+    random.shuffle(options)
+    blanked = item.sentence[:]
+    blanked[item.index] = "___"
+    text = " ".join(blanked)
+    return {
+        "type": "multiple-choice",
+        "topic": topic,
+        "text": text,
+        "options": options,
+        "token": tokens.seal(
+            {"t": "multiple-choice", "answer": item.answer, "topic": topic, "text": text, "rule": item.rule}
+        ),
+    }
+
+
+def _generator_for(topic: str, ex_type: str):
+    """The generator to use: key-first where our rule can decide the answer, model-authored elsewhere."""
+    if topic in blueprints.BLUEPRINT_TOPICS and ex_type in BLUEPRINT_TYPES:
+        return partial(_gen_from_blueprint, ex_type=ex_type)
+    return _GENERATORS[ex_type]
+
+
 _GENERATORS = {
     "multiple-choice": _gen_multiple_choice,
     "build-the-sentence": _gen_build_the_sentence,
@@ -917,7 +1009,7 @@ async def generate_exercise(
     refused = False
     for _ in range(3):
         try:
-            result = await _GENERATORS[ex_type](
+            result = await _generator_for(topic, ex_type)(
                 topic, level, None if refused else context, None if refused else mistakes, lang, note
             )
             last_exc = None
@@ -938,7 +1030,10 @@ async def generate_exercise(
         note = ""  # the failed type's defect is meaningless to the fallback generator
         for _ in range(2):
             try:
-                result = await _gen_multiple_choice(
+                # Blueprint topics fall back to their OWN key-first multiple-choice, never to the
+                # model-authored one: a fallback that skips the proof would reopen the exact hole
+                # this path closes.
+                result = await _generator_for(topic, "multiple-choice")(
                     topic, level, None if refused else context, None if refused else mistakes, lang, note
                 )
                 last_exc = None
