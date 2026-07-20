@@ -1,5 +1,8 @@
 """Feedback-retry: when a generator rejects the model's output, the NEXT attempt's prompt names the
-defect ("fix exactly that") instead of blindly resending the same prompt. Offline (LLM mocked)."""
+defect ("fix exactly that") instead of blindly resending the same prompt. Offline (LLM mocked).
+
+The ladder is topic-agnostic, so these use 'conditionals' — a topic with no decidable canon, which
+therefore keeps the model-authored generators (see _item_blueprints.BLUEPRINT_TOPICS)."""
 
 from __future__ import annotations
 
@@ -26,7 +29,7 @@ async def test_second_attempt_prompt_carries_the_rejection_reason(monkeypatch):
         return outputs[min(len(prompts) - 1, len(outputs) - 1)]
 
     monkeypatch.setattr(gen, "generate_json", fake)
-    out = await gen.generate_exercise(topic="prepositions", ex_type="multiple-choice", level="A2")
+    out = await gen.generate_exercise(topic="conditionals", ex_type="multiple-choice", level="A2")
     assert out["type"] == "multiple-choice"
     assert len(prompts) == 2
     assert "rejected" not in prompts[0]  # first attempt is clean
@@ -44,7 +47,7 @@ async def test_fallback_to_multiple_choice_still_works(monkeypatch):
         return {"text": "I arrive ___ 6 pm.", "options": ["at", "on"], "answer": "at"}
 
     monkeypatch.setattr(gen, "generate_json", fake)
-    out = await gen.generate_exercise(topic="prepositions", ex_type="match-pairs", level="A2")
+    out = await gen.generate_exercise(topic="conditionals", ex_type="match-pairs", level="A2")
     assert out["type"] == "multiple-choice"  # ...then the fallback ships a simpler card
     assert calls["n"] == 4
 
@@ -106,7 +109,7 @@ async def test_a_transient_llm_error_spends_one_attempt_not_the_card(monkeypatch
         return {"text": "I arrive ___ 6 pm.", "options": ["at", "on"], "answer": "at"}
 
     monkeypatch.setattr(gen, "generate_json", fake)
-    out = await gen.generate_exercise(topic="prepositions", ex_type="multiple-choice", level="A2")
+    out = await gen.generate_exercise(topic="conditionals", ex_type="multiple-choice", level="A2")
     assert out["type"] == "multiple-choice"  # the learner never saw the blip
     assert calls["n"] == 2
 
@@ -120,7 +123,7 @@ async def test_all_attempts_failing_surfaces_the_provider_reason(monkeypatch):
 
     monkeypatch.setattr(gen, "generate_json", fake)
     with pytest.raises(LLMError, match="refused this request"):  # not the generic "unusable" line
-        await gen.generate_exercise(topic="prepositions", ex_type="match-pairs", level="A2")
+        await gen.generate_exercise(topic="conditionals", ex_type="match-pairs", level="A2")
     assert calls["n"] == 5  # 3 attempts + 2 fallback — same budget as validation rejects
 
 
@@ -139,7 +142,7 @@ async def test_a_refusal_retries_without_personalization(monkeypatch):
 
     monkeypatch.setattr(gen, "generate_json", fake)
     out = await gen.generate_exercise(
-        topic="prepositions",
+        topic="conditionals",
         ex_type="multiple-choice",
         level="A2",
         context="IT — QA engineering",
@@ -164,7 +167,7 @@ async def test_refusal_strip_carries_into_the_fallback(monkeypatch):
 
     monkeypatch.setattr(gen, "generate_json", fake)
     out = await gen.generate_exercise(
-        topic="prepositions",
+        topic="conditionals",
         ex_type="match-pairs",
         level="A2",
         mistakes=["Anna sent the report ___ Monday."],
@@ -184,5 +187,5 @@ async def test_a_timeout_reraises_immediately(monkeypatch):
 
     monkeypatch.setattr(gen, "generate_json", fake)
     with pytest.raises(LLMTimeoutError):
-        await gen.generate_exercise(topic="prepositions", ex_type="multiple-choice", level="A2")
+        await gen.generate_exercise(topic="conditionals", ex_type="multiple-choice", level="A2")
     assert calls["n"] == 1  # each retry would stack another full timeout window — never retried
