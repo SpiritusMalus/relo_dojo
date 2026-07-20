@@ -175,6 +175,84 @@ def _trap_tiles(raw: Any, sentence_words: list[str], cap: int = 2) -> list[str]:
     return out
 
 
+# Closed word-classes where a one-word swap is best drilled as a focused "pick the right word" gap,
+# not by rebuilding the whole sentence tile-by-tile (dogfood 2026-07: changing 'in'→'on' in a
+# 10-word sentence meant re-assembling all 10 tiles for a single decision). If BOTH the wrong word
+# and its fix live in the same set, we render the transform as a one-blank multiple-choice.
+_CONFUSABLE_SETS: tuple[frozenset[str], ...] = (
+    frozenset({"in", "on", "at", "by", "to", "for", "of", "from", "with", "into", "over", "under", "about"}),
+    frozenset({"a", "an", "the"}),
+    frozenset({"this", "that", "these", "those"}),
+    frozenset({"some", "any", "much", "many", "few", "little", "a lot"}),
+    frozenset({"since", "for", "ago", "during", "while"}),
+    frozenset({"do", "does", "did", "done", "doing"}),
+    frozenset({"is", "are", "was", "were", "am", "be", "been", "being"}),
+    frozenset({"has", "have", "had", "having"}),
+    frozenset({"and", "but", "or", "so", "because", "although"}),
+)
+
+# Extra families that make a legitimate *gap* (one option right, the rest grammatically wrong) but
+# that we deliberately keep out of _CONFUSABLE_SETS above, so transform-the-sentence's rendering
+# choice is untouched: modals (semantically, not morphologically, distinguished) and the common
+# irregular verbs whose forms share no prefix (go/went, take/took) and so slip past the stem check.
+_BLANK_FAMILIES: tuple[frozenset[str], ...] = _CONFUSABLE_SETS + (
+    frozenset({"can", "could", "may", "might", "must", "should", "would", "will", "shall", "ought"}),
+    frozenset({"go", "goes", "going", "went", "gone"}),
+    frozenset({"take", "takes", "taking", "took", "taken"}),
+    frozenset({"make", "makes", "making", "made"}),
+    frozenset({"get", "gets", "getting", "got", "gotten"}),
+    frozenset({"see", "sees", "seeing", "saw", "seen"}),
+    frozenset({"give", "gives", "giving", "gave", "given"}),
+    frozenset({"write", "writes", "writing", "wrote", "written"}),
+    frozenset({"speak", "speaks", "speaking", "spoke", "spoken"}),
+    frozenset({"bring", "brings", "bringing", "brought"}),
+    frozenset({"buy", "buys", "buying", "bought"}),
+    frozenset({"think", "thinks", "thinking", "thought"}),
+    frozenset({"find", "finds", "finding", "found"}),
+    frozenset({"leave", "leaves", "leaving", "left"}),
+    frozenset({"send", "sends", "sending", "sent"}),
+    frozenset({"break", "breaks", "breaking", "broke", "broken"}),
+    frozenset({"run", "runs", "running", "ran"}),
+    frozenset({"come", "comes", "coming", "came"}),
+)
+
+
+def _head_key(option: str) -> str:
+    """Rough head-word key for a gap option: last word, punctuation-stripped ('to go' → 'go',
+    'has been' → 'been'). Options are 1-3 words, so the head carries the grammatical choice."""
+    parts = [_strip_word(w) for w in str(option).split() if _strip_word(w)]
+    return parts[-1] if parts else ""
+
+
+def _same_family(keys: list[str]) -> bool:
+    """True when the options are variants of ONE grammatical choice, so exactly one can be right:
+    forms of the same word (share a stem) or members of one closed class / irregular family."""
+    if any(all(k in fam for k in keys) for fam in _BLANK_FAMILIES):
+        return True
+    shortest = min(keys, key=len)
+    # Morphological variants: fix/fixed/fixing, big/bigger/biggest, go/goes. A 2-letter shared head
+    # ('go') is enough only when it IS one of the options — 'code'/'coach' must not pass on 'co'.
+    return all(k.startswith(shortest) for k in keys) and len(shortest) >= 2
+
+
+def _exclusive_blank(options: list[str]) -> bool:
+    """Whether a multiple-blanks option set poses ONE decidable question. The distractors must be
+    grammatically wrong in that slot — two interchangeable content words ('code' vs 'server') or two
+    interchangeable adverbs ('often' vs 'always') have no knowable answer, so the learner is graded
+    on a coin flip (prod 2026-07-19: "The developer ___ fixes the ___ ___ bug in production." had
+    two such blanks out of three). Permutations of the same words are fine — that IS the word-order
+    decision the card is asking about."""
+    if len(options) < 2:
+        return False
+    shapes = {tuple(sorted(_strip_word(w) for w in o.split())) for o in options}
+    if len(shapes) == 1:  # same words, different order — a real word-order choice
+        return True
+    keys = [_head_key(o) for o in options]
+    if not all(keys) or len(set(keys)) != len(keys):
+        return False
+    return _same_family(keys)
+
+
 # --- per-type generators -----------------------------------------------------
 # Each returns the client payload (no answer) plus a sealed `token` carrying the answer.
 
@@ -185,7 +263,10 @@ async def _gen_multiple_choice(topic: str, level: str | None = None, context: st
         + f"Create ONE short multiple-choice exercise focused on: {topic}.\n"
         "'text' is a sentence with a single blank shown as '___'. 'options' is 3-4 short choices "
         "(make the distractors plausible and close in meaning at higher CEFR levels). "
-        "'answer' is exactly one of the options (the correct one). "
+        "'answer' is exactly one of the options (the correct one), and it must be the ONLY one that "
+        "fits: every distractor has to be grammatically wrong in this sentence, not merely a less "
+        "likely word. If two options would both be acceptable there, rewrite the sentence so the "
+        "grammar rules one of them out. "
         "When a field/context is given, draw the example from it; otherwise use a clear everyday situation. "
         "Reply ONLY as JSON matching the schema.",
         level,
@@ -341,8 +422,13 @@ async def _gen_tap_the_error(topic: str, level: str | None = None, context: str 
         _retry_clause(retry_note)
         + f"Write ONE English sentence (6 to 12 words) containing exactly ONE grammatically wrong "
         f"word, related to: {topic}.\n"
+        "The error must be a WRONG WORD that is fixed by swapping it for ONE different word in the "
+        "SAME position (wrong tense, wrong preposition, wrong article, wrong form). Never a misplaced "
+        "word that has to MOVE, and never a missing word — this exercise can only express a one-word "
+        "substitution, so 'walks always' → 'always walks' is NOT allowed. "
         "'sentence' is that sentence. 'wrong_word' is the single incorrect word as it appears in the "
-        "sentence. 'correction' is the word that should replace it. Reply ONLY as JSON.",
+        "sentence, and it must occur exactly ONCE in the sentence. 'correction' is the SINGLE word "
+        "that replaces it. Reply ONLY as JSON.",
         level,
         context,
         mistakes,
@@ -358,11 +444,22 @@ async def _gen_tap_the_error(topic: str, level: str | None = None, context: str 
         return _reject("tap-the-error: missing wrong_word or correction")
     if len(words) < 3 or len(words) > _max_words(level):
         return _reject(f"tap-the-error: the sentence must be 3 to {_max_words(level)} words")
-    # Locate the wrong word among the tokens (punctuation-insensitive, first match).
+    # The card can only express ONE tapped token swapped for ONE word, so a multi-word "correction"
+    # is never renderable. It also smuggles in word-order errors, which this type cannot express at
+    # all (prod 2026-07-19: "The tired nurse walks always to the busy ward at night." with
+    # 'walks'→'always walks' — the learner correctly taps the misplaced 'always' and is marked wrong,
+    # and applying the stored fix would duplicate 'always').
+    if len(correction.split()) != 1:
+        return _reject("tap-the-error: 'correction' must be exactly ONE word replacing the wrong word in place")
+    # Locate the wrong word among the tokens (punctuation-insensitive). It must occur exactly once —
+    # with a repeat there is no single right tile to tap, so any index we seal is a coin flip.
     target = _strip_word(wrong_word)
-    error_index = next((i for i, w in enumerate(words) if _strip_word(w) == target), -1)
-    if error_index < 0:
+    hits = [i for i, w in enumerate(words) if _strip_word(w) == target]
+    if not hits:
         return _reject("tap-the-error: wrong_word does not appear verbatim in the sentence")
+    if len(hits) > 1:
+        return _reject("tap-the-error: wrong_word appears more than once — pick a word that occurs exactly once")
+    error_index = hits[0]
     # The fix must be a real substitution: the correction has to differ from the wrong word, and it
     # must not already sit elsewhere in the sentence — otherwise "correcting" it produces a duplicate
     # (e.g. "...update frequently usually..." with wrong='frequently'→'usually'), which reads as broken.
@@ -453,7 +550,14 @@ async def _gen_multiple_blanks(topic: str, level: str | None = None, context: st
         "natural; show each blank as '___' (use the literal three underscores). "
         "'blanks' has one entry PER blank, in left-to-right order: 'options' is 2-3 short choices and "
         "'answer' is the correct one (it MUST be one of the options). The number of '___' in 'text' "
-        "MUST equal the number of blanks. Use the learner's field when given, else everyday. Reply ONLY as JSON.",
+        "MUST equal the number of blanks.\n"
+        "Every blank must have exactly ONE possible answer: the other options MUST be grammatically "
+        "WRONG in that sentence, never a second word that also fits. So the options for a blank are "
+        "forms of the SAME word ('fix' / 'fixes' / 'fixing'), members of ONE closed class "
+        "('in' / 'on' / 'at', 'a' / 'the', 'was' / 'were'), or the SAME words in a different order "
+        "('scary large' / 'large scary'). NEVER two interchangeable content words ('code' / 'server') "
+        "and never two interchangeable adverbs ('often' / 'always') — those have no knowable answer. "
+        "Use the learner's field when given, else everyday. Reply ONLY as JSON.",
         level,
         context,
         mistakes,
@@ -475,8 +579,18 @@ async def _gen_multiple_blanks(topic: str, level: str | None = None, context: st
             continue
         if _norm(ans) not in {_norm(o) for o in opts}:
             opts.append(ans)  # ensure the answer is selectable
+        opts = opts[:4]
+        # A blank whose distractors also fit is ungradable, and it can't be silently dropped — the
+        # blank count has to keep matching the '___' count in the text — so the whole item goes back
+        # for a retry with this reason attached.
+        if not _exclusive_blank(opts):
+            return _reject(
+                "multiple-blanks: every blank needs ONE possible answer — the other options must be "
+                "grammatically wrong there (same word's forms, one closed class, or the same words "
+                "reordered), never a second word that also fits"
+            )
         random.shuffle(opts)
-        blank_options.append(opts[:4])
+        blank_options.append(opts)
         answers.append(ans)
     # Need 2-5 blanks and the '___' count in the sentence to match exactly (so the UI lines up).
     if not (2 <= len(answers) <= 5) or text.count("___") != len(answers):
@@ -535,23 +649,6 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
         "tiles": tiles,
         "token": tokens.seal({"t": "order-the-dialog", "order": lines, "topic": topic}),
     }
-
-
-# Closed word-classes where a one-word swap is best drilled as a focused "pick the right word" gap,
-# not by rebuilding the whole sentence tile-by-tile (dogfood 2026-07: changing 'in'→'on' in a
-# 10-word sentence meant re-assembling all 10 tiles for a single decision). If BOTH the wrong word
-# and its fix live in the same set, we render the transform as a one-blank multiple-choice.
-_CONFUSABLE_SETS: tuple[frozenset[str], ...] = (
-    frozenset({"in", "on", "at", "by", "to", "for", "of", "from", "with", "into", "over", "under", "about"}),
-    frozenset({"a", "an", "the"}),
-    frozenset({"this", "that", "these", "those"}),
-    frozenset({"some", "any", "much", "many", "few", "little", "a lot"}),
-    frozenset({"since", "for", "ago", "during", "while"}),
-    frozenset({"do", "does", "did", "done", "doing"}),
-    frozenset({"is", "are", "was", "were", "am", "be", "been", "being"}),
-    frozenset({"has", "have", "had", "having"}),
-    frozenset({"and", "but", "or", "so", "because", "although"}),
-)
 
 
 def _single_swap_gap(source_words: list[str], target_words: list[str]) -> tuple[str, list[str], str] | None:
