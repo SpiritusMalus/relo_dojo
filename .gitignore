@@ -33,3 +33,6 @@ web-build/
 # === OS / editor ===
 .DS_Store
 *.log
+
+# Local project context; contains private operational history.
+/.context/
