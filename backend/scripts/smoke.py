@@ -78,7 +78,7 @@ class Smoke:
             raise SystemExit(self._summary())
 
     def register(self) -> None:
-        email = f"smoke+{uuid.uuid4().hex[:12]}@relodojo.test"
+        email = f"smoke+{uuid.uuid4().hex[:12]}@example.com"
         r = self.client.post(
             "/auth/register", json={"email": email, "password": "SmokeTest-1234567"}
         )
