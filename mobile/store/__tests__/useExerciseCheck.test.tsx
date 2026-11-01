@@ -2,7 +2,8 @@ import { StrictMode } from "react";
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import { useExerciseCheck, type Result } from "../useExerciseCheck";
 import { DEFAULT_PROGRESS, recordAnswer, type GradeSignal, type Progress } from "../progress";
-import { checkInteractive, explain, explainStream, type Exercise } from "../../services/api";
+import { checkInteractive, explain, explainStream, setAuthToken, type Exercise } from "../../services/api";
+import { captureMistake } from "../mistakes";
 
 let mockProgress: Progress = DEFAULT_PROGRESS;
 const mockRecord = jest.fn();
@@ -33,12 +34,49 @@ function mount(): ReactTestRenderer {
 }
 
 beforeEach(() => {
+  setAuthToken(null);
   jest.clearAllMocks();
   mockProgress = { ...DEFAULT_PROGRESS, skill: { articles: 2.5 } };
   mockRecord.mockImplementation((topic: string, right: boolean, grade?: GradeSignal) => {
     mockProgress = recordAnswer(mockProgress, topic, right, new Date(), grade);
     return mockProgress;
   });
+});
+
+it.each([true, false])("a late A grade (correct=%s) cannot write B progress, coins or mistakes", async (right) => {
+  const memberToken = (id: string) => `header.${btoa(JSON.stringify({ sub: id }))}.signature`;
+  setAuthToken(memberToken("A"));
+  let resolve!: (value: Result) => void;
+  jest.mocked(checkInteractive).mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
+  const renderer = mount();
+  act(() => hook.beginAttempt(exercise));
+  let pending!: Promise<Result | null>;
+  act(() => { pending = hook.check(exercise, "an"); });
+  act(() => setAuthToken(memberToken("B")));
+  await act(async () => { resolve({ ...correct, correct: right }); expect(await pending).toBeNull(); });
+  expect(mockRecord).not.toHaveBeenCalled();
+  expect(mockReward).not.toHaveBeenCalled();
+  expect(captureMistake).not.toHaveBeenCalled();
+  expect(hook.result).toBeNull();
+  expect(hook.checking).toBe(false);
+  act(() => renderer.unmount());
+});
+
+it("a late A explanation cannot appear in B or trigger a fallback request", async () => {
+  const token = (id: string) => `header.${btoa(JSON.stringify({ sub: id }))}.signature`;
+  setAuthToken(token("A"));
+  jest.mocked(checkInteractive).mockResolvedValueOnce({ ...correct, correct: false });
+  const renderer = mount();
+  await act(async () => { await hook.check(exercise, "an"); });
+  let resolve!: (text: string) => void;
+  jest.mocked(explainStream).mockImplementationOnce(() => new Promise((r) => { resolve = r; }));
+  let pending!: Promise<void>;
+  act(() => { pending = hook.doExplain(exercise, "an"); });
+  act(() => setAuthToken(token("B")));
+  await act(async () => { resolve("A's private teaching note"); await pending; });
+  expect(hook.explained).toBeNull();
+  expect(explain).not.toHaveBeenCalled();
+  act(() => renderer.unmount());
 });
 
 it("double-submit in StrictMode grades and rewards once and returns an updated selection snapshot", async () => {

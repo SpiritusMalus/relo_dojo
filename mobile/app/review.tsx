@@ -17,6 +17,8 @@ import ResultPanel from "../components/ResultPanel";
 import { useProgress } from "../store/progress";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
+import { useAccountScope } from "../store/useAccountScope";
+import { isCurrentAccountScope } from "../store/accountScope";
 import { dueMistakes, loadMistakes, nextDueAt, promoteMistakeStored, resolveMistake, type Mistake } from "../store/mistakes";
 import { loadingMessageFor } from "../i18n/loading";
 import { useTheme } from "../theme/theme";
@@ -28,6 +30,7 @@ import ProgressBar from "../components/ui/ProgressBar";
 import Confetti from "../components/ui/Confetti";
 
 export default function ReviewScreen() {
+  const scope = useAccountScope();
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -49,12 +52,21 @@ export default function ReviewScreen() {
   useEffect(() => {
     // Snapshot the DUE items at mount (SRS: not-yet-due items wait for their date); promoting
     // updates storage but we iterate the snapshot.
-    loadMistakes().then((list) => {
+    let active = true;
+    setItems(null);
+    setIndex(0);
+    setFixed(0);
+    setFinished(false);
+    setResponse(null);
+    setResponseDisplay("");
+    loadMistakes(scope).then((list) => {
+      if (!active || !isCurrentAccountScope(scope)) return;
       const now = new Date().toISOString();
       setItems(dueMistakes(list, now));
       setNextDue(nextDueAt(list, now));
     });
-  }, []);
+    return () => { active = false; };
+  }, [scope]);
 
   function onChange(value: ResponseValue | null, display: string) {
     setResponse(value);
@@ -81,9 +93,9 @@ export default function ReviewScreen() {
   async function onCheck() {
     if (!current || response === null || checking) return;
     const res = await check(current.exercise, response, runShake);
-    if (res?.correct) {
+    if (res?.correct && isCurrentAccountScope(scope)) {
       setFixed((n) => n + 1);
-      await promoteMistakeStored(current.id); // climb the SRS ladder (or graduate off the deck)
+      await promoteMistakeStored(current.id, scope);
     }
     // A miss needs no handling here: useExerciseCheck re-captures it → box 0, due immediately.
   }
@@ -102,7 +114,8 @@ export default function ReviewScreen() {
 
   async function onRemove() {
     if (!current) return;
-    await resolveMistake(current.id); // stale/unusable token — drop without crediting
+    await resolveMistake(current.id, scope);
+    if (!isCurrentAccountScope(scope)) return;
     onAdvance();
   }
 

@@ -8,7 +8,7 @@ jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(), setItemAsync: jest.fn(), deleteItemAsync: jest.fn(),
 }));
 jest.mock("../../services/api", () => ({
-  ...jest.requireActual("../../services/api"), getMe: jest.fn(), setAuthToken: jest.fn(), login: jest.fn(), register: jest.fn(),
+  ...jest.requireActual("../../services/api"), getMe: jest.fn(), login: jest.fn(), register: jest.fn(),
 }));
 jest.mock("../consent", () => ({ syncConsentToServer: jest.fn() }));
 
@@ -102,4 +102,37 @@ it.each(["login", "register"] as const)("a delayed %s token response cannot rest
   expect(auth.user).toBeNull();
   expect(getMe).not.toHaveBeenCalled();
   expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
+});
+
+it("a native A write must settle before the logout/B replacement, so restart cannot restore A", async () => {
+  (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+  let saved: string | null = null;
+  let releaseA!: () => void;
+  let startedA!: () => void;
+  const started = new Promise<void>((done) => { startedA = done; });
+  const blocked = new Promise<void>((done) => { releaseA = done; });
+  (SecureStore.setItemAsync as jest.Mock).mockImplementation(async (_key: string, value: string) => {
+    if (value === "token-a") { startedA(); await blocked; }
+    saved = value;
+  });
+  (SecureStore.deleteItemAsync as jest.Mock).mockImplementation(async () => { saved = null; });
+  (apiLogin as jest.Mock).mockResolvedValueOnce({ access_token: "token-a" }).mockResolvedValueOnce({ access_token: "token-b" });
+  (getMe as jest.Mock).mockResolvedValue({ id: "b", email: "b@example.com", is_verified: true });
+  await mount();
+  let loginA!: Promise<void>;
+  let logout!: Promise<void>;
+  let loginB!: Promise<void>;
+  await act(async () => { loginA = auth.login("a@example.com", "synthetic-password"); await started; });
+  await act(async () => { logout = auth.logout(); loginB = auth.login("b@example.com", "synthetic-password"); });
+  expect(auth.token).toBe("token-b");
+  // B's native replacement is queued, rather than racing past the unresolved A write.
+  expect(SecureStore.setItemAsync).toHaveBeenCalledTimes(1);
+  await act(async () => { releaseA(); await Promise.all([loginA, logout, loginB]); });
+  expect(saved).toBe("token-b");
+  expect(auth.token).toBe("token-b");
+  expect(auth.user?.id).toBe("b");
+  (SecureStore.getItemAsync as jest.Mock).mockImplementation(async () => saved);
+  act(() => renderer.unmount());
+  await mount();
+  expect(auth.token).toBe("token-b");
 });

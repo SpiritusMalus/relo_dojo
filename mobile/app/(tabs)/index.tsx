@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useProgress } from "../../store/progress";
 import { useAuth } from "../../store/auth";
+import { useAccountScope } from "../../store/useAccountScope";
+import { isCurrentAccountScope } from "../../store/accountScope";
 import { useAccess } from "../../store/access";
 import { useWallet } from "../../store/wallet";
 import { useI18n } from "../../store/i18n";
@@ -46,6 +48,7 @@ import Txt from "../../components/ui/Txt";
 // quests, register wall, coach). Every special mode (Story, Challenge, Review, Review-my-text, Shop)
 // lives in the Train tab below the topic picker; the journey map shows here, not on Progress anymore.
 export default function HomeScreen() {
+  const scope = useAccountScope();
   const router = useRouter();
   const t = useTheme();
   const { progress, updateProfile, awardQuestBonus } = useProgress();
@@ -116,11 +119,13 @@ export default function HomeScreen() {
     if (!reason) return;
     planAskedRef.current = true;
     requestPlan(buildStats(progress))
-      .then((plan) => updateProfile(planPatch(plan, progress.profile!, questBaseline(progress))))
+      .then((plan) => {
+        if (isCurrentAccountScope(scope)) updateProfile(planPatch(plan, progress.profile!, questBaseline(progress)));
+      })
       .catch(() => {
-        planAskedRef.current = false; // let a later visit retry (offline / model down)
+        if (isCurrentAccountScope(scope)) planAskedRef.current = false;
       });
-  }, [user, progress, updateProfile]);
+  }, [scope, user, progress, updateProfile]);
 
   // Student diary: weekly tick — close a finished week into a recap, start a new baseline.
   useEffect(() => {

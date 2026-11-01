@@ -8,10 +8,12 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { buyCosmetic, equipCosmetic, getCosmetics } from "../services/api";
 import { useAuth } from "./auth";
+import { captureAccountScope, isCurrentAccountScope, subscribeAccountScope } from "./accountScope";
 import { knotVisual, senseiVisual, starterFor, type KnotVisual, type SenseiVisual } from "./cosmetics";
 
 type CosmeticsContextValue = {
@@ -34,49 +36,61 @@ const CosmeticsContext = createContext<CosmeticsContextValue | null>(null);
 
 export function CosmeticsProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
-  const [ready, setReady] = useState(false);
-  const [state, setState] = useState<CosmeticsState>(EMPTY);
+  const scope = useSyncExternalStore(subscribeAccountScope, captureAccountScope, captureAccountScope);
+  const [mirror, setMirror] = useState(() => ({ scope, ready: false, state: EMPTY }));
+  const ready = mirror.scope === scope && mirror.ready;
+  const state = mirror.scope === scope ? mirror.state : EMPTY;
 
   useEffect(() => {
     let cancelled = false;
-    if (!token) {
-      setState(EMPTY);
-      setReady(false);
-      return;
-    }
+    setMirror({ scope, ready: false, state: EMPTY });
+    if (!token || !isCurrentAccountScope(scope)) return;
     (async () => {
       try {
         const c = await getCosmetics();
-        if (!cancelled) setState({ owned: c.owned, equipped: c.equipped });
+        if (!cancelled && isCurrentAccountScope(scope)) {
+          setMirror({ scope, ready: true, state: { owned: c.owned, equipped: c.equipped } });
+        }
       } catch {
         // offline / old backend — keep the starter default so Sensei still renders
-      } finally {
-        if (!cancelled) setReady(true);
+        if (!cancelled && isCurrentAccountScope(scope)) {
+          setMirror((current) => isCurrentAccountScope(scope)
+            ? { scope, ready: true, state: current.scope === scope ? current.state : EMPTY } : current);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, scope]);
 
   const refresh = useCallback(async () => {
+    const requestScope = scope;
+    if (!isCurrentAccountScope(requestScope)) return;
     try {
       const c = await getCosmetics();
-      setState({ owned: c.owned, equipped: c.equipped });
+      setMirror((current) => isCurrentAccountScope(requestScope)
+        ? { scope: requestScope, ready: true, state: { owned: c.owned, equipped: c.equipped } } : current);
     } catch {
       // ignore — next action refreshes
     }
-  }, []);
+  }, [scope]);
 
   const buy = useCallback(async (id: string) => {
+    const requestScope = scope;
+    if (!isCurrentAccountScope(requestScope)) return;
     const c = await buyCosmetic(id); // throws on failure → caller surfaces it
-    setState({ owned: c.owned, equipped: c.equipped });
-  }, []);
+    setMirror((current) => isCurrentAccountScope(requestScope)
+      ? { scope: requestScope, ready: true, state: { owned: c.owned, equipped: c.equipped } } : current);
+  }, [scope]);
 
   const equip = useCallback(async (id: string) => {
+    const requestScope = scope;
+    if (!isCurrentAccountScope(requestScope)) return;
     const c = await equipCosmetic(id);
-    setState({ owned: c.owned, equipped: c.equipped });
-  }, []);
+    setMirror((current) => isCurrentAccountScope(requestScope)
+      ? { scope: requestScope, ready: true, state: { owned: c.owned, equipped: c.equipped } } : current);
+  }, [scope]);
 
   const value = useMemo<CosmeticsContextValue>(
     () => ({ ready, owned: state.owned, equipped: state.equipped, refresh, buy, equip }),

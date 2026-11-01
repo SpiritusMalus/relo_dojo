@@ -5,6 +5,7 @@ import { trackScrollOpen } from "../../services/analytics";
 import { useI18n } from "../../store/i18n";
 import { useProgress } from "../../store/progress";
 import { useWallet } from "../../store/wallet";
+import { captureAccountScope, isCurrentAccountScope } from "../../store/accountScope";
 import { useTheme } from "../../theme/theme";
 import Button from "./Button";
 import Card from "./Card";
@@ -22,6 +23,7 @@ export default function Scroll({ onDone }: { onDone: () => void }) {
   const [reward, setReward] = useState<ScrollReward | null>(null);
   const busy = useRef(false);
   const mounted = useRef(true);
+  const ownerScope = useRef(captureAccountScope()).current;
   const reveal = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -30,24 +32,26 @@ export default function Scroll({ onDone }: { onDone: () => void }) {
   }, [reveal]);
 
   async function open() {
-    if (busy.current || (phase !== "sealed" && phase !== "error")) return;
+    const current = () => mounted.current && isCurrentAccountScope(ownerScope);
+    if (!current() || busy.current || (phase !== "sealed" && phase !== "error")) return;
     busy.current = true;
     setPhase("opening");
     trackScrollOpen({ mode: "practice" });
     try {
       const result = await openScroll();
-      // Reflect an already-credited reward even if this screen has since unmounted.
+      // The server credit belongs to the request's original account. An old screen must never
+      // apply its local boost or refresh another account's mirrors after navigation/logout.
+      if (!current()) return;
       if (result.kind === "kensei") activateBoost();
       void refresh();
-      if (!mounted.current) return;
       setReward(result);
       setPhase("open");
       reveal.setValue(t.reduceMotion ? 1 : 0);
       if (!t.reduceMotion) Animated.timing(reveal, { toValue: 1, duration: 220, useNativeDriver: true }).start();
     } catch (error) {
+      if (!current()) return;
       // A dropped response may have credited the server balance: resync, never retry automatically.
       void refresh();
-      if (!mounted.current) return;
       setPhase(error instanceof ApiError && error.status === 403 && error.code === "scroll_limit" ? "spent" : "error");
     } finally {
       busy.current = false;

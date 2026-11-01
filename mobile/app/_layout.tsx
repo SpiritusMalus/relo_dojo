@@ -12,7 +12,9 @@ import { VoiceConsentProvider } from "../store/voiceConsent";
 import { I18nProvider, useI18n } from "../store/i18n";
 import { localDate } from "../store/streak";
 import { migrateStorageKeys } from "../store/migrateStorageKeys";
-import { ensurePermission, rescheduleAll } from "../services/notifications";
+import { cancelPersonalNotifications, ensurePermission, rescheduleAll } from "../services/notifications";
+import { useAccountScope } from "../store/useAccountScope";
+import { isCurrentAccountScope } from "../store/accountScope";
 import { getContracts, postEvents } from "../services/api";
 import * as analytics from "../services/analytics";
 import { ThemeProvider, fontMap } from "../theme/theme";
@@ -34,6 +36,7 @@ const FLUSH_INTERVAL_MS = 30000;
 
 // Redirect between login, onboarding, and the tabs based on auth + onboarding state.
 function RootNav() {
+  const scope = useAccountScope();
   const { ready: authReady, token } = useAuth();
   const { ready: progressReady, synced, progress } = useProgress();
   const { ready: consentReady, accepted: consentAccepted } = useConsent();
@@ -78,10 +81,15 @@ function RootNav() {
   const { lang } = useI18n();
   const trainedToday = progress.lastActiveDate === localDate(new Date());
   useEffect(() => {
-    if (!authReady || !progressReady || !token || !progress.onboarded) return;
+    void cancelPersonalNotifications();
+  }, [scope]);
+  useEffect(() => {
+    if (!authReady || !progressReady || !synced || !token || !progress.onboarded || scope.owner === null) return;
+    let active = true;
     const timer = setTimeout(() => {
       void (async () => {
         if (!(await ensurePermission())) return;
+        if (!active || !isCurrentAccountScope(scope)) return;
         // Best-effort: count today's open contracts so the daily nudge can name them.
         let contractsLeft: number | undefined;
         try {
@@ -90,6 +98,7 @@ function RootNav() {
         } catch {
           // offline / old backend — fall back to the generic gentle line
         }
+        if (!active || !isCurrentAccountScope(scope)) return;
         await rescheduleAll({
           lang,
           trainedToday,
@@ -97,11 +106,11 @@ function RootNav() {
           remindHour: progress.profile?.remindHour,
           recap: progress.profile?.diary?.last,
           contractsLeft,
-        });
+        }, new Date(), scope);
       })();
     }, 2000); // debounce: recordAnswer fires per card; one re-plan per burst is plenty
-    return () => clearTimeout(timer);
-  }, [authReady, progressReady, token, progress.onboarded, trainedToday, progress.dailyStreak, lang, progress.profile?.remindHour, progress.profile?.diary?.last]);
+    return () => { active = false; clearTimeout(timer); };
+  }, [scope, authReady, progressReady, synced, token, progress.onboarded, trainedToday, progress.dailyStreak, lang, progress.profile?.remindHour, progress.profile?.diary?.last]);
 
   // Analytics: wire the buffered tracker once (north-star = Day-7 retention). The bearer token,
   // when present, attributes events to the account server-side; the anon id covers pre-login.
@@ -142,7 +151,7 @@ function RootNav() {
         await AsyncStorage.setItem(ANON_KEY, id).catch(() => {});
       }
       analytics.configure({
-        sender: (batch) => postEvents(batch.anon_id, batch.events).then(() => {}),
+        sender: (batch, capturedScope) => postEvents(batch.anon_id, batch.events, capturedScope).then(() => {}),
         anonId: id,
       });
       analytics.track("app_open");
@@ -163,7 +172,7 @@ function RootNav() {
   if (!authReady) return null; // brief splash while we read stored token
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack key={scope.epoch} screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="login" />
       <Stack.Screen name="consent" />

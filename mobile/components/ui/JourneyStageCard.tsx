@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useI18n } from "../../store/i18n";
 import { trackJourneyAdvanced } from "../../services/analytics";
+import { captureAccountScope, isCurrentAccountScope } from "../../store/accountScope";
 import { useTheme } from "../../theme/theme";
 import Card from "./Card";
 import Txt from "./Txt";
@@ -27,17 +28,19 @@ import {
 export default function JourneyStageCard({ goals }: { goals?: string[] | null }) {
   const t = useTheme();
   const { t: tr } = useI18n();
+  const ownerScope = useRef(captureAccountScope()).current;
   const [journey, setJourney] = useState<JourneyState | null>(null);
 
   useEffect(() => {
     let active = true;
-    loadJourney().then((j) => {
-      if (active) setJourney(j ?? defaultJourney(goals));
+    const scope = ownerScope;
+    loadJourney(scope).then((j) => {
+      if (active && isCurrentAccountScope(scope)) setJourney(j ?? defaultJourney(goals));
     });
     return () => {
       active = false;
     };
-  }, [goals]);
+  }, [goals, ownerScope]);
 
   if (!hasJourneyGoal(goals) || !journey) return null;
 
@@ -72,8 +75,11 @@ export default function JourneyStageCard({ goals }: { goals?: string[] | null })
           <Button
             label={tr("prog.journeyAdvance", { stage: stageLabel(nextStage(journey.stage)) })}
             onPress={async () => {
+              const scope = ownerScope;
+              if (!isCurrentAccountScope(scope)) return;
               const from = journey.stage;
-              const next = await advanceAndSave(journey);
+              const next = await advanceAndSave(journey, scope);
+              if (!isCurrentAccountScope(scope)) return;
               trackJourneyAdvanced({ from, to: next.stage });
               setJourney(next);
             }}

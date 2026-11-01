@@ -19,6 +19,7 @@ import {
   type StorySet,
 } from "../services/api";
 import { useWallet } from "../store/wallet";
+import { captureAccountScope, isCurrentAccountScope } from "../store/accountScope";
 import ActivationBanner from "../components/ui/ActivationBanner";
 import ExerciseCard from "../components/ExerciseCard";
 import ResultPanel from "../components/ResultPanel";
@@ -43,6 +44,13 @@ export default function StoryScreen() {
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
   const { t: tr, lang } = useI18n();
+  const ownerScope = useRef(captureAccountScope()).current;
+  const activeRef = useRef(true);
+  useEffect(() => {
+    activeRef.current = true;
+    return () => { activeRef.current = false; };
+  }, []);
+  const current = useCallback(() => activeRef.current && isCurrentAccountScope(ownerScope), [ownerScope]);
   const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
 
@@ -63,6 +71,7 @@ export default function StoryScreen() {
   const shake = useRef(new Animated.Value(0)).current;
 
   const loadStory = useCallback(async (id?: string) => {
+    if (!current()) return;
     setLoading(true);
     setLoadError(null);
     setGated(false);
@@ -79,32 +88,36 @@ export default function StoryScreen() {
       const level = beltProgress(progress).cefr;
       const context = buildContext(progress.profile);
       const set = await getStory({ level, context, id });
+      if (!current()) return;
       // A story with no beats has nothing to play — the Check button would be permanently dead. Treat
       // an empty/malformed set as a load failure so the retry/error state shows instead of a stuck screen.
       if (!set.beats?.length) throw new Error("The story came back empty. Try again.");
       setStory(set);
     } catch (e) {
+      if (!current()) return;
       // Stories are verified-only on the server; any 403 here is an account gate, not an error.
       if (gateKind(e)) setGated(true);
       else setLoadError(e instanceof Error ? e.message : "Failed to load the story");
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
     // progress is intentionally read once at load; restarting a story re-reads it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reset]);
+  }, [reset, current]);
 
   // Show the arc chooser first ("today's different" + unlockable premium arcs). Falls back to a
   // straight random story if the catalog can't be fetched (offline / old backend).
   const loadCatalog = useCallback(async () => {
+    if (!current()) return;
     setLoadError(null);
     setGated(false);
     try {
-      setArcs((await getStoryCatalog()).arcs);
+      const catalog = await getStoryCatalog();
+      if (current()) setArcs(catalog.arcs);
     } catch {
-      void loadStory(); // no catalog → just start a story
+      if (current()) void loadStory(); // no catalog → just start a story for this account
     }
-  }, [loadStory]);
+  }, [loadStory, current]);
 
   useEffect(() => {
     loadCatalog();
@@ -112,16 +125,19 @@ export default function StoryScreen() {
 
   // Unlock a premium arc with koku, then start it.
   async function unlockAndPlay(arc: StoryArc) {
-    if (buying) return;
+    if (buying || !current()) return;
     setBuying(arc.id);
     try {
       await buyContent(arc.id);
+      if (!current()) return;
       await refreshWallet();
+      if (!current()) return;
       await loadStory(arc.id);
     } catch (e) {
+      if (!current()) return;
       setLoadError(e instanceof Error ? e.message : "Unlock failed");
     } finally {
-      setBuying(null);
+      if (current()) setBuying(null);
     }
   }
 
@@ -149,14 +165,16 @@ export default function StoryScreen() {
   async function onCheck() {
     if (!beat || response === null || checking) return;
     const res = await check(beat.exercise, response, runShake);
+    if (!current()) return;
     if (res?.correct) setCorrectCount((c) => c + 1);
   }
 
   function onExplain() {
-    if (beat) doExplain(beat.exercise, responseDisplay);
+    if (current() && beat) doExplain(beat.exercise, responseDisplay);
   }
 
   function onAdvance() {
+    if (!current()) return;
     reset();
     setResponse(null);
     setResponseDisplay("");
@@ -169,6 +187,7 @@ export default function StoryScreen() {
 
   // X mid-story: confirm once at least one beat is answered (otherwise nothing is lost).
   function onClose() {
+    if (!current()) return;
     const started = !!story && !finished && (beatIndex > 0 || !!result);
     if (!started) {
       router.back();
@@ -176,7 +195,7 @@ export default function StoryScreen() {
     }
     Alert.alert(tr("exit.title"), tr("exit.msgStory"), [
       { text: tr("exit.stay"), style: "cancel" },
-      { text: tr("exit.leave"), style: "destructive", onPress: () => router.back() },
+      { text: tr("exit.leave"), style: "destructive", onPress: () => { if (current()) router.back(); } },
     ]);
   }
 

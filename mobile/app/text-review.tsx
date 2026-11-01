@@ -5,7 +5,7 @@
 // the UI language. Server-side the findings also update the learner profile's weak-spot memory, so
 // future feedback remembers what tripped them here. Open to everyone (anonymous included); findings
 // are only persisted to the learner profile when signed in.
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { reviewText, type ReviewResult } from "../services/api";
 import { trackReviewSubmitted } from "../services/analytics";
 import { useI18n } from "../store/i18n";
+import { useAccountScope } from "../store/useAccountScope";
+import { isCurrentAccountScope } from "../store/accountScope";
 import { loadingMessageFor } from "../i18n/loading";
 import { RU_TOPIC_LABELS } from "../i18n/strings";
 import { TOPIC_LABELS } from "../store/onboarding";
@@ -27,6 +29,7 @@ import Txt from "../components/ui/Txt";
 const MAX_LEN = 2000; // mirrors the backend's MAX_TEXT (422 beyond it)
 
 export default function TextReviewScreen() {
+  const scope = useAccountScope();
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -36,26 +39,45 @@ export default function TextReviewScreen() {
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  const inFlight = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   const topicLabel = (topic: string) =>
     lang === "ru" ? RU_TOPIC_LABELS[topic] ?? topic : TOPIC_LABELS[topic] ?? topic;
 
   const submit = useCallback(async () => {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || inFlight.current || !mounted.current || !isCurrentAccountScope(scope) || scope.owner === null) return;
+    inFlight.current = true;
     setLoading(true);
     setError(null);
     setResult(null);
     try {
       const r = await reviewText(trimmed);
+      if (!mounted.current || !isCurrentAccountScope(scope)) return;
       setResult(r);
       trackReviewSubmitted({ chars: trimmed.length, issues: r.issues?.length });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to review the text");
+      if (mounted.current && isCurrentAccountScope(scope)) setError(e instanceof Error ? e.message : "Failed to review the text");
     } finally {
-      setLoading(false);
+      if (mounted.current && isCurrentAccountScope(scope)) {
+        inFlight.current = false;
+        setLoading(false);
+      }
     }
-  }, [text, loading]);
+  }, [text, scope]);
+
+  useEffect(() => {
+    setText("");
+    setResult(null);
+    setError(null);
+    setLoading(false);
+    inFlight.current = false;
+  }, [scope]);
 
   const restart = () => {
     setResult(null);

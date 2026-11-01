@@ -18,6 +18,7 @@ import { Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import type { Lang } from "../i18n/strings";
 import type { DiaryRecap } from "../store/diary";
+import { captureAccountScope, isCurrentAccountScope, type AccountScope } from "../store/accountScope";
 
 // Conditional import: skip if notifications aren't available (e.g., Expo Go on Android SDK 53+)
 let Notifications: typeof import("expo-notifications") | null = null;
@@ -101,6 +102,23 @@ export function recapHasContent(recap?: DiaryRecap | null): recap is DiaryRecap 
 }
 
 let configured = false;
+let planVersion = 0;
+let notificationWork: Promise<void> = Promise.resolve();
+
+function serializeNotificationWork(work: () => Promise<void>): Promise<void> {
+  const result = notificationWork.then(work, work);
+  // A failed native operation must not block a later logout cancellation or the next account.
+  notificationWork = result.catch(() => {});
+  return result;
+}
+
+/** Invalidate pending personal plans and clear native reminders in the same serialized queue. */
+export function cancelPersonalNotifications(): Promise<void> {
+  ++planVersion;
+  return serializeNotificationWork(async () => {
+    if (Notifications) await Notifications.cancelAllScheduledNotificationsAsync();
+  });
+}
 
 function configureOnce(): void {
   if (configured || !Notifications) return;
@@ -123,13 +141,15 @@ function configureOnce(): void {
 
 /** Ask once for permission. Returns whether notifications are allowed. */
 export async function ensurePermission(): Promise<boolean> {
+  const scope = captureAccountScope();
   if (!Notifications) return false; // Notifications unavailable (e.g., Expo Go on Android)
   configureOnce();
   const current = await Notifications.getPermissionsAsync();
+  if (!isCurrentAccountScope(scope)) return false;
   if (current.granted) return true;
   if (!current.canAskAgain) return false;
   const asked = await Notifications.requestPermissionsAsync();
-  return asked.granted;
+  return isCurrentAccountScope(scope) && asked.granted;
 }
 
 function at(daysFromToday: number, hour: number, now: Date): Date {
@@ -160,14 +180,16 @@ export type ScheduleState = {
 };
 
 /** Cancel everything and re-plan the future from the current state. Safe to call often. */
-export async function rescheduleAll(state: ScheduleState, now: Date = new Date()): Promise<void> {
+export async function rescheduleAll(
+  state: ScheduleState, now: Date = new Date(), scope: AccountScope = captureAccountScope()
+): Promise<void> {
   if (!Notifications) return; // Notifications unavailable (e.g., Expo Go on Android)
-  configureOnce();
+  if (!isCurrentAccountScope(scope)) return;
+  const version = ++planVersion;
   // Build the full plan list BEFORE cancelling, so a throw while computing it can't leave the user
   // with an empty schedule (nothing is cancelled until we know what replaces it). The cancel→schedule
   // window that remains is inherently non-atomic — there's no "replace all" primitive in expo-
-  // notifications — but it's a sub-millisecond gap while the app is foregrounded, and the very next
-  // reschedule (every open / relevant state change) self-heals any partial set.
+  // notifications. The serialized native work below keeps account changes and later plans ordered.
   const seed = now.getDate();
   const plans: { date: Date; body: string }[] = [];
   const { daily, escalation } = plannedHours(state.remindHour);
@@ -193,16 +215,26 @@ export async function rescheduleAll(state: ScheduleState, now: Date = new Date()
     plans.push({ date: nextWeekday(RECAP_DOW, RECAP_HOUR, now), body: RECAP[state.lang](state.recap) });
   }
 
-  // Plan is fully built — now clear the old set and lay down the new one.
-  await Notifications.cancelAllScheduledNotificationsAsync();
-  await Promise.all(
-    plans
-      .filter((p) => p.date.getTime() > now.getTime())
-      .map((p) =>
-        Notifications.scheduleNotificationAsync({
+  // Native scheduling cannot be cancelled in flight. Serialize it with cancellation and the next
+  // account's plan, so a late A native completion cannot re-create A's reminder after B's cleanup.
+  return serializeNotificationWork(async () => {
+    const current = () => version === planVersion && isCurrentAccountScope(scope);
+    if (!current() || !Notifications) return;
+    configureOnce();
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    if (!current()) return;
+    try {
+      for (const p of plans.filter((plan) => plan.date.getTime() > now.getTime())) {
+        if (!current()) return;
+        await Notifications.scheduleNotificationAsync({
           content: { title: "Relo Dojo", body: p.body },
           trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: p.date },
-        })
-      )
-  );
+        });
+      }
+    } finally {
+      // Scope/version may change during the LAST native await, even when no further tile remains.
+      // B's work is still queued behind us, so this can only clear the stale plan, never B's plan.
+      if (!current()) await Notifications.cancelAllScheduledNotificationsAsync();
+    }
+  });
 }

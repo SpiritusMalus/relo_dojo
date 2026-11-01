@@ -1,7 +1,7 @@
 // Daily contracts card (engagement v2, Phase 2) — the daily-return + varied-earning hook on Home.
 // Shows today's server-issued contracts with live progress; a completed one can be claimed for koku.
 // Progress is counted server-side from the events pipeline, so this card just reflects + claims.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { claimContract, getContracts, type Contract } from "../../services/api";
@@ -9,6 +9,7 @@ import { trackContractClaimed } from "../../services/analytics";
 import { useAuth } from "../../store/auth";
 import { useI18n } from "../../store/i18n";
 import { useWallet } from "../../store/wallet";
+import { captureAccountScope, isCurrentAccountScope } from "../../store/accountScope";
 import { contractsSummary } from "../../store/contracts";
 import { useTheme } from "../../theme/theme";
 import Button from "./Button";
@@ -24,16 +25,26 @@ export default function ContractsCard() {
   const { refresh: refreshWallet } = useWallet();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const busyRef = useRef(false);
+  const mounted = useRef(true);
+  const ownerScope = useRef(captureAccountScope()).current;
+  const current = useCallback(() => mounted.current && isCurrentAccountScope(ownerScope), [ownerScope]);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token || !current()) return;
     try {
       const c = await getContracts();
+      if (!current()) return;
       setContracts(c.contracts);
     } catch {
       // offline / logged out / old backend — hide the card silently
     }
-  }, [token]);
+  }, [token, current]);
 
   useEffect(() => {
     void load();
@@ -43,21 +54,25 @@ export default function ContractsCard() {
   useFocusEffect(useCallback(() => void load(), [load]));
 
   async function claim(id: string) {
-    if (busy) return;
+    if (!token || !current() || busyRef.current) return;
+    busyRef.current = true;
     setBusy(id);
     try {
       const res = await claimContract(id);
+      if (!current()) return;
       if (res.claimed) trackContractClaimed({ id, reward: res.reward });
       await refreshWallet(); // koku credited server-side
+      if (!current()) return;
       await load();
     } catch {
-      await load(); // 409 (not yet complete) → just resync progress
+      if (current()) await load(); // 409 (not yet complete) → just resync progress
     } finally {
-      setBusy(null);
+      busyRef.current = false;
+      if (current()) setBusy(null);
     }
   }
 
-  if (!token || contracts.length === 0) return null;
+  if (!token || !current() || contracts.length === 0) return null;
 
   const summary = contractsSummary(contracts);
 

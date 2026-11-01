@@ -8,8 +8,23 @@
 // fully decoupled from the synced Progress/Profile → zero server-schema risk. Each stage maps 1:1 onto
 // a journey goal id and its scenario pack (store/scenarioPacks.ts), so examples track the stage.
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { captureAccountScope, isCurrentAccountScope, type AccountScope } from "./accountScope";
 
+// The unowned v1 key is deliberately left untouched. It cannot safely be assigned to whichever
+// member signs in next on a shared device.
 const STORAGE_KEY = "relo_dojo/journey/v1";
+const writes = new Map<string, Promise<unknown>>();
+
+function storageKey(scope: AccountScope): string | null {
+  return scope.owner === null ? null : `${STORAGE_KEY}/owner/${encodeURIComponent(scope.owner)}`;
+}
+
+function serialize<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const pending = (writes.get(key) ?? Promise.resolve()).catch(() => {}).then(run);
+  writes.set(key, pending);
+  void pending.finally(() => { if (writes.get(key) === pending) writes.delete(key); }).catch(() => {});
+  return pending;
+}
 
 /** The arc, in order. Each stage emphasizes one journey goal's scenario pack. */
 export const JOURNEY_STAGES = ["pre_move", "arrived", "settled"] as const;
@@ -77,9 +92,12 @@ export function shouldSuggestAdvance(s: JourneyState, after: number = SUGGEST_AD
 
 // --- persistence (best-effort; losing a write is non-fatal) ---
 
-export async function loadJourney(): Promise<JourneyState | null> {
+export async function loadJourney(scope: AccountScope = captureAccountScope()): Promise<JourneyState | null> {
+  const key = storageKey(scope);
+  if (!key || !isCurrentAccountScope(scope)) return null;
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const raw = await AsyncStorage.getItem(key);
+    if (!isCurrentAccountScope(scope)) return null;
     if (!raw) return null;
     const v = JSON.parse(raw) as Partial<JourneyState>;
     const stage = (JOURNEY_STAGES as readonly string[]).includes(v.stage ?? "")
@@ -91,34 +109,42 @@ export async function loadJourney(): Promise<JourneyState | null> {
   }
 }
 
-export async function saveJourney(s: JourneyState): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-  } catch {
-    // ignore
-  }
+export async function saveJourney(s: JourneyState, scope: AccountScope = captureAccountScope()): Promise<void> {
+  const key = storageKey(scope);
+  if (!key) return;
+  await serialize(key, async () => {
+    if (!isCurrentAccountScope(scope)) return;
+    await AsyncStorage.setItem(key, JSON.stringify(s)).catch(() => {});
+  });
 }
 
-/** Clear journey state (called on logout so a fresh learner on the device starts clean). */
-export async function resetJourney(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // ignore
-  }
+/** Clear only the captured owner's state. Logout clears the new guest, retaining members' stages. */
+export async function resetJourney(scope: AccountScope = captureAccountScope()): Promise<void> {
+  const key = storageKey(scope);
+  if (!key) return;
+  await serialize(key, async () => {
+    if (!isCurrentAccountScope(scope)) return;
+    await AsyncStorage.removeItem(key).catch(() => {});
+  });
 }
 
 /** Convenience used at session finish: load (seed from goals if absent) → countSession → save. */
 export async function recordJourneySession(goals?: string[] | null): Promise<JourneyState> {
-  const cur = (await loadJourney()) ?? defaultJourney(goals);
-  const next = countSession(cur);
-  await saveJourney(next);
-  return next;
+  const scope = captureAccountScope();
+  const key = storageKey(scope);
+  if (!key) return defaultJourney(goals);
+  return serialize(key, async () => {
+    const cur = (await loadJourney(scope)) ?? defaultJourney(goals);
+    if (!isCurrentAccountScope(scope)) return cur;
+    const next = countSession(cur);
+    await AsyncStorage.setItem(key, JSON.stringify(next)).catch(() => {});
+    return next;
+  });
 }
 
 /** Convenience used by the nudge: advance the stage and persist it. Returns the new state. */
-export async function advanceAndSave(s: JourneyState): Promise<JourneyState> {
+export async function advanceAndSave(s: JourneyState, scope: AccountScope = captureAccountScope()): Promise<JourneyState> {
   const next = advance(s);
-  await saveJourney(next);
+  await saveJourney(next, scope);
   return next;
 }

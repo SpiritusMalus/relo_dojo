@@ -16,6 +16,9 @@ import {
   type AnalyticsEvent,
   type EventBatch,
 } from "../analytics";
+import { setAccountToken } from "../../store/accountScope";
+
+const userToken = (sub: string) => `header.${Buffer.from(JSON.stringify({ sub })).toString("base64url")}.signature`;
 
 // Drain the queue through a capturing sender so tests can assert the event contract (name + props).
 async function captured(): Promise<AnalyticsEvent[]> {
@@ -144,5 +147,71 @@ describe("named funnel events (D7 contract)", () => {
     const [e] = await captured();
     expect(e.name).toBe("journey_advanced");
     expect(e.props).toEqual({ from: "arrived", to: "settled" });
+  });
+});
+
+describe("analytics account ownership", () => {
+  beforeEach(() => { setAccountToken(null); _reset(); });
+  afterEach(() => { setAccountToken(null); _reset(); });
+
+  test("guest and A events cannot be uploaded as B's events", async () => {
+    const sent: { owner: string | null; batch: EventBatch }[] = [];
+    configure({ sender: async (batch, scope) => { sent.push({ owner: scope.owner, batch }); }, anonId: "device-anon" });
+    track("guest_event");
+    setAccountToken(userToken("a"));
+    track("a_answer", { topic: "private-a" });
+    setAccountToken(userToken("b"));
+    expect(pending()).toBe(0);
+    await flush();
+    expect(sent).toEqual([]);
+    track("b_event");
+    await flush();
+    expect(sent.map(({ owner, batch }) => [owner, batch.events.map((e) => e.name)])).toEqual([["user:b", ["b_event"]]]);
+    setAccountToken(userToken("a"));
+    await flush();
+    expect(sent[1].owner).toBe("user:a");
+    expect(sent[1].batch.events[0].name).toBe("a_answer");
+    setAccountToken(null);
+    await flush();
+    expect(sent[2].owner).toBe("guest");
+    expect(sent[2].batch.events[0].name).toBe("guest_event");
+  });
+
+  test("a late failed A flush retains its owner instead of joining B's retry", async () => {
+    let rejectA!: (reason: Error) => void;
+    const sent: { owner: string | null; names: string[] }[] = [];
+    configure({
+      sender: async (batch, scope) => {
+        if (scope.owner === "user:a" && !rejectA) await new Promise<void>((_resolve, reject) => { rejectA = reject; });
+        sent.push({ owner: scope.owner, names: batch.events.map((e) => e.name) });
+      },
+      anonId: "device-anon",
+    });
+    setAccountToken(userToken("a"));
+    track("a_answer");
+    const pendingA = flush();
+    setAccountToken(userToken("b"));
+    track("b_answer");
+    rejectA(new Error("offline"));
+    await pendingA;
+    expect(pending()).toBe(1);
+    await flush();
+    expect(sent).toEqual([{ owner: "user:b", names: ["b_answer"] }]);
+    setAccountToken(userToken("a"));
+    await flush();
+    expect(sent[1]).toEqual({ owner: "user:a", names: ["a_answer"] });
+  });
+
+  test("unresolved signed-in identities neither record nor flush another owner's queue", async () => {
+    const send = jest.fn(async () => {});
+    configure({ sender: send, anonId: null });
+    track("guest_event");
+    setAccountToken("opaque-token");
+    track("unowned_event");
+    await flush();
+    expect(pending()).toBe(0);
+    expect(send).not.toHaveBeenCalled();
+    setAccountToken(null);
+    expect(pending()).toBe(1);
   });
 });

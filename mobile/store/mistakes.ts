@@ -12,8 +12,13 @@
 // misses forever.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Exercise } from "../services/api";
+import { captureAccountScope, isCurrentAccountScope, type AccountScope } from "./accountScope";
 
-const STORAGE_KEY = "relo_dojo/mistakes/v1";
+const LEGACY_KEY = "relo_dojo/mistakes/v1";
+export const MISTAKES_LEGACY_ARCHIVE_KEY = "relo_dojo/mistakes/quarantine/unowned-v1";
+const ownerQueues = new Map<string, Promise<void>>();
+const listScopes = new WeakMap<Mistake[], AccountScope>();
+let quarantine: Promise<void> | null = null;
 export const MISTAKES_CAP = 40;
 
 // Days until the next review after a correct answer at box i. Box index past the end = graduated.
@@ -91,15 +96,20 @@ function dayKey(iso: string): string {
 /** Pure: items due for review on/before `now`'s calendar day (legacy items with no `due` are due
  *  immediately), longest-overdue first. */
 export function dueMistakes(list: Mistake[], now: string): Mistake[] {
+  if (!usableList(list)) return [];
   const today = dayKey(now);
-  return list
+  const due = list
     .filter((m) => dayKey(m.due ?? "") <= today)
     .sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""));
+  const scope = listScopes.get(list);
+  if (scope) listScopes.set(due, scope);
+  return due;
 }
 
 /** Pure: the earliest upcoming due date among items scheduled for a LATER calendar day, or null when
  *  nothing is scheduled ahead. */
 export function nextDueAt(list: Mistake[], now: string): string | null {
+  if (!usableList(list)) return null;
   const today = dayKey(now);
   const upcoming = list.map((m) => m.due ?? "").filter((d) => d && dayKey(d) > today);
   return upcoming.length ? upcoming.sort()[0] : null;
@@ -113,6 +123,7 @@ export const MAX_MISTAKE_HINTS = 3;
 /** Recent missed example sentences for one topic (newest-first, deduped, capped) — fed to /exercise
  *  so a new item drills the same weak point. Pure: takes the already-loaded list. */
 export function mistakeHintsForTopic(list: Mistake[], topic: string): string[] {
+  if (!usableList(list)) return [];
   const seen = new Set<string>();
   const out: string[] = [];
   for (const m of list) {
@@ -126,48 +137,89 @@ export function mistakeHintsForTopic(list: Mistake[], topic: string): string[] {
   return out;
 }
 
-async function save(list: Mistake[]): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-  } catch {
-    // best-effort cache; a failed write just means this miss isn't remembered
-  }
+function usableList(list: Mistake[]): boolean {
+  const scope = listScopes.get(list);
+  return !scope || isCurrentAccountScope(scope);
 }
 
-export async function loadMistakes(): Promise<Mistake[]> {
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const data = raw ? (JSON.parse(raw) as unknown) : [];
-    return Array.isArray(data) ? (data as Mistake[]) : [];
-  } catch {
-    return [];
+function quarantineLegacy(): Promise<void> {
+  if (!quarantine) {
+    quarantine = (async () => {
+      const raw = await AsyncStorage.getItem(LEGACY_KEY);
+      if (raw !== null && await AsyncStorage.getItem(MISTAKES_LEGACY_ARCHIVE_KEY) === null) {
+        await AsyncStorage.setItem(MISTAKES_LEGACY_ARCHIVE_KEY, raw);
+      }
+      // The original ownerless v1 key is preserved too. Neither copy is used as an account deck.
+    })().catch(() => {}).finally(() => { quarantine = null; });
   }
+  return quarantine;
+}
+
+async function forOwner<T>(scope: AccountScope, fallback: T, run: (key: string) => Promise<T>): Promise<T> {
+  if (!scope.owner || !isCurrentAccountScope(scope)) return fallback;
+  const owner = scope.owner;
+  const previous = ownerQueues.get(owner) ?? Promise.resolve();
+  const task = previous.then(async () => {
+    if (!isCurrentAccountScope(scope)) return fallback;
+    await quarantineLegacy();
+    if (!isCurrentAccountScope(scope)) return fallback;
+    return run(`relo_dojo/mistakes/v2/${encodeURIComponent(owner)}`);
+  });
+  const tail = task.then(() => {}, () => {});
+  ownerQueues.set(owner, tail);
+  try { return await task; }
+  catch { return fallback; } // best-effort local cache
+  finally { if (ownerQueues.get(owner) === tail) ownerQueues.delete(owner); }
+}
+
+async function readOwner(key: string): Promise<Mistake[]> {
+  const raw = await AsyncStorage.getItem(key);
+  const data: unknown = raw ? JSON.parse(raw) : [];
+  return Array.isArray(data) ? data as Mistake[] : [];
+}
+
+export async function loadMistakes(scope: AccountScope = captureAccountScope()): Promise<Mistake[]> {
+  return forOwner(scope, [], async (key) => {
+    const list = await readOwner(key);
+    if (!isCurrentAccountScope(scope)) return [];
+    listScopes.set(list, scope);
+    return list;
+  });
+}
+
+async function mutate(scope: AccountScope, update: (list: Mistake[]) => Mistake[]): Promise<void> {
+  await forOwner(scope, undefined, async (key) => {
+    const list = await readOwner(key);
+    if (!isCurrentAccountScope(scope)) return;
+    const next = update(list);
+    if (!isCurrentAccountScope(scope)) return;
+    // Native writes cannot be cancelled after dispatch. This key is immutable and belongs to the
+    // captured owner; a later A read waits behind it, while B uses a completely separate queue/key.
+    await AsyncStorage.setItem(key, JSON.stringify(next));
+  });
 }
 
 // Capture a missed exercise. Only interactive (token-bearing) items can be replayed/regraded.
-export async function captureMistake(ex: Exercise): Promise<void> {
+export async function captureMistake(ex: Exercise, scope: AccountScope = captureAccountScope()): Promise<void> {
   if (!ex.token) return;
-  const list = await loadMistakes();
-  await save(upsertMistake(list, ex, new Date().toISOString()));
+  await mutate(scope, (list) => upsertMistake(list, ex, new Date().toISOString()));
 }
 
 // Remove an item outright (stale/unusable token — no SRS credit).
-export async function resolveMistake(id: string): Promise<void> {
-  const list = await loadMistakes();
-  await save(list.filter((m) => m.id !== id));
+export async function resolveMistake(id: string, scope: AccountScope = captureAccountScope()): Promise<void> {
+  await mutate(scope, (list) => list.filter((m) => m.id !== id));
 }
 
 // Correct answer in Review: climb the SRS ladder (or graduate off the deck).
-export async function promoteMistakeStored(id: string): Promise<void> {
-  const list = await loadMistakes();
-  await save(promoteMistake(list, id, new Date().toISOString()));
+export async function promoteMistakeStored(id: string, scope: AccountScope = captureAccountScope()): Promise<void> {
+  await mutate(scope, (list) => promoteMistake(list, id, new Date().toISOString()));
 }
 
-export async function mistakeCount(): Promise<number> {
-  return (await loadMistakes()).length;
+export async function mistakeCount(scope: AccountScope = captureAccountScope()): Promise<number> {
+  return (await loadMistakes(scope)).length;
 }
 
 /** How many items are due for review right now (the number worth showing on the Review button). */
-export async function dueCount(): Promise<number> {
-  return dueMistakes(await loadMistakes(), new Date().toISOString()).length;
+export async function dueCount(scope: AccountScope = captureAccountScope()): Promise<number> {
+  return dueMistakes(await loadMistakes(scope), new Date().toISOString()).length;
 }

@@ -8,10 +8,12 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { getWallet, spendItem, type SpendItem, type Wallet } from "../services/api";
 import { useAuth } from "./auth";
+import { captureAccountScope, isCurrentAccountScope, subscribeAccountScope, type AccountScope } from "./accountScope";
 
 // Client-side mirror of backend config (core/config.py) for display; the server enforces the real
 // values, so a drift here is cosmetic only.
@@ -30,7 +32,7 @@ type WalletContextValue = {
   /** Buy/consume a catalog item on the server. Throws ApiError 409 when balance is insufficient. */
   spend: (item: SpendItem, qty?: number) => Promise<void>;
   /** Patch the cached balance from a /check response (no extra round-trip). */
-  applyCheckReward: (coins?: number | null) => void;
+  applyCheckReward: (coins?: number | null, scope?: AccountScope) => void;
 };
 
 const EMPTY: Wallet = { coins: 0, freezes: 0, is_premium: false, left_today: null };
@@ -38,48 +40,62 @@ const WalletContext = createContext<WalletContextValue | null>(null);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
-  const [ready, setReady] = useState(false);
-  const [wallet, setWallet] = useState<Wallet>(EMPTY);
+  const scope = useSyncExternalStore(subscribeAccountScope, captureAccountScope, captureAccountScope);
+  const [mirror, setMirror] = useState(() => ({ scope, ready: false, wallet: EMPTY }));
+  // Scope publication happens synchronously in the API token setter. Hide the old account even
+  // before React's token effect runs; a delayed refresh must never briefly expose A's balance to B.
+  const ready = mirror.scope === scope && mirror.ready;
+  const wallet = mirror.scope === scope ? mirror.wallet : EMPTY;
 
   // (Re)load on login; clear on logout.
   useEffect(() => {
     let cancelled = false;
-    if (!token) {
-      setWallet(EMPTY);
-      setReady(false);
-      return;
-    }
+    setMirror({ scope, ready: false, wallet: EMPTY });
+    if (!token || !isCurrentAccountScope(scope)) return;
     (async () => {
       try {
         const w = await getWallet();
-        if (!cancelled) setWallet(w);
+        if (!cancelled && isCurrentAccountScope(scope)) setMirror({ scope, ready: true, wallet: w });
       } catch {
         // offline / old backend — keep the cached zero state; /check patches will still land
-      } finally {
-        if (!cancelled) setReady(true);
+        if (!cancelled && isCurrentAccountScope(scope)) {
+          setMirror((current) => isCurrentAccountScope(scope)
+            ? { scope, ready: true, wallet: current.scope === scope ? current.wallet : EMPTY } : current);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, scope]);
 
   const refresh = useCallback(async () => {
+    const requestScope = scope;
+    if (!isCurrentAccountScope(requestScope)) return;
     try {
-      setWallet(await getWallet());
+      const w = await getWallet();
+      setMirror((current) => isCurrentAccountScope(requestScope)
+        ? { scope: requestScope, ready: true, wallet: w } : current);
     } catch {
       // ignore — next /check patch or refresh will catch up
     }
-  }, []);
+  }, [scope]);
 
   const spend = useCallback(async (item: SpendItem, qty = 1) => {
+    const requestScope = scope;
+    if (!isCurrentAccountScope(requestScope)) return;
     // Server is the source of truth; it returns the post-spend wallet (409 → throws, no change).
-    setWallet(await spendItem(item, qty));
-  }, []);
+    const w = await spendItem(item, qty);
+    setMirror((current) => isCurrentAccountScope(requestScope)
+      ? { scope: requestScope, ready: true, wallet: w } : current);
+  }, [scope]);
 
-  const applyCheckReward = useCallback((coins?: number | null) => {
-    if (typeof coins === "number") setWallet((w) => ({ ...w, coins }));
-  }, []);
+  const applyCheckReward = useCallback((coins?: number | null, requestScope = scope) => {
+    if (typeof coins !== "number" || !isCurrentAccountScope(scope) || !isCurrentAccountScope(requestScope)) return;
+    setMirror((current) => isCurrentAccountScope(requestScope)
+      ? { scope: requestScope, ready: current.scope === requestScope && current.ready,
+          wallet: { ...(current.scope === requestScope ? current.wallet : EMPTY), coins } } : current);
+  }, [scope]);
 
   const value = useMemo<WalletContextValue>(
     () => ({

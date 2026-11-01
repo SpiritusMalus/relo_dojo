@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, 
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { gateKind, postSessionSummary, type Exercise, type ResponseValue, type SessionAnswer } from "../services/api";
+import { gateKind, getExercise, postSessionSummary, type Exercise, type ResponseValue, type SessionAnswer } from "../services/api";
 import { track, trackExerciseAnswered } from "../services/analytics";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ActivationBanner from "../components/ui/ActivationBanner";
@@ -20,6 +20,9 @@ import PronunciationCard from "../components/ui/PronunciationCard";
 import { canServePronunciation, voiceFeatureEnabled } from "../services/voice";
 import { useVoiceConsent } from "../store/voiceConsent";
 import { useExerciseCheck } from "../store/useExerciseCheck";
+import { useExerciseQueueLifetime } from "../store/useExerciseQueueLifetime";
+import { useAccountScope } from "../store/useAccountScope";
+import { isCurrentAccountScope } from "../store/accountScope";
 import { useI18n } from "../store/i18n";
 import { loadMistakes, mistakeHintsForTopic, type Mistake } from "../store/mistakes";
 import { loadingMessageFor } from "../i18n/loading";
@@ -48,6 +51,7 @@ import RegisterWall from "../components/ui/RegisterWall";
 const SESSION_LEN = 10;
 
 export default function PracticeScreen() {
+  const scope = useAccountScope();
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -82,15 +86,15 @@ export default function PracticeScreen() {
   const journeyGoalRef = useRef<string | null>(null);
   useEffect(() => {
     let active = true;
-    loadJourney().then((j) => {
-      if (!active) return;
+    loadJourney(scope).then((j) => {
+      if (!active || !isCurrentAccountScope(scope)) return;
       const stage = j?.stage ?? stageFromGoals(progressRef.current.profile?.goals);
       journeyGoalRef.current = STAGE_GOAL[stage];
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [scope]);
 
   // Prefetch during feedback, after the current answer updates the learner model.
   // One next card avoids spending on cards that a later answer would invalidate.
@@ -101,11 +105,19 @@ export default function PracticeScreen() {
   // progress.steering). Merged on top of it per fetch so a session nudge layers over the saved one.
   const sessionSteeringRef = useRef<Steering | null>(null);
   const queueRef = useRef<ExerciseQueue | null>(null);
-  if (queueRef.current === null) {
+  const queueScopeRef = useRef(scope);
+  if (queueRef.current === null || queueScopeRef.current !== scope) {
+    queueRef.current?.dispose();
+    queueScopeRef.current = scope;
+    const queueScope = scope;
     queueRef.current = createExerciseQueue({
       size: 1,
       prefetchOnServe: false,
-      revision: () => Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0),
+      fetch: (params) => {
+        if (!isCurrentAccountScope(queueScope)) return Promise.reject(new Error("The signed-in account changed."));
+        return getExercise(params);
+      },
+      revision: () => `${scope.epoch}:${Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0)}`,
       selectParams: () => {
         const steering = mergeSteering(progressRef.current.steering, sessionSteeringRef.current ?? DEFAULT_STEERING);
         const { topic, cefr, type } = selectNext(progressRef.current, forcedTopicRef.current, steering);
@@ -120,6 +132,7 @@ export default function PracticeScreen() {
       },
     });
   }
+  useExerciseQueueLifetime(queueRef.current);
   const [exercise, setExercise] = useState<Exercise | null>(null);
   useEffect(() => { if (exercise) beginAttempt(exercise); }, [exercise, beginAttempt]);
   const [round, setRound] = useState(0); // bumps to remount ExerciseCard on each new exercise
@@ -146,6 +159,7 @@ export default function PracticeScreen() {
 
   const loadingRef = useRef(false);
   const loadExercise = useCallback(async (replace = false) => {
+    if (!isCurrentAccountScope(scope)) return;
     if (loadingRef.current) return;
     loadingRef.current = true;
     setLoading(true);
@@ -163,16 +177,20 @@ export default function PracticeScreen() {
     // `replace` (a swerve swapping the current card) reuses the slot already counted — no re-charge.
     try {
       // Refresh the local miss list so freshly-refilled cards can target the latest weak points.
-      mistakesRef.current = await loadMistakes();
+      const list = await loadMistakes(scope);
+      if (!isCurrentAccountScope(scope)) return;
+      mistakesRef.current = list;
       // Pull from the buffer (instant if prefetched); the queue handles adaptive selection and
       // refills itself in the background.
       const next = !replace && !token
         ? await deliverGuestExercise(localDate(new Date()), () => queueRef.current!.next())
         : await queueRef.current!.next();
+      if (!isCurrentAccountScope(scope)) return;
       if (!next) { setGuestLimited(true); return; }
       setExercise(next);
       setRound((r) => r + 1);
     } catch (e) {
+      if (!isCurrentAccountScope(scope)) return;
       // 403 routes by gate kind: "limit" → limit sheet with the upsell; "gated" → the activation
       // prompt. Never a raw error.
       const gate = gateKind(e);
@@ -184,9 +202,9 @@ export default function PracticeScreen() {
       else setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
       loadingRef.current = false;
-      setLoading(false);
+      if (isCurrentAccountScope(scope)) setLoading(false);
     }
-  }, [reset, token]);
+  }, [reset, token, scope]);
 
   useEffect(() => {
     // On mount, or when the ROUTE's drilled topic changes, drop any buffered cards (they may be
@@ -266,7 +284,7 @@ export default function PracticeScreen() {
   // Fire-and-forget memory update (auth required server-side; anonymous callers just 401 → ignored).
   // The agent's "wins" line comes back for the Progress tab; weak-spot memory updates server-side.
   function pushSessionSummary() {
-    if (summarySentRef.current || sessionAnswersRef.current.length === 0) return;
+    if (!isCurrentAccountScope(scope) || summarySentRef.current || sessionAnswersRef.current.length === 0) return;
     summarySentRef.current = true;
     // North-star instrumentation: a completed practice session is the core retention signal.
     track("session_complete", {
@@ -276,7 +294,7 @@ export default function PracticeScreen() {
     });
     postSessionSummary(sessionAnswersRef.current)
       .then((r) => {
-        if (r.wins) updateProfile({ wins: r.wins });
+        if (isCurrentAccountScope(scope) && r.wins) updateProfile({ wins: r.wins });
       })
       .catch(() => {}); // best-effort: offline / logged out / model down
   }
@@ -529,6 +547,7 @@ export default function PracticeScreen() {
               <Button
                 label={tr("action.finish")}
                 onPress={() => {
+                  if (!isCurrentAccountScope(scope)) return;
                   pushSessionSummary();
                   // Anon-first funnel: count finished lessons so Home can surface the soft
                   // save-progress wall after a few. No-op effect for signed-in users.

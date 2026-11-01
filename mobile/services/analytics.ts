@@ -1,24 +1,25 @@
 // Analytics — the client side of the north-star instrumentation (Day-7 retention).
 //
-// Design: a tiny buffered tracker with NO external imports, so it unit-tests in isolation and can
-// never crash a screen. Screens call `track(name, props)`; events are buffered and flushed in
+// Design: a tiny buffered tracker. Screens call `track(name, props)`; events are buffered and flushed in
 // batches by the app shell (on app background / interval / login). The network sender and the
 // anonymous id are injected via `configure()` from the app root — this module stays pure.
 //
-// Identity: pre-login events carry an anonymous id (stable across launches, persisted by the
-// caller); once the user logs in the backend attributes events to the user id instead. Tracking is
+// Identity: each queued event retains its original local owner. Pre-login events are only sent
+// anonymously; a signed-in queue is only sent during a session belonging to that same user. Tracking is
 // always best-effort: a failed flush re-queues (capped) and is retried later; nothing throws.
+import { captureAccountScope, isCurrentAccountScope, type AccountScope } from "../store/accountScope";
 
 export type AnalyticsEvent = { name: string; props: Record<string, unknown>; ts: number };
 export type EventBatch = { anon_id: string | null; events: AnalyticsEvent[] };
-export type Sender = (batch: EventBatch) => Promise<void>;
+export type Sender = (batch: EventBatch, scope: AccountScope) => Promise<void>;
 
 // Keep the buffer bounded so an offline stretch can't grow it without limit (drop oldest).
 export const MAX_QUEUE = 200;
 // Flush at most this many per batch (must stay ≤ backend MAX_EVENTS_PER_BATCH = 50).
 export const MAX_BATCH = 50;
 
-let queue: AnalyticsEvent[] = [];
+type OwnedEvent = { owner: string; event: AnalyticsEvent };
+let queue: OwnedEvent[] = [];
 let anonId: string | null = null;
 let sender: Sender | null = null;
 let flushing = false;
@@ -35,13 +36,16 @@ export function setAnonId(id: string | null): void {
 
 /** Record an event. Cheap and synchronous; never throws. Oldest events drop past MAX_QUEUE. */
 export function track(name: string, props: Record<string, unknown> = {}): void {
-  queue.push({ name, props, ts: Date.now() });
+  const { owner } = captureAccountScope();
+  if (owner === null) return; // An unresolved account must not borrow the previous user's identity.
+  queue.push({ owner, event: { name, props, ts: Date.now() } });
   if (queue.length > MAX_QUEUE) queue = queue.slice(queue.length - MAX_QUEUE);
 }
 
 /** Number of buffered events not yet flushed (exposed for tests / debugging). */
 export function pending(): number {
-  return queue.length;
+  const { owner } = captureAccountScope();
+  return queue.filter((item) => item.owner === owner).length;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,13 +112,21 @@ export function trackJourneyAdvanced(p: { from: string; to: string }): void {
 /** Flush buffered events in one batch. Best-effort: on failure the batch is re-queued for later. */
 export async function flush(): Promise<void> {
   if (flushing || queue.length === 0 || sender === null) return;
+  const scope = captureAccountScope();
+  if (scope.owner === null) return;
+  const batch = queue.filter((item) => item.owner === scope.owner).slice(0, MAX_BATCH);
+  if (batch.length === 0) return;
   flushing = true;
-  const batch = queue.slice(0, MAX_BATCH);
-  queue = queue.slice(batch.length);
+  const selected = new Set(batch);
+  queue = queue.filter((item) => !selected.has(item));
   try {
-    await sender({ anon_id: anonId, events: batch });
+    if (!isCurrentAccountScope(scope)) throw new Error("session_changed");
+    // The sender must pass this scope to postEvents' request guard. It must never use a later
+    // account's bearer token for an earlier queue, including retries after a failed request.
+    await sender({ anon_id: anonId, events: batch.map((item) => item.event) }, scope);
   } catch {
-    // Re-queue at the front so order is preserved, then stop (retry on the next flush).
+    // Retain the original ownership on failure. B can flush only B's events; A's stay private
+    // until A returns (or fall out of the bounded, in-memory queue).
     queue = [...batch, ...queue].slice(0, MAX_QUEUE);
   } finally {
     flushing = false;

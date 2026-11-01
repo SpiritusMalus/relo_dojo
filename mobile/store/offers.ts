@@ -3,6 +3,7 @@
 // in koku. The countdown never lies — once it expires, that offer id is gone for good. (A fake
 // perpetual "today only" is the one FOMO trick we skip: store policy + refunds risk.)
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { captureAccountScope, isCurrentAccountScope, type AccountScope } from "./accountScope";
 
 const STORAGE_KEY = "relo_dojo/offers/v1";
 
@@ -49,13 +50,15 @@ export async function ensureOffer(id: OfferId, now: Date = new Date()): Promise<
   return next;
 }
 
-export async function markOffer(id: OfferId, patch: Partial<OfferRecord>): Promise<OfferState> {
+export async function markOffer(id: OfferId, patch: Partial<OfferRecord>, scope: AccountScope = captureAccountScope()): Promise<OfferState> {
+  if (!scope.owner || !isCurrentAccountScope(scope)) return {};
   const state = await loadOffers();
+  if (!isCurrentAccountScope(scope)) return {};
   const rec = state[id];
   if (!rec) return state;
   const next = { ...state, [id]: { ...rec, ...patch } };
   await save(next);
-  return next;
+  return isCurrentAccountScope(scope) ? next : {};
 }
 
 /** Pure: is this offer currently showable? */
