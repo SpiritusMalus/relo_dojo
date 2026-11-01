@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-01T06:16:41.269904+00:00",
+  "generatedAt": "2026-11-01T07:46:28.123994+00:00",
   "title": "Design System: Relo Dojo",
   "extensions": {
     "colorMeta": {
@@ -23,6 +23,16 @@
         "role": "neutral",
         "displayName": "Dojo ink",
         "canonical": "#253328"
+      },
+      "night-bamboo": {
+        "role": "primary",
+        "displayName": "Night bamboo",
+        "canonical": "#8EBA9A"
+      },
+      "night-paper": {
+        "role": "neutral",
+        "displayName": "Night paper",
+        "canonical": "#171D18"
       }
     },
     "typographyMeta": {
@@ -33,9 +43,28 @@
       "body": {
         "displayName": "Reading and controls",
         "purpose": "Native body copy, with OS font scaling and glyph fallback."
+      },
+      "body-strong": {
+        "displayName": "Semibold body",
+        "purpose": "Mode titles and chip labels use HankenGrotesk_600SemiBold."
+      },
+      "control": {
+        "displayName": "Shared button label",
+        "purpose": "Button.tsx selects HankenGrotesk_700Bold at 16/23."
       }
     },
-    "shadows": [],
+    "shadows": [
+      {
+        "name": "native-overlay-light",
+        "value": "shadowColor: #142818; shadowOffset: {width: 0, height: 18}; shadowOpacity: 0.16; shadowRadius: 30; elevation: 14",
+        "purpose": "React Native shadowsLight.lg used by TranslationPopover; not a CSS box-shadow."
+      },
+      {
+        "name": "native-overlay-dark",
+        "value": "shadowColor: #000000; shadowOffset: {width: 0, height: 20}; shadowOpacity: 0.55; shadowRadius: 30; elevation: 14",
+        "purpose": "React Native shadowsDark.lg used by TranslationPopover; not ordinary card elevation."
+      }
+    ],
     "motion": [
       {
         "name": "reward-reveal",
@@ -55,9 +84,9 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Native filled daily action, normal case and generous target.",
+      "description": "Panel translation of the native filled Button: bold UI label, 48-unit minimum target and lower-border press feedback.",
       "html": "<button class=\"ds-primary\">Continue practice</button>",
-      "css": ".ds-primary{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;background:#376347;color:white;border:0;border-bottom:2px solid #284B34;border-radius:12px;min-height:48px;padding:15px 18px;font-weight:600;cursor:pointer}.ds-primary:hover{background:#284B34}.ds-primary:active{transform:translateY(1px);border-bottom-width:1px}.ds-primary:focus-visible{outline:2px solid #376347;outline-offset:3px}.ds-primary:disabled{background:#E5E2D6;color:#666F61;border-color:#C9CEBD}"
+      "css": ".ds-primary{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;background:#376347;color:#FFFFFF;border:0;border-bottom:2px solid #284B34;border-radius:12px;min-height:48px;padding:15px 18px;font-weight:700;cursor:pointer}.ds-primary:hover{background:#376347}.ds-primary:active:not(:disabled){transform:translateY(1px);border-bottom-width:1px}.ds-primary:focus-visible{outline:2px solid #376347;outline-offset:3px}.ds-primary:disabled{background:#E5E2D6;color:#666F61;border-color:#C9CEBD;cursor:default}"
     },
     {
       "name": "Ghost Button",
@@ -65,43 +94,51 @@
       "refersTo": "button-ghost",
       "description": "Secondary action using a quiet outline.",
       "html": "<button class=\"ds-ghost\">Try again</button>",
-      "css": ".ds-ghost{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;background:#FFFCF5;color:#253328;border:1px solid #C9CEBD;border-radius:12px;min-height:48px;padding:13px 18px;font-weight:600;cursor:pointer}.ds-ghost:hover,.ds-ghost:active{background:#EEEBDD}.ds-ghost:focus-visible{outline:2px solid #376347;outline-offset:3px}"
+      "css": ".ds-ghost{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;background:#FFFCF5;color:#253328;border:1px solid #C9CEBD;border-radius:12px;min-height:48px;padding:13px 18px;font-weight:700;cursor:pointer}.ds-ghost:hover,.ds-ghost:active:not(:disabled){background:#EEEBDD}.ds-ghost:focus-visible{outline:2px solid #376347;outline-offset:3px}.ds-ghost:disabled{background:#E5E2D6;color:#666F61;border-color:#C9CEBD;cursor:default}"
     },
     {
       "name": "Account Field",
       "kind": "input",
       "description": "Existing labelled native account input, with clear focus outline.",
       "html": "<label class=\"ds-field\">Email<input type=\"email\" placeholder=\"you@example.com\" /></label>",
-      "css": ".ds-field{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;display:grid;gap:6px;color:#253328;font-size:13px;font-weight:700}.ds-field input{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;background:#FFFCF5;color:#253328;border:2px solid #C9CEBD;border-radius:12px;padding:13px 14px;font-size:15px;min-height:20px}.ds-field input::placeholder{color:#666F61}.ds-field input:focus{border-color:#376347;outline:0}"
+      "css": ".ds-field{font-family:\"Hanken Grotesk\",system-ui,sans-serif;display:grid;gap:6px;color:#566053;font-size:13px;line-height:18px;font-weight:700}.ds-field input{font-family:\"Hanken Grotesk\",system-ui,sans-serif;background:#FFFCF5;color:#253328;border:2px solid #C9CEBD;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:500}.ds-field input::placeholder{color:#666F61}.ds-field input:hover{border-color:#C9CEBD}.ds-field input:focus-visible{border-color:#376347;outline:0}"
     },
     {
       "name": "Native Tab Navigation",
       "kind": "nav",
-      "description": "Three native top-level destinations; the active target uses a soft bamboo pill.",
-      "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">Home</button><button>Train</button><button>Progress</button></nav>",
-      "css": ".ds-nav{display:flex;gap:8px;padding:8px;background:#F6F3EB;border-top:1px solid #DDDDCF}.ds-nav button{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;flex:1;min-height:48px;border:0;border-radius:24px;background:transparent;color:#666F61;font-size:12px;cursor:pointer}.ds-nav button[aria-current]{background:#E6ECDF;color:#376347;font-weight:600}.ds-nav button:hover{background:#EEEBDD}.ds-nav button:focus-visible{outline:2px solid #376347}"
+      "description": "Panel translation: the active pill surrounds the 52×32 icon area. Native height remains ceil(48 + 16 × fontScale) plus bottom inset.",
+      "html": "<nav class=\"ds-nav\"><button aria-current=\"page\"><span><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 11l8-6 8 6M6 10v9h12v-9\"/></svg></span>Home</button><button><span><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M4 9v6M20 9v6M7 7v10M17 7v10M7 12h10\"/></svg></span>Train</button><button><span><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 19V10M12 19V5M19 19v-6\"/></svg></span>Progress</button></nav>",
+      "css": ".ds-nav{display:flex;padding:6px 0 8px;background:#F6F3EB;border-top:1px solid #DDDDCF}.ds-nav button{font-family:\"Hanken Grotesk\",system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;flex:1;min-height:48px;border:0;background:transparent;color:#666F61;font-size:12px;line-height:16px;font-weight:600;cursor:pointer}.ds-nav button span{display:flex;align-items:center;justify-content:center;width:52px;height:32px;border-radius:999px}.ds-nav button[aria-current]{color:#376347}.ds-nav button[aria-current] span{background:#E6ECDF}.ds-nav button:not([aria-current]):hover span{background:#EEEBDD}.ds-nav button:focus-visible{outline:2px solid #376347;outline-offset:2px}"
     },
     {
       "name": "Choice Chip",
       "kind": "chip",
       "description": "48-unit target and semantic selected state.",
       "html": "<button class=\"ds-chip\" aria-pressed=\"true\">Short daily sessions</button>",
-      "css": ".ds-chip{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;border:1px solid #C9CEBD;border-radius:999px;min-height:48px;padding:10px 16px;background:#FFFCF5;color:#253328;font-weight:600;cursor:pointer}.ds-chip[aria-pressed=true]{background:#E6ECDF;color:#376347;border-color:#376347}.ds-chip:hover{background:#EEEBDD}.ds-chip:focus-visible{outline:2px solid #376347;outline-offset:2px}"
+      "css": ".ds-chip{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;border:1px solid #C9CEBD;border-radius:999px;min-height:48px;padding:10px 16px;background:#FFFCF5;color:#253328;font-weight:600;cursor:pointer}.ds-chip[aria-pressed=true]{background:#E6ECDF;color:#376347;border-color:#376347}.ds-chip:not([aria-pressed=true]):hover,.ds-chip:not([aria-pressed=true]):active{background:#EEEBDD}.ds-chip:focus-visible{outline:2px solid #376347;outline-offset:2px}.ds-chip:disabled{opacity:0.5;cursor:default}",
+      "refersTo": "chip-selected"
     },
     {
       "name": "Parchment Card",
       "kind": "card",
       "refersTo": "card",
       "description": "One outline, no ordinary card shadow.",
-      "html": "<section class=\"ds-card\"><strong>Practice saved</strong><p>Your next lesson starts from here.</p></section>",
-      "css": ".ds-card{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;padding:20px;border:1px solid #DDDDCF;border-radius:16px;background:#FFFCF5;color:#253328}.ds-card p{margin:6px 0 0;color:#566053}"
+      "html": "<section class=\"ds-card\"><strong>White belt</strong><p>Your starting belt — practice ahead</p></section>",
+      "css": ".ds-card{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;font-weight:500;padding:20px;border:1px solid #DDDDCF;border-radius:16px;background:#FFFCF5;color:#253328}.ds-card strong{font-family:\"Zen Maru Gothic\",sans-serif;font-size:17px;line-height:21px;font-weight:700}.ds-card p{margin:6px 0 0;color:#566053}"
     },
     {
       "name": "Training Mode Row",
       "kind": "custom",
       "description": "A quiet native row, secondary to Daily Mix.",
-      "html": "<button class=\"ds-mode\"><svg viewBox=\"0 0 24 24\" width=\"26\" height=\"26\" fill=\"none\" stroke=\"#376347\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg><span><strong>Review my text</strong><small>Paste your real email or message</small></span><b aria-hidden=\"true\">›</b></button>",
-      "css": ".ds-mode{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;display:flex;align-items:center;gap:16px;padding:16px;min-height:80px;border:1px solid #DDDDCF;border-radius:12px;background:#FFFCF5;color:#253328;text-align:left;cursor:pointer}.ds-mode span{display:grid;gap:3px;flex:1}.ds-mode small{font-size:14px;line-height:20px;color:#566053}.ds-mode:hover,.ds-mode:active{background:#EEEBDD}.ds-mode:focus-visible{outline:2px solid #376347;outline-offset:2px}"
+      "html": "<button class=\"ds-mode\"><i><svg viewBox=\"0 0 24 24\" width=\"26\" height=\"26\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg></i><span><strong>Review my text</strong><small>Paste your real email or message</small></span><i class=\"ds-mode-chevron\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 6l6 6-6 6\"/></svg></i></button>",
+      "css": ".ds-mode{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;display:flex;align-items:center;gap:16px;padding:16px;min-height:80px;border:1px solid #DDDDCF;border-radius:12px;background:#FFFCF5;color:#253328;text-align:left;cursor:pointer}.ds-mode i{display:flex;color:#376347;flex-shrink:0}.ds-mode .ds-mode-chevron{color:#666F61}.ds-mode span{display:grid;gap:3px;flex:1}.ds-mode strong{font-weight:600}.ds-mode small{font-size:14px;line-height:20px;font-weight:500;color:#566053}.ds-mode:hover,.ds-mode:active{background:#EEEBDD}.ds-mode:focus-visible{outline:2px solid #376347;outline-offset:2px}"
+    },
+    {
+      "name": "Daily Mix",
+      "kind": "button",
+      "description": "Panel translation of the existing filled daily action: drawn bolt, two-line label, drawn chevron and press border.",
+      "html": "<button class=\"ds-mix\"><i><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M13 3L5 13h6l-1 8 8-11h-6z\"/></svg></i><span><strong>Daily mix</strong><small>A quick set across your topics</small></span><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 6l6 6-6 6\"/></svg></button>",
+      "css": ".ds-mix{display:flex;align-items:center;gap:14px;min-height:64px;width:100%;padding:16px;background:#376347;color:#FFFFFF;border:0;border-bottom:2px solid #284B34;border-radius:16px;text-align:left;cursor:pointer}.ds-mix i{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;flex-shrink:0}.ds-mix span{display:grid;flex:1}.ds-mix strong{font-family:\"Zen Maru Gothic\",sans-serif;font-size:17px;line-height:21px;font-weight:700}.ds-mix small{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:14px;line-height:20px;font-weight:500;opacity:0.9}.ds-mix:hover{background:#376347}.ds-mix:active{transform:translateY(1px);border-bottom-width:1px}.ds-mix:focus-visible{outline:2px solid #376347;outline-offset:3px}"
     }
   ],
   "narrative": {
@@ -113,18 +150,29 @@
       "Standard native navigation, spacious controls and clear recovery states.",
       "Rewards acknowledge practice without competing with the lesson."
     ],
-    "rules": [],
+    "rules": [
+      {
+        "name": "The Encoded Weight Rule",
+        "body": "Native custom-font families already encode weight. The frontmatter records the portable family and weight; native components select the corresponding named face from `fonts` instead of adding `fontWeight`. ",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Surface Rule",
+        "body": "Ordinary cards and mode rows separate content with tone and an outline. Do not spread the overlay shadow across those rows. ",
+        "section": "elevation"
+      }
+    ],
     "dos": [
-      "Keep the next useful learning action findable in the first viewport.",
-      "Use existing belt and scroll mechanics without inventing mastery or reward claims.",
-      "Verify light, dark and enlarged type in a native emulator or device.",
-      "Preserve native Back, safe areas, keyboard access and clear loading/error states."
+      "**Do** keep the next useful learning action findable in the first viewport.",
+      "**Do** use existing belt and scroll mechanics without inventing mastery or reward claims.",
+      "**Do** verify light, dark and enlarged type in a native emulator or device.",
+      "**Do** preserve native Back, safe areas, keyboard access and clear loading/error states."
     ],
     "donts": [
-      "Put promotions, reward pressure or a long catalogue ahead of the daily practice action.",
-      "Use saturated mode backgrounds, decorative gradients or shadows on every card.",
-      "Present estimated skill or unstarted topics as earned proficiency.",
-      "Replace the established dojo with a new brand or generic emoji icon vocabulary."
+      "**Don't** put promotions, reward pressure or a long catalogue ahead of the daily practice action.",
+      "**Don't** replace the quiet training-mode surfaces with saturated fills, gradients or repeated shadows.",
+      "**Don't** present estimated skill or unstarted topics as earned proficiency.",
+      "**Don't** replace the established dojo with a new brand or generic emoji icon vocabulary."
     ]
   }
 }
