@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import { useExerciseCheck, type Result } from "../useExerciseCheck";
 import { DEFAULT_PROGRESS, recordAnswer, type GradeSignal, type Progress } from "../progress";
-import { checkInteractive, type Exercise } from "../../services/api";
+import { checkInteractive, explain, explainStream, type Exercise } from "../../services/api";
 
 let mockProgress: Progress = DEFAULT_PROGRESS;
 const mockRecord = jest.fn();
@@ -15,7 +15,7 @@ jest.mock("../wallet", () => ({ useWallet: () => ({ applyCheckReward: mockReward
 jest.mock("../mistakes", () => ({ captureMistake: jest.fn(async () => {}) }));
 jest.mock("../../services/api", () => {
   const actual = jest.requireActual("../../services/api");
-  return { ...actual, checkInteractive: jest.fn() };
+  return { ...actual, checkInteractive: jest.fn(), explain: jest.fn(), explainStream: jest.fn() };
 });
 
 const exercise: Exercise = {
@@ -108,5 +108,24 @@ it("records rule assistance and the difficulty actually served, independent of t
   await act(async () => { await hook.check({ ...exercise, level: "A1" }, "a"); });
   expect(mockRecord.mock.calls[0][2]).toMatchObject({ difficulty: 0.5, hintUsed: true });
   expect(mockProgress.course.history.articles[0].c).toBe(false);
+  act(() => renderer.unmount());
+});
+
+it("explains the full four-option task with the same safe context on stream failure", async () => {
+  const card = { ...exercise, type: "odd-one-out" as const, topic: "word order",
+    text: "Tap the one that doesn't belong", instruction: "Choose the sentence without inversion.",
+    options: ["Always we arrive early.", "Seldom do we arrive early.", "Never have we arrived late.", "Rarely did we miss a train."],
+    answer: "hidden-key-must-not-be-sent", token: "sealed-private-token" };
+  const renderer = mount();
+  jest.mocked(checkInteractive).mockResolvedValueOnce({ correct: false, correct_answer: card.options[0] });
+  jest.mocked(explainStream).mockRejectedValueOnce(new Error("stream unavailable"));
+  jest.mocked(explain).mockResolvedValueOnce({ explanation: "All choices were available for comparison.", tip: "" });
+  await act(async () => { await hook.check(card, card.options[1]); });
+  await act(async () => { await hook.doExplain(card, card.options[1]); });
+  const [context, key, response] = jest.mocked(explainStream).mock.calls[0];
+  expect(JSON.parse(context)).toMatchObject({ type: card.type, topic: card.topic, instruction: card.instruction, options: card.options });
+  expect(context).not.toContain(card.token);
+  expect(context).not.toContain(card.answer);
+  expect(explain).toHaveBeenCalledWith(context, key, response);
   act(() => renderer.unmount());
 });

@@ -21,6 +21,7 @@ import { useWallet } from "./wallet";
 import { cefrMidpoint, effectiveSkill, isCefr, levelToCefr } from "./adaptive";
 import { captureMistake } from "./mistakes";
 import { AttemptClock, exerciseAttemptKey, expectedSolveMs } from "./answerAttempt";
+import { explanationContext } from "./explanationContext";
 
 export type Result = {
   correct: boolean;
@@ -162,12 +163,13 @@ export function useExerciseCheck() {
     if (!result || explainLoading || explainAbort.current) return;
     setExplainLoading(true);
     const correct = result.correct_answer;
+    const context = explanationContext(exercise);
     const controller = new AbortController();
     explainAbort.current = controller;
     try {
       let started = false;
       const finalText = await explainStream(
-        exercise.text,
+        context,
         correct,
         responseDisplay,
         (full) => {
@@ -185,7 +187,7 @@ export function useExerciseCheck() {
     } catch (e) {
       if (controller.signal.aborted) return; // cancelled by the next card — stay silent
       try {
-        const note = await explain(exercise.text, correct, responseDisplay);
+        const note = await explain(context, correct, responseDisplay);
         if (isMounted.current) setExplained(note);
       } catch (e2) {
         if (isMounted.current) setError(e2 instanceof Error ? e2.message : "Failed to explain");
