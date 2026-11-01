@@ -6,12 +6,11 @@ import { useI18n } from "../../store/i18n";
 import Txt from "./Txt";
 
 // Koku (soft currency) badge for the TopBar — tap opens the shop (the balance IS the shop door).
-// Koku = the historical rice measure a samurai was paid in — hence the rice emoji.
 export default function CoinBadge() {
   const t = useTheme();
   const router = useRouter();
   const { coins, ready } = useWallet();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
   return (
     <Pressable
       onPress={() => router.push("/shop")}
@@ -20,7 +19,7 @@ export default function CoinBadge() {
       accessibilityLabel={ready ? tr("wallet.balanceOpen", { n: coins }) : tr("wallet.balanceUnavailable")}
       hitSlop={6}
     >
-      <Txt variant="caption" color={t.c.gold}>{`🌾 ${ready ? coins : "—"}`}</Txt>
+      <Txt variant="caption" color={t.c.gold}>{`${ready ? coins : "—"} ${lang === "ru" ? "коку" : "koku"}`}</Txt>
     </Pressable>
   );
 }

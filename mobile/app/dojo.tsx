@@ -147,6 +147,7 @@ export default function DojoScreen() {
             const label = room.busy ? copy.busy : placed ? copy.equipped : owned ? copy.equip
               : item.gate === "buy" ? `${copy.buy} ${item.price} ${copy.koku}` : selectedTarget ? copy.selected : copy.choose;
             return <View style={{ gap: 10 }}>
+              {preview && !placed && <DojoScene equipped={shown} compact accessibilityLabel={`${copy.selectedPreview}: ${dojoItemName(item.id, lang)}`} />}
               <Button variant="ghost" label={label} onPress={() => void commit(item)}
                 disabled={!enabled || placed || insufficient || (!owned && item.gate === "buy" && !wallet.ready) || (!owned && item.gate === "achievement" && selectedTarget)} />
               {!owned && item.gate === "achievement" && <Txt variant="secondary">{copy.daysHint}</Txt>}
