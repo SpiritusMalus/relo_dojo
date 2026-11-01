@@ -319,9 +319,14 @@ export default function PracticeScreen() {
         <View style={{ flex: 1, marginHorizontal: 14 }}>
           <ProgressBar pct={(Math.min(solved, SESSION_LEN) / SESSION_LEN) * 100} height={10} />
         </View>
-        <Txt variant="caption" color={t.c.fire}>
-          {`${boostActive(progress) ? "⚡x2 " : ""}🔥 ${progress.dailyStreak}`}
-        </Txt>
+        <View accessible accessibilityLabel={`${progress.dailyStreak} ${tr("prog.dayStreak")}`} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          {boostActive(progress) && <>
+            <Icon name="bolt" size={16} color={t.c.fire} />
+            <Txt variant="caption" color={t.c.fire}>x2</Txt>
+          </>}
+          <Icon name="flame" size={16} color={t.c.fire} />
+          <Txt variant="caption" color={t.c.fire}>{progress.dailyStreak}</Txt>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>

@@ -17,8 +17,8 @@ AI-authored exercises use structured-output contracts, local shape/key checks an
 a separate semantic review. Rejected content receives a bounded retry and, if
 necessary, one stronger repair. A small authored safety net carries its actual
 level and `source=curated`. Policy refusals fail clearly without entering that path.
-Interactive answers are graded deterministically from sealed tokens; writing is
-assessed by a model.
+Keyed answers are graded deterministically from sealed tokens; free text, writing
+and listening retells are assessed by a model.
 
 The evaluated OpenRouter configuration is Gemini 3.5 Flash Lite for generation,
 GPT-6.1 Terra for semantic review/writing/planning, and Gemini 3.8 Flash for one

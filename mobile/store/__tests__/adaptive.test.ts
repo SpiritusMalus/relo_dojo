@@ -323,14 +323,20 @@ describe("selectNext — learner steering", () => {
     const s = steer({ pinnedFocusTopic: pin });
     let pinned = 0;
     const seen = new Set<string>();
-    for (let i = 0; i < ITER; i++) {
-      const t = selectNext(p, undefined, s).topic;
-      if (t === pin) pinned++;
-      seen.add(t);
-    }
     let baseline = 0;
-    for (let i = 0; i < ITER; i++) {
-      if (selectNext(p, undefined, DEFAULT_STEERING).topic === pin) baseline++;
+    // Compare the same stratified random values: independent small samples can invert this
+    // inequality by chance even with a correct weight boost (a release-CI flake).
+    const random = jest.spyOn(Math, "random");
+    try {
+      for (let i = 0; i < ITER; i++) {
+        random.mockReturnValue((i + 0.5) / ITER);
+        const t = selectNext(p, undefined, s).topic;
+        if (t === pin) pinned++;
+        seen.add(t);
+        if (selectNext(p, undefined, DEFAULT_STEERING).topic === pin) baseline++;
+      }
+    } finally {
+      random.mockRestore();
     }
     expect(pinned).toBeGreaterThan(baseline); // boosted
     expect(seen.size).toBeGreaterThan(1); // variety not starved — other topics still appear
