@@ -4,6 +4,11 @@
   "inheritedGeometry": "marketing/icon/icon-master.svg",
   "renderer": "sharp 0.35.5",
   "method": "Deterministic SVG raster export. No image generation or raster retouching.",
+  "provenance": {
+    "chunk": "tEXt",
+    "keyword": "impeccable:prompt",
+    "origin": "Origin: Deterministic SVG export from mobile/assets/brand-mark.svg using Sharp 0.35.5; source SHA-256 a02dd1c7b40cf05e8f1ed28d4a2d180476c7757f84c3dc55108c9c52adc0b4af. Geometry inherited from marketing/icon/icon-master.svg. Export script: mobile/scripts/export-brand-assets.cjs. No AI image generation or raster retouching."
+  },
   "background": "#376347",
   "adaptiveForegroundScale": 0.8,
   "outputs": [
@@ -11,37 +16,43 @@
       "file": "icon.png",
       "width": 1024,
       "height": 1024,
-      "sha256": "caee6c24a0909a7bc1471405483c20eb620039933abad621b29f4bdf6c173d8f"
+      "sha256": "5bd3ae1d082ece21d22c59865728c861a42bc381ea011e61e546239255d83bd3",
+      "pngWithoutOriginSha256": "caee6c24a0909a7bc1471405483c20eb620039933abad621b29f4bdf6c173d8f"
     },
     {
       "file": "android-icon-foreground.png",
       "width": 1024,
       "height": 1024,
-      "sha256": "465a0fa32cbcc825849982fb063e8c27008c7e094ebbb3f25c1defa3389c2ede"
+      "sha256": "453c95e686107be2f1e6409f0dfbee9def79c96f9711032c6edaea074b749039",
+      "pngWithoutOriginSha256": "465a0fa32cbcc825849982fb063e8c27008c7e094ebbb3f25c1defa3389c2ede"
     },
     {
       "file": "android-icon-background.png",
       "width": 1024,
       "height": 1024,
-      "sha256": "1b07b29b2ba5f333d25dd0b08b3211238d876f8fe0f8afb4a5529c971cf2998f"
+      "sha256": "5a739fa7c8ed6fb9b95603c386bc563f204a1f82aba50a9e19e482311caeaea3",
+      "pngWithoutOriginSha256": "1b07b29b2ba5f333d25dd0b08b3211238d876f8fe0f8afb4a5529c971cf2998f"
     },
     {
       "file": "android-icon-monochrome.png",
       "width": 1024,
       "height": 1024,
-      "sha256": "00b77f51d214fab5a7fbbb513388f7c5cbb89adbd5e884130b59907ad66fbac8"
+      "sha256": "da86c08d1be8f2f3efdfed72ea7c8933bf766b6ef054f4c0bde384d1fa390a10",
+      "pngWithoutOriginSha256": "00b77f51d214fab5a7fbbb513388f7c5cbb89adbd5e884130b59907ad66fbac8"
     },
     {
       "file": "splash-icon.png",
       "width": 1024,
       "height": 1024,
-      "sha256": "1bf5f55ef40e636cefca75bbab056267839f4f8d4755b429f2aba63c8e68ea69"
+      "sha256": "930d7d005cd1151b7d041d963efc51398b0abb50475501e5e0a7df5fbc73f8d1",
+      "pngWithoutOriginSha256": "1bf5f55ef40e636cefca75bbab056267839f4f8d4755b429f2aba63c8e68ea69"
     },
     {
       "file": "favicon.png",
       "width": 64,
       "height": 64,
-      "sha256": "cff66e8f7cec41906d24113708bb96051bf6662bfa6863a24b3dd92ab3fc255f"
+      "sha256": "da979ed908fd955105de9828f616ea9c58ce52f78f682708845e64cc03e34a51",
+      "pngWithoutOriginSha256": "cff66e8f7cec41906d24113708bb96051bf6662bfa6863a24b3dd92ab3fc255f"
     }
   ]
 }
