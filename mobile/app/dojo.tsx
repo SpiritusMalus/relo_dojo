@@ -131,7 +131,7 @@ export default function DojoScreen() {
                 <ItemMark item={item} />
                 <View style={{ flex: 1, gap: 3 }}>
                   <Txt variant="bodyStrong">{dojoItemName(item.id, lang)}</Txt>
-                  <Txt variant="secondary">{placed ? copy.equipped : owned ? item.gate === "starter" ? copy.starter : copy.earned
+                  <Txt variant="secondary">{placed ? copy.equipped : owned ? item.gate === "starter" ? copy.starter : item.gate === "achievement" ? copy.earned : copy.owned
                     : item.practice_days ? dojoDays(item.practice_days, lang) : `${item.price} ${copy.koku}`}</Txt>
                 </View>
                 {placed ? <Icon name="check" color={t.c.accent} /> : !owned ? <Icon name="lock" size={18} color={t.c.ink3} /> : null}
