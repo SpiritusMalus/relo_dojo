@@ -170,3 +170,12 @@ async def test_equip_rejects_unowned_and_unknown():
     with pytest.raises(HTTPException) as e2:
         await cosmetics.equip(_user(), db, "ghost")
     assert e2.value.status_code == 400
+
+
+async def test_idempotent_purchase_clears_legacy_acquired_target_without_charge():
+    db = _FakeDB()
+    user = _user(coins=300, cosmetics=["sensei_sage"])
+    user.dojo_target = "sensei_sage"  # legacy preference; no longer a valid selectable target
+    result = await cosmetics.buy(user, db, "sensei_sage")
+    assert result.coins == 300 and result.cosmetics == ["sensei_sage"]
+    assert result.dojo_target is None and db.commits == 1 and db.locked == 1

@@ -144,7 +144,11 @@ async def buy(user: User, db: AsyncSession, cosmetic_id: str) -> User:
     # Lock the row for the read-modify-write below (ownership re-check + debit + array append).
     await db.refresh(user, with_for_update=True)
     if cosmetic_id in owned_ids(user):
-        await db.rollback()  # idempotent: already owned → release the lock, charge nothing
+        if getattr(user, "dojo_target", None) == cosmetic_id:
+            user.dojo_target = None
+            await db.commit()  # compatibility repair; ownership/coins do not change
+        else:
+            await db.rollback()  # idempotent: already owned → release the lock, charge nothing
         await db.refresh(user)  # rollback expires async ORM attributes used by the response
         return user
     if not is_season_active(item.get("season")):
@@ -156,6 +160,8 @@ async def buy(user: User, db: AsyncSession, cosmetic_id: str) -> User:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_NOT_ENOUGH)
     user.coins -= price
     user.cosmetics = list(user.cosmetics or []) + [cosmetic_id]
+    if getattr(user, "dojo_target", None) == cosmetic_id:
+        user.dojo_target = None
     await db.commit()
     await db.refresh(user)
     return user

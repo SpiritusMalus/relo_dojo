@@ -39,12 +39,10 @@ import Confetti from "../components/ui/Confetti";
 import Scroll from "../components/ui/Scroll";
 import { boostActive } from "../store/progress";
 import { ensureOffer } from "../store/offers";
-import { useWallet } from "../store/wallet";
-import { useCosmetics } from "../store/cosmeticsStore";
 import { useDojoRoom } from "../store/dojoRoom";
+import { dojoItemName } from "../store/dojoRoomCopy";
 import { learningGoalRoute, nextLearningGoal, type LearningGoal } from "../store/nextLearningGoal";
 import { learningLoopCopy } from "../i18n/learningLoopCopy";
-import { firstAffordableUnowned } from "../store/cosmetics";
 import { useAuth } from "../store/auth";
 import { recordLessonFinished } from "../store/registerWall";
 import { recordJourneySession, loadJourney, stageFromGoals, STAGE_GOAL } from "../store/journey";
@@ -176,8 +174,6 @@ export default function PracticeScreen() {
   const [showScroll, setShowScroll] = useState(false); // end-of-session summary + reward scroll
   const [swerveOpen, setSwerveOpen] = useState(false); // learner's "steer the lesson" sheet
   const [ruleOpen, setRuleOpen] = useState(false); // 📖 rule card for the current card's topic
-  const { isPremium, coins } = useWallet();
-  const { owned: ownedCosmetics } = useCosmetics();
   const error = loadError ?? checkError;
 
   const shake = useRef(new Animated.Value(0)).current;
@@ -388,6 +384,13 @@ export default function PracticeScreen() {
     ]);
   }
 
+  const newPiece = dojoSave === "saved" ? room.snapshot?.receipts[0] : undefined;
+  function leaveCompletedLesson(toDojo = false) {
+    if (!isCurrentAccountScope(scope)) return;
+    if (newPiece) void room.acknowledge(newPiece.id).catch(() => {});
+    router.replace(toDojo ? "/dojo" : "/(tabs)");
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
       <StatusBar style={t.name === "dark" ? "light" : "dark"} />
@@ -482,17 +485,8 @@ export default function PracticeScreen() {
 
         {error && !gated && !loading && (
           <View style={{ gap: 12, marginTop: 20 }}>
-            {/* Human words first (a raw provider line like "OpenRouter refused this request (PII
-                detected)" means nothing to a learner); the technical cause stays visible below,
-                small and dim — it's the only clue we get back in a bug-report screenshot. */}
-            <Txt variant="bodyStrong" style={{ textAlign: "center" }}>
+            <Txt variant="bodyStrong" accessibilityRole="alert" style={{ textAlign: "center" }}>
               {tr("err.exercise.title")}
-            </Txt>
-            <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
-              {tr("err.exercise.hint")}
-            </Txt>
-            <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center" }}>
-              {error}
             </Txt>
             <Button label={tr("action.tryAgain")} variant="ghost" onPress={() => loadExercise()} />
           </View>
@@ -500,7 +494,6 @@ export default function PracticeScreen() {
 
         {showScroll && (
           <View style={{ marginTop: 20, gap: 14 }}>
-            {/* Session summary — the peak-end beat: stats, then the scroll, then the pitch. */}
             <Card>
               <View style={{ alignItems: "center", gap: 6, paddingVertical: 4 }}>
                 <Txt variant="bodyStrong">{tr("summary.title")}</Txt>
@@ -510,7 +503,7 @@ export default function PracticeScreen() {
                 <Txt variant="bodyStrong" color={t.c.gold}>
                   {tr("summary.xp", { n: sessionXp })}
                 </Txt>
-                <Txt variant="secondary" color={t.c.ink2}>{copy.unassisted(sessionUnaided, solved)}</Txt>
+                {sessionUnaided !== sessionCorrect && <Txt variant="secondary" color={t.c.ink2}>{copy.unassisted(sessionUnaided, solved)}</Txt>}
                 {sessionKoku !== null && sessionKoku > 0 && <Txt variant="bodyStrong" color={t.c.gold}>{copy.koku(sessionKoku)}</Txt>}
               </View>
             </Card>
@@ -522,6 +515,19 @@ export default function PracticeScreen() {
                 {dojoSave === "pending" && <Button label={copy.retry} variant="ghost" onPress={saveDojoDay} />}
               </View>
             )}
+            {newPiece && (
+              <View style={{ gap: 10 }}>
+                <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                  <Icon name="star" size={32} color={t.c.gold} />
+                  <View style={{ flex: 1 }}>
+                    <Txt variant="secondary" color={t.c.ink2}>{copy.newPiece}</Txt>
+                    <Txt variant="cardTitle">{dojoItemName(newPiece.item_id, lang)}</Txt>
+                  </View>
+                </View>
+                <Button label={copy.openDojo} onPress={() => leaveCompletedLesson(true)} />
+              </View>
+            )}
+            <Button label={copy.doneToday} variant={newPiece ? "ghost" : "primary"} onPress={() => leaveCompletedLesson()} />
             {nextGoal && (() => {
               const nextCopy = copy.goal(nextGoal, nextGoal.topic ? labelFor(nextGoal.topic) : "");
               return (
@@ -539,23 +545,6 @@ export default function PracticeScreen() {
                 <Txt variant="body" color={t.c.ink2}>{tr("scroll.guestBody")}</Txt>
                 <Button label={tr("action.finish")} onPress={() => router.back()} />
               </Card>
-            )}
-            {(() => {
-              // Peak-end pitch: at the emotional high, surface a reachable cosmetic reward.
-              const pick = firstAffordableUnowned(coins, ownedCosmetics);
-              if (!pick) return null;
-              const name = lang === "ru" ? pick.name.ru : pick.name.en;
-              return (
-                <Card>
-                  <Txt variant="secondary" color={t.c.ink2} style={{ textAlign: "center", marginBottom: 8 }}>
-                    {tr("ward.pitch", { name })}
-                  </Txt>
-                  <Button label={tr("ward.open")} variant="ghost" onPress={() => router.push("/wardrobe")} />
-                </Card>
-              );
-            })()}
-            {!isPremium && (
-              <Button label={tr("limit.premium")} variant="ghost" onPress={() => router.push("/premium")} />
             )}
           </View>
         )}

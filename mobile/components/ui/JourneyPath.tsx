@@ -3,7 +3,6 @@ import { useProgress } from "../../store/progress";
 import { useI18n } from "../../store/i18n";
 import { RU_TOPIC_LABELS, beltName } from "../../i18n/strings";
 import { beltProgress, buildPath, type NodeState, type PathNode } from "../../store/dojo";
-import { MASTERY_MIN_CORRECT, MASTERY_MIN_HARD } from "../../store/curriculum";
 import { useTheme, type Belt } from "../../theme/theme";
 import BeltKnot from "./BeltKnot";
 import Icon from "./Icon";
@@ -190,14 +189,6 @@ function NodeCard({ node, interactive }: { node: PathNode; interactive: boolean 
         {node.state === "current" && node.mastery && (
           <View style={{ marginTop: 6, gap: 3 }}>
             <ProgressBar pct={node.mastery.pct} height={6} />
-            <Txt variant="caption" color={t.c.ink3}>
-              {tr("course.meter", {
-                c: node.mastery.correct,
-                t: MASTERY_MIN_CORRECT,
-                h: node.mastery.hard,
-                ht: MASTERY_MIN_HARD,
-              })}
-            </Txt>
           </View>
         )}
       </View>

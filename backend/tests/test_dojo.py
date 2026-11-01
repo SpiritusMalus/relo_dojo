@@ -381,3 +381,48 @@ async def test_abandon_race_cannot_expire_ten_answer_completion_or_committed_gra
     await dojo.abandon_session(user, db, session.id)
     assert session.completed_at is not None
     assert (await dojo.state(user, db)).practice_days == 1
+
+
+async def test_acquired_practice_target_clears_canonically_and_exposes_next_goal(store):
+    user, db = store
+    await dojo.select_target(user, db, "dojo_display_first_scroll")
+    await finish(user, db)
+    assert user.dojo_target is None
+    state = await dojo.state(user, db)
+    assert state.selected_target is None and state.next_milestone == 3
+    assert "dojo_display_first_scroll" in state.owned
+    with pytest.raises(HTTPException) as e:
+        await dojo.select_target(user, db, "dojo_display_first_scroll")
+    assert e.value.status_code == 409
+
+
+async def test_purchase_clears_only_acquired_target_and_rejects_reselection(store):
+    user, db = store
+    await dojo.select_target(user, db, "dojo_light_sunset")
+    await cosmetics.buy(user, db, "dojo_display_wave")
+    assert user.dojo_target == "dojo_light_sunset"
+    await cosmetics.buy(user, db, "dojo_light_sunset")
+    assert user.dojo_target is None
+    assert (await dojo.state(user, db)).selected_target is None
+    with pytest.raises(HTTPException) as e:
+        await dojo.select_target(user, db, "dojo_light_sunset")
+    assert e.value.status_code == 409
+
+
+@pytest.mark.parametrize("stale_target", ["missing_old_catalog_id", "sensei_classic", "dojo_light_paper", "sensei_ronin", "dojo_display_first_scroll"])
+async def test_get_projection_filters_stale_owned_unknown_and_nondojo_targets(store, stale_target):
+    user, db = store
+    user.dojo_target = stale_target
+    user.cosmetics = [*(user.cosmetics or []), "dojo_display_first_scroll"]
+    await db.commit()
+    state = await dojo.state(user, db)
+    assert state.selected_target is None
+    assert user.dojo_target == stale_target  # GET remains read-only; compatibility projection only
+
+
+async def test_null_target_remains_default_and_can_be_explicitly_restored(store):
+    user, db = store
+    assert (await dojo.state(user, db)).selected_target is None
+    await dojo.select_target(user, db, "dojo_light_lantern")
+    state = await dojo.select_target(user, db, None)
+    assert user.dojo_target is None and state.selected_target is None

@@ -197,8 +197,14 @@ async def state(user: User, db: AsyncSession) -> DojoState:
     grants = (await db.execute(select(DojoGrant).where(DojoGrant.user_id == user.id,
         DojoGrant.acknowledged_at.is_(None)).order_by(DojoGrant.granted_at, DojoGrant.rule_id))).scalars().all()
     catalog = [DojoCatalogItem(id=cid, **item) for cid, item in cosmetics.CATALOG.items() if item["slot"] in SLOTS]
-    return DojoState(slots=SLOTS, catalog=catalog, owned=cosmetics.owned_ids(user),
-        equipped=cosmetics.equipped_resolved(user), selected_target=getattr(user, "dojo_target", None),
+    owned = cosmetics.owned_ids(user)
+    target = getattr(user, "dojo_target", None)
+    target_item = cosmetics.CATALOG.get(target)
+    # Read-only compatibility for preferences saved before acquisition/selection guards existed.
+    if target in owned or target_item is None or target_item["slot"] not in SLOTS or target_item["gate"] == "starter":
+        target = None
+    return DojoState(slots=SLOTS, catalog=catalog, owned=owned,
+        equipped=cosmetics.equipped_resolved(user), selected_target=target,
         practice_days=count, next_milestone=next((day for day in MILESTONES if day > count), None),
         receipts=[DojoReceipt(id=str(g.id), item_id=g.item_id, rule_id=g.rule_id,
                              practice_days=g.practice_days, granted_at=_aware(g.granted_at).isoformat()) for g in grants])
@@ -232,6 +238,8 @@ async def complete_session(user: User, db: AsyncSession, session_id: uuid.UUID) 
             db.add(DojoGrant(id=uuid.uuid4(), user_id=user.id, rule_id=rule_id, item_id=item_id,
                              practice_days=threshold, granted_at=now))
             user.cosmetics = list(dict.fromkeys([*(user.cosmetics or []), item_id]))
+            if user.dojo_target == item_id:
+                user.dojo_target = None
     row.completed_at, row.reward_day = now, day
     await db.commit()  # completion + day + grant + existing inventory are one transaction
     return row
@@ -244,6 +252,8 @@ async def select_target(user: User, db: AsyncSession, item_id: str | None) -> Do
         if item is None or item["slot"] not in SLOTS or item["gate"] == "starter":
             _bad("Choose a selectable dojo item.", 400)
     await db.refresh(user, with_for_update=True)
+    if item_id is not None and item_id in cosmetics.owned_ids(user):
+        _bad("You already own this dojo item.")
     user.dojo_target = item_id
     await db.commit()
     return await state(user, db)

@@ -65,7 +65,7 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
         <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.combo", { n: result.combo_bonus ?? 0 })}</Txt>
       )}
       {!!levelUp && <Txt variant="bodyStrong" color={t.c.accent}>{tr("result.levelUp", { level: levelUp })}</Txt>}
-      {!!result.explanation && <Txt variant="body" color={t.c.ink2}>{`💡 ${result.explanation}`}</Txt>}
+      {!!result.explanation && <Txt variant="body" color={t.c.ink2}>{result.explanation}</Txt>}
       {!!result.tip && <Txt variant="secondary" color={t.c.ink2}>{result.tip}</Txt>}
 
       {canExplain && (
@@ -79,7 +79,7 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
       )}
       {explained && (
         <>
-          <Txt variant="body" color={t.c.ink2}>{`💡 ${explained.explanation}`}</Txt>
+          <Txt variant="body" color={t.c.ink2}>{explained.explanation}</Txt>
           {!!explained.tip && <Txt variant="secondary" color={t.c.ink2}>{explained.tip}</Txt>}
         </>
       )}

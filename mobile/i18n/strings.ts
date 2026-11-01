@@ -112,15 +112,15 @@ export const STRINGS = {
     "exit.stay": "Keep going",
     "exit.leave": "Leave",
 
-    "result.correct": "Clean strike!",
+    "result.correct": "Correct",
     "result.wrong": "Not quite",
     "result.almost": "Almost — {detail} right",
     "result.levelUp": "Skill estimate increased: {level}",
     "result.explain": "Explain",
-    "result.streak": "⚔️ {n} correct in a row!",
+    "result.streak": "{n} correct in a row",
     "result.xp": "+{n} XP",
-    "result.firstWin": "🌅 First win today +{n} koku",
-    "result.combo": "🎯 Combo +{n} koku",
+    "result.firstWin": "Daily bonus · +{n} koku",
+    "result.combo": "Combo · +{n} koku",
 
     "story.writing": "Writing your story…",
     "story.done": "{title} — done!",
@@ -265,7 +265,7 @@ export const STRINGS = {
     "scroll.rare": "A rare find!",
     "scroll.spent": "You've already opened your scroll today — a fresh one waits tomorrow.",
 
-    "summary.title": "Session complete",
+    "summary.title": "Practice complete",
     "summary.stats": "{correct} of {total} correct",
     "summary.xp": "+{n} XP",
 
@@ -649,15 +649,15 @@ export const STRINGS = {
     "exit.stay": "Остаться",
     "exit.leave": "Выйти",
 
-    "result.correct": "Чистый удар!",
+    "result.correct": "Верно",
     "result.wrong": "Мимо",
     "result.almost": "Почти — {detail} верно",
     "result.levelUp": "Оценка навыка выросла: {level}",
     "result.explain": "Объяснить",
-    "result.streak": "⚔️ {n} верных подряд!",
+    "result.streak": "{n} верных подряд",
     "result.xp": "+{n} XP",
-    "result.firstWin": "🌅 Первая победа дня +{n} коку",
-    "result.combo": "🎯 Комбо +{n} коку",
+    "result.firstWin": "Бонус дня · +{n} коку",
+    "result.combo": "Комбо · +{n} коку",
 
     "story.writing": "Сочиняем историю…",
     "story.done": "{title} — готово!",
@@ -802,7 +802,7 @@ export const STRINGS = {
     "scroll.rare": "Редкая находка!",
     "scroll.spent": "Свиток на сегодня уже открыт — новый будет завтра.",
 
-    "summary.title": "Сессия завершена",
+    "summary.title": "Тренировка завершена",
     "summary.stats": "Верно: {correct} из {total}",
     "summary.xp": "+{n} XP",
 

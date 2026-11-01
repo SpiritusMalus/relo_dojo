@@ -9,7 +9,7 @@ Historical server aliases are retired and must not be used.
 | Running application | `/opt/relo_dojo/backend`, service user `relo` |
 | Runtime unit | `relo-dojo.service`, loopback `127.0.0.1:8010` |
 | Protected environment | `/opt/relo_dojo/backend/.env`, mode 0600 |
-| Database | PostgreSQL `relo_dojo`, schema head `0018_miss_log` |
+| Database | PostgreSQL `relo_dojo`, schema head `0019_dojo_practice` |
 | Registered source replica | `/srv/projects/relo_dojo`, separate from runtime |
 
 A source pull or hub bridge does not deploy the running process. Do not copy live
@@ -27,16 +27,14 @@ outside this deployment.
 3. Fast-forward `/opt/relo_dojo` to the exact integrated SHA through the existing
    authenticated Git route or a verified Git bundle. Install dependencies only if
    their files changed; run the runtime virtualenv's `pip check`.
-4. Inspect Alembic head versus current. This test release adds JSON progress fields
-   and needs no new migration beyond `0018_miss_log`. Never run database setup or
-   destructive commands as a routine update.
-5. Update only the approved learning settings in the protected environment:
-   `OPENROUTER_MODEL=google/gemini-3.5-flash-lite`,
-   `OPENROUTER_MODEL_SMART=openai/gpt-6.1-terra`,
-   `OPENROUTER_MODEL_REPAIR=google/gemini-3.8-flash`, reasoning `low`, provider sort
-   `latency`, and exercise review/repair/curated fallback enabled. Set
-   `RELO_RELEASE_SHA` to the integrated SHA. Preserve credentials, persistent token
-   keys, mail, billing, audio and unrelated settings.
+4. Inspect Alembic head versus current. My Dojo adds `0019_dojo_practice` after
+   `0018_miss_log`: a nullable presentation preference and additive practice/receipt
+   tables. Back up first, then run the runtime virtualenv's Alembic upgrade as the
+   application user. Use `AUTO_MIGRATE=false` so service restarts cannot silently
+   change the schema. Never recreate the database or drop existing progress.
+5. Set `RELO_RELEASE_SHA` to the integrated SHA. Enable `DOJO_ENABLED=true` only
+   after migration and compatible API/client checks. Preserve model configuration,
+   credentials, persistent token keys, mail, billing, audio and unrelated settings.
 6. Restart only `relo-dojo.service`. Require active state, new PID/start time,
    localhost health and a successful read-only database/schema check.
 7. Verify the public routes and a real client learning round trip. Record source
@@ -71,6 +69,12 @@ Restore the recorded previous code revision and only the relevant protected
 configuration from the same-host backup; restart the Relo unit and repeat readiness
 checks. Preserve the live database and user progress. Restoring an older database
 or removing a service/proxy route is not a normal application rollback.
+
+For My Dojo, disable `DOJO_ENABLED` first. Ordinary practice remains available,
+including an in-flight lesson. Leave migration 0019 and all earned inventory in
+place; its downgrade deliberately refuses to erase practice evidence. Older code
+can ignore the additive tables with automatic migration disabled. Scoped review
+tokens last 35 days; their durable economic identities are retained for 60 days.
 
 Keep `Environment=HOME=/opt/relo_dojo/backend` in the service unit: under
 `ProtectHome=true`, asyncpg otherwise may fail probing the masked home directory,
