@@ -48,11 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Apply a token everywhere (api client + state + secure storage).
   const apply = useCallback(async (newToken: string | null) => {
-    sessionVersion.current += 1;
+    const version = ++sessionVersion.current;
     setAuthToken(newToken);
     setToken(newToken);
     if (newToken) await SecureStore.setItemAsync(TOKEN_KEY, newToken);
     else await SecureStore.deleteItemAsync(TOKEN_KEY);
+    return version;
   }, []);
 
   // Storage is the startup gate. A slow/offline server must not hide the whole app
@@ -89,9 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
+      const requestVersion = ++sessionVersion.current;
       const { access_token } = await apiLogin(email.trim(), password);
-      await apply(access_token);
-      setUser(await getMe());
+      if (requestVersion !== sessionVersion.current) return;
+      const version = await apply(access_token);
+      if (version !== sessionVersion.current) return;
+      const me = await getMe();
+      if (version !== sessionVersion.current) return;
+      setUser(me);
       void syncConsentToServer(); // replay a consent accepted while anonymous (audit trail)
     },
     [apply]
@@ -99,9 +105,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (email: string, password: string) => {
+      const requestVersion = ++sessionVersion.current;
       const { access_token } = await apiRegister(email.trim(), password);
-      await apply(access_token);
-      setUser(await getMe());
+      if (requestVersion !== sessionVersion.current) return;
+      const version = await apply(access_token);
+      if (version !== sessionVersion.current) return;
+      const me = await getMe();
+      if (version !== sessionVersion.current) return;
+      setUser(me);
       void syncConsentToServer(); // replay a consent accepted while anonymous (audit trail)
     },
     [apply]

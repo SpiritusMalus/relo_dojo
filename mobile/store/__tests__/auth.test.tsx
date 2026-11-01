@@ -1,13 +1,14 @@
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import * as SecureStore from "expo-secure-store";
-import { ApiError, getMe } from "../../services/api";
+import { ApiError, getMe, login as apiLogin, register as apiRegister } from "../../services/api";
+import { syncConsentToServer } from "../consent";
 import { AuthProvider, useAuth } from "../auth";
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(), setItemAsync: jest.fn(), deleteItemAsync: jest.fn(),
 }));
 jest.mock("../../services/api", () => ({
-  ...jest.requireActual("../../services/api"), getMe: jest.fn(), setAuthToken: jest.fn(),
+  ...jest.requireActual("../../services/api"), getMe: jest.fn(), setAuthToken: jest.fn(), login: jest.fn(), register: jest.fn(),
 }));
 jest.mock("../consent", () => ({ syncConsentToServer: jest.fn() }));
 
@@ -61,4 +62,44 @@ it("does not erase an unreadable SecureStore value", async () => {
   await mount();
   expect(auth.ready).toBe(true);
   expect(SecureStore.deleteItemAsync).not.toHaveBeenCalled();
+});
+
+it.each(["login", "register"] as const)("a late %s identity cannot overwrite a later signed-in account", async (action) => {
+  (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+  (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+  const meA = { id: "account-a", email: "qa-a@example.com", is_verified: false };
+  const meB = { id: "account-b", email: "qa-b@example.com", is_verified: true };
+  let resolveA!: (value: unknown) => void;
+  (getMe as jest.Mock)
+    .mockImplementationOnce(() => new Promise((resolve) => { resolveA = resolve; }))
+    .mockResolvedValueOnce(meB);
+  (apiLogin as jest.Mock).mockResolvedValue({ access_token: "token-b" });
+  ((action === "login" ? apiLogin : apiRegister) as jest.Mock).mockResolvedValueOnce({ access_token: "token-a" });
+  await mount();
+  let attemptA!: Promise<void>;
+  await act(async () => { attemptA = auth[action]("qa-a@example.com", "synthetic-password"); });
+  expect(auth.token).toBe("token-a");
+  await act(async () => { await auth.logout(); });
+  await act(async () => { await auth.login("qa-b@example.com", "synthetic-password"); });
+  expect(auth.token).toBe("token-b");
+  expect(auth.user).toEqual(meB);
+  await act(async () => { resolveA(meA); await attemptA; });
+  expect(auth.token).toBe("token-b");
+  expect(auth.user).toEqual(meB);
+  expect(syncConsentToServer).toHaveBeenCalledTimes(1); // the invalidated A attempt does not replay it
+});
+
+it.each(["login", "register"] as const)("a delayed %s token response cannot restore an explicitly logged-out session", async (action) => {
+  (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
+  let resolveToken!: (value: unknown) => void;
+  ((action === "login" ? apiLogin : apiRegister) as jest.Mock).mockImplementationOnce(() => new Promise((resolve) => { resolveToken = resolve; }));
+  await mount();
+  let pending!: Promise<void>;
+  act(() => { pending = auth[action]("qa-a@example.com", "synthetic-password"); });
+  await act(async () => { await auth.logout(); });
+  await act(async () => { resolveToken({ access_token: "old-token-a" }); await pending; });
+  expect(auth.token).toBeNull();
+  expect(auth.user).toBeNull();
+  expect(getMe).not.toHaveBeenCalled();
+  expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
 });

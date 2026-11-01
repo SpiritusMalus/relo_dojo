@@ -137,7 +137,7 @@ export function useExerciseCheck() {
         setResult(committed);
         const after = effectiveSkill(progressAfter, exercise.topic);
         if (after > before && levelToCefr(after) !== levelToCefr(before)) {
-          setLevelUp(`${exercise.topic} is now ${levelToCefr(after)}`);
+          setLevelUp(levelToCefr(after));
         }
         return committed;
       } catch (e) {

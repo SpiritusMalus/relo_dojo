@@ -333,7 +333,7 @@ export default function PracticeScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 }}>
           <Txt variant="label" style={{ flex: 1 }}>
             {topicLabel}
-            {exercise ? `  ·  ${levelToCefr(effectiveSkill(progress, exercise.topic))}` : ""}
+            {exercise ? `  ·  ${exercise.level || levelToCefr(effectiveSkill(progress, exercise.topic))}` : ""}
           </Txt>
           {/* 📖 the unit's rule card, one tap away mid-drill (the Presentation step stays reachable) */}
           {exercise && !showScroll && RULE_CARDS[exercise.topic] && (
