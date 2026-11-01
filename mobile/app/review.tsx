@@ -32,8 +32,8 @@ export default function ReviewScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
-  const { t: tr } = useI18n();
-  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
+  const { t: tr, lang } = useI18n();
+  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
 
   const [items, setItems] = useState<Mistake[] | null>(null); // null = still loading
@@ -74,6 +74,7 @@ export default function ReviewScreen() {
   }
 
   const current = items?.[index];
+  useEffect(() => { if (current) beginAttempt(current.exercise); }, [current, beginAttempt]);
   const total = items?.length ?? 0;
   const isLast = index >= total - 1;
 
@@ -120,14 +121,17 @@ export default function ReviewScreen() {
         <View style={{ flex: 1, marginHorizontal: 14 }}>
           <ProgressBar pct={total ? (Math.min(answered, total) / total) * 100 : 0} height={10} />
         </View>
-        <Txt variant="caption" color={t.c.fire}>{`🔥 ${progress.dailyStreak}`}</Txt>
+        <View accessible accessibilityLabel={`${progress.dailyStreak} ${tr("prog.dayStreak")}`} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Icon name="flame" size={16} color={t.c.fire} />
+          <Txt variant="caption" color={t.c.fire}>{progress.dailyStreak}</Txt>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
         {items === null && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
-            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(0)}</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(0, lang)}</Txt>
           </View>
         )}
 
@@ -156,7 +160,7 @@ export default function ReviewScreen() {
           <>
             <Txt variant="label">{tr("review.progress", { n: index + 1, total })}</Txt>
             <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
-              <ExerciseCard key={current.id} exercise={current.exercise} locked={!!result} onChange={onChange} />
+              <ExerciseCard onHint={markHintUsed} key={current.id} exercise={current.exercise} locked={!!result} onChange={onChange} />
             </Animated.View>
 
             {result && (

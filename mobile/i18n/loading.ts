@@ -1,5 +1,5 @@
 // Dojo-flavored loading messages — shown while an exercise / story / challenge card is generating.
-// Deliberately playful and in Russian: the loading moment is a tiny bit of brand personality, not a
+// Deliberately playful: the loading moment is a tiny bit of brand personality, not a
 // literal status. randomLoadingMessage() picks one; pass an index to keep it stable across renders.
 export const LOADING_MESSAGES = [
   "Ищем уваги…",
@@ -19,12 +19,32 @@ export const LOADING_MESSAGES = [
   "Настраиваем дыхание перед спаррингом…",
 ];
 
-export function randomLoadingMessage(): string {
-  return LOADING_MESSAGES[Math.floor(Math.random() * LOADING_MESSAGES.length)];
+const EN_LOADING_MESSAGES = [
+  "Preparing your next kata…",
+  "Tying the obi…",
+  "Laying out the mats…",
+  "Taking a quiet moment…",
+  "Writing a haiku…",
+  "Brewing some tea…",
+  "Bowing to Sensei…",
+  "Counting to ten…",
+  "Sharpening our word skills…",
+  "Folding verb origami…",
+  "Thinking about prepositions…",
+  "Putting tenses in order…",
+  "Finding the right article…",
+  "Growing a sentence bonsai…",
+  "Taking a breath before practice…",
+];
+
+export function randomLoadingMessage(lang: "ru" | "en" = "ru"): string {
+  const messages = lang === "en" ? EN_LOADING_MESSAGES : LOADING_MESSAGES;
+  return messages[Math.floor(Math.random() * messages.length)];
 }
 
 // Stable pick for a given seed (e.g. a round counter), so the message doesn't flicker on re-render.
-export function loadingMessageFor(seed: number): string {
-  const i = ((seed % LOADING_MESSAGES.length) + LOADING_MESSAGES.length) % LOADING_MESSAGES.length;
-  return LOADING_MESSAGES[i];
+export function loadingMessageFor(seed: number, lang: "ru" | "en" = "ru"): string {
+  const messages = lang === "en" ? EN_LOADING_MESSAGES : LOADING_MESSAGES;
+  const i = ((seed % messages.length) + messages.length) % messages.length;
+  return messages[i];
 }

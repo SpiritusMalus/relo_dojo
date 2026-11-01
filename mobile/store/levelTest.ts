@@ -1,8 +1,8 @@
 // Adaptive Level Test (CAT-lite) — the full, retakeable English placement.
 //
 // Unlike the short onboarding calibration (capped at B2 because 10 items is weak evidence; see
-// store/onboarding.ts), this gathers enough evidence to place objectively across the whole range and
-// CAN reach C1. Pure + offline: items come from the curated CALIBRATION_BANK (graded locally against
+// store/onboarding.ts), this estimates ability across the whole range and CAN reach C1. It is a
+// short practice estimate, not a validated CEFR certification. Pure + offline: curated items grade
 // the known answer — no LLM, no network).
 //
 // Method: an up-down STAIRCASE. Serve the unused bank item nearest the current estimate θ; a correct
@@ -40,6 +40,7 @@ export type LevelTestState = {
   used: Set<string>;
   recent: boolean[]; // last few outcomes — drives the bracket/stop rule
   answers: SkillAnswer[]; // full answer log — feeds the per-skill diagnosis (skillReport)
+  excludedSkills?: CalSkill[]; // unavailable modalities skipped explicitly, never scored as failures
 };
 
 /** Begin a test. `seed` is the starting ability (e.g. the learner's current overall skill, or
@@ -51,12 +52,24 @@ export function startLevelTest(seed: number = START_LEVEL): LevelTestState {
 /** The next item to serve: rotate to the next skill (for balanced coverage) and pick the unused item
  *  of that skill closest to the current θ; if that skill is exhausted, fall back to any skill. */
 export function nextItem(s: LevelTestState): CalItem | null {
-  const skill = SKILL_ROTATION[s.answered % SKILL_ROTATION.length];
-  return pickItem(s.theta, s.used, skill) ?? pickItem(s.theta, s.used);
+  const rotation = SKILL_ROTATION.filter((skill) => !s.excludedSkills?.includes(skill));
+  for (let offset = 0; offset < rotation.length; offset++) {
+    const skill = rotation[(s.answered + offset) % rotation.length];
+    const item = pickItem(s.theta, s.used, skill);
+    if (item) return item;
+  }
+  return null;
+}
+
+/** Audio is a technical prerequisite. Skipping it changes coverage, not ability, evidence count,
+ *  stopping outcomes, or the skill report. The rest of this run continues over available skills. */
+export function excludeListening(s: LevelTestState): LevelTestState {
+  return s.excludedSkills?.includes("listening") ? s : { ...s, excludedSkills: [...(s.excludedSkills ?? []), "listening"] };
 }
 
 /** Fold one graded answer into the estimate (up-down staircase with a decaying step). */
 export function recordAnswer(s: LevelTestState, item: CalItem, correct: boolean): LevelTestState {
+  if (s.used.has(item.id) || s.excludedSkills?.includes(skillOf(item))) return s;
   const step = levelTestStep(s.answered);
   const theta = clamp(s.theta + (correct ? step : -step), 0, 5);
   const used = new Set(s.used);
@@ -67,6 +80,7 @@ export function recordAnswer(s: LevelTestState, item: CalItem, correct: boolean)
     used,
     recent: [...s.recent, correct].slice(-BRACKET_WINDOW),
     answers: [...s.answers, { skill: skillOf(item), level: item.level, correct }],
+    excludedSkills: s.excludedSkills,
   };
 }
 
@@ -74,19 +88,19 @@ export function recordAnswer(s: LevelTestState, item: CalItem, correct: boolean)
  *  (the recent window contains both a pass and a miss → we're oscillating around their boundary). */
 export function isDone(s: LevelTestState): boolean {
   if (s.answered >= LT_MAX_ITEMS) return true;
-  if (pickItem(s.theta, s.used) === null) return true; // bank exhausted (safety net)
+  if (nextItem(s) === null) return true; // available bank exhausted (safety net)
   if (s.answered < LT_MIN_ITEMS) return false;
   const w = s.recent;
   return w.length >= BRACKET_WINDOW && w.some((c) => c) && w.some((c) => !c);
 }
 
-export type LevelTestResult = { level: number; cefr: Cefr; beltIdx: number };
+export type LevelTestResult = { level: number; cefr: Cefr; beltIdx: number; partial?: boolean };
 
 /** The placement to apply: the raw ability (seeds skill, uncapped → can be C1), its CEFR, and the
  *  belt index it earns. This is the path that lifts the onboarding B2 cap. */
 export function levelTestResult(s: LevelTestState): LevelTestResult {
   const cefr = levelToCefr(s.theta);
-  return { level: s.theta, cefr, beltIdx: beltByCefr(cefr).idx };
+  return { level: s.theta, cefr, beltIdx: beltByCefr(cefr).idx, ...(s.excludedSkills?.length ? { partial: true } : {}) };
 }
 
 /** Fold the writing-section score (0..5, from /assess-writing) into the receptive estimate. The

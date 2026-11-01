@@ -6,7 +6,7 @@ import { weakestTopic } from "../../store/greeting";
 import { voiceFeatureEnabled } from "../../services/voice";
 import { useVoiceConsent } from "../../store/voiceConsent";
 import { useI18n } from "../../store/i18n";
-import { RU_ACH, RU_TOPIC_LABELS } from "../../i18n/strings";
+import { RU_ACH, RU_TOPIC_LABELS, beltName } from "../../i18n/strings";
 import { TOPIC_LABELS } from "../../store/onboarding";
 import { SWERVE_FORMATS, FMT_LABEL_KEY } from "../../components/ui/SwerveSheet";
 import { beltProgress, topicRows } from "../../store/dojo";
@@ -20,16 +20,17 @@ import Button from "../../components/ui/Button";
 import Sensei from "../../components/ui/Sensei";
 import ProgressBar from "../../components/ui/ProgressBar";
 import Txt from "../../components/ui/Txt";
+import Icon, { type IconName } from "../../components/ui/Icon";
 
 // Emoji glyph + one-line sub per stored achievement id (presentational only).
-const ACH_META: Record<string, { glyph: string; sub: string }> = {
-  "first-correct": { glyph: "🥋", sub: "First correct answer" },
-  "ten-correct": { glyph: "⚡", sub: "10 correct answers" },
-  "fifty-correct": { glyph: "💯", sub: "50 correct answers" },
-  "streak-3": { glyph: "🔥", sub: "3-day streak" },
-  "streak-7": { glyph: "📅", sub: "7-day streak" },
-  "run-5": { glyph: "🏆", sub: "5 in a row" },
-  "level-5": { glyph: "🟢", sub: "Reached level 5" },
+const ACH_META: Record<string, { icon: IconName; sub: string }> = {
+  "first-correct": { icon: "check", sub: "First correct answer" },
+  "ten-correct": { icon: "bolt", sub: "10 correct answers" },
+  "fifty-correct": { icon: "star", sub: "50 correct answers" },
+  "streak-3": { icon: "flame", sub: "3-day streak" },
+  "streak-7": { icon: "flame", sub: "7-day streak" },
+  "run-5": { icon: "target", sub: "5 in a row" },
+  "level-5": { icon: "chart", sub: "Reached level 5" },
 };
 
 export default function ProgressScreen() {
@@ -52,9 +53,9 @@ export default function ProgressScreen() {
       {/* Belt showcase */}
       <Card>
         <View style={styles.showcase}>
-          <Sensei belt={bp.belt} size={72} mood="happy" bob />
+          <Sensei belt={bp.belt} size={72} mood="happy" />
           <View style={{ flex: 1 }}>
-            <Txt variant="screenTitle">{bp.belt.name}</Txt>
+            <Txt variant="screenTitle" style={{ flexShrink: 1 }}>{beltName(bp.belt, lang)}</Txt>
             <Txt variant="secondary" color={t.c.ink3}>
               {bp.started ? tr("prog.overall", { cefr: bp.cefr }) : tr("prog.notStarted")}
             </Txt>
@@ -85,11 +86,10 @@ export default function ProgressScreen() {
             );
           })}
         </View>
-        {/* Wardrobe entry — the showcase is where you admire the Sensei, so dress it from here. */}
-        <Button label={tr("ward.dress")} variant="ghost" onPress={() => router.push("/wardrobe")} />
-        {/* Full adaptive Level Test — the objective placement that can reach C1 (lifts the onboarding
-            B2 cap). Retakeable any time. */}
-        <Button label={tr("lt.entry")} variant="ghost" onPress={() => router.push("/level-test")} />
+        <View style={{ gap: 10, marginTop: 16 }}>
+          <Button label={tr("ward.dress")} variant="ghost" onPress={() => router.push("/wardrobe")} />
+          <Button label={tr("lt.entry")} variant="ghost" onPress={() => router.push("/level-test")} />
+        </View>
       </Card>
 
       {/* Relocation journey — the niche arc (pre-move → arrived → settled). Shows only for learners
@@ -111,11 +111,13 @@ export default function ProgressScreen() {
       {/* Stat tiles */}
       <View style={styles.tiles}>
         <Card style={styles.tile}>
-          <Txt variant="screenTitle">{`🔥 ${progress.dailyStreak}`}</Txt>
+          <Icon name="flame" size={24} color={t.c.fire} />
+          <Txt variant="screenTitle">{progress.dailyStreak}</Txt>
           <Txt variant="secondary" color={t.c.ink3}>{tr("prog.dayStreak")}</Txt>
         </Card>
         <Card style={styles.tile}>
-          <Txt variant="screenTitle">{`⚡ ${progress.bestCorrectRun}`}</Txt>
+          <Icon name="bolt" size={24} color={t.c.accent} />
+          <Txt variant="screenTitle">{progress.bestCorrectRun}</Txt>
           <Txt variant="secondary" color={t.c.ink3}>{tr("prog.bestRun")}</Txt>
         </Card>
       </View>
@@ -323,7 +325,7 @@ export default function ProgressScreen() {
         <View style={styles.achGrid}>
           {ACHIEVEMENTS.map((a) => {
             const got = progress.achievements.includes(a.id);
-            const meta = ACH_META[a.id] ?? { glyph: "🏅", sub: "" };
+            const meta = ACH_META[a.id] ?? { icon: "star" as const, sub: "" };
             return (
               <View
                 key={a.id}
@@ -332,13 +334,11 @@ export default function ProgressScreen() {
                   { backgroundColor: got ? t.c.accentSoft : t.c.surface2, borderColor: t.c.line, opacity: got ? 1 : 0.6 },
                 ]}
               >
-                <Txt variant="screenTitle" style={{ fontSize: 26 }}>
-                  {got ? meta.glyph : "🔒"}
-                </Txt>
-                <Txt variant="bodyStrong" color={got ? t.c.ink : t.c.ink3} numberOfLines={1}>
+                <Icon name={got ? meta.icon : "lock"} size={26} color={got ? t.c.accent : t.c.ink3} />
+                <Txt variant="bodyStrong" color={got ? t.c.ink : t.c.ink3} >
                   {lang === "ru" ? RU_ACH[a.id]?.label ?? a.label : a.label}
                 </Txt>
-                <Txt variant="secondary" color={t.c.ink3} numberOfLines={1}>
+                <Txt variant="secondary" color={t.c.ink3} >
                   {lang === "ru" ? RU_ACH[a.id]?.sub ?? meta.sub : meta.sub}
                 </Txt>
               </View>
@@ -393,5 +393,5 @@ const styles = StyleSheet.create({
   achGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   ach: { width: "47.5%", borderWidth: 1, borderRadius: 14, padding: 12, gap: 2 },
   fmtWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  fmtChip: { borderWidth: 1, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 12 },
+  fmtChip: { borderWidth: 1, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 14, minHeight: 48, justifyContent: "center" },
 });

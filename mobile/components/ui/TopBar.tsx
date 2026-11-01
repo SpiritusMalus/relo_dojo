@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../store/auth";
+import { useI18n } from "../../store/i18n";
+import { beltName } from "../../i18n/strings";
 import { useTheme, type Belt } from "../../theme/theme";
 import BeltKnot from "./BeltKnot";
 import BeltPickerSheet from "./BeltPickerSheet";
@@ -16,19 +18,20 @@ export default function TopBar({ belt, streak, xp }: { belt: Belt; streak: numbe
   const t = useTheme();
   const router = useRouter();
   const { token } = useAuth();
+  const { t: tr, lang } = useI18n();
   const [sheet, setSheet] = useState(false);
   return (
     <View style={styles.bar}>
       <Pressable
         onPress={() => setSheet(true)}
         accessibilityRole="button"
-        accessibilityLabel={`Belt: ${belt.name}, CEFR ${belt.cefr}`}
+        accessibilityLabel={`${beltName(belt, lang)}, ${xp} XP`}
         style={styles.left}
         hitSlop={8}
       >
         <BeltKnot belt={belt} size={30} />
         <Txt variant="caption" color={t.c.ink2}>
-          {belt.cefr}
+          {tr("belt.open")}
         </Txt>
       </Pressable>
 
@@ -37,15 +40,13 @@ export default function TopBar({ belt, streak, xp }: { belt: Belt; streak: numbe
         {/* Koku economy is account-only (server-authoritative). Hide the balance for guests. */}
         {!!token && <CoinBadge />}
         <View style={[styles.badge, { backgroundColor: t.c.fireSoft }]}>
-          <Txt variant="caption" color={t.c.fire}>{`🔥 ${streak}`}</Txt>
-        </View>
-        <View style={[styles.badge, { backgroundColor: t.c.surface2 }]}>
-          <Txt variant="caption" color={t.c.gold}>{`✦ ${xp}`}</Txt>
+          <Icon name="flame" size={16} color={t.c.fire} />
+          <Txt variant="caption" color={t.c.fire}>{streak}</Txt>
         </View>
         <Pressable
           onPress={() => router.push("/settings")}
           accessibilityRole="button"
-          accessibilityLabel="Settings"
+          accessibilityLabel={tr("common.settings")}
           hitSlop={6}
           style={styles.gear}
         >
@@ -60,9 +61,9 @@ export default function TopBar({ belt, streak, xp }: { belt: Belt; streak: numbe
 
 const styles = StyleSheet.create({
   bar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 44 },
-  left: { flexDirection: "row", alignItems: "center", gap: 7, minHeight: 44 },
-  right: { flexDirection: "row", alignItems: "center", gap: 8 },
-  gear: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  left: { flexDirection: "row", alignItems: "center", gap: 7, minHeight: 48 },
+  right: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
+  gear: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   badge: {
     flexDirection: "row",
     alignItems: "center",
@@ -71,5 +72,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     minHeight: 32,
     justifyContent: "center",
+    gap: 4,
   },
 });

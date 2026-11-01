@@ -56,7 +56,7 @@ export default function CheckpointScreen() {
   const insets = useSafeAreaInsets();
   const { progress, masterUnit } = useProgress();
   const { t: tr, lang } = useI18n();
-  const { result, checking, error: checkError, check, reset } = useExerciseCheck();
+  const { result, checking, error: checkError, check, reset, beginAttempt } = useExerciseCheck();
 
   const params = useLocalSearchParams<{ topic?: string }>();
   const topic = typeof params.topic === "string" ? params.topic : "";
@@ -86,8 +86,12 @@ export default function CheckpointScreen() {
   const queueRef = useRef<ExerciseQueue | null>(null);
   if (queueRef.current === null) {
     queueRef.current = createExerciseQueue({
+      size: 1,
+      prefetchOnServe: false,
+      revision: () => Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0),
       selectParams: () => ({
         topic, // the unit under test — always forced
+        practice_index: progressRef.current.topics[topic]?.attempts ?? 0,
         level: levelToCefr(effectiveSkill(progressRef.current, topic)),
         // Constructive formats only, rotated so one quiz spans several shapes. Closed book:
         // no miss hints — the зачёт must be fresh items, not replays.
@@ -99,6 +103,7 @@ export default function CheckpointScreen() {
 
   const [phase, setPhase] = useState<Phase>("intro");
   const [exercise, setExercise] = useState<Exercise | null>(null);
+  useEffect(() => { if (exercise) beginAttempt(exercise); }, [exercise, beginAttempt]);
   const [round, setRound] = useState(0);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [loading, setLoading] = useState(false);
@@ -171,6 +176,9 @@ export default function CheckpointScreen() {
       setAnswered(newAnswered);
       setMisses(newMisses);
       answeredRef.current = newAnswered;
+      if (res.progressAfter) progressRef.current = res.progressAfter;
+      queueRef.current!.clear();
+      if (!quizFailedNow(newMisses) && newAnswered < quizItems) queueRef.current!.prefetch();
       setPhase("feedback");
       advanceTimer.current = setTimeout(() => {
         if (quizFailedNow(newMisses)) finish(false);
@@ -280,7 +288,7 @@ export default function CheckpointScreen() {
         )}
 
         {exercise && !loading && (
-          <ExerciseCard key={round} exercise={exercise} locked={phase === "feedback"} onChange={(v) => setResponse(v)} />
+          <ExerciseCard translationEnabled={false} key={round} exercise={exercise} locked={phase === "feedback"} onChange={(v) => setResponse(v)} />
         )}
 
         {phase === "feedback" && result && (

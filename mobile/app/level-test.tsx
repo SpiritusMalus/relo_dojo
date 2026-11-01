@@ -13,6 +13,7 @@ import { itemToExercise, pickWritingPrompt, type CalItem } from "../store/calibr
 import {
   blendListening,
   combineLevels,
+  excludeListening,
   isDone,
   levelTestResult,
   nextItem,
@@ -41,6 +42,11 @@ import Sensei from "../components/ui/Sensei";
 import Txt from "../components/ui/Txt";
 
 type Phase = "intro" | "solving" | "feedback" | "writing" | "scoring" | "done";
+type AudioState = "idle" | "playing" | "ready" | "unavailable";
+
+function stopSpeech() {
+  try { void Promise.resolve(Speech.stop()).catch(() => {}); } catch { /* missing native module */ }
+}
 
 // Diagnosis rows render in this fixed order; skills the run never sampled are skipped.
 const SKILL_ORDER = ["grammar", "vocab", "reading", "listening", "writing"] as const;
@@ -75,26 +81,57 @@ export default function LevelTestScreen() {
   const writingScoreRef = useRef<number | null>(null); // LLM writing score — joins the skill diagnosis
   const [writingPrompt, setWritingPrompt] = useState("");
   const [writingText, setWritingText] = useState("");
+  const [audioState, setAudioState] = useState<AudioState>("idle");
+  const audioStateRef = useRef<AudioState>("idle");
+  const speechGeneration = useRef(0);
+  const speechTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const exercise = useMemo(() => (item ? itemToExercise(item) : null), [item]);
 
-  // Listening items: play the (hidden) text via TTS. Guarded — on a client built before expo-speech
-  // was added the native call throws; we swallow it so the card still works (degrades to text-only).
+  // A listening answer is valid only after the passage actually finished playing. Native TTS may
+  // fail synchronously, asynchronously, or never call back; each case offers retry/explicit skip.
   const playListening = useCallback(() => {
     if (!item?.speak) return;
-    try {
-      Speech.stop();
-      Speech.speak(item.speak, { language: "en-US", rate: 0.95 });
-    } catch {
-      // expo-speech unavailable (un-rebuilt client) — no audio, the question still shows.
-    }
+    const generation = ++speechGeneration.current;
+    if (speechTimer.current) clearTimeout(speechTimer.current);
+    let settled = false;
+    const settle = (state: AudioState) => {
+      if (settled || generation !== speechGeneration.current) return;
+      settled = true;
+      if (speechTimer.current) clearTimeout(speechTimer.current);
+      speechTimer.current = null;
+      audioStateRef.current = state;
+      setAudioState(state);
+    };
+    audioStateRef.current = "playing";
+    setAudioState("playing");
+    speechTimer.current = setTimeout(() => {
+      settle("unavailable");
+      stopSpeech();
+    }, Math.min(60_000, 15_000 + item.speak.split(/\s+/).length * 700));
+    void (async () => {
+      try {
+        await Speech.stop();
+        if (generation !== speechGeneration.current) return;
+        Speech.speak(item.speak!, {
+          language: "en-US", rate: 0.95,
+          onDone: () => settle("ready"),
+          onError: () => settle("unavailable"),
+        });
+      } catch { settle("unavailable"); }
+    })();
   }, [item]);
 
   // Auto-play a listening item once it appears (replayable via the button); stop any in-flight speech
   // when the item/phase changes or the screen unmounts, so audio from a previous item can't bleed over.
   useEffect(() => {
     if (phase === "solving" && item?.skill === "listening") playListening();
-    return () => { try { Speech.stop(); } catch { /* noop */ } };
+    return () => {
+      speechGeneration.current++;
+      if (speechTimer.current) clearTimeout(speechTimer.current);
+      speechTimer.current = null;
+      stopSpeech();
+    };
   }, [item, phase, playListening]);
 
   // The MCQ section is done → hand off to the writing task (prompt chosen at the placed level).
@@ -112,6 +149,8 @@ export default function LevelTestScreen() {
       return;
     }
     setItem(next);
+    audioStateRef.current = "idle";
+    setAudioState("idle");
     setResponse(null);
     setResult(null);
     setPhase("solving");
@@ -124,8 +163,19 @@ export default function LevelTestScreen() {
     loadNext();
   }, [seed, loadNext]);
 
+  const skipListening = useCallback(() => {
+    speechGeneration.current++;
+    if (speechTimer.current) clearTimeout(speechTimer.current);
+    speechTimer.current = null;
+    stopSpeech();
+    stRef.current = excludeListening(stRef.current);
+    // No recordAnswer: an unavailable recording says nothing about the learner's ability.
+    loadNext();
+  }, [loadNext]);
+
   const onCheck = useCallback(() => {
     if (!item || response === null || phase !== "solving") return;
+    if (item.skill === "listening" && audioStateRef.current !== "ready") return;
     const correct = response === item.answer;
     stRef.current = recordAnswer(stRef.current, item, correct);
     setCount(stRef.current.answered);
@@ -141,7 +191,7 @@ export default function LevelTestScreen() {
   // Submit the writing task → CEFR-score it server-side → blend into the level. On any failure
   // (offline / LLM down) or skip, fall back gracefully to the receptive-only placement.
   const finishWithReceptiveOnly = useCallback(() => {
-    setDone(levelTestResult(stRef.current));
+    setDone({ ...levelTestResult(stRef.current), partial: true });
     setPhase("done");
   }, []);
 
@@ -150,7 +200,7 @@ export default function LevelTestScreen() {
     try {
       const w = await assessWriting(writingText.trim(), writingPrompt);
       writingScoreRef.current = w.score;
-      setDone(combineLevels(receptiveRef.current, w.score));
+      setDone({ ...combineLevels(receptiveRef.current, w.score), partial: !!stRef.current.excludedSkills?.length });
       setPhase("done");
     } catch {
       finishWithReceptiveOnly();
@@ -166,8 +216,10 @@ export default function LevelTestScreen() {
     // Listening: this run's few items are a thin sample — blend in the live estimate accumulated
     // from daily listening practice (a run that skipped listening still gets a practice-only row).
     const sampleN = stRef.current.answers.filter((a) => a.skill === "listening").length;
-    const listening = blendListening({ estimate: r.listening, n: sampleN }, progress.listening);
-    if (listening !== undefined) r.listening = listening;
+    if (sampleN > 0 && !stRef.current.excludedSkills?.includes("listening")) {
+      const listening = blendListening({ estimate: r.listening, n: sampleN }, progress.listening);
+      if (listening !== undefined) r.listening = listening;
+    }
     return r;
   }, [done, progress.listening]);
 
@@ -181,7 +233,7 @@ export default function LevelTestScreen() {
     if (!done) return;
     const skill = seedSkillFromLevel(done.level, progress.profile?.focusTopics ?? []);
     const date = isoDay(new Date());
-    applyLevelTest(skill, done.beltIdx, date, { date, level: done.level, cefr: done.cefr, skills: report });
+    applyLevelTest(skill, done.beltIdx, date, { date, level: done.level, cefr: done.cefr, skills: report, partial: done.partial });
     router.back();
   }, [done, progress.profile, applyLevelTest, router, report]);
 
@@ -239,6 +291,7 @@ export default function LevelTestScreen() {
         <BeltKnot belt={belt} size={96} />
         <Txt variant="hero" style={{ textAlign: "center" }}>{tr("lt.resultTitle", { cefr: done.cefr })}</Txt>
         <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("lt.resultSub", { n: count })}</Txt>
+        {done.partial && <Txt variant="secondary" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("lt.partialResult")}</Txt>}
         {prevSnap && (
           <Txt variant="secondary" color={t.c.ink3} style={{ textAlign: "center" }}>
             {tr("lt.prevCompare", { date: prevSnap.date, prev: prevSnap.cefr, cur: done.cefr })}
@@ -313,11 +366,14 @@ export default function LevelTestScreen() {
         {item?.skill === "listening" && (
           <Card style={{ backgroundColor: t.c.surface2, alignItems: "center", gap: 8 }}>
             <Txt variant="secondary" color={t.c.ink3}>{tr("lt.listenHint")}</Txt>
-            <Button label={tr("lt.playAudio")} variant="ghost" onPress={playListening} />
+            {audioState === "playing" && <ActivityIndicator color={t.c.accent} />}
+            {audioState === "unavailable" && <Txt variant="body" color={t.c.bad} accessibilityRole="alert">{tr("lt.audioUnavailable")}</Txt>}
+            <Button label={tr(audioState === "unavailable" ? "lt.retryAudio" : "lt.playAudio")} variant="ghost" onPress={playListening} disabled={audioState === "playing"} />
+            {phase === "solving" && <Button label={tr("lt.skipAudio")} variant="ghost" onPress={skipListening} />}
           </Card>
         )}
         {exercise && (
-          <ExerciseCard key={item!.id} exercise={exercise} locked={phase === "feedback"} onChange={(v) => setResponse(v)} />
+          <ExerciseCard translationEnabled={false} key={item!.id} exercise={exercise} locked={phase === "feedback" || (item?.skill === "listening" && audioState !== "ready")} onChange={(v) => setResponse(v)} />
         )}
 
         {phase === "feedback" && result && (
@@ -335,7 +391,7 @@ export default function LevelTestScreen() {
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
         {phase === "solving" ? (
-          <Button label={tr("action.check")} onPress={onCheck} disabled={response === null} />
+          <Button label={tr("action.check")} onPress={onCheck} disabled={response === null || (item?.skill === "listening" && audioState !== "ready")} />
         ) : (
           <Button label={tr("action.continue")} onPress={onNext} />
         )}

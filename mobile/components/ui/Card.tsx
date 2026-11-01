@@ -14,7 +14,6 @@ export default function Card({
     borderWidth: 1,
     borderColor: t.c.line,
     padding: padded ? t.spacing.pad : 0,
-    ...t.shadows.sm,
   };
   return <View {...rest} style={[base, style]} />;
 }

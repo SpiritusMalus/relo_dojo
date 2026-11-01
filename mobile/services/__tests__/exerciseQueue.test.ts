@@ -160,3 +160,82 @@ describe("createExerciseQueue", () => {
     expect(calls).toBe(1); // the stale slot never re-fired
   });
 });
+
+describe("adaptive revision boundaries", () => {
+  it("reuses pending feedback-time prefetch when Next is tapped quickly", async () => {
+    const d = deferredFetcher();
+    const q = createExerciseQueue({ selectParams: () => PARAMS, fetch: d.fetch, prefetchOnServe: false });
+    q.prefetch();
+    const next = q.next();
+    expect(d.calls).toBe(2); // no third on-demand generation
+    d.resolveAll();
+    expect(await next).toBeTruthy();
+    expect(q.readyCount()).toBe(1);
+  });
+
+  it("does not prefetch an unanswered learner's future cards when prefetchOnServe is false", async () => {
+    const fetch = jest.fn(async () => fakeExercise(1));
+    const q = createExerciseQueue({ selectParams: () => PARAMS, fetch, prefetchOnServe: false });
+    await q.next();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    q.prefetch(); // explicit feedback-time prefetch after recording an answer
+    await flush();
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("drops buffered difficulty and immediately reselects after a recorded answer", async () => {
+    let revision = 0;
+    let level = "B1";
+    const fetch = jest.fn(async (p: FetchParams) => ({ ...fakeExercise(1), level: p.level }));
+    const q = createExerciseQueue({ selectParams: () => ({ ...PARAMS, level }), revision: () => revision, fetch, prefetchOnServe: false });
+    q.prefetch();
+    await flush();
+    expect(q.readyCount()).toBe(2);
+    revision++;
+    level = "A2";
+    expect((await q.next()).level).toBe("A2");
+    expect(fetch.mock.calls[2][0].level).toBe("A2");
+  });
+
+  it("a cold request resolving after a model change cannot deliver its stale specification", async () => {
+    let revision = 0;
+    let level = "B1";
+    const pending: Array<{ params: FetchParams; resolve: (exercise: Exercise) => void }> = [];
+    const fetch = (params: FetchParams) => new Promise<Exercise>((resolve) => pending.push({ params, resolve }));
+    const q = createExerciseQueue({ selectParams: () => ({ ...PARAMS, level }), revision: () => revision, fetch, prefetchOnServe: false });
+    const next = q.next();
+    level = "A1";
+    revision++;
+    pending[0].resolve({ ...fakeExercise(0), level: "B1" });
+    await flush();
+    expect(pending[1].params.level).toBe("A1");
+    pending[1].resolve({ ...fakeExercise(1), level: "A1" });
+    expect((await next).level).toBe("A1");
+  });
+
+  it("old in-flight fetches cannot block or overfill a new generation", async () => {
+    const d = deferredFetcher();
+    const q = createExerciseQueue({ selectParams: () => PARAMS, fetch: d.fetch, size: 2 });
+    q.prefetch(); // two old requests
+    q.clear();
+    q.prefetch(); // two fresh slots available immediately
+    expect(d.calls).toBe(4);
+    d.resolveAll();
+    await flush();
+    expect(q.readyCount()).toBe(2);
+    q.prefetch();
+    expect(d.calls).toBe(4); // old finalizers did not make the new inFlight count negative
+  });
+});
+
+it("reselects the persisted topic practice index after each recorded answer", async () => {
+  let attempts = 4;
+  const fetch = jest.fn(async (p: FetchParams) => fakeExercise(p.practice_index!));
+  const q = createExerciseQueue({ selectParams: () => ({ ...PARAMS, practice_index: attempts }), revision: () => attempts, prefetchOnServe: false, fetch });
+  expect((await q.next()).text).toBe("q4");
+  attempts++;
+  q.prefetch();
+  await flush();
+  expect((await q.next()).text).toBe("q5");
+  expect(fetch.mock.calls[1][0].practice_index).toBe(5);
+});

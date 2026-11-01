@@ -1,5 +1,7 @@
 import { StyleSheet, View } from "react-native";
 import { useTheme, type Belt } from "../../theme/theme";
+import { useI18n } from "../../store/i18n";
+import { beltName } from "../../i18n/strings";
 import Txt from "./Txt";
 
 // Swatch + "Green belt · B2" pill.
@@ -13,6 +15,7 @@ export default function BeltTag({
   showCefr?: boolean;
 }) {
   const t = useTheme();
+  const { lang } = useI18n();
   const sm = size === "sm";
   const sw = sm ? 14 : 18;
   return (
@@ -40,7 +43,7 @@ export default function BeltTag({
         }}
       />
       <Txt variant="caption" style={{ fontSize: sm ? 12 : 13 }}>
-        {belt.name}
+        {beltName(belt, lang)}
         {showCefr ? <Txt variant="caption" color={t.c.ink3} style={{ fontSize: sm ? 12 : 13 }}>{` · ${belt.cefr}`}</Txt> : null}
       </Txt>
     </View>

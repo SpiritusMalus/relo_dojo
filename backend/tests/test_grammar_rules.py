@@ -61,7 +61,7 @@ def test_rules_clause_blank_for_unknown_or_empty_topic():
 
 def test_tutor_intro_injects_the_rule_when_topic_given():
     with_topic = _tutor_intro("Make an exercise.", level="B1", topic="articles")
-    assert GRAMMAR_RULES["articles"] in with_topic
+    assert rules_clause("articles", "B1") in with_topic
     # No topic → no rule clause (back-compatible with the old call sites).
     assert "Authoritative rule" not in _tutor_intro("Make an exercise.", level="B1")
 

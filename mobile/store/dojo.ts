@@ -4,13 +4,14 @@
 import { levelToCefr, skillFor, TOPIC_PRIORS } from "./adaptive";
 import { CURRICULUM, masteryOf, unitDecayed, type Mastery } from "./curriculum";
 import { totalAttempts, type Progress } from "./progress";
+import { practiceEligibilityFraction } from "./promotion";
 import { beltByCefr, beltByIndex, type Belt, type Cefr } from "../theme/theme";
 
 /** Has the account produced real evidence of achievement? The seeded skill estimate (START_LEVEL ≈ A2)
  *  is fine for picking difficulty but is NOT achievement — only answered items or a passed belt exam
  *  count. Used to keep the *display* honest (never lie): no earned belt / accuracy / % before evidence. */
 export function hasEvidence(p: Progress): boolean {
-  return totalAttempts(p) > 0 || p.beltEarned !== undefined;
+  return totalAttempts(p) > 0 || (typeof p.beltEarned === "number" && p.beltEarned > 0);
 }
 
 // Short label + dev-flavoured hint per canonical topic key (keys match backend/adaptive).
@@ -103,7 +104,9 @@ export function beltProgress(p: Progress): BeltProgress {
   const mean = ids.reduce((s, id) => s + skillFor(p, id), 0) / Math.max(1, ids.length);
   const overallSkill = Math.max(0, Math.min(4.999, mean));
   const cefr = levelToCefr(overallSkill);
-  const earned = p.beltEarned;
+  // JSON null means a new account with no passed exam. Undefined remains the legacy skill-belt
+  // path; preserve its existing migration behavior and every actual numeric earned belt.
+  const earned = p.beltEarned === null ? 0 : p.beltEarned;
   const started = hasEvidence(p);
   let belt = beltByCefr(cefr);
   let pctToNext = Math.round((overallSkill - Math.floor(overallSkill)) * 100);
@@ -116,6 +119,9 @@ export function beltProgress(p: Progress): BeltProgress {
   } else if (earned !== undefined && earned > belt.idx) {
     belt = beltByIndex(Math.min(earned, 5)); // earned is authoritative once set (sync quirks)
   }
+  // Reaching the skill threshold is only half of readiness: the same real 10-answer/8-correct
+  // evidence required by examOffer also bounds the meter. Two answers cannot display 100%.
+  pctToNext = Math.round(Math.min(pctToNext, practiceEligibilityFraction(p) * 100));
   const nextBelt = beltByIndex(belt.idx + 1);
   // Return the CLAMPED skill (same min(4.999, mean) that cefr/belt/pct are derived from) so every field
   // in this object is consistent — the raw uncapped mean could read as C1 (5.0) while cefr caps at 4.999.

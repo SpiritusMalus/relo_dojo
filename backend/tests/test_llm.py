@@ -32,7 +32,8 @@ def test_anthropic_payload_forces_tool_for_json():
 def test_openai_payload_uses_json_schema_response_format():
     p = build_openai_payload("hi", schema={"type": "object"}, temperature=0.7)
     assert p["response_format"]["type"] == "json_schema"
-    assert p["response_format"]["json_schema"]["schema"] == {"type": "object"}
+    assert p["response_format"]["json_schema"]["strict"] is True
+    assert p["response_format"]["json_schema"]["schema"]["additionalProperties"] is False
     assert "response_format" not in build_openai_payload("hi")
     # default model is OPENAI_MODEL; the `model` arg overrides it (the OpenRouter path uses this).
     assert build_openai_payload("hi")["model"] == settings.OPENAI_MODEL

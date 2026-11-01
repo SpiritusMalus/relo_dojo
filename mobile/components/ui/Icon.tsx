@@ -16,7 +16,8 @@ export type IconName =
   | "gear"
   | "sound"
   | "star"
-  | "flame";
+  | "flame"
+  | "scroll";
 
 export default function Icon({
   name,
@@ -45,6 +46,13 @@ export default function Icon({
 
 function renderPaths(name: IconName, p: object) {
   switch (name) {
+    case "scroll":
+      return (
+        <G {...p}>
+          <Path d="M7 4h12v13a3 3 0 01-3 3H6a3 3 0 01-3-3v-1h12v1a1 1 0 002 0V7" />
+          <Path d="M7 4a3 3 0 00-3 3v1h6V7a3 3 0 00-3-3zM11 10h4M9 13h6" />
+        </G>
+      );
     case "home":
       return (
         <G {...p}>

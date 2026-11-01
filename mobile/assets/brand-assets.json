@@ -1,0 +1,47 @@
+{
+  "source": "brand-mark.svg",
+  "sourceSha256": "a02dd1c7b40cf05e8f1ed28d4a2d180476c7757f84c3dc55108c9c52adc0b4af",
+  "inheritedGeometry": "marketing/icon/icon-master.svg",
+  "renderer": "sharp 0.35.5",
+  "method": "Deterministic SVG raster export. No image generation or raster retouching.",
+  "background": "#376347",
+  "adaptiveForegroundScale": 0.8,
+  "outputs": [
+    {
+      "file": "icon.png",
+      "width": 1024,
+      "height": 1024,
+      "sha256": "caee6c24a0909a7bc1471405483c20eb620039933abad621b29f4bdf6c173d8f"
+    },
+    {
+      "file": "android-icon-foreground.png",
+      "width": 1024,
+      "height": 1024,
+      "sha256": "465a0fa32cbcc825849982fb063e8c27008c7e094ebbb3f25c1defa3389c2ede"
+    },
+    {
+      "file": "android-icon-background.png",
+      "width": 1024,
+      "height": 1024,
+      "sha256": "1b07b29b2ba5f333d25dd0b08b3211238d876f8fe0f8afb4a5529c971cf2998f"
+    },
+    {
+      "file": "android-icon-monochrome.png",
+      "width": 1024,
+      "height": 1024,
+      "sha256": "00b77f51d214fab5a7fbbb513388f7c5cbb89adbd5e884130b59907ad66fbac8"
+    },
+    {
+      "file": "splash-icon.png",
+      "width": 1024,
+      "height": 1024,
+      "sha256": "1bf5f55ef40e636cefca75bbab056267839f4f8d4755b429f2aba63c8e68ea69"
+    },
+    {
+      "file": "favicon.png",
+      "width": 64,
+      "height": 64,
+      "sha256": "cff66e8f7cec41906d24113708bb96051bf6662bfa6863a24b3dd92ab3fc255f"
+    }
+  ]
+}

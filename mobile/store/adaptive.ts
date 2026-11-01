@@ -49,12 +49,12 @@ export function cefrMidpoint(cefr: Cefr): number {
   return CEFR_MIDPOINT[cefr];
 }
 export function isCefr(s: string): s is Cefr {
-  return s in CEFR_MIDPOINT;
+  return Object.prototype.hasOwnProperty.call(CEFR_MIDPOINT, s);
 }
 
 export function skillFor(p: Progress, topic: string): number {
   const v = p.skill?.[topic];
-  return typeof v === "number" ? v : START_LEVEL;
+  return typeof v === "number" && Number.isFinite(v) ? clamp(v, LEVEL_MIN, LEVEL_MAX) : START_LEVEL;
 }
 
 // Cross-topic cold start: grammar topics that tend to move together. Used to estimate the level of a
@@ -94,6 +94,27 @@ export function effectiveSkill(p: Progress, topic: string): number {
 // reduces to the plain target-success controller (expected outcome = TARGET_SUCCESS always).
 export const DIFFICULTY_SENSITIVITY = 0.15;
 
+/** Solve-time evidence is deliberately weak: speed never earns extra ability and a slow answer
+ *  never becomes a failure. Only foreground thinking time belongs here, excluding API waits. */
+export type AnswerEffort = { elapsedMs?: number; expectedMs?: number; hintUsed?: boolean };
+export type AnswerEvidence = {
+  score: number;
+  difficulty: number;
+  format: string;
+  elapsedMs?: number;
+  hintUsed?: boolean;
+};
+export const RECENT_ANSWERS = 6;
+
+function positiveEvidenceWeight(effort?: AnswerEffort): number {
+  if (effort?.hintUsed) return 0.35;
+  const { elapsedMs, expectedMs } = effort ?? {};
+  if (!Number.isFinite(elapsedMs) || !Number.isFinite(expectedMs) || !(expectedMs! > 0)) return 1;
+  // An accidental sub-second tap is poor evidence; a long but correct solve still counts.
+  if (elapsedMs! < 1000) return 0.5;
+  return elapsedMs! > expectedMs! * 2 ? 0.8 : 1;
+}
+
 /** Expected outcome (0..1) for a learner of `skill` facing an item of `difficulty` (both on 0..5).
  *  Anchored at TARGET_SUCCESS when difficulty == skill; easier items raise it, harder items lower it. */
 export function expectedOutcome(skill: number, difficulty: number): number {
@@ -111,15 +132,18 @@ export function updateSkill(
   p: Progress,
   topic: string,
   outcome: number | boolean,
-  difficulty?: number
+  difficulty?: number,
+  effort?: AnswerEffort
 ): Record<string, number> {
-  const o = typeof outcome === "boolean" ? (outcome ? 1 : 0) : clamp(outcome, 0, 1);
+  const o = typeof outcome === "boolean" ? (outcome ? 1 : 0) : Number.isFinite(outcome) ? clamp(outcome, 0, 1) : 0;
   const attempts = p.topics[topic]?.attempts ?? 0;
   const k = Math.max(0.15, 0.5 / (1 + attempts / 20));
   // Cold-start aware: the first answer on an untested topic moves from its correlated estimate.
   const skill = effectiveSkill(p, topic);
-  const expected = expectedOutcome(skill, difficulty ?? skill);
-  const next = clamp(skill + k * (o - expected), LEVEL_MIN, LEVEL_MAX);
+  const expected = expectedOutcome(skill, Number.isFinite(difficulty) ? difficulty! : skill);
+  const surprise = o - expected;
+  const delta = clamp(k * surprise * (surprise > 0 ? positiveEvidenceWeight(effort) : 1), -0.35, 0.2);
+  const next = clamp(skill + delta, LEVEL_MIN, LEVEL_MAX);
   return { ...p.skill, [topic]: next };
 }
 
@@ -141,14 +165,16 @@ export type ListeningStat = { level: number; attempts: number };
 export function updateListening(
   prev: ListeningStat | undefined,
   outcome: number | boolean,
-  difficulty?: number
+  difficulty?: number,
+  effort?: AnswerEffort
 ): ListeningStat {
   const o = typeof outcome === "boolean" ? (outcome ? 1 : 0) : clamp(outcome, 0, 1);
   const cur = prev ?? { level: START_LEVEL, attempts: 0 };
   const k = Math.max(0.15, 0.5 / (1 + cur.attempts / 20));
-  const expected = expectedOutcome(cur.level, difficulty ?? cur.level);
+  const expected = expectedOutcome(cur.level, Number.isFinite(difficulty) ? difficulty! : cur.level);
+  const surprise = o - expected;
   return {
-    level: clamp(cur.level + k * (o - expected), LEVEL_MIN, LEVEL_MAX),
+    level: clamp(cur.level + clamp(k * surprise * (surprise > 0 ? positiveEvidenceWeight(effort) : 1), -0.35, 0.2), LEVEL_MIN, LEVEL_MAX),
     attempts: cur.attempts + 1,
   };
 }
@@ -261,7 +287,10 @@ export function reviewBoost(p: Progress, topic: string, today: string): number {
  *  long-unseen topics gain spaced-repetition urgency). */
 export function topicWeight(p: Progress, topic: string, today: string = isoDay(new Date())): number {
   const st = p.topics[topic];
-  const acc = st && st.attempts >= 3 ? st.correct / st.attempts : 0.5;
+  const lifetime = st && st.attempts >= 3 ? st.correct / st.attempts : 0.5;
+  const recent = st?.recent?.slice(-RECENT_ANSWERS) ?? [];
+  const recentAccuracy = recent.reduce((sum, a) => sum + a.score, 0) / recent.length;
+  const acc = recent.length ? 0.4 * lifetime + 0.6 * recentAccuracy : lifetime;
   const focus = p.profile?.focusTopics?.includes(topic) ? FOCUS_BOOST : 1;
   // Stage 2 Planner: per-topic urgency multiplier (server-clamped to 0.5..2; 1 = neutral).
   const plan = p.profile?.planWeights?.[topic] ?? 1;
@@ -272,6 +301,20 @@ export function topicWeight(p: Progress, topic: string, today: string = isoDay(n
     plan *
     reviewBoost(p, topic, today)
   );
+}
+
+/** Promotion needs repeated unaided evidence around the boundary. An isolated lucky answer can
+ *  move the continuous estimate, but cannot immediately switch the next card to a higher band. */
+export function servedSkill(p: Progress, topic: string): number {
+  const level = effectiveSkill(p, topic);
+  const recent = p.topics[topic]?.recent?.slice(-RECENT_ANSWERS) ?? [];
+  if (!recent.length) return level; // legacy saves and placement seeds retain their starting band
+  const previousBand = Math.min(4, Math.floor(recent[recent.length - 1].difficulty));
+  if (Math.floor(level) === previousBand + 1 && level < previousBand + 1.35) {
+    const independentWins = recent.filter((a) => a.score >= 0.9 && !a.hintUsed && a.difficulty >= previousBand + 0.25);
+    if (independentWins.length < 3) return Math.min(level, previousBand + 0.99);
+  }
+  return level;
 }
 
 // --- Learner steering ---------------------------------------------------------
@@ -327,7 +370,7 @@ export function selectNext(
           candidates.map((t) => topicWeight(p, t, today) * (pin && t === pin ? PIN_BOOST : 1))
         );
 
-  const level = effectiveSkill(p, topic);
+  const level = servedSkill(p, topic);
   // Difficulty steer: shift the served level (and thus CEFR + type mix) up/down around the model.
   const bias = clamp(steering?.difficultyBias ?? 0, -1, 1);
   const servedLevel = clamp(level + bias * DIFFICULTY_BIAS_RANGE, LEVEL_MIN, LEVEL_MAX);
@@ -337,9 +380,19 @@ export function selectNext(
   const base = typeWeightsForLevel(servedLevel).filter(([, w]) => w > 0);
   let tw = base.filter(([type]) => prefs[type] !== false);
   if (tw.length === 0) tw = base;
+  // Recent struggle calls for recognition/scaffolding; repeated independent wins invite production.
+  // This changes the mix, never defeats explicit format preferences or the level's allowed pool.
+  const recent = p.topics[topic]?.recent?.slice(-3) ?? [];
+  const formats = p.recentFormats?.length ? p.recentFormats.slice(-2) : recent.slice(-2).map((a) => a.format);
+  if (formats.length === 2 && formats[0] === formats[1] && tw.some(([type]) => type !== formats[1])) {
+    tw = tw.filter(([type]) => type !== formats[1]);
+  }
+  const struggling = recent.length >= 2 && recent.slice(-2).every((a) => a.score < 0.6 || a.hintUsed);
+  const confident = recent.length === 3 && recent.every((a) => a.score >= 0.9 && !a.hintUsed);
+  const constructive = new Set<ExerciseType>(["build-the-sentence", "transform-the-sentence", "tap-the-error", "multiple-blanks", "order-the-dialog", "listen-and-retell"]);
   const type = weightedPick(
     tw.map(([t]) => t),
-    tw.map(([, w]) => w)
+    tw.map(([t, w]) => w * (struggling ? (constructive.has(t) ? 0.5 : 1.5) : confident ? (constructive.has(t) ? 1.5 : 0.8) : 1))
   );
   return { topic, cefr: levelToCefr(servedLevel), type };
 }

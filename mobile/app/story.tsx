@@ -42,8 +42,8 @@ export default function StoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
-  const { t: tr } = useI18n();
-  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
+  const { t: tr, lang } = useI18n();
+  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
 
   const { coins, refresh: refreshWallet } = useWallet();
@@ -143,6 +143,7 @@ export default function StoryScreen() {
   }
 
   const beat = story?.beats[beatIndex];
+  useEffect(() => { if (beat?.exercise) beginAttempt(beat.exercise); }, [beat?.exercise, beginAttempt]);
   const isLast = !!story && beatIndex >= story.beats.length - 1;
 
   async function onCheck() {
@@ -196,7 +197,10 @@ export default function StoryScreen() {
         <View style={{ flex: 1, marginHorizontal: 14 }}>
           <ProgressBar pct={total ? (Math.min(answered, total) / total) * 100 : 0} height={10} />
         </View>
-        <Txt variant="caption" color={t.c.fire}>{`🔥 ${progress.dailyStreak}`}</Txt>
+        <View accessible accessibilityLabel={`${progress.dailyStreak} ${tr("prog.dayStreak")}`} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Icon name="flame" size={16} color={t.c.fire} />
+          <Txt variant="caption" color={t.c.fire}>{progress.dailyStreak}</Txt>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
@@ -204,7 +208,7 @@ export default function StoryScreen() {
           <View style={{ alignItems: "center", gap: 12, marginTop: 40 }}>
             <Sensei size={88} mood="think" bob />
             <ActivityIndicator color={t.c.accent} />
-            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(0)}</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(0, lang)}</Txt>
           </View>
         )}
 
@@ -294,7 +298,7 @@ export default function StoryScreen() {
             )}
 
             <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
-              <ExerciseCard key={beatIndex} exercise={beat.exercise} locked={!!result} onChange={onChange} />
+              <ExerciseCard onHint={markHintUsed} key={beatIndex} exercise={beat.exercise} locked={!!result} onChange={onChange} />
             </Animated.View>
 
             {result && (

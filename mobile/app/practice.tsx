@@ -41,7 +41,7 @@ import { firstAffordableUnowned } from "../store/cosmetics";
 import { useAuth } from "../store/auth";
 import { recordLessonFinished } from "../store/registerWall";
 import { recordJourneySession, loadJourney, stageFromGoals, STAGE_GOAL } from "../store/journey";
-import { consumeGuestExercise } from "../store/guestLimit";
+import { deliverGuestExercise } from "../store/guestLimit";
 import { localDate } from "../store/streak";
 import RegisterWall from "../components/ui/RegisterWall";
 
@@ -61,7 +61,7 @@ export default function PracticeScreen() {
   // Stage 2 Progress Agent: every answer of this session, pushed once at the summary screen.
   const sessionAnswersRef = useRef<SessionAnswer[]>([]);
   const summarySentRef = useRef(false);
-  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
+  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
   const params = useLocalSearchParams<{ topic?: string }>();
   const routeTopic = typeof params.topic === "string" ? params.topic : undefined;
@@ -92,8 +92,8 @@ export default function PracticeScreen() {
     };
   }, []);
 
-  // Pre-generation buffer: while the learner solves a card, the next ones are fetched in the
-  // background so "Next" is instant. Params are resolved from the freshest learner model per fetch.
+  // Prefetch during feedback, after the current answer updates the learner model.
+  // One next card avoids spending on cards that a later answer would invalidate.
   // Recent misses (per device), refreshed on each load; fed back to the generator to target weak
   // points in a fresh sentence (personalized practice). Kept in a ref so selectParams stays sync.
   const mistakesRef = useRef<Mistake[]>([]);
@@ -103,6 +103,9 @@ export default function PracticeScreen() {
   const queueRef = useRef<ExerciseQueue | null>(null);
   if (queueRef.current === null) {
     queueRef.current = createExerciseQueue({
+      size: 1,
+      prefetchOnServe: false,
+      revision: () => Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0),
       selectParams: () => {
         const steering = mergeSteering(progressRef.current.steering, sessionSteeringRef.current ?? DEFAULT_STEERING);
         const { topic, cefr, type } = selectNext(progressRef.current, forcedTopicRef.current, steering);
@@ -110,6 +113,7 @@ export default function PracticeScreen() {
           topic,
           level: cefr,
           type,
+          practice_index: progressRef.current.topics[topic]?.attempts ?? 0,
           context: buildContext(progressRef.current.profile, undefined, journeyGoalRef.current),
           mistakes: mistakeHintsForTopic(mistakesRef.current, topic),
         };
@@ -117,6 +121,7 @@ export default function PracticeScreen() {
     });
   }
   const [exercise, setExercise] = useState<Exercise | null>(null);
+  useEffect(() => { if (exercise) beginAttempt(exercise); }, [exercise, beginAttempt]);
   const [round, setRound] = useState(0); // bumps to remount ExerciseCard on each new exercise
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [responseDisplay, setResponseDisplay] = useState("");
@@ -139,7 +144,10 @@ export default function PracticeScreen() {
 
   const shake = useRef(new Animated.Value(0)).current;
 
+  const loadingRef = useRef(false);
   const loadExercise = useCallback(async (replace = false) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     setLoadError(null);
     setGated(false);
@@ -153,17 +161,16 @@ export default function PracticeScreen() {
     // show the register wall instead of fetching — registering lifts the cap and adds sync. (The
     // server doesn't meter anonymous callers; this is the client-side incentive fix.)
     // `replace` (a swerve swapping the current card) reuses the slot already counted — no re-charge.
-    if (!replace && !token && !(await consumeGuestExercise(localDate(new Date())))) {
-      setGuestLimited(true);
-      setLoading(false);
-      return;
-    }
     try {
       // Refresh the local miss list so freshly-refilled cards can target the latest weak points.
       mistakesRef.current = await loadMistakes();
       // Pull from the buffer (instant if prefetched); the queue handles adaptive selection and
       // refills itself in the background.
-      setExercise(await queueRef.current!.next());
+      const next = !replace && !token
+        ? await deliverGuestExercise(localDate(new Date()), () => queueRef.current!.next())
+        : await queueRef.current!.next();
+      if (!next) { setGuestLimited(true); return; }
+      setExercise(next);
       setRound((r) => r + 1);
     } catch (e) {
       // 403 routes by gate kind: "limit" → limit sheet with the upsell; "gated" → the activation
@@ -176,6 +183,7 @@ export default function PracticeScreen() {
       } else if (gate === "gated") setGated(true);
       else setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   }, [reset, token]);
@@ -244,6 +252,10 @@ export default function PracticeScreen() {
     if (!exercise || response === null || checking) return;
     const res = await check(exercise, response, runShake);
     if (res) {
+      // Grade first, then select from the updated learner snapshot during feedback.
+      if (res.progressAfter) progressRef.current = res.progressAfter;
+      queueRef.current!.clear();
+      if (solved + 1 < SESSION_LEN) queueRef.current!.prefetch();
       setSolved((s) => s + 1);
       if (res.correct) setSessionCorrect((c) => c + 1);
       sessionAnswersRef.current.push({ topic: exercise.topic, correct: res.correct, level: exercise.level });
@@ -307,21 +319,26 @@ export default function PracticeScreen() {
         <View style={{ flex: 1, marginHorizontal: 14 }}>
           <ProgressBar pct={(Math.min(solved, SESSION_LEN) / SESSION_LEN) * 100} height={10} />
         </View>
-        <Txt variant="caption" color={t.c.fire}>
-          {`${boostActive(progress) ? "⚡x2 " : ""}🔥 ${progress.dailyStreak}`}
-        </Txt>
+        <View accessible accessibilityLabel={`${progress.dailyStreak} ${tr("prog.dayStreak")}`} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          {boostActive(progress) && <>
+            <Icon name="bolt" size={16} color={t.c.fire} />
+            <Txt variant="caption" color={t.c.fire}>x2</Txt>
+          </>}
+          <Icon name="flame" size={16} color={t.c.fire} />
+          <Txt variant="caption" color={t.c.fire}>{progress.dailyStreak}</Txt>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 }}>
           <Txt variant="label" style={{ flex: 1 }}>
             {topicLabel}
-            {exercise ? `  ·  ${levelToCefr(effectiveSkill(progress, exercise.topic))}` : ""}
+            {exercise ? `  ·  ${exercise.level || levelToCefr(effectiveSkill(progress, exercise.topic))}` : ""}
           </Txt>
           {/* 📖 the unit's rule card, one tap away mid-drill (the Presentation step stays reachable) */}
           {exercise && !showScroll && RULE_CARDS[exercise.topic] && (
             <Pressable
-              onPress={() => setRuleOpen(true)}
+              onPress={() => { markHintUsed(); setRuleOpen(true); }}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={tr("course.rule")}
@@ -352,7 +369,7 @@ export default function PracticeScreen() {
         {loading && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
-            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round)}</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round, lang)}</Txt>
           </View>
         )}
 
@@ -414,7 +431,13 @@ export default function PracticeScreen() {
                 </Txt>
               </View>
             </Card>
-            <Scroll onDone={() => router.back()} />
+            {token ? <Scroll onDone={() => router.back()} /> : (
+              <Card style={{ gap: 12 }}>
+                <Txt variant="cardTitle">{tr("scroll.guestTitle")}</Txt>
+                <Txt variant="body" color={t.c.ink2}>{tr("scroll.guestBody")}</Txt>
+                <Button label={tr("action.finish")} onPress={() => router.back()} />
+              </Card>
+            )}
             {(() => {
               // Peak-end pitch: at the emotional high, surface a reachable cosmetic reward.
               const pick = firstAffordableUnowned(coins, ownedCosmetics);
@@ -437,7 +460,7 @@ export default function PracticeScreen() {
 
         {exercise && !loading && !showScroll && (
           <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
-            <ExerciseCard key={round} exercise={exercise} locked={!!result} onChange={onChange} />
+            <ExerciseCard onHint={markHintUsed} key={round} exercise={exercise} locked={!!result} onChange={onChange} />
           </Animated.View>
         )}
 

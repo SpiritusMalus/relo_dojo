@@ -1,0 +1,1107 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-11-01T06:12:54.064244+00:00",
+  "scope": "synthetic generation, structural validation, conditional independent semantic review, retries and grading; no customer data",
+  "review_model": "google/gemini-3.1-flash-lite",
+  "budget_cap_usd": 2.9,
+  "conservative_accounted_usd": 0.03906325000000001,
+  "authenticated_eligible_models": [
+    "google/gemini-3.1-flash-lite"
+  ],
+  "same_model_review": true,
+  "sources": [
+    "https://openrouter.ai/api/v1/models",
+    "https://openrouter.ai/docs/guides/features/structured-outputs"
+  ],
+  "catalogue": {
+    "google/gemini-3.1-flash-lite": {
+      "id": "google/gemini-3.1-flash-lite",
+      "pricing": {
+        "prompt": "0.00000025",
+        "completion": "0.0000015",
+        "image": "0.00000025",
+        "audio": "0.0000005",
+        "input_audio_cache": "0.00000005",
+        "web_search": "0.014",
+        "internal_reasoning": "0.0000015",
+        "input_cache_read": "0.000000025",
+        "input_cache_write": "0.0000000833333333333333"
+      },
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ]
+    }
+  },
+  "summary": [
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "cases": 10,
+      "served": 10,
+      "access_blocked_cases": 0,
+      "requested_format_served": 7,
+      "semantic_rejections": 5,
+      "provider_calls": 40,
+      "median_ms": 3160.5,
+      "p95_ms": 11791,
+      "reported_cost_usd": 0.0139045,
+      "calls_with_reported_cost": 36
+    }
+  ],
+  "results": [
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 1,
+      "level": "A1",
+      "topic": "vocabulary",
+      "requested_type": "match-pairs",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1765,
+          "prompt_tokens": 545,
+          "completion_tokens": 222,
+          "cost_usd": 0.00046925,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "I ___ with you, Tom.",
+                "right": "agree"
+              },
+              {
+                "left": "Can I ___ your pen?",
+                "right": "borrow"
+              },
+              {
+                "left": "The party was so ___.",
+                "right": "fun"
+              },
+              {
+                "left": "Please ___ me your book.",
+                "right": "lend"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 201,
+          "error": "LLMRefusedError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1589,
+          "prompt_tokens": 542,
+          "completion_tokens": 235,
+          "cost_usd": 0.000488,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "I must ___ my homework now.",
+                "right": "do"
+              },
+              {
+                "left": "Did you ___ a mistake?",
+                "right": "make"
+              },
+              {
+                "left": "Please ___ the dishes today.",
+                "right": "do"
+              },
+              {
+                "left": "I want to ___ new friends.",
+                "right": "make"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1856,
+          "prompt_tokens": 588,
+          "completion_tokens": 240,
+          "cost_usd": 0.000507,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "Please ___ me the time.",
+                "right": "tell"
+              },
+              {
+                "left": "I need some ___ now.",
+                "right": "advice"
+              },
+              {
+                "left": "Yes, I ___ with you.",
+                "right": "agree"
+              },
+              {
+                "left": "Did she ___ hello?",
+                "right": "say"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1382,
+          "prompt_tokens": 487,
+          "completion_tokens": 139,
+          "cost_usd": 0.00033025,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "match-pairs",
+      "task": {
+        "type": "match-pairs",
+        "topic": "vocabulary",
+        "text": "Match each item with its pair.",
+        "left": [
+          {
+            "id": 0,
+            "text": "Please ___ me the time."
+          },
+          {
+            "id": 1,
+            "text": "I need some ___ now."
+          },
+          {
+            "id": 2,
+            "text": "Yes, I ___ with you."
+          },
+          {
+            "id": 3,
+            "text": "Did she ___ hello?"
+          }
+        ],
+        "right": [
+          {
+            "id": 0,
+            "text": "say"
+          },
+          {
+            "id": 1,
+            "text": "agree"
+          },
+          {
+            "id": 2,
+            "text": "advice"
+          },
+          {
+            "id": 3,
+            "text": "tell"
+          }
+        ],
+        "level": "A1"
+      },
+      "key": {
+        "t": "match-pairs",
+        "map": {
+          "0": 3,
+          "1": 2,
+          "2": 1,
+          "3": 0
+        },
+        "rights": {
+          "0": "say",
+          "1": "agree",
+          "2": "advice",
+          "3": "tell"
+        },
+        "answer": "Please ___ me the time. → tell\nI need some ___ now. → advice\nYes, I ___ with you. → agree\nDid she ___ hello? → say",
+        "topic": "vocabulary"
+      },
+      "key_grades_correct": true,
+      "ms": 6797
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 2,
+      "level": "A1",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "build-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1751,
+          "prompt_tokens": 531,
+          "completion_tokens": 188,
+          "cost_usd": 0.00041475,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "She said she liked the cold coffee.",
+            "sentence_ru": "Она сказала, что ей понравился холодный кофе.",
+            "distractors": [
+              "likes",
+              "like"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1232,
+          "prompt_tokens": 342,
+          "completion_tokens": 140,
+          "cost_usd": 0.0002955,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "build-the-sentence",
+      "task": {
+        "type": "build-the-sentence",
+        "topic": "verb sequence (tense agreement)",
+        "text": "Translate into English:",
+        "prompt": "Она сказала, что ей понравился холодный кофе.",
+        "tiles": [
+          "coffee.",
+          "She",
+          "she",
+          "cold",
+          "the",
+          "said",
+          "liked"
+        ],
+        "distractors": [
+          "likes",
+          "like"
+        ],
+        "level": "A1"
+      },
+      "key": {
+        "t": "build-the-sentence",
+        "sentence": "She said she liked the cold coffee.",
+        "topic": "verb sequence (tense agreement)"
+      },
+      "key_grades_correct": true,
+      "ms": 2983
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 3,
+      "level": "A2",
+      "topic": "prepositions",
+      "requested_type": "tap-the-error",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1113,
+          "prompt_tokens": 484,
+          "completion_tokens": 141,
+          "cost_usd": 0.0003325,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence": "I started my new job in 2022."
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "tap-the-error",
+      "task": {
+        "type": "tap-the-error",
+        "topic": "prepositions",
+        "text": "Tap the word that is wrong.",
+        "tokens": [
+          "I",
+          "started",
+          "my",
+          "new",
+          "job",
+          "on",
+          "2022."
+        ],
+        "level": "A2"
+      },
+      "key": {
+        "t": "tap-the-error",
+        "index": 5,
+        "answer": "'on' → 'in'",
+        "topic": "prepositions",
+        "text": "I started my new job on 2022.",
+        "rule": "Months and years take 'in': in May, in 2024."
+      },
+      "key_grades_correct": true,
+      "ms": 1134
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 4,
+      "level": "A2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "multiple-blanks",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1695,
+          "prompt_tokens": 649,
+          "completion_tokens": 230,
+          "cost_usd": 0.00050725,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Yesterday, I said that I ___ to the store because I ___ hungry.",
+            "blanks": [
+              {
+                "options": [
+                  "go",
+                  "went"
+                ],
+                "answer": "went"
+              },
+              {
+                "options": [
+                  "am",
+                  "was"
+                ],
+                "answer": "was"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1187,
+          "prompt_tokens": 681,
+          "completion_tokens": 202,
+          "cost_usd": 0.00047325,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Yesterday, Tom said he ___ tired, so he ___ to sleep.",
+            "blanks": [
+              {
+                "options": [
+                  "is",
+                  "was"
+                ],
+                "answer": "was"
+              },
+              {
+                "options": [
+                  "goes",
+                  "went"
+                ],
+                "answer": "went"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 327,
+          "error": "LLMRefusedError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2396,
+          "prompt_tokens": 664,
+          "completion_tokens": 222,
+          "cost_usd": 0.000499,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "He said he ___ hungry, so he ___.",
+            "blanks": [
+              {
+                "options": [
+                  "is",
+                  "was"
+                ],
+                "answer": "was"
+              },
+              {
+                "options": [
+                  "eats",
+                  "ate"
+                ],
+                "answer": "ate"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1025,
+          "prompt_tokens": 503,
+          "completion_tokens": 182,
+          "cost_usd": 0.00039875,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Yesterday, John said he ___ hungry.",
+            "options": [
+              "is",
+              "was",
+              "be"
+            ],
+            "answer": "was"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 678,
+          "error": "LLMRefusedError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1641,
+          "prompt_tokens": 503,
+          "completion_tokens": 168,
+          "cost_usd": 0.00037775,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "She said she ___ happy at her job.",
+            "options": [
+              "is",
+              "was",
+              "will be"
+            ],
+            "answer": "was"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1260,
+          "prompt_tokens": 313,
+          "completion_tokens": 127,
+          "cost_usd": 0.00026875,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "verb sequence (tense agreement)",
+        "text": "She said she ___ happy at her job.",
+        "options": [
+          "is",
+          "will be",
+          "was"
+        ],
+        "level": "A2"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "was",
+        "topic": "verb sequence (tense agreement)",
+        "text": "She said she ___ happy at her job."
+      },
+      "key_grades_correct": true,
+      "ms": 10215
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 6,
+      "level": "B1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1272,
+          "prompt_tokens": 518,
+          "completion_tokens": 160,
+          "cost_usd": 0.0003695,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "If I had more time this morning, I ___ breakfast.",
+            "options": [
+              "would eat",
+              "ate",
+              "will eat"
+            ],
+            "answer": "would eat"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1453,
+          "prompt_tokens": 313,
+          "completion_tokens": 117,
+          "cost_usd": 0.00025375,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "conditionals",
+        "text": "If I had more time this morning, I ___ breakfast.",
+        "options": [
+          "ate",
+          "will eat",
+          "would eat"
+        ],
+        "level": "B1"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "would eat",
+        "topic": "conditionals",
+        "text": "If I had more time this morning, I ___ breakfast."
+      },
+      "key_grades_correct": true,
+      "ms": 2727
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 8,
+      "level": "B1",
+      "topic": "phrasal verbs",
+      "requested_type": "odd-one-out",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1392,
+          "prompt_tokens": 558,
+          "completion_tokens": 177,
+          "cost_usd": 0.000405,
+          "provider": "Google AI Studio",
+          "output": {
+            "items": [
+              "look after",
+              "look into",
+              "look away",
+              "look up"
+            ],
+            "odd": "look after",
+            "reason": "It is inseparable, while the others can take objects between the verb and particle."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1323,
+          "prompt_tokens": 308,
+          "completion_tokens": 168,
+          "cost_usd": 0.000329,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": false,
+            "reason": "The exercise is ambiguous because 'look away' is the only intransitive phrasal verb, while the others are transitive, making it a more logical odd-one-out than 'look after'."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1637,
+          "prompt_tokens": 624,
+          "completion_tokens": 185,
+          "cost_usd": 0.0004335,
+          "provider": "Google AI Studio",
+          "output": {
+            "items": [
+              "give up",
+              "take up",
+              "set up",
+              "go out"
+            ],
+            "odd": "go out",
+            "reason": "All others are transitive phrasal verbs requiring an object, but 'go out' is intransitive."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1647,
+          "prompt_tokens": 308,
+          "completion_tokens": 194,
+          "cost_usd": 0.000368,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": false,
+            "reason": "The options are ambiguous; 'set up', 'take up', and 'give up' are transitive phrasal verbs, while 'go out' is intransitive, but 'give up' can also be intransitive, making the distinction unclear for a B1 learner."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1332,
+          "prompt_tokens": 635,
+          "completion_tokens": 174,
+          "cost_usd": 0.00041975,
+          "provider": "Google AI Studio",
+          "output": {
+            "items": [
+              "figure out",
+              "give up",
+              "take up",
+              "run into"
+            ],
+            "odd": "run into",
+            "reason": "It is an inseparable phrasal verb, while the others are separable."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1379,
+          "prompt_tokens": 308,
+          "completion_tokens": 177,
+          "cost_usd": 0.0003425,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": false,
+            "reason": "The options are all phrasal verbs, and there is no clear semantic or grammatical category that excludes only 'run into' while including the others, making the task ambiguous."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1129,
+          "prompt_tokens": 613,
+          "completion_tokens": 168,
+          "cost_usd": 0.00040525,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "I need to ___ the new coffee machine before I can use it.",
+            "options": [
+              "look after",
+              "set up",
+              "figure"
+            ],
+            "answer": "set up"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1944,
+          "prompt_tokens": 323,
+          "completion_tokens": 128,
+          "cost_usd": 0.00027275,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "phrasal verbs",
+        "text": "I need to ___ the new coffee machine before I can use it.",
+        "options": [
+          "look after",
+          "figure",
+          "set up"
+        ],
+        "level": "B1"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "set up",
+        "topic": "phrasal verbs",
+        "text": "I need to ___ the new coffee machine before I can use it."
+      },
+      "key_grades_correct": true,
+      "ms": 11791
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 9,
+      "level": "B2",
+      "topic": "conditionals",
+      "requested_type": "transform-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1269,
+          "prompt_tokens": 526,
+          "completion_tokens": 177,
+          "cost_usd": 0.000397,
+          "provider": "Google AI Studio",
+          "output": {
+            "instruction": "Перепишите предложение в третьем условном наклонении (Third Conditional).",
+            "source": "If I arrive on time, I catch the bus to work.",
+            "target": "If I had arrived on time, I would have caught the bus to work."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1123,
+          "prompt_tokens": 385,
+          "completion_tokens": 152,
+          "cost_usd": 0.00032425,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "transform-the-sentence",
+      "task": {
+        "type": "transform-the-sentence",
+        "topic": "conditionals",
+        "text": "Rewrite the sentence:",
+        "instruction": "Перепишите предложение в третьем условном наклонении (Third Conditional).",
+        "prompt": "If I arrive on time, I catch the bus to work.",
+        "tiles": [
+          "on",
+          "bus",
+          "would",
+          "I",
+          "I",
+          "arrived",
+          "the",
+          "to",
+          "caught",
+          "had",
+          "If",
+          "work.",
+          "time,",
+          "have"
+        ],
+        "distractors": [
+          "arrive",
+          "catch"
+        ],
+        "level": "B2"
+      },
+      "key": {
+        "t": "transform-the-sentence",
+        "sentence": "If I had arrived on time, I would have caught the bus to work.",
+        "topic": "conditionals"
+      },
+      "key_grades_correct": true,
+      "ms": 2396
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 10,
+      "level": "B2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "order-the-dialog",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1230,
+          "prompt_tokens": 543,
+          "completion_tokens": 192,
+          "cost_usd": 0.00042375,
+          "provider": "Google AI Studio",
+          "output": {
+            "lines": [
+              "Hi Sarah, did you say you were planning to visit the new bakery?",
+              "Yes, I mentioned that I wanted to try their famous sourdough bread.",
+              "I heard they closed early because they had run out of dough.",
+              "That is a shame, as I hoped I could buy some fresh loaves."
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 583,
+          "error": "LLMRefusedError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1833,
+          "prompt_tokens": 526,
+          "completion_tokens": 196,
+          "cost_usd": 0.0004255,
+          "provider": "Google AI Studio",
+          "output": {
+            "lines": [
+              "Hey, did the manager say when the project deadline was?",
+              "She said that the deadline was moved to next Friday.",
+              "I thought she told us it would remain on Tuesday.",
+              "She explained that the client needed more time for review.",
+              "That makes sense, so I will start revising the report now."
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1083,
+          "prompt_tokens": 420,
+          "completion_tokens": 200,
+          "cost_usd": 0.000405,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": false,
+            "reason": "The logical flow is broken. The response 'I thought she told us it would remain on Tuesday' contradicts the previous statement 'She said that the deadline was moved to next Friday' without a transition, and the explanation 'She explained that the client needed more time for review' should logically precede the announcement of the new deadline."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1428,
+          "prompt_tokens": 609,
+          "completion_tokens": 185,
+          "cost_usd": 0.00042975,
+          "provider": "Google AI Studio",
+          "output": {
+            "lines": [
+              "Did the manager say when the project deadline was?",
+              "She explained that the client needed more time for review.",
+              "So, she said that the new deadline was next Friday?",
+              "Exactly, she confirmed it would be moved to that date.",
+              "Thanks for clarifying that for me."
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1440,
+          "prompt_tokens": 408,
+          "completion_tokens": 162,
+          "cost_usd": 0.000345,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": false,
+            "reason": "The provided tiles do not match the key. The key includes five sentences, but the task only provides four tiles. Please include all five sentences in the tiles list."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1353,
+          "prompt_tokens": 514,
+          "completion_tokens": 193,
+          "cost_usd": 0.000418,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "The project manager claimed that the team ___ the deadline by the following Friday.",
+            "options": [
+              "will meet",
+              "would meet",
+              "can meet",
+              "meets"
+            ],
+            "answer": "would meet"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1437,
+          "prompt_tokens": 331,
+          "completion_tokens": 130,
+          "cost_usd": 0.00027775,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "verb sequence (tense agreement)",
+        "text": "The project manager claimed that the team ___ the deadline by the following Friday.",
+        "options": [
+          "meets",
+          "can meet",
+          "will meet",
+          "would meet"
+        ],
+        "level": "B2"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "would meet",
+        "topic": "verb sequence (tense agreement)",
+        "text": "The project manager claimed that the team ___ the deadline by the following Friday."
+      },
+      "key_grades_correct": true,
+      "ms": 10390
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 12,
+      "level": "C1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1851,
+          "prompt_tokens": 534,
+          "completion_tokens": 184,
+          "cost_usd": 0.0004095,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "___ the traffic congestion yesterday, I would be enjoying a quiet morning coffee at home right now.",
+            "options": [
+              "Had I foreseen",
+              "If I have foreseen",
+              "Did I foresee",
+              "Should I have foreseen"
+            ],
+            "answer": "Had I foreseen"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1160,
+          "prompt_tokens": 339,
+          "completion_tokens": 108,
+          "cost_usd": 0.00024675,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "conditionals",
+        "text": "___ the traffic congestion yesterday, I would be enjoying a quiet morning coffee at home right now.",
+        "options": [
+          "Had I foreseen",
+          "Should I have foreseen",
+          "If I have foreseen",
+          "Did I foresee"
+        ],
+        "level": "C1"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "Had I foreseen",
+        "topic": "conditionals",
+        "text": "___ the traffic congestion yesterday, I would be enjoying a quiet morning coffee at home right now."
+      },
+      "key_grades_correct": true,
+      "ms": 3013
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 14,
+      "level": "C1",
+      "topic": "vocabulary",
+      "requested_type": "listen-and-answer",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1792,
+          "prompt_tokens": 642,
+          "completion_tokens": 257,
+          "cost_usd": 0.000546,
+          "provider": "Google AI Studio",
+          "output": {
+            "passage": "My partner insisted that the car engine was perfectly fine despite the strange rattling noise. However, when the mechanic inspected it, he implied that we had been driving on a completely empty radiator for days. I had to acknowledge that we were lucky the vehicle hadn't seized up entirely on the highway.",
+            "question": "What did the mechanic suggest about the car's condition?",
+            "options": [
+              "The engine was in perfect working order.",
+              "The car had been driven without coolant.",
+              "The rattling noise was a minor issue."
+            ],
+            "answer": "The car had been driven without coolant."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1514,
+          "prompt_tokens": 449,
+          "completion_tokens": 122,
+          "cost_usd": 0.00029525,
+          "provider": "Google AI Studio",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "listen-and-answer",
+      "task": {
+        "type": "listen-and-answer",
+        "topic": "vocabulary",
+        "text": "What did the mechanic suggest about the car's condition?",
+        "speak": "My partner insisted that the car engine was perfectly fine despite the strange rattling noise. However, when the mechanic inspected it, he implied that we had been driving on a completely empty radiator for days. I had to acknowledge that we were lucky the vehicle hadn't seized up entirely on the highway.",
+        "options": [
+          "The car had been driven without coolant.",
+          "The engine was in perfect working order.",
+          "The rattling noise was a minor issue."
+        ],
+        "level": "C1"
+      },
+      "key": {
+        "t": "listen-and-answer",
+        "answer": "The car had been driven without coolant.",
+        "topic": "vocabulary",
+        "text": "My partner insisted that the car engine was perfectly fine despite the strange rattling noise. However, when the mechanic inspected it, he implied that we had been driving on a completely empty radiator for days. I had to acknowledge that we were lucky the vehicle hadn't seized up entirely on the highway."
+      },
+      "key_grades_correct": true,
+      "ms": 3308
+    }
+  ]
+}

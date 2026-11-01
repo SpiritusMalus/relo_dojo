@@ -1,4 +1,5 @@
 import { consume, remaining, DEFAULT_GUEST_LIMIT, GUEST_DAILY_LIMIT } from "../guestLimit";
+import { deliverGuestExercise, loadGuestLimit, resetGuestLimit } from "../guestLimit";
 
 const TODAY = "2026-06-15";
 const TOMORROW = "2026-06-16";
@@ -33,5 +34,21 @@ describe("guest daily cap", () => {
     const s = { day: TODAY, used: 3 };
     consume(s, TODAY);
     expect(s.used).toBe(3);
+  });
+});
+
+describe("delivered guest allowance", () => {
+  beforeEach(() => resetGuestLimit());
+  it("does not spend allowance on a network failure and charges only the successful retry", async () => {
+    await expect(deliverGuestExercise(TODAY, async () => { throw new Error("offline"); })).rejects.toThrow("offline");
+    expect(remaining(await loadGuestLimit(), TODAY)).toBe(GUEST_DAILY_LIMIT);
+    expect(await deliverGuestExercise(TODAY, async () => "card")).toBe("card");
+    expect(remaining(await loadGuestLimit(), TODAY)).toBe(GUEST_DAILY_LIMIT - 1);
+  });
+  it("does not call the generator after the delivered-card cap is exhausted", async () => {
+    for (let n = 0; n < GUEST_DAILY_LIMIT; n++) await deliverGuestExercise(TODAY, async () => n);
+    const fetchCard = jest.fn(async () => "unseen");
+    expect(await deliverGuestExercise(TODAY, fetchCard)).toBeNull();
+    expect(fetchCard).not.toHaveBeenCalled();
   });
 });

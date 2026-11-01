@@ -20,7 +20,7 @@ import { beltProgress } from "../store/dojo";
 import { ensureOffer } from "../store/offers";
 import { useProgress } from "../store/progress";
 import { useAuth } from "../store/auth";
-import { consumeGuestExercise } from "../store/guestLimit";
+import { deliverGuestExercise } from "../store/guestLimit";
 import { localDate } from "../store/streak";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
@@ -52,8 +52,8 @@ export default function ChallengeScreen() {
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
   const { token } = useAuth();
-  const { t: tr } = useI18n();
-  const { result, checking, error: checkError, check, reset } = useExerciseCheck();
+  const { t: tr, lang } = useI18n();
+  const { result, checking, error: checkError, check, reset, beginAttempt, markHintUsed } = useExerciseCheck();
 
   const progressRef = useRef(progress);
   progressRef.current = progress;
@@ -61,15 +61,19 @@ export default function ChallengeScreen() {
   const queueRef = useRef<ExerciseQueue | null>(null);
   if (queueRef.current === null) {
     queueRef.current = createExerciseQueue({
+      size: 1,
+      prefetchOnServe: false,
+      revision: () => Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0),
       selectParams: () => {
         const { topic, cefr, type } = selectNext(progressRef.current);
-        return { topic, level: cefr, type, context: buildContext(progressRef.current.profile) };
+        return { topic, level: cefr, type, context: buildContext(progressRef.current.profile), practice_index: progressRef.current.topics[topic]?.attempts ?? 0 };
       },
     });
   }
 
   const [phase, setPhase] = useState<Phase>("intro");
   const [exercise, setExercise] = useState<Exercise | null>(null);
+  useEffect(() => { if (exercise) beginAttempt(exercise); }, [exercise, beginAttempt]);
   const [round, setRound] = useState(0);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [loading, setLoading] = useState(false);
@@ -105,7 +109,10 @@ export default function ChallengeScreen() {
     };
   }, []);
 
+  const loadingRef = useRef(false);
   const loadExercise = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
     setLimited(false);
@@ -117,13 +124,12 @@ export default function ChallengeScreen() {
     // Guests get the same daily allowance as Practice (store/guestLimit.ts). The Challenge draws from
     // the same LLM-backed queue, so it must consume the SHARED cap too — otherwise it's a free,
     // unmetered way for anon users to burn model calls. On exhaustion: pause the run, show the wall.
-    if (!token && !(await consumeGuestExercise(localDate(new Date())))) {
-      setGuestLimited(true);
-      setLoading(false);
-      return;
-    }
     try {
-      setExercise(await queueRef.current!.next());
+      const next = !token
+        ? await deliverGuestExercise(localDate(new Date()), () => queueRef.current!.next())
+        : await queueRef.current!.next();
+      if (!next) { setGuestLimited(true); return; }
+      setExercise(next);
       setRound((r) => r + 1);
       setPhase("solving");
     } catch (e) {
@@ -136,6 +142,7 @@ export default function ChallengeScreen() {
       } else if (gate === "gated") setGated(true);
       else setError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   }, [reset, token]);
@@ -191,6 +198,9 @@ export default function ChallengeScreen() {
     try {
       const res = await check(exercise, response);
       if (!res) return; // network error — surfaced via checkError
+      if (res.progressAfter) progressRef.current = res.progressAfter;
+      queueRef.current!.clear();
+      if (timeLeftRef.current > FEEDBACK_MS / 1000) queueRef.current!.prefetch();
       // Funnel + daily contracts: a Challenge answer is an answered exercise too (mode tags it), so it
       // counts toward the "answer N / N correct" contracts exactly like Practice (same event).
       trackExerciseAnswered({ topic: exercise.topic, correct: res.correct, level: exercise.level, mode: "challenge" });
@@ -301,7 +311,7 @@ export default function ChallengeScreen() {
         {loading && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
-            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round)}</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round, lang)}</Txt>
           </View>
         )}
 
@@ -357,7 +367,7 @@ export default function ChallengeScreen() {
         )}
 
         {exercise && !loading && (
-          <ExerciseCard key={round} exercise={exercise} locked={phase === "feedback"} onChange={onChange} />
+          <ExerciseCard onHint={markHintUsed} key={round} exercise={exercise} locked={phase === "feedback"} onChange={onChange} />
         )}
 
         {phase === "feedback" && result && (

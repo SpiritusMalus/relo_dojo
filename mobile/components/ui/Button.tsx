@@ -26,7 +26,7 @@ export default function Button({
 }) {
   const t = useTheme();
   const primary = variant === "primary";
-  const isUpper = uppercase ?? primary;
+  const isUpper = uppercase ?? false;
 
   const faceColor = disabled ? t.c.surface3 : primary ? t.c.accent : t.c.surface;
   const edgeColor = disabled ? t.c.line2 : primary ? t.c.accentPress : t.c.line2;
@@ -44,15 +44,15 @@ export default function Button({
           alignSelf: fullWidth ? "stretch" : "flex-start",
           backgroundColor: pressed && !primary ? t.c.surface2 : faceColor,
           borderRadius: t.spacing.radiusSm,
-          borderBottomWidth: primary ? (pressed ? 1 : 4) : 2,
+          borderBottomWidth: primary ? (pressed ? 1 : 2) : 1,
           borderColor: edgeColor,
-          borderWidth: primary ? 0 : 2,
+          borderWidth: primary ? 0 : 1,
           borderBottomColor: edgeColor,
           paddingVertical: primary ? 15 : 13,
         },
         // Only add the (array-valued) transform when pressed — never pass `transform: undefined`,
         // which crashes the New Architecture ("Cannot read property 'forEach' of null").
-        primary && pressed ? { transform: [{ translateY: 3 }] } : null,
+        primary && pressed ? { transform: [{ translateY: 1 }] } : null,
         style,
       ]}
     >
@@ -61,7 +61,7 @@ export default function Button({
         <Txt
           variant={primary ? "bodyStrong" : "bodyStrong"}
           color={textColor}
-          style={{ fontFamily: t.fonts.ui700, letterSpacing: isUpper ? 0.5 : 0, textTransform: isUpper ? "uppercase" : "none", fontSize: 16 }}
+          style={{ fontFamily: t.fonts.ui700, textAlign: "center", flexShrink: 1, letterSpacing: isUpper ? 0.5 : 0, textTransform: isUpper ? "uppercase" : "none", fontSize: 16 }}
         >
           {label}
         </Txt>
@@ -71,6 +71,6 @@ export default function Button({
 }
 
 const styles = StyleSheet.create({
-  base: { minHeight: 44, justifyContent: "center", paddingHorizontal: 18 },
+  base: { minHeight: 48, justifyContent: "center", paddingHorizontal: 18 },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
 });

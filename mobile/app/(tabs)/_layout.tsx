@@ -1,4 +1,5 @@
-import { View } from "react-native";
+import { View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Tabs } from "expo-router";
 import { useTheme } from "../../theme/theme";
 import { useI18n } from "../../store/i18n";
@@ -8,6 +9,8 @@ import Icon, { type IconName } from "../../components/ui/Icon";
 export default function TabsLayout() {
   const t = useTheme();
   const { t: tr } = useI18n();
+  const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
 
   const tabIcon =
     (name: IconName) =>
@@ -32,8 +35,15 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: t.c.accent,
         tabBarInactiveTintColor: t.c.ink3,
-        tabBarStyle: { backgroundColor: t.c.screen, borderTopColor: t.c.line },
-        tabBarLabelStyle: { fontFamily: t.fonts.ui600, fontSize: 11 },
+        tabBarStyle: {
+          backgroundColor: t.c.screen,
+          borderTopColor: t.c.line,
+          height: Math.ceil(48 + 16 * fontScale) + insets.bottom,
+          paddingTop: 6,
+          paddingBottom: Math.max(insets.bottom, 8),
+        },
+        tabBarIconStyle: { height: 32 },
+        tabBarLabelStyle: { fontFamily: t.fonts.ui600, fontSize: 12, lineHeight: 16 },
       }}
     >
       <Tabs.Screen name="index" options={{ title: tr("tab.home"), tabBarIcon: tabIcon("home") }} />

@@ -19,12 +19,12 @@ export default function Screen({
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const pad: ViewStyle = {
-    paddingTop: topInset ? insets.top + 8 : 0,
+    paddingTop: topInset ? 8 : 0,
     paddingBottom: insets.bottom + 16,
     paddingHorizontal: t.spacing.pad,
   };
   return (
-    <View style={{ flex: 1, backgroundColor: t.c.screen }}>
+    <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: topInset ? insets.top : 0 }}>
       <StatusBar style={t.name === "dark" ? "light" : "dark"} />
       {scroll ? (
         <ScrollView

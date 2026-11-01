@@ -40,7 +40,7 @@ export default function BeltExamScreen() {
   const insets = useSafeAreaInsets();
   const { progress, recordExamResult } = useProgress();
   const { t: tr } = useI18n();
-  const { result, checking, error: checkError, check, reset } = useExerciseCheck();
+  const { result, checking, error: checkError, check, reset, beginAttempt } = useExerciseCheck();
 
   // The offer is read once at mount: mid-exam skill changes must not move the goalposts.
   const offerRef = useRef(examOffer(progress));
@@ -56,13 +56,14 @@ export default function BeltExamScreen() {
       selectParams: () => {
         const { topic, type } = selectNext(progressRef.current);
         // Difficulty pinned to the TARGET belt — the whole point of the trial.
-        return { topic, level: targetBelt.cefr, type, context: buildContext(progressRef.current.profile) };
+        return { topic, level: targetBelt.cefr, type, context: buildContext(progressRef.current.profile), practice_index: progressRef.current.topics[topic]?.attempts ?? 0 };
       },
     });
   }
 
   const [phase, setPhase] = useState<Phase>("intro");
   const [exercise, setExercise] = useState<Exercise | null>(null);
+  useEffect(() => { if (exercise) beginAttempt(exercise); }, [exercise, beginAttempt]);
   const [round, setRound] = useState(0);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [loading, setLoading] = useState(false);
@@ -234,7 +235,7 @@ export default function BeltExamScreen() {
         )}
 
         {exercise && !loading && (
-          <ExerciseCard key={round} exercise={exercise} locked={phase === "feedback"} onChange={(v) => setResponse(v)} />
+          <ExerciseCard translationEnabled={false} key={round} exercise={exercise} locked={phase === "feedback"} onChange={(v) => setResponse(v)} />
         )}
 
         {phase === "feedback" && result && (

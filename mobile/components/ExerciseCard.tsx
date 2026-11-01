@@ -11,8 +11,8 @@ import { TranslationProvider } from "./ui/TranslationPopover";
 
 // Renders the right interactive component for the exercise's type. Wrapped in a TranslationProvider so
 // any English word inside the card can be long-pressed to see its meaning (tap-to-translate).
-export default function ExerciseCard(props: ExerciseProps) {
-  return <TranslationProvider>{renderBody(props)}</TranslationProvider>;
+export default function ExerciseCard(props: ExerciseProps & { translationEnabled?: boolean; onHint?: () => void }) {
+  return <TranslationProvider enabled={props.translationEnabled} onReveal={props.onHint}>{renderBody(props)}</TranslationProvider>;
 }
 
 function renderBody(props: ExerciseProps) {

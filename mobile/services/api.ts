@@ -36,6 +36,17 @@ export function setAuthToken(token: string | null): void {
   authToken = token;
 }
 
+/** Progress sync must never borrow a newer account's mutable global bearer token. */
+export function isCurrentAuthToken(expected: string | null): boolean {
+  return authToken === expected;
+}
+
+function assertProgressSession(expected?: string): void {
+  if (expected !== undefined && !isCurrentAuthToken(expected)) {
+    throw new ApiError("The signed-in account changed.", 409, "session_changed");
+  }
+}
+
 // UI language ("ru" | "en"), set by the i18n store. Sent to LLM endpoints so explanations/feedback
 // come back in the learner's language. Held in a module var so non-React callers (this file) can read it.
 let apiLang: string = "ru";
@@ -76,11 +87,14 @@ async function request<T>(
   path: string,
   body?: unknown,
   method: Method = "POST",
-  timeoutMs: number = REQUEST_TIMEOUT_MS
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
+  expectedAuthToken?: string
 ): Promise<T> {
+  assertProgressSession(expectedAuthToken);
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+  const requestToken = expectedAuthToken ?? authToken;
+  if (requestToken) headers["Authorization"] = `Bearer ${requestToken}`;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -100,6 +114,8 @@ async function request<T>(
   } finally {
     clearTimeout(timer);
   }
+
+  assertProgressSession(expectedAuthToken);
 
   if (!res.ok) {
     // Errors carry {detail: "..."} (string), {detail: {code, message, ...}} (structured gating),
@@ -130,8 +146,11 @@ async function request<T>(
   // callers' catch treats as a network failure. Surface it as a typed ApiError so it routes like any
   // other backend error, not "can't reach the backend".
   try {
-    return (await res.json()) as T;
+    const data = (await res.json()) as T;
+    assertProgressSession(expectedAuthToken);
+    return data;
   } catch {
+    assertProgressSession(expectedAuthToken);
     throw new ApiError("Malformed response from the backend.", res.status);
   }
 }
@@ -201,6 +220,7 @@ export function getExercise(params?: {
   type?: string;
   context?: string;
   mistakes?: string[];
+  practice_index?: number;
 }): Promise<Exercise> {
   // `lang` lets the backend write the LLM-generated task instruction (transform-the-sentence) in the
   // learner's UI language; the exercise content itself stays English (it's an English course).
@@ -357,7 +377,7 @@ const translateCache = new Map<string, string>();
 export async function translate(text: string, context?: string): Promise<string> {
   const word = text.trim();
   if (!word) return "";
-  const key = `${apiLang} ${word} ${context ?? ""}`;
+  const key = `${apiLang}\u0000${word}\u0000${context ?? ""}`;
   const cached = translateCache.get(key);
   if (cached !== undefined) return cached;
   const { translation } = await request<{ translation: string }>("/translate", {
@@ -448,7 +468,7 @@ export function login(email: string, password: string): Promise<TokenResp> {
 }
 
 export function getMe(): Promise<AuthUser> {
-  return request<AuthUser>("/auth/me", undefined, "GET");
+  return request<AuthUser>("/auth/me", undefined, "GET", 12000);
 }
 
 // Resend the account-activation email to the logged-in user.
@@ -600,10 +620,10 @@ export function postEvents(
   return request<{ accepted: number }>("/events", { anon_id: anonId, events });
 }
 
-export function getProgress(): Promise<Progress> {
-  return request<Progress>("/progress", undefined, "GET");
+export function getProgress(expectedToken?: string): Promise<Progress> {
+  return request<Progress>("/progress", undefined, "GET", REQUEST_TIMEOUT_MS, expectedToken);
 }
 
-export function putProgress(p: Progress): Promise<Progress> {
-  return request<Progress>("/progress", p, "PUT");
+export function putProgress(p: Progress, expectedToken?: string): Promise<Progress> {
+  return request<Progress>("/progress", p, "PUT", REQUEST_TIMEOUT_MS, expectedToken);
 }

@@ -57,14 +57,9 @@ export default function TrainScreen() {
     <Screen>
       <TopBar belt={bp.belt} streak={progress.dailyStreak} xp={progress.xp} />
       <ActivationBanner />
-      {/* Self-directed topic practice — verified-only, as before. */}
-      <LockGate locked={locked}>
-        <TopicsBody />
-      </LockGate>
-
       {/* Special modes — outside the verified-only gate above, so anonymous/unverified learners keep
           the same access to modes they had on Home. Each entry preserves its own gate exactly. */}
-      <Txt variant="label" style={{ marginTop: 4 }}>{tr("train.modes")}</Txt>
+      <Txt variant="screenTitle" style={{ marginTop: 4 }}>{tr("train.intro")}</Txt>
       <LockGate locked={!access.review_text}>
         <TextReviewButton onPress={() => router.push("/text-review")} />
       </LockGate>
@@ -85,6 +80,13 @@ export default function TrainScreen() {
       {/* Named entry to the Lavka. Account-only: koku is earned/spent server-side, so a guest's shop
           would be inert (0 koku, 401 on buy). Shown once there's an account. */}
       {access.sync && <ShopButton onPress={() => router.push("/shop")} />}
+
+      {/* Self-directed topic practice — verified-only, as before. */}
+      <LockGate locked={locked}>
+        <TopicsBody />
+      </LockGate>
+
+
     </Screen>
   );
 }

@@ -15,13 +15,18 @@
 // development build for full notification testing.
 
 import { Platform } from "react-native";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import type { Lang } from "../i18n/strings";
 import type { DiaryRecap } from "../store/diary";
 
 // Conditional import: skip if notifications aren't available (e.g., Expo Go on Android SDK 53+)
 let Notifications: typeof import("expo-notifications") | null = null;
 try {
-  Notifications = require("expo-notifications");
+  // Importing this module itself emits a native error in Android Expo Go (SDK 53+).
+  // Standalone builds retain the full notification path.
+  if (!(Platform.OS === "android" && Constants.executionEnvironment === ExecutionEnvironment.StoreClient)) {
+    Notifications = require("expo-notifications");
+  }
 } catch {
   // Notifications unavailable — functions will safely no-op below
 }

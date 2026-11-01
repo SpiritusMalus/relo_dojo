@@ -11,6 +11,7 @@ import {
   levelToCefr,
   reviewBoost,
   selectNext,
+  servedSkill,
   skillFor,
   START_LEVEL,
   TARGET_SUCCESS,
@@ -22,7 +23,7 @@ import {
   updateSkill,
   LISTENING_FORMATS,
 } from "../adaptive";
-import { DEFAULT_PROGRESS, DEFAULT_STEERING, type Progress, type Steering } from "../progress";
+import { DEFAULT_PROGRESS, DEFAULT_STEERING, recordAnswer, type Progress, type Steering } from "../progress";
 
 function progressWith(overrides: Partial<Progress>): Progress {
   return { ...DEFAULT_PROGRESS, ...overrides };
@@ -322,14 +323,20 @@ describe("selectNext — learner steering", () => {
     const s = steer({ pinnedFocusTopic: pin });
     let pinned = 0;
     const seen = new Set<string>();
-    for (let i = 0; i < ITER; i++) {
-      const t = selectNext(p, undefined, s).topic;
-      if (t === pin) pinned++;
-      seen.add(t);
-    }
     let baseline = 0;
-    for (let i = 0; i < ITER; i++) {
-      if (selectNext(p, undefined, DEFAULT_STEERING).topic === pin) baseline++;
+    // Compare the same stratified random values: independent small samples can invert this
+    // inequality by chance even with a correct weight boost (a release-CI flake).
+    const random = jest.spyOn(Math, "random");
+    try {
+      for (let i = 0; i < ITER; i++) {
+        random.mockReturnValue((i + 0.5) / ITER);
+        const t = selectNext(p, undefined, s).topic;
+        if (t === pin) pinned++;
+        seen.add(t);
+        if (selectNext(p, undefined, DEFAULT_STEERING).topic === pin) baseline++;
+      }
+    } finally {
+      random.mockRestore();
     }
     expect(pinned).toBeGreaterThan(baseline); // boosted
     expect(seen.size).toBeGreaterThan(1); // variety not starved — other topics still appear
@@ -470,5 +477,126 @@ describe("type mix — listening in the daily loop", () => {
       expect(type).not.toBe("listen-and-answer");
       expect(type).not.toBe("listen-and-retell");
     }
+  });
+});
+
+describe("answer-by-answer adaptation", () => {
+  const seed = () => progressWith({ skill: { articles: 2.5 }, topics: { articles: { attempts: 0, correct: 0 } } });
+
+  it("uses correctness first: a quick wrong tap lowers ability, speed never turns it into success", () => {
+    const p = seed();
+    const fastWrong = updateSkill(p, "articles", false, 2.5, { elapsedMs: 100, expectedMs: 20_000 }).articles;
+    const slowWrong = updateSkill(p, "articles", false, 2.5, { elapsedMs: 90_000, expectedMs: 20_000 }).articles;
+    expect(fastWrong).toBeLessThan(2.5);
+    expect(fastWrong).toBe(slowWrong);
+  });
+
+  it("keeps a slow correct solve positive and makes hints weaker evidence without a speed bonus", () => {
+    const p = seed();
+    const normal = updateSkill(p, "articles", true, 2.5, { elapsedMs: 15_000, expectedMs: 20_000 }).articles;
+    const slow = updateSkill(p, "articles", true, 2.5, { elapsedMs: 90_000, expectedMs: 20_000 }).articles;
+    const hinted = updateSkill(p, "articles", true, 2.5, { hintUsed: true }).articles;
+    expect(slow).toBeGreaterThan(2.5);
+    expect(slow - 2.5).toBeCloseTo((normal - 2.5) * 0.8);
+    expect(hinted).toBeLessThan(slow);
+    expect(updateSkill(p, "articles", true, 2.5, { elapsedMs: 5000, expectedMs: 20_000 }).articles).toBe(normal);
+  });
+
+  it("requires repeated independent success before promoting a near-boundary learner", () => {
+    let p = progressWith({ skill: { articles: 2.95 } });
+    p = recordAnswer(p, "articles", true, new Date(), { difficulty: 2.5, format: "multiple-choice" });
+    expect(p.skill.articles).toBeGreaterThan(3);
+    expect(servedSkill(p, "articles")).toBeLessThan(3);
+    expect(selectNext(p, "articles").cefr).toBe("B1");
+    for (let i = 0; i < 2; i++) p = recordAnswer(p, "articles", true, new Date(), { difficulty: 2.5, format: "build-the-sentence" });
+    expect(selectNext(p, "articles").cefr).toBe("B2");
+  });
+
+  it("simulation: repeated novice misses ease the next card; sustained mastery raises it gradually", () => {
+    let novice = seed();
+    let master = progressWith({ skill: { articles: 1.5 } });
+    for (let i = 0; i < 40; i++) {
+      const noviceSpec = selectNext(novice, "articles");
+      novice = recordAnswer(novice, "articles", i % 4 === 0, new Date(), { difficulty: cefrMidpoint(noviceSpec.cefr), format: noviceSpec.type });
+      const masterSpec = selectNext(master, "articles");
+      const before = master.skill.articles;
+      master = recordAnswer(master, "articles", true, new Date(), { difficulty: cefrMidpoint(masterSpec.cefr), format: masterSpec.type, elapsedMs: 12_000, expectedMs: 30_000 });
+      expect(master.skill.articles - before).toBeLessThanOrEqual(0.200001);
+    }
+    expect(selectNext(novice, "articles").cefr).toBe("A1");
+    expect(master.skill.articles).toBeGreaterThan(3);
+    expect(master.skill.articles).toBeLessThan(5);
+  });
+
+  it("a new miss immediately raises topic urgency even after a long successful history", () => {
+    const p = progressWith({ skill: { articles: 3 }, topics: { articles: { attempts: 100, correct: 99 } } });
+    const after = recordAnswer(p, "articles", false);
+    expect(topicWeight(after, "articles")).toBeGreaterThan(topicWeight(p, "articles"));
+    expect(after.skill.prepositions).toBeUndefined(); // never credit/debit an unrelated skill
+  });
+
+  it("scaffolds repeated struggle and adds production after independent wins, preserving muted formats", () => {
+    const history = (score: number) => Array.from({ length: 3 }, () => ({ score, difficulty: 2.5, format: "multiple-choice" }));
+    const make = (score: number) => progressWith({
+      skill: { articles: 2.5 },
+      topics: { articles: { attempts: 12, correct: 9, recent: history(score) } },
+    });
+    const production = new Set(["build-the-sentence", "transform-the-sentence", "tap-the-error", "multiple-blanks", "order-the-dialog", "listen-and-retell"]);
+    const sample = (p: Progress) => {
+      let count = 0;
+      // Uniformly sample the entire weighted distribution without a flaky random assertion.
+      const random = jest.spyOn(Math, "random");
+      for (let i = 0; i < 1000; i++) {
+        random.mockReturnValue((i + 0.5) / 1000);
+        if (production.has(selectNext(p, "articles").type)) count++;
+      }
+      random.mockRestore();
+      return count;
+    };
+    expect(sample(make(1))).toBeGreaterThan(sample(make(0)) + 200);
+    const random = jest.spyOn(Math, "random").mockReturnValue(0.999);
+    for (let i = 0; i < 20; i++) expect(selectNext(make(1), "articles", {
+      ...DEFAULT_STEERING, formatPrefs: { "listen-and-retell": false, "transform-the-sentence": false },
+    }).type).not.toBe("listen-and-retell");
+    random.mockRestore();
+  });
+
+  it("rejects inherited property names as CEFR and recovers from non-finite legacy skill", () => {
+    expect(isCefr("toString")).toBe(false);
+    expect(skillFor(progressWith({ skill: { articles: NaN } }), "articles")).toBe(START_LEVEL);
+  });
+});
+
+describe("format variety without overriding learner intent", () => {
+  it("never repeats a format a third time when another allowed format is available", () => {
+    const p = progressWith({ recentFormats: ["multiple-choice", "multiple-choice"] });
+    const random = jest.spyOn(Math, "random").mockReturnValue(0);
+    for (let i = 0; i < 20; i++) expect(selectNext(p, "word order").type).not.toBe("multiple-choice");
+    random.mockRestore();
+  });
+
+  it("keeps the single permitted format and the forced topic instead of defeating steering", () => {
+    const p = progressWith({ recentFormats: ["multiple-choice", "multiple-choice"] });
+    const formatPrefs = Object.fromEntries(typeWeightsForLevel(START_LEVEL).map(([type]) => [type, type === "multiple-choice"]));
+    const spec = selectNext(p, "articles", { ...DEFAULT_STEERING, formatPrefs, mutedTopics: ["articles"] });
+    expect(spec.type).toBe("multiple-choice");
+    expect(spec.topic).toBe("articles");
+  });
+
+  it("counts formats across topics and keeps the window through sync", () => {
+    let p = recordAnswer(DEFAULT_PROGRESS, "articles", true, new Date(), { format: "multiple-choice" });
+    p = recordAnswer(p, "prepositions", true, new Date(), { format: "multiple-choice" });
+    expect(p.recentFormats).toEqual(["multiple-choice", "multiple-choice"]);
+    expect(selectNext(p, "word order").type).not.toBe("multiple-choice");
+    p = recordAnswer(p, "word order", false, new Date(), { format: "build-the-sentence" });
+    expect(p.recentFormats).toEqual(["multiple-choice", "build-the-sentence"]);
+  });
+
+  it("legacy topic history also prevents a third identical format without a new global window", () => {
+    const p = progressWith({ topics: { articles: { attempts: 2, correct: 1, recent: [
+      { score: 1, difficulty: 1.5, format: "match-pairs" },
+      { score: 0, difficulty: 1.5, format: "match-pairs" },
+    ] } } });
+    expect(selectNext(p, "articles").type).not.toBe("match-pairs");
   });
 });

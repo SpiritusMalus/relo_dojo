@@ -20,7 +20,7 @@ export default function SenseiBubble({
   const t = useTheme();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-      <Sensei belt={belt} size={size} mood={mood} bob />
+      <Sensei belt={belt} size={size} mood={mood} />
       {/* bubble: squared top-left corner = a little tail pointing back at Sensei */}
       <View
         style={{

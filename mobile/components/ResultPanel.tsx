@@ -61,7 +61,7 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
       {result.correct && (result.combo_bonus ?? 0) > 0 && (
         <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.combo", { n: result.combo_bonus ?? 0 })}</Txt>
       )}
-      {!!levelUp && <Txt variant="bodyStrong" color={t.c.accent}>{`⬆ ${levelUp}`}</Txt>}
+      {!!levelUp && <Txt variant="bodyStrong" color={t.c.accent}>{tr("result.levelUp", { level: levelUp })}</Txt>}
       {!!result.explanation && <Txt variant="body" color={t.c.ink2}>{`💡 ${result.explanation}`}</Txt>}
       {!!result.tip && <Txt variant="secondary" color={t.c.ink2}>{result.tip}</Txt>}
 

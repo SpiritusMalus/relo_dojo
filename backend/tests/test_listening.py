@@ -59,7 +59,7 @@ async def test_listen_answer_payload_and_token(monkeypatch):
     assert sealed["text"] == PASSAGE  # the miss-log drill hint is the passage itself
 
 
-async def test_listen_answer_appends_missing_answer(monkeypatch):
+async def test_listen_answer_rejects_missing_answer(monkeypatch):
     monkeypatch.setattr(
         gen,
         "generate_json",
@@ -68,13 +68,12 @@ async def test_listen_answer_appends_missing_answer(monkeypatch):
                 "passage": PASSAGE,
                 "question": "What color was the door?",
                 "options": ["Red", "Blue"],
-                "answer": "Green",  # model forgot to include it — generator adds it
+                "answer": "Green",  # missing keyed option must trigger a fresh, coherent task
             }
         ),
     )
     out = await gen._gen_listen_answer("articles", level="A2")
-    assert out is not None
-    assert "Green" in out["options"]
+    assert out is None
 
 
 @pytest.mark.parametrize(

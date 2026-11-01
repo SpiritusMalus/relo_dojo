@@ -1,0 +1,1508 @@
+{
+  "scope": "Unchanged production check_answer and assess_writing, synthetic fixed fixtures, after owner Person-name Block-to-Redact setting",
+  "model": "google/gemini-3.5-flash-lite",
+  "review_writing_model": "openai/gpt-6.1-terra",
+  "reasoning": "low",
+  "checks": {
+    "accuracy": 1.0,
+    "results": [
+      {
+        "id": "prep-01",
+        "topic": "prepositions",
+        "text": "I will arrive ___ Monday.",
+        "answer": "on",
+        "expected": true,
+        "note": "days take 'on'",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "on",
+          "explanation": "Great job, you used the correct preposition! We use 'on' for specific days of the week.",
+          "tip": "Remember to use 'on' for days, 'in' for months and years, and 'at' for specific times."
+        }
+      },
+      {
+        "id": "prep-02",
+        "topic": "prepositions",
+        "text": "I will arrive ___ Monday.",
+        "answer": "in",
+        "expected": false,
+        "note": "'in Monday' is wrong",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "on",
+          "explanation": "Almost there. When we talk about specific days of the week, we use the preposition 'on'.",
+          "tip": "Remember to use 'on' for days like Monday, and 'in' for months or years."
+        }
+      },
+      {
+        "id": "prep-03",
+        "topic": "prepositions",
+        "text": "She has lived here ___ 2019.",
+        "answer": "since",
+        "expected": true,
+        "note": "point in time → since",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "since",
+          "explanation": "Great job! When you mention a specific starting point in time, 'since' is the exact word to use.",
+          "tip": "Remember to use 'since' with a specific point in time, and 'for' with a duration."
+        }
+      },
+      {
+        "id": "prep-04",
+        "topic": "prepositions",
+        "text": "She has lived here ___ 2019.",
+        "answer": "for",
+        "expected": false,
+        "note": "'for' needs a duration, not a year",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "since",
+          "explanation": "Almost there — this one becomes 'since' because we use 'since' with a specific point in time like a year. For a duration of time, we would use 'for'.",
+          "tip": "Use 'since' for starting points and 'for' for durations of time."
+        }
+      },
+      {
+        "id": "prep-05",
+        "topic": "prepositions",
+        "text": "The meeting starts ___ 3 pm.",
+        "answer": "at",
+        "expected": true,
+        "note": "clock time → at",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "at",
+          "explanation": "Spot on — we use 'at' for specific times like 3 pm. It fits the sentence perfectly.",
+          "tip": "Remember to use 'at' with precise times of day, such as 'at 5 o'clock' or 'at noon'."
+        }
+      },
+      {
+        "id": "prep-06",
+        "topic": "prepositions",
+        "text": "The meeting starts ___ 3 pm.",
+        "answer": "on",
+        "expected": false,
+        "note": "'on 3 pm' is wrong",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "at",
+          "explanation": "Almost there — this one becomes \"at 3 pm\". We use \"at\" with specific times.",
+          "tip": "Remember to use \"at\" for exact times like hours."
+        }
+      },
+      {
+        "id": "prep-07",
+        "topic": "prepositions",
+        "text": "It depends ___ the weather.",
+        "answer": "on",
+        "expected": true,
+        "note": "depend on",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "on",
+          "explanation": "Spot on. The verb depend is always followed by the preposition on.",
+          "tip": "Remember that depend pairs with on when talking about conditions."
+        }
+      },
+      {
+        "id": "prep-08",
+        "topic": "prepositions",
+        "text": "It depends ___ the weather.",
+        "answer": "of",
+        "expected": false,
+        "note": "RU interference: 'зависит от'",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "on",
+          "explanation": "Almost there — this one becomes 'It depends on the weather'. We use 'depend' with the preposition 'on'.",
+          "tip": "Always pair the verb 'depend' with 'on' when talking about conditions."
+        }
+      },
+      {
+        "id": "prep-09",
+        "topic": "prepositions",
+        "text": "I'm listening ___ music right now.",
+        "answer": "to",
+        "expected": true,
+        "note": "listen to",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "to",
+          "explanation": "Great job, you used the exact right preposition here. We always listen to music.",
+          "tip": "Remember that the verb listen is almost always followed by the word to."
+        }
+      },
+      {
+        "id": "prep-10",
+        "topic": "prepositions",
+        "text": "I'm listening ___ music right now.",
+        "answer": "",
+        "expected": false,
+        "note": "empty answer: 'listen music' is wrong",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "to",
+          "explanation": "Almost there! When we talk about hearing sounds, we use the preposition 'to'.",
+          "tip": "Remember to use 'listen to' when talking about music."
+        }
+      },
+      {
+        "id": "cond-01",
+        "topic": "conditionals",
+        "text": "If it rains tomorrow, we ___ stay home.",
+        "answer": "will",
+        "expected": true,
+        "note": "first conditional",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "will",
+          "explanation": "Great job, you formed the first conditional correctly. When talking about a likely future result, we use will in the main clause.",
+          "tip": "Remember to use the base verb after will."
+        }
+      },
+      {
+        "id": "cond-02",
+        "topic": "conditionals",
+        "text": "If it rains tomorrow, we ___ stay home.",
+        "answer": "would",
+        "expected": false,
+        "note": "mixing 1st and 2nd conditional",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "will",
+          "explanation": "Almost there — this one becomes 'will' because it is a first conditional sentence. We use 'will' for likely future results.",
+          "tip": "Remember to use 'if' plus present simple, and 'will' plus the base verb for real future possibilities."
+        }
+      },
+      {
+        "id": "cond-03",
+        "topic": "conditionals",
+        "text": "If I ___ you, I would apologize.",
+        "answer": "were",
+        "expected": true,
+        "note": "second conditional, subjunctive",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "were",
+          "explanation": "Great job, you used the correct second conditional form here. When giving advice, 'were' is used for all subjects in the if-clause.",
+          "tip": "Remember to use 'were' instead of 'was' in second conditional hypothetical clauses."
+        }
+      },
+      {
+        "id": "cond-04",
+        "topic": "conditionals",
+        "text": "If I ___ you, I would apologize.",
+        "answer": "am",
+        "expected": false,
+        "note": "'If I am you' is wrong here",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "were",
+          "explanation": "Almost there — this one becomes 'were' for hypothetical second conditional sentences. We use 'were' for all subjects in this structure.",
+          "tip": "Remember to use 'were' instead of 'was' or 'am' when giving advice in the second conditional."
+        }
+      },
+      {
+        "id": "cond-05",
+        "topic": "conditionals",
+        "text": "If she had studied harder, she ___ have passed the exam.",
+        "answer": "would",
+        "expected": true,
+        "note": "third conditional",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "would",
+          "explanation": "Great job, you formed the third conditional correctly. When talking about a past unreal situation, we use 'would have' in the main clause.",
+          "tip": "Remember that the third conditional uses 'if' plus the past perfect, followed by 'would have' and the past participle."
+        }
+      },
+      {
+        "id": "cond-06",
+        "topic": "conditionals",
+        "text": "If she had studied harder, she ___ have passed the exam.",
+        "answer": "will",
+        "expected": false,
+        "note": "'will have passed' breaks the third conditional",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "would",
+          "explanation": "Almost there — this third conditional sentence becomes 'would have passed'. We use 'would' for the result of an unreal past condition.",
+          "tip": "Remember that the third conditional structure is 'if + past perfect, would have + past participle'."
+        }
+      },
+      {
+        "id": "cond-07",
+        "topic": "conditionals",
+        "text": "If you heat ice, it ___.",
+        "answer": "melts",
+        "expected": true,
+        "note": "zero conditional",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "melts",
+          "explanation": "Great job, the zero conditional uses the present simple for both parts. When you heat ice, it naturally melts.",
+          "tip": "Use the present simple tense for general truths and scientific facts."
+        }
+      },
+      {
+        "id": "seq-01",
+        "topic": "verb sequence (tense agreement)",
+        "text": "He told me he ___ the report the day before.",
+        "answer": "had finished",
+        "expected": true,
+        "note": "backshift with 'the day before'",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "had finished",
+          "explanation": "Great job, you used the past perfect correctly. When reporting past events, we shift the tense back.",
+          "tip": "Remember to change the past simple into the past perfect in reported speech."
+        }
+      },
+      {
+        "id": "seq-02",
+        "topic": "verb sequence (tense agreement)",
+        "text": "He told me he ___ the report the day before.",
+        "answer": "finishes",
+        "expected": false,
+        "note": "present simple after past reporting verb + past time",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "had finished",
+          "explanation": "Almost there — this one becomes 'had finished' because reported speech shifts the tense back. We use the past perfect to show an action completed before another past action.",
+          "tip": "When reporting past events further in the past, change the simple past tense to the past perfect."
+        }
+      },
+      {
+        "id": "seq-03",
+        "topic": "verb sequence (tense agreement)",
+        "text": "By the time we arrived, the film ___ already started.",
+        "answer": "had",
+        "expected": true,
+        "note": "past perfect before a past event",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "had",
+          "explanation": "Great job, you used the past perfect correctly. When one past action happens before another, we use had plus the past participle.",
+          "tip": "Remember to use 'had' with past participle verbs to show an action completed before a certain point in the past."
+        }
+      },
+      {
+        "id": "seq-04",
+        "topic": "verb sequence (tense agreement)",
+        "text": "By the time we arrived, the film ___ already started.",
+        "answer": "has",
+        "expected": false,
+        "note": "present perfect clashes with 'arrived'",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "had",
+          "explanation": "Almost there — when talking about an action finished before another in the past, we use had instead of has. The correct form is had already started.",
+          "tip": "Use had with the past participle to show an action happened before another past event."
+        }
+      },
+      {
+        "id": "seq-05",
+        "topic": "verb sequence (tense agreement)",
+        "text": "She said she ___ call me later that evening.",
+        "answer": "would",
+        "expected": true,
+        "note": "will → would in reported speech",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "would",
+          "explanation": "Great job, this one becomes would. We use would for reported speech when changing will into the past.",
+          "tip": "Remember that future tense words shift backward in reported speech. Will changes to would."
+        }
+      },
+      {
+        "id": "art-01",
+        "topic": "articles",
+        "text": "She is ___ engineer.",
+        "answer": "an",
+        "expected": true,
+        "note": "vowel sound → an",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "an",
+          "explanation": "Great job, you used the right article! We use 'an' before words starting with a vowel sound.",
+          "tip": "Remember to use 'an' before vowel sounds like engineer, and 'a' before consonant sounds."
+        }
+      },
+      {
+        "id": "art-02",
+        "topic": "articles",
+        "text": "She is ___ engineer.",
+        "answer": "a",
+        "expected": false,
+        "note": "'a engineer' is wrong",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "an",
+          "explanation": "Almost there — this one becomes an because engineer starts with a vowel sound. We use an before vowel sounds in English.",
+          "tip": "Remember to use an before words starting with a, e, i, o, or u. This helps speech flow easily."
+        }
+      },
+      {
+        "id": "art-03",
+        "topic": "articles",
+        "text": "We watched ___ sun rise over the sea.",
+        "answer": "the",
+        "expected": true,
+        "note": "unique object → the",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "the",
+          "explanation": "Great job! We use 'the' before unique things like the sun.",
+          "tip": "Always use 'the' with unique nouns that are one of a kind."
+        }
+      },
+      {
+        "id": "art-04",
+        "topic": "articles",
+        "text": "He plays ___ guitar very well.",
+        "answer": "the",
+        "expected": true,
+        "note": "instruments take 'the'",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "the",
+          "explanation": "Spot on! We use 'the' before musical instruments when we talk about playing them.",
+          "tip": "Always add 'the' before instruments like the guitar, piano, or violin."
+        }
+      },
+      {
+        "id": "art-05",
+        "topic": "articles",
+        "text": "I bought ___ umbrella because it was raining.",
+        "answer": "a",
+        "expected": false,
+        "note": "'a umbrella' — vowel sound needs 'an'",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "an",
+          "explanation": "Almost there — this one becomes 'an' because 'umbrella' starts with a vowel sound. We use 'an' before words beginning with A, E, I, O, or U sounds.",
+          "tip": "Always listen to the sound of the next word. If it starts with a vowel sound, use 'an'."
+        }
+      },
+      {
+        "id": "mod-01",
+        "topic": "modal verbs",
+        "text": "You ___ smoke in the hospital — it is strictly forbidden.",
+        "answer": "mustn't",
+        "expected": true,
+        "note": "prohibition",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "mustn't",
+          "explanation": "Spot on! You used mustn't to show that smoking is strictly forbidden here.",
+          "tip": "Remember to use mustn't for rules and prohibitions. Keep up the great progress!"
+        }
+      },
+      {
+        "id": "mod-02",
+        "topic": "modal verbs",
+        "text": "You ___ smoke in the hospital — it is strictly forbidden.",
+        "answer": "don't have to",
+        "expected": false,
+        "note": "absence of obligation ≠ prohibition",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "mustn't",
+          "explanation": "Almost there — when something is strictly forbidden, we use mustn't to show a prohibition. You mustn't smoke in the hospital.",
+          "tip": "Use mustn't for rules and things you are not allowed to do. Use don't have to when something is not necessary."
+        }
+      },
+      {
+        "id": "mod-03",
+        "topic": "modal verbs",
+        "text": "She ___ speak three languages fluently.",
+        "answer": "can",
+        "expected": true,
+        "note": "ability",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "can",
+          "explanation": "Great job, you used the modal verb correctly to show ability. She can speak three languages fluently.",
+          "tip": "Use 'can' followed by the base verb to talk about skills and abilities."
+        }
+      },
+      {
+        "id": "mod-04",
+        "topic": "modal verbs",
+        "text": "She ___ speak three languages fluently.",
+        "answer": "cans",
+        "expected": false,
+        "note": "modals don't take -s",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "can",
+          "explanation": "Almost there — modal verbs do not change for he, she, or it. This sentence becomes 'She can speak three languages fluently.'",
+          "tip": "Remember that modal verbs like can, could, and must always stay the same in every form."
+        }
+      },
+      {
+        "id": "mod-05",
+        "topic": "modal verbs",
+        "text": "He ___ be at home — the lights are on.",
+        "answer": "must",
+        "expected": true,
+        "note": "logical deduction",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "must",
+          "explanation": "Great job, you used the right modal verb! He must be at home because the lights are on.",
+          "tip": "Use must when you are almost sure about something. It helps show strong logical deduction."
+        }
+      },
+      {
+        "id": "phr-01",
+        "topic": "phrasal verbs",
+        "text": "Please turn ___ the lights when you leave.",
+        "answer": "off",
+        "expected": true,
+        "note": "turn off",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "off",
+          "explanation": "Great job, turning off the lights is the exact phrasal verb needed here. This combination successfully expresses stopping the power.",
+          "tip": "Remember that 'turn off' is used for stopping lights, TVs, and other electrical devices."
+        }
+      },
+      {
+        "id": "phr-02",
+        "topic": "phrasal verbs",
+        "text": "Please turn ___ the lights when you leave.",
+        "answer": "of",
+        "expected": false,
+        "note": "of/off confusion",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "off",
+          "explanation": "Almost there — this one becomes 'off'. We use 'turn off' to stop lights or devices.",
+          "tip": "Remember that 'turn off' is the standard phrasal verb for stopping electricity or lights."
+        }
+      },
+      {
+        "id": "phr-03",
+        "topic": "phrasal verbs",
+        "text": "He gave ___ smoking last year.",
+        "answer": "up",
+        "expected": true,
+        "note": "give up = quit",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "up",
+          "explanation": "Great job! When someone stops a habit, we say they give up.",
+          "tip": "Use 'give up' with bad habits like smoking or eating sugar."
+        }
+      },
+      {
+        "id": "phr-04",
+        "topic": "phrasal verbs",
+        "text": "I'm looking forward ___ your reply.",
+        "answer": "to",
+        "expected": true,
+        "note": "look forward to",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "to",
+          "explanation": "Great job! The phrase 'look forward to' always takes the preposition 'to' before a noun or gerund.",
+          "tip": "Remember that 'to' here is a preposition, so it is followed by a noun or an -ing verb."
+        }
+      },
+      {
+        "id": "phr-05",
+        "topic": "phrasal verbs",
+        "text": "I'm looking forward ___ your reply.",
+        "answer": "for",
+        "expected": false,
+        "note": "'forward for' is wrong",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "to",
+          "explanation": "Almost there — this phrase becomes \"looking forward to\". We use \"to\" with this expression.",
+          "tip": "Remember that \"look forward to\" is followed by a noun or an -ing verb."
+        }
+      },
+      {
+        "id": "ger-01",
+        "topic": "gerunds & infinitives",
+        "text": "I enjoy ___ books in the evening.",
+        "answer": "reading",
+        "expected": true,
+        "note": "enjoy + gerund",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "reading",
+          "explanation": "Great job! When using verbs like enjoy, the second verb takes the -ing form.",
+          "tip": "Remember that certain verbs are always followed by a gerund instead of an infinitive."
+        }
+      },
+      {
+        "id": "ger-02",
+        "topic": "gerunds & infinitives",
+        "text": "I enjoy ___ books in the evening.",
+        "answer": "to read",
+        "expected": false,
+        "note": "enjoy never takes infinitive",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "reading",
+          "explanation": "Almost there! When we talk about enjoying an activity, we use the -ing form, so this sentence becomes 'I enjoy reading books in the evening.'",
+          "tip": "Verbs like 'enjoy' and 'finish' are usually followed by a gerund instead of an infinitive."
+        }
+      },
+      {
+        "id": "ger-03",
+        "topic": "gerunds & infinitives",
+        "text": "She decided ___ a new job.",
+        "answer": "to find",
+        "expected": true,
+        "note": "decide + infinitive",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "to find",
+          "explanation": "Great job, you used the correct infinitive form here. After the verb decide, we use 'to' plus a verb.",
+          "tip": "Remember that verbs like decide, want, and need are always followed by the infinitive with 'to'."
+        }
+      },
+      {
+        "id": "ger-04",
+        "topic": "gerunds & infinitives",
+        "text": "He avoided ___ the question.",
+        "answer": "answering",
+        "expected": true,
+        "note": "avoid + gerund",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "answering",
+          "explanation": "Great job! Verbs like avoid are followed by the gerund form, so answering fits perfectly here.",
+          "tip": "Remember that avoid always takes the -ing form of the next verb."
+        }
+      },
+      {
+        "id": "ger-05",
+        "topic": "gerunds & infinitives",
+        "text": "I look forward to ___ you next week.",
+        "answer": "seeing",
+        "expected": true,
+        "note": "'to' is a preposition here → gerund",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "seeing",
+          "explanation": "Great job! The phrase 'look forward to' is followed by the gerund form, so 'seeing' is the correct choice here.",
+          "tip": "Remember that 'to' in 'look forward to' is a preposition, which means it needs an -ing verb after it."
+        }
+      },
+      {
+        "id": "ger-06",
+        "topic": "gerunds & infinitives",
+        "text": "I look forward to ___ you next week.",
+        "answer": "see",
+        "expected": false,
+        "note": "classic trap: bare verb after prepositional 'to'",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "seeing",
+          "explanation": "Almost there — this one becomes 'seeing' because the phrase 'look forward to' is followed by a gerund. We use the -ing form after prepositions like 'to' in this structure.",
+          "tip": "Remember that 'look forward to' always takes a verb ending in -ing. Try to practice more phrases that end with prepositions."
+        }
+      },
+      {
+        "id": "ger-07",
+        "topic": "gerunds & infinitives",
+        "text": "Despite ___ hard, he failed the exam.",
+        "answer": "working",
+        "expected": true,
+        "note": "despite + gerund",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "working",
+          "explanation": "Great job, working is correct here. After the preposition 'despite', we use a gerund.",
+          "tip": "Remember that prepositions like 'despite' are usually followed by a verb ending in -ing."
+        }
+      },
+      {
+        "id": "ger-08",
+        "topic": "gerunds & infinitives",
+        "text": "Despite ___ hard, he failed the exam.",
+        "answer": "to work",
+        "expected": false,
+        "note": "despite never takes infinitive",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "working",
+          "explanation": "Almost there — this one becomes working. We use the gerund after the preposition despite.",
+          "tip": "Remember that prepositions are normally followed by verbs ending in -ing. Try using despite with working next time."
+        }
+      },
+      {
+        "id": "cmp-01",
+        "topic": "comparatives & superlatives",
+        "text": "This test is ___ than the last one.",
+        "answer": "easier",
+        "expected": true,
+        "note": "short adjective → -er",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "easier",
+          "explanation": "Great job, this sentence needs the comparative form to contrast two tests. We say 'easier' for short adjectives.",
+          "tip": "Remember to add '-er' to short adjectives like easy when comparing two things."
+        }
+      },
+      {
+        "id": "cmp-02",
+        "topic": "comparatives & superlatives",
+        "text": "This test is ___ than the last one.",
+        "answer": "more easy",
+        "expected": false,
+        "note": "double-marking error",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "easier",
+          "explanation": "Almost there — short adjectives take '-er' instead of 'more'. This sentence becomes: This test is easier than the last one.",
+          "tip": "Use '-er' with short adjectives like easy, fast, and big for comparisons."
+        }
+      },
+      {
+        "id": "cmp-03",
+        "topic": "comparatives & superlatives",
+        "text": "It was the ___ day of my life.",
+        "answer": "best",
+        "expected": true,
+        "note": "irregular superlative",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "best",
+          "explanation": "Great job, you used the correct superlative adjective here. When talking about the absolute highest quality, best is the natural choice.",
+          "tip": "Remember that superlative adjectives usually take 'the' before them. Use 'best' for the top rank."
+        }
+      },
+      {
+        "id": "cmp-04",
+        "topic": "comparatives & superlatives",
+        "text": "It was the ___ day of my life.",
+        "answer": "goodest",
+        "expected": false,
+        "note": "irregular form misused",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "best",
+          "explanation": "Almost there — this one becomes best. We use the superlative form for the most extreme quality.",
+          "tip": "Remember that good changes to better and best. Use best for the highest degree."
+        }
+      },
+      {
+        "id": "voc-01",
+        "topic": "vocabulary",
+        "text": "Could you ___ me a favor?",
+        "answer": "do",
+        "expected": true,
+        "note": "do a favor (collocation)",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "do",
+          "explanation": "Great job, you used the right collocation. We always say to do someone a favor.",
+          "tip": "Remember that favors use the verb do, while plans use the verb make."
+        }
+      },
+      {
+        "id": "voc-02",
+        "topic": "vocabulary",
+        "text": "Could you ___ me a favor?",
+        "answer": "make",
+        "expected": false,
+        "note": "make/do confusion",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "do",
+          "explanation": "Almost there — this one becomes 'Could you do me a favor?' because English uses the verb 'do' with favors.",
+          "tip": "Remember that we usually use 'do' with words like favor, job, and work."
+        }
+      },
+      {
+        "id": "voc-03",
+        "topic": "vocabulary",
+        "text": "I need to ___ a decision by Friday.",
+        "answer": "make",
+        "expected": true,
+        "note": "make a decision",
+        "got": true,
+        "ok": true,
+        "model_output": {
+          "correct": true,
+          "correct_answer": "make",
+          "explanation": "Great job, you used the correct collocation. We say make a decision when choosing something.",
+          "tip": "Remember to use make with decisions, plans, and choices."
+        }
+      },
+      {
+        "id": "voc-04",
+        "topic": "vocabulary",
+        "text": "I need to ___ a decision by Friday.",
+        "answer": "do",
+        "expected": false,
+        "note": "'do a decision' is wrong (make/do confusion)",
+        "got": false,
+        "ok": true,
+        "model_output": {
+          "correct": false,
+          "correct_answer": "make",
+          "explanation": "Almost there — this one becomes 'make' a decision. We use 'make' with decisions and plans.",
+          "tip": "Remember to use the verb 'make' for choices. Keep up the good work on your English journey."
+        }
+      }
+    ]
+  },
+  "writing": {
+    "accuracy": 0.8333333333333334,
+    "results": [
+      {
+        "id": "w01",
+        "prompt": "Describe your typical workday.",
+        "text": "I is developer. I work in company. I go office at morning. I like work.",
+        "expected": [
+          "A1"
+        ],
+        "note": "Isolated fragments, be/agreement broken, articles and prepositions missing throughout.",
+        "got": "A1",
+        "ok": true,
+        "model_output": {
+          "cefr": "A1",
+          "score": 0.5,
+          "note": "Improve basic sentence accuracy, especially verb forms, articles, and prepositions."
+        }
+      },
+      {
+        "id": "w02",
+        "prompt": "Write about your family.",
+        "text": "My family have four people. Mother, father, sister and me. Sister is student. We live Moscow.",
+        "expected": [
+          "A1",
+          "A2"
+        ],
+        "note": "Very basic phrases; agreement and preposition errors; no linking.",
+        "got": null,
+        "ok": false,
+        "model_output": {
+          "error": "OpenRouter refused this request (Request blocked: PII detected (LOCATION))."
+        }
+      },
+      {
+        "id": "w03",
+        "prompt": "Describe your city.",
+        "text": "wgat i dont understand question sorry",
+        "expected": [
+          "A1"
+        ],
+        "note": "Garbled/off-task — the conservative floor must hold.",
+        "got": "A1",
+        "ok": true,
+        "model_output": {
+          "cefr": "A1",
+          "score": 0.5,
+          "note": "Improve basic sentence accuracy, including spelling, capitalization, and articles."
+        }
+      },
+      {
+        "id": "w04",
+        "prompt": "Describe your weekend.",
+        "text": "On Saturday I went to shop and bought food. Then I cooked dinner and watched film. It was good day but weather was bad.",
+        "expected": [
+          "A2"
+        ],
+        "note": "Short simple sentences joined with and/but/then; past simple mostly right; articles dropped.",
+        "got": "A2",
+        "ok": true,
+        "model_output": {
+          "cefr": "A2",
+          "score": 1.5,
+          "note": "Improve your use of articles, for example, 'a film,' 'a good day,' and 'the weather.'"
+        }
+      },
+      {
+        "id": "w05",
+        "prompt": "Write to a colleague about tomorrow's meeting.",
+        "text": "Hi Anna, we have meeting tomorrow at 10. Please bring documents about new project. If you can not come, tell me. Thanks.",
+        "expected": [
+          "A2",
+          "B1"
+        ],
+        "note": "Functional message, simple structures accurate; articles missing — A2 with B1 traits.",
+        "got": "A2",
+        "ok": true,
+        "model_output": {
+          "cefr": "A2",
+          "score": 1.5,
+          "note": "Improve article use, for example, write 'a meeting,' 'the documents,' and 'the new project.'"
+        }
+      },
+      {
+        "id": "w06",
+        "prompt": "Describe your city.",
+        "text": "My city is big and very beautiful. There are many parks and one big river. In summer many people walking near river. I like my city because here live my friends.",
+        "expected": [
+          "A2"
+        ],
+        "note": "Simple everyday vocabulary; a broken progressive and word-order slips; basic linking only.",
+        "got": "A2",
+        "ok": true,
+        "model_output": {
+          "cefr": "A2",
+          "score": 1.5,
+          "note": "Improve sentence structure, especially verb forms and word order, as in 'many people walk near the river' and 'my friends live here'."
+        }
+      },
+      {
+        "id": "w07",
+        "prompt": "Explain a problem you solved at work.",
+        "text": "Last month we had a problem with our database. It was working very slow and customers complained. I checked the logs and found that one query was not optimized. After I fixed it, the system became much faster. I was proud because it was my first serious task.",
+        "expected": [
+          "B1"
+        ],
+        "note": "Connected narrative on a familiar topic; simple structures accurate; limited complexity.",
+        "got": "B1",
+        "ok": true,
+        "model_output": {
+          "cefr": "B1",
+          "score": 2.5,
+          "note": "Improve grammatical accuracy by using adverbs correctly, as in 'working very slowly.'"
+        }
+      },
+      {
+        "id": "w08",
+        "prompt": "Write to your landlord about a broken heater.",
+        "text": "Dear Mr. Schmidt, I am writing because the heater in my flat stopped working two days ago. I tried to restart it, but nothing happened. Could you please send a technician this week? It is getting cold, and I am worried about the pipes. Thank you for your help.",
+        "expected": [
+          "B1",
+          "B2"
+        ],
+        "note": "Clean functional letter; accurate but structurally modest — solid B1, arguably B2.",
+        "got": "A2",
+        "ok": false,
+        "model_output": {
+          "cefr": "A2",
+          "score": 1.5,
+          "note": "Use a wider range of sentence structures to express details and requests more flexibly."
+        }
+      },
+      {
+        "id": "w09",
+        "prompt": "Describe your plans for the future.",
+        "text": "I am planning to move to Germany next year because I received a job offer from a company in Berlin. First I need to prepare all documents and improve my English. If everything goes well, I will start in September. I hope that my family can join me after some months.",
+        "expected": [
+          "B1"
+        ],
+        "note": "Connected, mostly accurate; first conditional handled; vocabulary plain.",
+        "got": null,
+        "ok": false,
+        "model_output": {
+          "error": "OpenRouter refused this request (Request blocked: PII detected (LOCATION))."
+        }
+      },
+      {
+        "id": "w10",
+        "prompt": "Tell us about your student years.",
+        "text": "When I was studying in university, I have met many interesting people. Some of them became my close friends and we still keep in touch. If I would have more free time, I will visit them more often, but my job takes almost all my evenings.",
+        "expected": [
+          "A2",
+          "B1"
+        ],
+        "note": "B1 ambition (clauses, conditional) but systematic tense errors in every complex attempt.",
+        "got": "B1",
+        "ok": true,
+        "model_output": {
+          "cefr": "B1",
+          "score": 2.5,
+          "note": "Improve conditional verb forms: write “If I had more free time, I would visit them more often.”"
+        }
+      },
+      {
+        "id": "w11",
+        "prompt": "Describe a challenge in your recent project.",
+        "text": "Although the deadline was extremely tight, our team managed to deliver the feature on time. The main challenge was that the requirements kept changing, which forced us to redesign the architecture twice. Looking back, I believe we should have pushed back earlier instead of silently absorbing every request. Still, the experience taught me how to negotiate scope with stakeholders.",
+        "expected": [
+          "B2",
+          "C1"
+        ],
+        "note": "Complex sentences under control, perfect modal for hindsight, precise vocabulary.",
+        "got": "B2",
+        "ok": true,
+        "model_output": {
+          "cefr": "B2",
+          "score": 3.5,
+          "note": "Develop a wider range of precise vocabulary and flexible structures to demonstrate C1 control."
+        }
+      },
+      {
+        "id": "w12",
+        "prompt": "What do you think about remote work?",
+        "text": "In my opinion, remote work has changed the way we think about our careers. On the one hand, it gives people freedom to live wherever they want and saves hours of commuting. On the other hand, it can make communication slower and sometimes leads to misunderstandings between colleagues. Personally, I prefer a hybrid model, because it combines the advantages of both approaches.",
+        "expected": [
+          "B2"
+        ],
+        "note": "Clear structured argument with discourse markers; good control; no advanced flexibility.",
+        "got": "B2",
+        "ok": true,
+        "model_output": {
+          "cefr": "B2",
+          "score": 3.5,
+          "note": "To improve further, use a wider range of precise vocabulary and more varied sentence structures."
+        }
+      },
+      {
+        "id": "w13",
+        "prompt": "Write a complaint about an online order.",
+        "text": "Dear Sir or Madam, I am writing to complain about an order which I placed on your website three weeks ago. Despite several reminders, the package has still not arrived, and your support team has not provided any clear explanation. Unless I receive the delivery or a full refund within seven days, I will have to dispute the payment with my bank. I would appreciate a prompt response.",
+        "expected": [
+          "B2",
+          "C1"
+        ],
+        "note": "Formal register held throughout; complex conditionals ('unless') accurate.",
+        "got": "B2",
+        "ok": true,
+        "model_output": {
+          "cefr": "B2",
+          "score": 3.5,
+          "note": "To progress, demonstrate a wider range of precise vocabulary and sentence structures."
+        }
+      },
+      {
+        "id": "w14",
+        "prompt": "What has moving abroad taught you?",
+        "text": "Moving to another country is a decision that affects every part of your life. Before I moved, I had read many articles about culture shock, but experiencing it myself was completely different. During the first months I was struggling with bureaucracy, which nobody had warned me about it. Nevertheless, I would make the same choice again.",
+        "expected": [
+          "B2"
+        ],
+        "note": "Past perfect and gerund subject handled; one resumptive-pronoun slip ('about it') — non-impeding.",
+        "got": "B2",
+        "ok": true,
+        "model_output": {
+          "cefr": "B2",
+          "score": 3.5,
+          "note": "Improve relative clauses by omitting the redundant 'it' in 'which nobody had warned me about'."
+        }
+      },
+      {
+        "id": "w15",
+        "prompt": "What makes a good engineering culture?",
+        "text": "Had I been asked this question five years ago, I would probably have listed technical practices: code review, testing, continuous deployment. Having led a team through two difficult launches since then, I now believe culture is defined by what happens when things go wrong. Do engineers feel safe admitting mistakes, or do they quietly patch over problems? A team that treats every incident as a learning opportunity will, in the long run, outperform one that merely punishes failure.",
+        "expected": [
+          "B2",
+          "C1"
+        ],
+        "note": "Inversion, participle clause, rhetorical control — C1; B2 accepted for a conservative judge.",
+        "got": "C1",
+        "ok": true,
+        "model_output": {
+          "cefr": "C1",
+          "score": 4.5,
+          "note": "Continue broadening your range of precise vocabulary to sustain this level across topics."
+        }
+      },
+      {
+        "id": "w16",
+        "prompt": "Describe a difficult professional decision.",
+        "text": "Turning down a promotion is hardly something one boasts about, yet it remains the best professional decision I have ever made. The role would have doubled my responsibilities while pulling me away from the engineering work I genuinely enjoy. What tipped the scales was a conversation with my former manager, who pointed out that a title rarely compensates for dread on a Monday morning. I have never regretted the choice since.",
+        "expected": [
+          "B2",
+          "C1"
+        ],
+        "note": "Gerund subject, cleft sentence, idiomatic precision ('tipped the scales') — C1 territory.",
+        "got": "C1",
+        "ok": true,
+        "model_output": {
+          "cefr": "C1",
+          "score": 4.5,
+          "note": "Make the final sentence more concise by omitting 'since,' which adds little to 'have never regretted'."
+        }
+      },
+      {
+        "id": "w17",
+        "prompt": "Is AI a threat to your profession?",
+        "text": "Whether artificial intelligence will replace developers is, in my view, the wrong question. Tools have always reshaped our craft; compilers did not eliminate programmers, they elevated the problems we solve. What AI does change, however, is the premium placed on judgement — knowing which solution fits the constraints at hand. Those who treat the technology as a collaborator rather than a rival will find their skills appreciating, not depreciating.",
+        "expected": [
+          "B2",
+          "C1"
+        ],
+        "note": "Nominal clause subject, emphatic 'does', sustained abstraction and register.",
+        "got": "C1",
+        "ok": true,
+        "model_output": {
+          "cefr": "C1",
+          "score": 4.5,
+          "note": "Improve punctuation by replacing the comma splice between the two independent clauses about compilers with a semicolon or conjunction."
+        }
+      },
+      {
+        "id": "w18",
+        "prompt": "Why are you learning English?",
+        "text": "i want write good but english very hard for me now i learn every day",
+        "expected": [
+          "A1",
+          "A2"
+        ],
+        "note": "No punctuation or structure; missing verbs and prepositions — bottom bands only.",
+        "got": "A1",
+        "ok": true,
+        "model_output": {
+          "cefr": "A1",
+          "score": 0.5,
+          "note": "Improve basic sentence structure by including required words, as in 'I want to write well, but English is very hard for me.'"
+        }
+      }
+    ]
+  },
+  "usage": [
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003729,
+      "ms": 1599
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003604,
+      "ms": 1496
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003694,
+      "ms": 1991
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003944,
+      "ms": 2152
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.000381,
+      "ms": 1351
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.000341,
+      "ms": 1667
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003204,
+      "ms": 2565
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003604,
+      "ms": 2108
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003363,
+      "ms": 1974
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003332,
+      "ms": 1889
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003466,
+      "ms": 5020
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003841,
+      "ms": 1717
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003763,
+      "ms": 1542
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003838,
+      "ms": 2369
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.000395,
+      "ms": 1563
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.000375,
+      "ms": 3506
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003488,
+      "ms": 1696
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003497,
+      "ms": 1799
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003922,
+      "ms": 1878
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003822,
+      "ms": 1565
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003747,
+      "ms": 1498
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003516,
+      "ms": 2613
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003626,
+      "ms": 1522
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003801,
+      "ms": 1655
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003338,
+      "ms": 2686
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003432,
+      "ms": 1624
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0004138,
+      "ms": 1914
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003531,
+      "ms": 2566
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0004059,
+      "ms": 1470
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.000351,
+      "ms": 1652
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003785,
+      "ms": 1643
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003544,
+      "ms": 1538
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003688,
+      "ms": 2004
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003588,
+      "ms": 1528
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003307,
+      "ms": 2508
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003763,
+      "ms": 1380
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003538,
+      "ms": 1379
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.000346,
+      "ms": 1449
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003963,
+      "ms": 3085
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003785,
+      "ms": 1482
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003482,
+      "ms": 1478
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003938,
+      "ms": 1433
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0004288,
+      "ms": 2067
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003563,
+      "ms": 1445
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003591,
+      "ms": 2114
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003616,
+      "ms": 1406
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003716,
+      "ms": 2149
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003738,
+      "ms": 1993
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003466,
+      "ms": 1285
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003407,
+      "ms": 1399
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003657,
+      "ms": 2031
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003338,
+      "ms": 1372
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cost_usd": 0.0003663,
+      "ms": 1181
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.00053,
+      "ms": 2084
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000507,
+      "ms": 2112
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000576,
+      "ms": 1724
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.00058,
+      "ms": 2349
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000614,
+      "ms": 2939
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000737,
+      "ms": 3144
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.001054,
+      "ms": 3812
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000709,
+      "ms": 3016
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000835,
+      "ms": 2822
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000815,
+      "ms": 3139
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000759,
+      "ms": 4397
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000841,
+      "ms": 3638
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000833,
+      "ms": 2762
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.001195,
+      "ms": 4186
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000761,
+      "ms": 2901
+    },
+    {
+      "model": "openai/gpt-6.1-terra",
+      "cost_usd": 0.000582,
+      "ms": 2454
+    }
+  ],
+  "reported_cost_usd": 0.0312893,
+  "budget_cap_usd": 1.5,
+  "conservative_accounted_usd": 0.0739913
+}

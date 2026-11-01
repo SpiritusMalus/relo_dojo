@@ -5,7 +5,7 @@ jest.mock("@expo-google-fonts/hanken-grotesk", () => ({}));
 jest.mock("@expo-google-fonts/jetbrains-mono", () => ({}));
 
 import { DEFAULT_PROGRESS, mergeProgress, type Progress } from "../progress";
-import { canAttemptToday, examFailedNow, examOffer, examPassed } from "../exam";
+import { canAttemptToday, examFailedNow, examOffer, examPassed, EXAM_ITEMS, hasExamPractice } from "../exam";
 import { beltProgress, skillBeltIdx } from "../dojo";
 import { TOPIC_PRIORS } from "../adaptive";
 
@@ -15,12 +15,16 @@ const TODAY = "2026-06-12";
 function withSkill(level: number, over: Partial<Progress> = {}): Progress {
   const skill: Record<string, number> = {};
   for (const t of Object.keys(TOPIC_PRIORS)) skill[t] = level;
-  return { ...DEFAULT_PROGRESS, onboarded: true, skill, ...over };
+  return { ...DEFAULT_PROGRESS, beltEarned: undefined, onboarded: true, skill, ...over };
+}
+
+function withPractice(level: number, over: Partial<Progress> = {}): Progress {
+  return withSkill(level, { topics: { articles: { attempts: 10, correct: 8 } }, ...over });
 }
 
 describe("examOffer", () => {
   it("offers the next belt when skill outgrew the earned one", () => {
-    const p = withSkill(2.2, { beltEarned: 1 });
+    const p = withPractice(2.2, { beltEarned: 1 });
     expect(skillBeltIdx(p)).toBe(2);
     expect(examOffer(p)).toEqual({ target: 2, confirm: false });
   });
@@ -28,14 +32,38 @@ describe("examOffer", () => {
     expect(examOffer(withSkill(2.2, { beltEarned: 2 }))).toBeNull();
   });
   it("offers a confirmation exam to legacy accounts (no beltEarned)", () => {
-    expect(examOffer(withSkill(2.2))).toEqual({ target: 2, confirm: true });
+    expect(examOffer(withPractice(2.2))).toEqual({ target: 2, confirm: true });
   });
   it("never offers anything to a white-belt legacy account or before onboarding", () => {
     expect(examOffer(withSkill(0.4))).toBeNull();
     expect(examOffer({ ...withSkill(2.2), onboarded: false })).toBeNull();
   });
   it("steps one belt at a time even when skill jumped two", () => {
-    expect(examOffer(withSkill(3.5, { beltEarned: 1 }))).toEqual({ target: 2, confirm: false });
+    expect(examOffer(withPractice(3.5, { beltEarned: 1 }))).toEqual({ target: 2, confirm: false });
+  });
+
+  it("never advertises a fresh placement estimate as earned exam readiness", () => {
+    expect(examOffer(withSkill(1.5))).toBeNull(); // baseline: 0 XP, 0 answers, seeded A2
+    expect(examOffer(withSkill(4.5, {
+      beltEarned: 4, lastExamDate: TODAY, lastLevelTestDate: TODAY,
+    }))).toBeNull(); // saving a high placement result is still not practice
+  });
+
+  it("requires a full lesson's real evidence rather than one lucky answer", () => {
+    for (const attempts of [1, EXAM_ITEMS - 1]) {
+      expect(examOffer(withSkill(2.2, { topics: { articles: { attempts, correct: attempts } } }))).toBeNull();
+    }
+    expect(examOffer(withSkill(2.2, { topics: { articles: { attempts: 10, correct: 2 } } }))).toBeNull();
+    expect(examOffer(withPractice(2.2))).not.toBeNull();
+  });
+
+  it("accepts distributed legacy practice and ignores unknown pseudo-topics", () => {
+    const p = withSkill(2.2, { topics: {
+      articles: { attempts: 5, correct: 4 }, prepositions: { attempts: 5, correct: 4 },
+    } });
+    expect(hasExamPractice(p)).toBe(true);
+    expect(examOffer(p)).toEqual({ target: 2, confirm: true });
+    expect(hasExamPractice(withSkill(4, { topics: { placement: { attempts: 100, correct: 100 } } }))).toBe(false);
   });
 });
 
@@ -54,7 +82,7 @@ describe("attempts and verdicts", () => {
 
 describe("beltProgress with the exam cap", () => {
   it("wears the earned belt and shows a full bar while the exam is pending", () => {
-    const bp = beltProgress(withSkill(2.2, { beltEarned: 1 }));
+    const bp = beltProgress(withPractice(2.2, { beltEarned: 1 }));
     expect(bp.belt.idx).toBe(1);
     expect(bp.pctToNext).toBe(100);
     expect(bp.cefr).toBe("B1"); // difficulty stays skill-derived

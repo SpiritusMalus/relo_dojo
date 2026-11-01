@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { useTheme } from "../../theme/theme";
+import { beltByIndex, useTheme } from "../../theme/theme";
 import { useWallet } from "../../store/wallet";
-import Txt from "./Txt";
+import BeltKnot from "./BeltKnot";
 
 // Black Belt indicator for the TopBar — renders only while premium is active, so the perk is FELT,
 // not just mechanically enforced (BACKLOG: premium indicator). Tap opens /premium (active state).
@@ -19,7 +19,7 @@ export default function PremiumBadge() {
       accessibilityLabel="Black Belt active. See your perks"
       hitSlop={6}
     >
-      <Txt variant="caption">🖤</Txt>
+      <BeltKnot belt={beltByIndex(5)} size={22} />
     </Pressable>
   );
 }
@@ -31,7 +31,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 7,
     paddingHorizontal: 10,
-    minHeight: 32,
+    minHeight: 48,
+    minWidth: 48,
     justifyContent: "center",
   },
 });

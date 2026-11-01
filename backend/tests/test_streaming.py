@@ -62,7 +62,7 @@ async def _collect(aiter):
 async def test_generate_stream_uses_ollama_token_stream(monkeypatch):
     monkeypatch.setattr(llm, "_provider", lambda: "ollama")
 
-    async def fake_ollama_stream(prompt, *, temperature=None):
+    async def fake_ollama_stream(prompt, *, temperature=None, model=None):
         for tok in ["Once ", "upon ", "a time"]:
             yield tok
 
@@ -75,7 +75,7 @@ async def test_generate_stream_uses_ollama_token_stream(monkeypatch):
 async def test_generate_stream_routes_to_anthropic_sse(monkeypatch):
     monkeypatch.setattr(llm, "_provider", lambda: "anthropic")
 
-    async def fake_anthropic_stream(prompt, temperature):
+    async def fake_anthropic_stream(prompt, temperature, model=None):
         for tok in ["Try ", "the ", "past tense."]:
             yield tok
 
@@ -87,7 +87,7 @@ async def test_generate_stream_routes_to_anthropic_sse(monkeypatch):
 async def test_generate_stream_routes_to_openai_sse(monkeypatch):
     monkeypatch.setattr(llm, "_provider", lambda: "openai")
 
-    async def fake_openai_stream(prompt, temperature):
+    async def fake_openai_stream(prompt, temperature, model=None):
         for tok in ["a ", "b ", "c"]:
             yield tok
 

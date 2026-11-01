@@ -39,9 +39,9 @@ export default function Chip({
 
 const styles = StyleSheet.create({
   chip: {
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: "center",
-    borderWidth: 2,
+    borderWidth: 1,
     borderRadius: 999,
     paddingVertical: 10,
     paddingHorizontal: 16,

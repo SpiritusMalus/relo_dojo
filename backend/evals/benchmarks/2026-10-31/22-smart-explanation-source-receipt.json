@@ -1,0 +1,45 @@
+{
+  "created_at_utc": "2026-11-01T08:05:53.639770+00:00",
+  "scope": "Word-order odd routing, grounded Explain, explicit smart-tier structured and streaming delivery. Main task owns release and native acceptance.",
+  "offline_tests": {
+    "passed": 520,
+    "seconds": 0.67,
+    "command": "./.venv312/bin/python -m pytest -q in isolated env with provider keys disabled"
+  },
+  "source_sha256": {
+    "app/core/config.py": "188beb60027ca90423b5749691e4fc96461081ef53475895b58579565798ffed",
+    "app/services/_grammar_feedback.py": "709f51b369397d6045a9bd86d3af2a9fd02691e3389ba1a6378b502354f48654",
+    "app/services/_grammar_generators.py": "0f5d6b239bba102582b424025de6ed93eb770bf9222e9414790a304e3005c520",
+    "app/services/_grammar_prompts.py": "0317def2d9c362899ec162c7787c4afa8af54b5c8856e577e857304db53420fd",
+    "app/services/_grammar_rules.py": "07f0660a6170143332d17ea0cfb613093c4809627ebd22e5a112389219fb4894",
+    "app/services/llm.py": "848698d6f56a568df43f5be226b9971044b9fe14f036f10de177af3a894f8af7",
+    "evals/check_explanations.py": "76ff610454376d20f556c0aa32212988938a2685a65c0dd1c7b9e91187f87fbf",
+    "app/services/grammar.py": "7ea28fbad421df3a4cce6c11076dd575038242ffd100a72c621d804cd2e408f0",
+    "tests/test_generation_quality.py": "bf41b9cc73eaca6eef68c3cde8132cc4d9c53a804dfa9bbd3be68c96fcd095c6",
+    "tests/test_explanation_grounding.py": "44ca3255e1e3e938e8c39991071812be5525f302726026f5e0c413d3609a0248",
+    "tests/test_stream_model_tiers.py": "d8a16d3501bd82389aba7fbc4d018ff57d3f8907785a28d13a07466d04f26f35",
+    "tests/test_streaming.py": "54a779337337e5d65560e70650e13195c894d9dcc132528db6e88ba7eca9bf96"
+  },
+  "tier_contract": {
+    "generation": "base Gemini 3.5 unchanged",
+    "free_text_checker": "base unchanged; previous 53/53 regression remains applicable",
+    "structured_explain": "smart Terra",
+    "generate_stream_default": "base unchanged",
+    "explain_stream_route": "main task explicitly passes smart",
+    "smart_empty_slot": "falls back to configured base model across all five providers",
+    "legacy_word_order_odd": "No provider: grammar.explanation_context_fallback(text,lang) is shared with the stream"
+  },
+  "real_explain_evidence": "21-native-explanation-terra-4.json",
+  "real_explain_manual_result": "Terra check before deterministic legacy guard: 3 clean, 1 partial. Preserved as evidence, not claimed as final served legacy explanations.",
+  "legacy_classification_disposition": "Exact public JSON type/topic guard returns an authored honest insufficient-grouping-context note without a provider call. Structured Explain uses it directly; the main task shares the exported helper for streaming. No phrase/fixture matching. New word-order odd requests still use reviewed MC.",
+  "followup_reported_cost_usd": 0.0096312,
+  "followup_authorized_caps_usd": [
+    0.05,
+    0.05
+  ],
+  "captured_task_reported_cost_usd": 0.569068,
+  "uncollected_cancelled_run_hard_cap_usd": 1.0,
+  "task_evaluation_budget_usd": 3.0,
+  "running_qa_modified": false,
+  "calls_finished": true
+}

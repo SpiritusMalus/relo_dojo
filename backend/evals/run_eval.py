@@ -108,7 +108,9 @@ async def run_writing(items: list[dict], min_accuracy: float) -> dict:
         correct += ok
         expected = "/".join(item["expected"])
         print(f"[{i:>2}/{len(items)}] {item['id']:<5} expected={expected:<6} got={got!s:<5} {'ok' if ok else 'MISMATCH'}")
-        results.append({**item, "got": got, "ok": ok})
+        # Preserve the feedback/error too: a provider-policy refusal is not evidence of a bad
+        # CEFR judgment, and redaction can change what the model actually assessed.
+        results.append({**item, "got": got, "ok": ok, "model_output": out})
 
     accuracy = correct / len(items) if items else 0.0
     print(f"\nWriting accuracy: {correct}/{len(items)} = {accuracy:.1%}  (threshold {min_accuracy:.0%})")

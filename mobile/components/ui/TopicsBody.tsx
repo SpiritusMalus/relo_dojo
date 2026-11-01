@@ -26,7 +26,7 @@ export default function TopicsBody() {
   return (
     <>
       <Txt variant="label" style={{ marginTop: 4 }}>
-        {tr("topics.all")}
+        {tr("train.topics")}
       </Txt>
       {rows.map((r) => (
         <Pressable
@@ -36,7 +36,7 @@ export default function TopicsBody() {
           accessibilityLabel={topicLabel(r.id, r.label)}
           style={({ pressed }) => [
             styles.card,
-            { backgroundColor: t.c.surface, borderColor: t.c.line, opacity: pressed ? 0.85 : 1, ...t.shadows.sm },
+            { backgroundColor: t.c.surface, borderColor: t.c.line, opacity: pressed ? 0.85 : 1 },
           ]}
         >
           <BeltKnot belt={r.belt} size={34} />
@@ -49,13 +49,17 @@ export default function TopicsBody() {
                 </Txt>
               </View>
             </View>
-            <ProgressBar pct={r.acc} height={6} color={r.weak ? t.c.bad : t.c.accent} />
+            {r.started ? (
+              <ProgressBar pct={r.acc} height={6} color={r.weak ? t.c.fire : t.c.accent} />
+            ) : (
+              <Txt variant="caption" color={t.c.ink3}>{tr("prog.topicNotStarted")}</Txt>
+            )}
           </View>
           <View style={{ alignItems: "flex-end", gap: 2 }}>
             <Txt variant="caption" color={t.c.ink3}>
-              {r.cefr}
+              {r.started ? r.cefr : ""}
             </Txt>
-            <Txt variant="bodyStrong" color={r.weak ? t.c.bad : t.c.ink}>{`${r.acc}%`}</Txt>
+            <Txt variant="bodyStrong" color={r.weak ? t.c.fire : t.c.ink}>{r.started ? `${r.acc}%` : "—"}</Txt>
           </View>
         </Pressable>
       ))}

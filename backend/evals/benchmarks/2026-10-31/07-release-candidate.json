@@ -1,0 +1,2446 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-11-01T06:31:42.325949+00:00",
+  "scope": "synthetic generation, structural validation, conditional independent semantic review, retries and grading; no customer data",
+  "review_model": "openai/gpt-6.1-terra",
+  "budget_cap_usd": 1.0,
+  "conservative_accounted_usd": 0.19807910000000004,
+  "authenticated_eligible_models": [
+    "aion-labs/aion-2.0",
+    "aion-labs/aion-3.0",
+    "aion-labs/aion-3.0-mini",
+    "aion-labs/aion-3.5",
+    "aion-labs/aion-3.5-mini",
+    "aion-labs/aion-rp-llama-3.1-8b",
+    "amazon/nova-2-lite-v1",
+    "amazon/nova-lite-v1",
+    "amazon/nova-micro-v1",
+    "amazon/nova-premier-v1",
+    "amazon/nova-pro-v1",
+    "anthracite-org/magnum-v4-72b",
+    "anthropic/claude-fable-5",
+    "anthropic/claude-fable-5.1",
+    "anthropic/claude-fable-5.1:batch",
+    "anthropic/claude-haiku-4.5",
+    "anthropic/claude-haiku-5.5",
+    "anthropic/claude-haiku-5.5:batch",
+    "anthropic/claude-opus-4.1",
+    "anthropic/claude-opus-4.5",
+    "anthropic/claude-opus-4.6",
+    "anthropic/claude-opus-4.7",
+    "anthropic/claude-opus-4.8",
+    "anthropic/claude-opus-5",
+    "anthropic/claude-opus-5.5",
+    "anthropic/claude-opus-5.5:batch",
+    "anthropic/claude-opus-5:batch",
+    "anthropic/claude-sonnet-4.5",
+    "anthropic/claude-sonnet-4.6",
+    "anthropic/claude-sonnet-5",
+    "anthropic/claude-sonnet-5.5",
+    "anthropic/claude-sonnet-5.5:batch",
+    "bytedance-seed/seed-1.6",
+    "bytedance-seed/seed-1.6-flash",
+    "bytedance-seed/seed-2-1-turbo",
+    "bytedance-seed/seed-2.0-code",
+    "bytedance-seed/seed-2.0-lite",
+    "bytedance-seed/seed-2.0-mini",
+    "bytedance/ui-tars-1.5-7b",
+    "cognitivecomputations/dolphin-mistral-24b-venice-edition",
+    "cohere/command-a",
+    "cohere/command-a-plus",
+    "cohere/command-r-08-2024",
+    "cohere/command-r-plus-08-2024",
+    "cohere/command-r7b-12-2024",
+    "cohere/north-mini-code:free",
+    "deepseek/deepseek-chat",
+    "deepseek/deepseek-chat-v3-0324",
+    "deepseek/deepseek-chat-v3.1",
+    "deepseek/deepseek-r1-0528",
+    "deepseek/deepseek-v3.1-terminus",
+    "deepseek/deepseek-v3.2",
+    "deepseek/deepseek-v3.2-exp",
+    "deepseek/deepseek-v4-flash",
+    "deepseek/deepseek-v4-flash-0731",
+    "deepseek/deepseek-v4-flash-vision-exp",
+    "deepseek/deepseek-v4-pro",
+    "deepseek/deepseek-v4-pro-0813",
+    "deepseek/deepseek-v4.1-flash",
+    "deepseek/deepseek-v4.1-flash-1017",
+    "deepseek/deepseek-v4.1-flash:batch",
+    "dots-studio/dots-3-note-preview:free",
+    "elorian/glimpse",
+    "fireworks/ember-1",
+    "google/gemini-2.5-flash",
+    "google/gemini-2.5-flash-image",
+    "google/gemini-2.5-flash-lite",
+    "google/gemini-2.5-pro",
+    "google/gemini-2.5-pro-preview",
+    "google/gemini-3-flash-preview",
+    "google/gemini-3-flash-preview:batch",
+    "google/gemini-3-pro-image",
+    "google/gemini-3-pro-image-preview",
+    "google/gemini-3.1-flash-image",
+    "google/gemini-3.1-flash-image-preview",
+    "google/gemini-3.1-flash-lite",
+    "google/gemini-3.1-flash-lite-image",
+    "google/gemini-3.1-flash-lite-preview",
+    "google/gemini-3.1-flash-lite:batch",
+    "google/gemini-3.1-pro-preview",
+    "google/gemini-3.1-pro-preview-customtools",
+    "google/gemini-3.1-pro-preview:batch",
+    "google/gemini-3.5-flash",
+    "google/gemini-3.5-flash-lite",
+    "google/gemini-3.5-flash-lite:batch",
+    "google/gemini-3.5-flash:batch",
+    "google/gemini-3.6-flash",
+    "google/gemini-3.6-flash:batch",
+    "google/gemini-3.7-flash",
+    "google/gemini-3.7-flash:batch",
+    "google/gemini-3.8-flash",
+    "google/gemini-3.8-flash:batch",
+    "google/gemini-4-argon",
+    "google/gemini-4-argon:batch",
+    "google/gemini-nano-banana-2.1",
+    "google/gemma-2-27b-it",
+    "google/gemma-3-12b-it",
+    "google/gemma-3-27b-it",
+    "google/gemma-3-4b-it",
+    "google/gemma-4-26b-a4b-it",
+    "google/gemma-4-26b-a4b-it:free",
+    "google/gemma-4-31b-it",
+    "google/gemma-4-31b-it:free",
+    "google/lyria-3-clip-preview",
+    "google/lyria-3-pro-preview",
+    "gryphe/mythomax-l2-13b",
+    "ibm-granite/granite-4.2-8b",
+    "inception/mercury-2",
+    "inception/mercury-2.5",
+    "inception/mercury-3",
+    "inclusionai/ling-3.0-flash",
+    "inclusionai/ling-3.0-flash-vl",
+    "inclusionai/ling-3.1-flash",
+    "inference-net/schematron-v2-small",
+    "inference-net/schematron-v2-turbo",
+    "liquid/lfm-2.5-2.6b:free",
+    "liquid/lfm-2.5-24b-a2b",
+    "mancer/weaver",
+    "meituan/longcat-2.0",
+    "meta-llama/llama-3.1-70b-instruct",
+    "meta-llama/llama-3.1-8b-instruct",
+    "meta-llama/llama-3.2-1b-instruct",
+    "meta-llama/llama-3.2-3b-instruct",
+    "meta-llama/llama-3.3-70b-instruct",
+    "meta-llama/llama-4-maverick",
+    "meta-llama/llama-4-scout",
+    "meta-llama/llama-guard-4-12b",
+    "meta/muse-glimmer-30b",
+    "meta/muse-spark-1.1",
+    "meta/muse-spark-1.2",
+    "meta/muse-spark-1.3",
+    "meta/muse-spark-open",
+    "meta/muse-wonder",
+    "microsoft/phi-4",
+    "minimax/minimax-01",
+    "minimax/minimax-m1",
+    "minimax/minimax-m2",
+    "minimax/minimax-m2-her",
+    "minimax/minimax-m2.1",
+    "minimax/minimax-m2.5",
+    "minimax/minimax-m2.7",
+    "minimax/minimax-m3",
+    "minimax/minimax-m3.1-flash",
+    "mistralai/codestral-2508",
+    "mistralai/devstral-2512",
+    "mistralai/ministral-14b-2512",
+    "mistralai/ministral-3b-2512",
+    "mistralai/ministral-8b-2512",
+    "mistralai/mistral-large",
+    "mistralai/mistral-large-2407",
+    "mistralai/mistral-large-2512",
+    "mistralai/mistral-large-4-0",
+    "mistralai/mistral-medium-3",
+    "mistralai/mistral-medium-3-5",
+    "mistralai/mistral-medium-3-5:batch",
+    "mistralai/mistral-medium-3.1",
+    "mistralai/mistral-nemo",
+    "mistralai/mistral-saba",
+    "mistralai/mistral-small-24b-instruct-2501",
+    "mistralai/mistral-small-2603",
+    "mistralai/mistral-small-3.1-24b-instruct",
+    "mistralai/mistral-small-3.2-24b-instruct",
+    "mistralai/mixtral-8x22b-instruct",
+    "mistralai/voxtral-small-24b-2507",
+    "moondream/moondream3-preview",
+    "moondream/moondream3.1-9b-a2b",
+    "moonshotai/kimi-k2",
+    "moonshotai/kimi-k2-0905",
+    "moonshotai/kimi-k2-thinking",
+    "moonshotai/kimi-k2.5",
+    "moonshotai/kimi-k2.6",
+    "moonshotai/kimi-k2.7-code",
+    "moonshotai/kimi-k3",
+    "moonshotai/kimi-k3.1-pro",
+    "moonshotai/kimi-k3:batch",
+    "morph/morph-v3-fast",
+    "morph/morph-v3-large",
+    "nex-agi/nex-n2.5-mini",
+    "nex-agi/nex-n2.5-pro",
+    "nousresearch/hermes-3-llama-3.1-405b",
+    "nousresearch/hermes-3-llama-3.1-70b",
+    "nousresearch/hermes-4-405b",
+    "nvidia/nemotron-3-nano-30b-a3b",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "nvidia/nemotron-3-super-120b-a12b",
+    "nvidia/nemotron-3-ultra-550b-a55b",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3.5-content-safety",
+    "nvidia/nemotron-3.5-content-safety:free",
+    "nvidia/nemotron-3.5-lightning",
+    "nvidia/nemotron-3.5-lightning:free",
+    "nvidia/nemotron-3.5-super-vl",
+    "nvidia/nemotron-3.5-super-vl:free",
+    "nvidia/switchyard",
+    "openai/gpt-3.5-turbo-0613",
+    "openai/gpt-3.5-turbo-16k",
+    "openai/gpt-4",
+    "openai/gpt-4.1",
+    "openai/gpt-4.1-mini",
+    "openai/gpt-4.1-nano",
+    "openai/gpt-4o",
+    "openai/gpt-4o-2024-05-13",
+    "openai/gpt-4o-2024-08-06",
+    "openai/gpt-4o-2024-11-20",
+    "openai/gpt-4o-mini",
+    "openai/gpt-4o-mini-2024-07-18",
+    "openai/gpt-5",
+    "openai/gpt-5-image",
+    "openai/gpt-5-image-mini",
+    "openai/gpt-5-mini",
+    "openai/gpt-5-nano",
+    "openai/gpt-5-nano:batch",
+    "openai/gpt-5-pro",
+    "openai/gpt-5.1",
+    "openai/gpt-5.1-codex",
+    "openai/gpt-5.1-codex-max",
+    "openai/gpt-5.1-codex-mini",
+    "openai/gpt-5.2",
+    "openai/gpt-5.2-codex",
+    "openai/gpt-5.2-pro",
+    "openai/gpt-5.3-codex",
+    "openai/gpt-5.4",
+    "openai/gpt-5.4-image-2",
+    "openai/gpt-5.4-mini",
+    "openai/gpt-5.4-nano",
+    "openai/gpt-5.4-pro",
+    "openai/gpt-5.5",
+    "openai/gpt-5.5-pro",
+    "openai/gpt-5.6-luna",
+    "openai/gpt-5.6-luna-pro",
+    "openai/gpt-5.6-luna-pro:batch",
+    "openai/gpt-5.6-luna:batch",
+    "openai/gpt-5.6-sol",
+    "openai/gpt-5.6-sol-pro",
+    "openai/gpt-5.6-sol-pro:batch",
+    "openai/gpt-5.6-sol:batch",
+    "openai/gpt-5.6-terra",
+    "openai/gpt-5.6-terra-pro",
+    "openai/gpt-5.6-terra-pro:batch",
+    "openai/gpt-5.6-terra:batch",
+    "openai/gpt-6-astra",
+    "openai/gpt-6-astra-pro",
+    "openai/gpt-6-astra-pro:batch",
+    "openai/gpt-6-astra:batch",
+    "openai/gpt-6-luna",
+    "openai/gpt-6-luna-pro",
+    "openai/gpt-6-luna-pro:batch",
+    "openai/gpt-6-luna:batch",
+    "openai/gpt-6-sol",
+    "openai/gpt-6-sol-pro",
+    "openai/gpt-6-sol-pro:batch",
+    "openai/gpt-6-sol:batch",
+    "openai/gpt-6.1-sol",
+    "openai/gpt-6.1-sol-pro",
+    "openai/gpt-6.1-sol-pro:batch",
+    "openai/gpt-6.1-sol:batch",
+    "openai/gpt-6.1-terra",
+    "openai/gpt-6.1-terra-pro",
+    "openai/gpt-6.1-terra-pro:batch",
+    "openai/gpt-6.1-terra:batch",
+    "openai/gpt-audio",
+    "openai/gpt-audio-mini",
+    "openai/gpt-chat-latest",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-120b:batch",
+    "openai/gpt-oss-20b",
+    "openai/gpt-oss-20b:batch",
+    "openai/gpt-oss-safeguard-20b",
+    "openai/o3",
+    "openai/o3-pro",
+    "openrouter/auto",
+    "openrouter/auto-beta",
+    "openrouter/bodybuilder",
+    "openrouter/free",
+    "openrouter/fusion",
+    "openrouter/pareto-code",
+    "particle-ai/particle-1",
+    "perceptron/perceptron-mk1",
+    "perceptron/perceptron-mk1.5",
+    "perplexity/sonar",
+    "perplexity/sonar-deep-research",
+    "perplexity/sonar-pro",
+    "perplexity/sonar-pro-search",
+    "perplexity/sonar-reasoning-pro",
+    "prism-ml/ternary-bonsai-2-27b",
+    "prism-ml/ternary-bonsai-2-9b",
+    "qwen/qwen-2.5-72b-instruct",
+    "qwen/qwen-2.5-7b-instruct",
+    "qwen/qwen-2.5-coder-32b-instruct",
+    "qwen/qwen-plus",
+    "qwen/qwen2.5-vl-72b-instruct",
+    "qwen/qwen3-14b",
+    "qwen/qwen3-235b-a22b-2507",
+    "qwen/qwen3-235b-a22b-thinking-2507",
+    "qwen/qwen3-30b-a3b",
+    "qwen/qwen3-30b-a3b-instruct-2507",
+    "qwen/qwen3-32b",
+    "qwen/qwen3-coder",
+    "qwen/qwen3-coder-30b-a3b-instruct",
+    "qwen/qwen3-coder-flash",
+    "qwen/qwen3-coder-next",
+    "qwen/qwen3-next-80b-a3b-instruct",
+    "qwen/qwen3-vl-235b-a22b-instruct",
+    "qwen/qwen3-vl-30b-a3b-instruct",
+    "qwen/qwen3-vl-30b-a3b-thinking",
+    "qwen/qwen3-vl-8b-instruct",
+    "qwen/qwen3.5-122b-a10b",
+    "qwen/qwen3.5-27b",
+    "qwen/qwen3.5-35b-a3b",
+    "qwen/qwen3.5-397b-a17b",
+    "qwen/qwen3.5-9b",
+    "qwen/qwen3.5-flash-02-23",
+    "qwen/qwen3.5-plus-02-15",
+    "qwen/qwen3.5-plus-20260420",
+    "qwen/qwen3.6-27b",
+    "qwen/qwen3.6-35b-a3b",
+    "qwen/qwen3.6-flash",
+    "qwen/qwen3.6-plus",
+    "qwen/qwen3.7-flash",
+    "qwen/qwen3.7-max",
+    "qwen/qwen3.7-plus",
+    "qwen/qwen3.7-plus:batch",
+    "qwen/qwen3.8-2.4t-a95b",
+    "qwen/qwen3.8-27b",
+    "qwen/qwen3.8-flash",
+    "qwen/qwen3.8-max-0902",
+    "qwen/qwen3.8-max-prime",
+    "qwen/qwen3.8-omni-flash",
+    "recursive/flint-v1.0:free",
+    "reflection/beam-1.0-501b-a23b",
+    "rekaai/reka-edge",
+    "rekaai/reka-flash-3",
+    "relace/relace-apply-3",
+    "relace/relace-search",
+    "sakana/fugu-max",
+    "sakana/fugu-ultra",
+    "sakana/fugu-ultra-v2",
+    "sao10k/l3-lunaris-8b",
+    "sao10k/l3.1-euryale-70b",
+    "scaledown/extract",
+    "scaledown/summarize",
+    "stepfun/step-3.5-flash",
+    "stepfun/step-3.7-flash",
+    "stepfun/step-5-preview",
+    "tencent/hunyuan-a13b-instruct",
+    "tencent/hy-mt2-1.8b",
+    "tencent/hy-mt2-30b-a3b",
+    "tencent/hy-mt2-7b",
+    "tencent/hy3",
+    "tencent/hy3-preview",
+    "tencent/hy4-preview",
+    "thedrummer/cydonia-24b-v4.1",
+    "thedrummer/skyfall-36b-v2",
+    "thedrummer/unslopnemo-12b",
+    "thinkingmachines/inkling",
+    "thinkingmachines/inkling-small",
+    "thinkingmachines/inkling-small:free",
+    "thinkingmachines/inkling:free",
+    "typesafe/jev-router",
+    "unbiased/pareto-26.10",
+    "unbiased/pareto-26.9",
+    "undi95/remm-slerp-l2-13b",
+    "upstage/solar-mini4",
+    "upstage/solar-pro4",
+    "writer/palmyra-x5",
+    "x-ai/grok-4.20",
+    "x-ai/grok-4.20-multi-agent",
+    "x-ai/grok-4.3",
+    "x-ai/grok-4.3:batch",
+    "x-ai/grok-4.5",
+    "x-ai/grok-4.6",
+    "x-ai/grok-4.7",
+    "x-ai/grok-build-0.1",
+    "xiaomi/mimo-v2.5",
+    "xiaomi/mimo-v2.5-pro",
+    "xiaomi/mimo-v2.6-flash",
+    "xiaomi/mimo-v2.6-pro",
+    "xiaomi/mimo-v2.6-pro-ultraspeed",
+    "xingchen-agi/xing4.0-29b-a4b:free",
+    "z-ai/glm-4.5",
+    "z-ai/glm-4.5-air",
+    "z-ai/glm-4.5v",
+    "z-ai/glm-4.6",
+    "z-ai/glm-4.6v",
+    "z-ai/glm-4.7",
+    "z-ai/glm-4.7-flash",
+    "z-ai/glm-5",
+    "z-ai/glm-5-turbo",
+    "z-ai/glm-5.1",
+    "z-ai/glm-5.2",
+    "z-ai/glm-5.3",
+    "z-ai/glm-5.3-flash",
+    "z-ai/glm-5.3-flash:batch",
+    "z-ai/glm-5.3-flashx",
+    "z-ai/glm-5.3-prime",
+    "z-ai/glm-5.3:batch",
+    "z-ai/glm-5v-turbo",
+    "~anthropic/claude-fable-latest",
+    "~anthropic/claude-haiku-latest",
+    "~anthropic/claude-opus-latest",
+    "~anthropic/claude-sonnet-latest",
+    "~deepseek/deepseek-flash-latest",
+    "~deepseek/deepseek-pro-latest",
+    "~deepseek/deepseek-v4-flash-latest",
+    "~google/gemini-flash-latest",
+    "~google/gemini-pro-latest",
+    "~moonshotai/kimi-latest",
+    "~openai/gpt-astra-latest",
+    "~openai/gpt-luna-latest",
+    "~openai/gpt-mini-latest",
+    "~openai/gpt-sol-latest",
+    "~openai/gpt-terra-latest",
+    "~unbiased/pareto-latest",
+    "~x-ai/grok-latest",
+    "~z-ai/glm-flash-latest",
+    "~z-ai/glm-latest"
+  ],
+  "same_model_review": false,
+  "sources": [
+    "https://openrouter.ai/api/v1/models",
+    "https://openrouter.ai/docs/guides/features/structured-outputs"
+  ],
+  "catalogue": {
+    "google/gemini-3.5-flash-lite": {
+      "id": "google/gemini-3.5-flash-lite",
+      "pricing": {
+        "prompt": "0.0000003",
+        "completion": "0.0000025",
+        "image": "0.0000003",
+        "audio": "0.0000003",
+        "input_audio_cache": "0.00000003",
+        "web_search": "0.014",
+        "internal_reasoning": "0.0000025",
+        "input_cache_read": "0.00000003",
+        "input_cache_write": "0.0000000833333333333333"
+      },
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ]
+    },
+    "openai/gpt-6.1-terra": {
+      "id": "openai/gpt-6.1-terra",
+      "pricing": {
+        "prompt": "0.000001",
+        "completion": "0.000005",
+        "web_search": "0.01",
+        "input_cache_read": "0.00000005",
+        "input_cache_write": "0.00000125",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000002",
+            "completion": "0.0000075",
+            "input_cache_read": "0.0000001",
+            "input_cache_write": "0.0000025"
+          }
+        ]
+      },
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    }
+  },
+  "summary": [
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cases": 17,
+      "served": 12,
+      "access_blocked_cases": 0,
+      "requested_format_served": 8,
+      "semantic_rejections": 26,
+      "provider_calls": 90,
+      "median_ms": 10169,
+      "p95_ms": 60007,
+      "reported_cost_usd": 0.0562271,
+      "calls_with_reported_cost": 84
+    }
+  ],
+  "results": [
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 0,
+      "level": "A1",
+      "topic": "articles",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1665,
+          "prompt_tokens": 496,
+          "completion_tokens": 16,
+          "cost_usd": 0.0001888,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence": "That was just an honest mistake."
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "articles",
+        "text": "That was just ___ honest mistake.",
+        "options": [
+          "an",
+          "a"
+        ],
+        "level": "A1"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "an",
+        "topic": "articles",
+        "text": "That was just ___ honest mistake.",
+        "rule": "'a/an' is chosen by the SOUND that follows: an hour, a university, an old server."
+      },
+      "key_grades_correct": true,
+      "ms": 1666
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 1,
+      "level": "A1",
+      "topic": "vocabulary",
+      "requested_type": "match-pairs",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1323,
+          "prompt_tokens": 577,
+          "completion_tokens": 87,
+          "cost_usd": 0.0003906,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "I ___ with you.",
+                "right": "agree"
+              },
+              {
+                "left": "Let us ___ TV.",
+                "right": "watch"
+              },
+              {
+                "left": "This game is ___.",
+                "right": "fun"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 2280,
+          "prompt_tokens": 583,
+          "completion_tokens": 39,
+          "cost_usd": 0.000778,
+          "provider": "OpenAI",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "match-pairs",
+      "task": {
+        "type": "match-pairs",
+        "topic": "vocabulary",
+        "text": "Match each item with its pair.",
+        "left": [
+          {
+            "id": 0,
+            "text": "I ___ with you."
+          },
+          {
+            "id": 1,
+            "text": "Let us ___ TV."
+          },
+          {
+            "id": 2,
+            "text": "This game is ___."
+          }
+        ],
+        "right": [
+          {
+            "id": 0,
+            "text": "watch"
+          },
+          {
+            "id": 1,
+            "text": "agree"
+          },
+          {
+            "id": 2,
+            "text": "fun"
+          }
+        ],
+        "level": "A1"
+      },
+      "key": {
+        "t": "match-pairs",
+        "map": {
+          "0": 1,
+          "1": 0,
+          "2": 2
+        },
+        "rights": {
+          "0": "watch",
+          "1": "agree",
+          "2": "fun"
+        },
+        "answer": "I ___ with you. → agree\nLet us ___ TV. → watch\nThis game is ___. → fun",
+        "topic": "vocabulary"
+      },
+      "key_grades_correct": true,
+      "ms": 3604
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 2,
+      "level": "A1",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "build-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1161,
+          "prompt_tokens": 565,
+          "completion_tokens": 52,
+          "cost_usd": 0.0002995,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "She works here every day.",
+            "sentence_ru": "Она работает здесь каждый день.",
+            "distractors": [
+              "worked",
+              "working"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 345,
+          "error": "LLMRefusedError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1806,
+          "prompt_tokens": 548,
+          "completion_tokens": 52,
+          "cost_usd": 0.0002944,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "She works here every day.",
+            "sentence_ru": "Она работает здесь каждый день.",
+            "distractors": [
+              "worked",
+              "work"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 444,
+          "error": "LLMRefusedError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1126,
+          "prompt_tokens": 548,
+          "completion_tokens": 54,
+          "cost_usd": 0.0002994,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "She works here every single day.",
+            "sentence_ru": "Она работает здесь каждый день.",
+            "distractors": [
+              "worked",
+              "work"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 723,
+          "error": "LLMRefusedError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 972,
+          "prompt_tokens": 532,
+          "completion_tokens": 51,
+          "cost_usd": 0.0002871,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "They ___ to the store yesterday.",
+            "options": [
+              "walk",
+              "walks",
+              "walked"
+            ],
+            "answer": "walked"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3569,
+          "prompt_tokens": 462,
+          "completion_tokens": 65,
+          "cost_usd": 0.000787,
+          "provider": "OpenAI",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "verb sequence (tense agreement)",
+        "text": "They ___ to the store yesterday.",
+        "options": [
+          "walk",
+          "walks",
+          "walked"
+        ],
+        "level": "A1"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "walked",
+        "topic": "verb sequence (tense agreement)",
+        "text": "They ___ to the store yesterday."
+      },
+      "key_grades_correct": true,
+      "ms": 10169
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 3,
+      "level": "A2",
+      "topic": "prepositions",
+      "requested_type": "tap-the-error",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1579,
+          "prompt_tokens": 506,
+          "completion_tokens": 17,
+          "cost_usd": 0.0001943,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence": "I drink hot tea in the afternoon."
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "tap-the-error",
+      "task": {
+        "type": "tap-the-error",
+        "topic": "prepositions",
+        "text": "Tap the word that is wrong.",
+        "tokens": [
+          "I",
+          "drink",
+          "hot",
+          "tea",
+          "on",
+          "the",
+          "afternoon."
+        ],
+        "level": "A2"
+      },
+      "key": {
+        "t": "tap-the-error",
+        "index": 4,
+        "answer": "'on' → 'in'",
+        "topic": "prepositions",
+        "text": "I drink hot tea on the afternoon.",
+        "rule": "Parts of the day take 'in': in the morning (but 'at night')."
+      },
+      "key_grades_correct": true,
+      "ms": 1581
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 4,
+      "level": "A2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "multiple-blanks",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1537,
+          "prompt_tokens": 685,
+          "completion_tokens": 106,
+          "cost_usd": 0.0004705,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Every morning, she ___ coffee and he ___ tea.",
+            "blanks": [
+              {
+                "options": [
+                  "drink",
+                  "drinks",
+                  "drinking"
+                ],
+                "answer": "drinks"
+              },
+              {
+                "options": [
+                  "make",
+                  "makes",
+                  "making"
+                ],
+                "answer": "makes"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 2719,
+          "prompt_tokens": 485,
+          "completion_tokens": 41,
+          "cost_usd": 0.00069,
+          "provider": "OpenAI",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-blanks",
+      "task": {
+        "type": "multiple-blanks",
+        "topic": "verb sequence (tense agreement)",
+        "text": "Every morning, she ___ coffee and he ___ tea.",
+        "blankOptions": [
+          [
+            "drinking",
+            "drinks",
+            "drink"
+          ],
+          [
+            "makes",
+            "making",
+            "make"
+          ]
+        ],
+        "level": "A2"
+      },
+      "key": {
+        "t": "multiple-blanks",
+        "answers": [
+          "drinks",
+          "makes"
+        ],
+        "topic": "verb sequence (tense agreement)",
+        "text": "Every morning, she ___ coffee and he ___ tea."
+      },
+      "key_grades_correct": true,
+      "ms": 4259
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 5,
+      "level": "A2",
+      "topic": "vocabulary",
+      "requested_type": "listen-and-answer",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1693,
+          "prompt_tokens": 653,
+          "completion_tokens": 76,
+          "cost_usd": 0.0003859,
+          "provider": "Google AI Studio",
+          "output": {
+            "passage": "My friend needed some money for lunch. I decided to lend twenty dollars to him.",
+            "question": "How much money did the speaker lend?",
+            "options": [
+              "ten dollars",
+              "twenty dollars",
+              "thirty dollars"
+            ],
+            "answer": "twenty dollars"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 2068,
+          "prompt_tokens": 493,
+          "completion_tokens": 16,
+          "cost_usd": 0.000573,
+          "provider": "OpenAI",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "listen-and-answer",
+      "task": {
+        "type": "listen-and-answer",
+        "topic": "vocabulary",
+        "text": "How much money did the speaker lend?",
+        "speak": "My friend needed some money for lunch. I decided to lend twenty dollars to him.",
+        "options": [
+          "ten dollars",
+          "twenty dollars",
+          "thirty dollars"
+        ],
+        "level": "A2"
+      },
+      "key": {
+        "t": "listen-and-answer",
+        "answer": "twenty dollars",
+        "topic": "vocabulary",
+        "text": "My friend needed some money for lunch. I decided to lend twenty dollars to him."
+      },
+      "key_grades_correct": true,
+      "ms": 3762
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 6,
+      "level": "B1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1422,
+          "prompt_tokens": 536,
+          "completion_tokens": 53,
+          "cost_usd": 0.0002933,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "If it rained, we ___ inside.",
+            "options": [
+              "would stay",
+              "will stay",
+              "stayed"
+            ],
+            "answer": "would stay"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3573,
+          "prompt_tokens": 459,
+          "completion_tokens": 76,
+          "cost_usd": 0.000839,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace “stayed” with an unambiguously incorrect option; “If it rained, we stayed inside” is valid for a past habit."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1117,
+          "prompt_tokens": 581,
+          "completion_tokens": 52,
+          "cost_usd": 0.0003043,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "If it rained, we ___ inside.",
+            "options": [
+              "would stay",
+              "will stay",
+              "stay"
+            ],
+            "answer": "would stay"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3962,
+          "prompt_tokens": 458,
+          "completion_tokens": 56,
+          "cost_usd": 0.000738,
+          "provider": "OpenAI",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "conditionals",
+        "text": "If it rained, we ___ inside.",
+        "options": [
+          "will stay",
+          "would stay",
+          "stay"
+        ],
+        "level": "B1"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "would stay",
+        "topic": "conditionals",
+        "text": "If it rained, we ___ inside."
+      },
+      "key_grades_correct": true,
+      "ms": 10082
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 7,
+      "level": "B1",
+      "topic": "word order",
+      "requested_type": "build-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1124,
+          "prompt_tokens": 554,
+          "completion_tokens": 58,
+          "cost_usd": 0.0003112,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "She usually drinks hot black coffee.",
+            "sentence_ru": "Она обычно пьет горячий черный кофе.",
+            "distractors": [
+              "drink",
+              "blacker"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3971,
+          "prompt_tokens": 481,
+          "completion_tokens": 128,
+          "cost_usd": 0.001121,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Accept “She drinks hot black coffee, usually” as an alternative, or revise the tiles to enforce one order."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 845,
+          "prompt_tokens": 595,
+          "completion_tokens": 58,
+          "cost_usd": 0.0003235,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "She always drinks hot black coffee.",
+            "sentence_ru": "Она всегда пьет горячий черный кофе.",
+            "distractors": [
+              "drink",
+              "blacker"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3965,
+          "prompt_tokens": 481,
+          "completion_tokens": 91,
+          "cost_usd": 0.000936,
+          "provider": "OpenAI",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "build-the-sentence",
+      "task": {
+        "type": "build-the-sentence",
+        "topic": "word order",
+        "text": "Translate into English:",
+        "prompt": "Она всегда пьет горячий черный кофе.",
+        "tiles": [
+          "coffee.",
+          "black",
+          "drinks",
+          "She",
+          "hot",
+          "always"
+        ],
+        "distractors": [
+          "drink",
+          "blacker"
+        ],
+        "level": "B1"
+      },
+      "key": {
+        "t": "build-the-sentence",
+        "sentence": "She always drinks hot black coffee.",
+        "topic": "word order"
+      },
+      "key_grades_correct": true,
+      "ms": 9910
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 8,
+      "level": "B1",
+      "topic": "phrasal verbs",
+      "requested_type": "odd-one-out",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1000,
+          "prompt_tokens": 592,
+          "completion_tokens": 68,
+          "cost_usd": 0.0003476,
+          "provider": "Google AI Studio",
+          "output": {
+            "items": [
+              "look after",
+              "look into",
+              "look out",
+              "figure out"
+            ],
+            "odd": "look out",
+            "reason": "Look out is an intransitive phrasal verb, while the others are transitive."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 4483,
+          "prompt_tokens": 453,
+          "completion_tokens": 111,
+          "cost_usd": 0.001008,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Specify the grouping criterion: 'figure out' is also an odd one out because it is the only option not beginning with 'look'."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1250,
+          "prompt_tokens": 638,
+          "completion_tokens": 64,
+          "cost_usd": 0.0003514,
+          "provider": "Google AI Studio",
+          "output": {
+            "items": [
+              "look after",
+              "look into",
+              "put off",
+              "run into"
+            ],
+            "odd": "put off",
+            "reason": "Put off does not start with the verb look unlike the others."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 5803,
+          "prompt_tokens": 453,
+          "completion_tokens": 344,
+          "cost_usd": 0.002173,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Specify that the learner should identify the separable phrasal verb, and give each verb in a sentence to make its intended meaning clear."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1138,
+          "prompt_tokens": 639,
+          "completion_tokens": 67,
+          "cost_usd": 0.0003592,
+          "provider": "Google AI Studio",
+          "output": {
+            "items": [
+              "figure out",
+              "put off",
+              "run into",
+              "turn on"
+            ],
+            "odd": "run into",
+            "reason": "Run into is inseparable, whereas the other three are separable phrasal verbs."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 5106,
+          "prompt_tokens": 453,
+          "completion_tokens": 210,
+          "cost_usd": 0.001503,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Specify that the learner should choose the inseparable phrasal verb, and provide intended meanings to avoid ambiguity."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1758,
+          "prompt_tokens": 672,
+          "completion_tokens": 63,
+          "cost_usd": 0.0003591,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Before leaving for work, a neighbor must ___ (take care of) the barking dog.",
+            "options": [
+              "look after",
+              "look into",
+              "set up"
+            ],
+            "answer": "look after"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3448,
+          "prompt_tokens": 481,
+          "completion_tokens": 50,
+          "cost_usd": 0.000731,
+          "provider": "OpenAI",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "phrasal verbs",
+        "text": "Before leaving for work, a neighbor must ___ (take care of) the barking dog.",
+        "options": [
+          "look after",
+          "look into",
+          "set up"
+        ],
+        "level": "B1"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "look after",
+        "topic": "phrasal verbs",
+        "text": "Before leaving for work, a neighbor must ___ (take care of) the barking dog."
+      },
+      "key_grades_correct": true,
+      "ms": 23991
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 9,
+      "level": "B2",
+      "topic": "conditionals",
+      "requested_type": "transform-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1483,
+          "prompt_tokens": 595,
+          "completion_tokens": 58,
+          "cost_usd": 0.0003235,
+          "provider": "Google AI Studio",
+          "output": {
+            "instruction": "Перепишите предложение во втором условном наклонении",
+            "source": "If the alarm rings early, I turn it off immediately.",
+            "target": "If the alarm rang early, I would turn it off immediately."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 747,
+          "error": "LLMRefusedError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1334,
+          "prompt_tokens": 578,
+          "completion_tokens": 55,
+          "cost_usd": 0.0003109,
+          "provider": "Google AI Studio",
+          "output": {
+            "instruction": "Перепишите предложение во втором условном наклонении.",
+            "source": "If the system fails, we will lose all data.",
+            "target": "If the system failed, we would lose all data."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 871,
+          "error": "LLMRefusedError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1875,
+          "prompt_tokens": 578,
+          "completion_tokens": 60,
+          "cost_usd": 0.0003234,
+          "provider": "Google AI Studio",
+          "output": {
+            "instruction": "Переделайте предложение в условное второго типа",
+            "source": "I do not have the API keys, so I cannot deploy the build.",
+            "target": "If I had the API keys, I would deploy the build."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3768,
+          "prompt_tokens": 523,
+          "completion_tokens": 123,
+          "cost_usd": 0.001138,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace the basic second-conditional rewrite with a B2-level conditional transformation, such as a mixed conditional."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1557,
+          "prompt_tokens": 569,
+          "completion_tokens": 62,
+          "cost_usd": 0.0003257,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "If the team ___ the legacy database sooner, they would not have faced this outage.",
+            "options": [
+              "migrated",
+              "had migrated",
+              "would migrate"
+            ],
+            "answer": "had migrated"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 4964,
+          "prompt_tokens": 476,
+          "completion_tokens": 111,
+          "cost_usd": 0.001031,
+          "provider": "OpenAI",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "conditionals",
+        "text": "If the team ___ the legacy database sooner, they would not have faced this outage.",
+        "options": [
+          "would migrate",
+          "had migrated",
+          "migrated"
+        ],
+        "level": "B2"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "had migrated",
+        "topic": "conditionals",
+        "text": "If the team ___ the legacy database sooner, they would not have faced this outage."
+      },
+      "key_grades_correct": true,
+      "ms": 16603
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 10,
+      "level": "B2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "order-the-dialog",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1740,
+          "prompt_tokens": 637,
+          "completion_tokens": 95,
+          "cost_usd": 0.0004286,
+          "provider": "Google AI Studio",
+          "output": {
+            "lines": [
+              "Hey neighbor, did you hear that the local bakery is closing early today?",
+              "Yes, the manager mentioned that their main oven suddenly broke down this morning.",
+              "That is unfortunate because I was planning to buy fresh pastries for brunch.",
+              "They explained that a repair technician would arrive by early afternoon.",
+              "Hopefully, they can reopen in time for the evening rush."
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3724,
+          "prompt_tokens": 590,
+          "completion_tokens": 85,
+          "cost_usd": 0.001015,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Add linking cues to fix the order: the technician’s arrival can also be mentioned immediately after the oven breakdown."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1377,
+          "prompt_tokens": 678,
+          "completion_tokens": 80,
+          "cost_usd": 0.0004034,
+          "provider": "Google AI Studio",
+          "output": {
+            "lines": [
+              "Did you know the kitchen oven broke down this morning?",
+              "Yes, the repair technician arrived just after it failed.",
+              "She mentioned that the heating element had burned out completely.",
+              "That explains why baking dinner took twice as long earlier.",
+              "At least we can finally cook properly now."
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 6115,
+          "prompt_tokens": 560,
+          "completion_tokens": 247,
+          "cost_usd": 0.001795,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Make the baking remark refer explicitly to the heating element; otherwise, it can also follow the technician’s arrival, since the oven breakdown already explains the delay."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1431,
+          "prompt_tokens": 687,
+          "completion_tokens": 99,
+          "cost_usd": 0.0004536,
+          "provider": "Google AI Studio",
+          "output": {
+            "lines": [
+              "Neighbor: Did the repair technician say why the oven failed completely?",
+              "Resident: He explained that the heating element had burned out last night.",
+              "Neighbor: Oh, I assumed it broke because you were baking too many pies.",
+              "Resident: Not at all, since older appliances simply wear out over time.",
+              "Neighbor: That makes sense, especially given how often you use it."
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3926,
+          "prompt_tokens": 598,
+          "completion_tokens": 109,
+          "cost_usd": 0.001143,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Revise the dialogue so that choosing the order requires interpreting B2-level tense relationships, rather than following basic conversational cues."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1440,
+          "prompt_tokens": 616,
+          "completion_tokens": 61,
+          "cost_usd": 0.0003373,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Although the rain had stopped earlier, the gardener insisted that the soil ___ too wet to dig.",
+            "options": [
+              "is",
+              "was",
+              "has been"
+            ],
+            "answer": "was"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3677,
+          "prompt_tokens": 484,
+          "completion_tokens": 147,
+          "cost_usd": 0.001219,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace “is” and “has been” with unambiguously incorrect distractors; both can be acceptable if the soil remains wet."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1486,
+          "prompt_tokens": 659,
+          "completion_tokens": 59,
+          "cost_usd": 0.0003452,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "When the gardener arrived yesterday, he noticed that the plants ___ completely dry.",
+            "options": [
+              "had become",
+              "become",
+              "are becoming"
+            ],
+            "answer": "had become"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 4350,
+          "prompt_tokens": 479,
+          "completion_tokens": 105,
+          "cost_usd": 0.001004,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Use a more nuanced B2-level tense-sequence question with plausible past-tense alternatives."
+          }
+        }
+      ],
+      "served": false,
+      "status": "generation_failed",
+      "error": "OllamaError",
+      "detail": "The model produced an unusable exercise. Try again.",
+      "ms": 29272
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 11,
+      "level": "B2",
+      "topic": "vocabulary",
+      "requested_type": "match-pairs",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1395,
+          "prompt_tokens": 638,
+          "completion_tokens": 120,
+          "cost_usd": 0.0004914,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "We need to ___ the budget.",
+                "right": "monitor"
+              },
+              {
+                "left": "Please ___ a quick decision now.",
+                "right": "make"
+              },
+              {
+                "left": "Let us ___ a short break.",
+                "right": "take"
+              },
+              {
+                "left": "Always ___ attention during the meeting.",
+                "right": "pay"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 2944,
+          "prompt_tokens": 647,
+          "completion_tokens": 68,
+          "cost_usd": 0.000987,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace the basic collocations with vocabulary pairings that require B2-level discrimination."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1240,
+          "prompt_tokens": 670,
+          "completion_tokens": 97,
+          "cost_usd": 0.0004435,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "We must ___ the queue closely.",
+                "right": "monitor"
+              },
+              {
+                "left": "It was a rare ___ to speak.",
+                "right": "opportunity"
+              },
+              {
+                "left": "The meeting concluded ___ the street.",
+                "right": "at the end of"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3486,
+          "prompt_tokens": 608,
+          "completion_tokens": 82,
+          "cost_usd": 0.001018,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace the basic word-matching items with B2-level contextual choices that require distinguishing nuanced vocabulary."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1252,
+          "prompt_tokens": 674,
+          "completion_tokens": 127,
+          "cost_usd": 0.0005197,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "Unless you ___ attention carefully, mistakes happen.",
+                "right": "pay"
+              },
+              {
+                "left": "We must ___ a decision before nightfall.",
+                "right": "make"
+              },
+              {
+                "left": "Let us ___ a break after this task.",
+                "right": "take"
+              },
+              {
+                "left": "That policy will ___ an impact soon.",
+                "right": "have"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 2518,
+          "prompt_tokens": 661,
+          "completion_tokens": 62,
+          "cost_usd": 0.000971,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace the basic collocations with B2-level vocabulary and rephrase the unnatural 'pay attention carefully' sentence."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1609,
+          "prompt_tokens": 734,
+          "completion_tokens": 72,
+          "cost_usd": 0.0004002,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Before finalizing the monthly budget, the apartment manager decided to ___ (bring to a higher position or level) the security deposit.",
+            "options": [
+              "raise",
+              "rise",
+              "arise",
+              "lift"
+            ],
+            "answer": "raise"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3729,
+          "prompt_tokens": 493,
+          "completion_tokens": 138,
+          "cost_usd": 0.001183,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace the basic raise/rise vocabulary test with a B2-level contextual choice involving more nuanced financial vocabulary."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1311,
+          "prompt_tokens": 773,
+          "completion_tokens": 76,
+          "cost_usd": 0.0004219,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Before purchasing the apartment, the couple carefully examined the financial statements to ___ (to assess the value or condition of) the total investment.",
+            "options": [
+              "appraise",
+              "appreciate",
+              "approach",
+              "appeal"
+            ],
+            "answer": "appraise"
+          }
+        }
+      ],
+      "served": false,
+      "status": "generation_failed",
+      "error": "OllamaError",
+      "detail": "The model produced an unusable exercise. Try again.",
+      "ms": 19493
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 12,
+      "level": "C1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1129,
+          "prompt_tokens": 594,
+          "completion_tokens": 66,
+          "cost_usd": 0.0003432,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Had the grocery delivery arrived on time, the kitchen ___ fully prepared for the dinner party right now.",
+            "options": [
+              "would be",
+              "will be",
+              "would have been"
+            ],
+            "answer": "would be"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3100,
+          "prompt_tokens": 482,
+          "completion_tokens": 38,
+          "cost_usd": 0.000672,
+          "provider": "OpenAI",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "conditionals",
+        "text": "Had the grocery delivery arrived on time, the kitchen ___ fully prepared for the dinner party right now.",
+        "options": [
+          "will be",
+          "would have been",
+          "would be"
+        ],
+        "level": "C1"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "would be",
+        "topic": "conditionals",
+        "text": "Had the grocery delivery arrived on time, the kitchen ___ fully prepared for the dinner party right now."
+      },
+      "key_grades_correct": true,
+      "ms": 4231
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 13,
+      "level": "C1",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "multiple-blanks",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1357,
+          "prompt_tokens": 759,
+          "completion_tokens": 121,
+          "cost_usd": 0.0005302,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "By the time the neighbor ___ home from work, the package ___ on the porch for hours.",
+            "blanks": [
+              {
+                "options": [
+                  "returns",
+                  "returned",
+                  "had returned"
+                ],
+                "answer": "returned"
+              },
+              {
+                "options": [
+                  "has sat",
+                  "had sat",
+                  "had been sitting"
+                ],
+                "answer": "had been sitting"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1291,
+          "prompt_tokens": 821,
+          "completion_tokens": 117,
+          "cost_usd": 0.0005388,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "By the time the commuter ___ that her wallet was missing, the train ___ already departed.",
+            "blanks": [
+              {
+                "options": [
+                  "realizes",
+                  "realized",
+                  "realizing"
+                ],
+                "answer": "realized"
+              },
+              {
+                "options": [
+                  "has",
+                  "had",
+                  "have"
+                ],
+                "answer": "had"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1322,
+          "prompt_tokens": 821,
+          "completion_tokens": 136,
+          "cost_usd": 0.0005863,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "By the time the neighbor ___ the persistent leak, the ceiling ___ already ___ ruined.",
+            "blanks": [
+              {
+                "options": [
+                  "fixes",
+                  "fixed"
+                ],
+                "answer": "fixed"
+              },
+              {
+                "options": [
+                  "is",
+                  "was"
+                ],
+                "answer": "was"
+              },
+              {
+                "options": [
+                  "been",
+                  "being"
+                ],
+                "answer": "been"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1058,
+          "prompt_tokens": 621,
+          "completion_tokens": 68,
+          "cost_usd": 0.0003563,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "By the time the commuter realized the wallet had fallen from the pocket, the train ___ the station.",
+            "options": [
+              "had already departed",
+              "has already departed",
+              "already departed"
+            ],
+            "answer": "had already departed"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3309,
+          "prompt_tokens": 492,
+          "completion_tokens": 93,
+          "cost_usd": 0.000957,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace the basic past-perfect choice with a verb-sequence decision requiring C1-level reasoning."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1154,
+          "prompt_tokens": 659,
+          "completion_tokens": 63,
+          "cost_usd": 0.0003552,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Had the commuter realized the transit strike was ongoing, they ___ an alternate route.",
+            "options": [
+              "would have chosen",
+              "will choose",
+              "had chosen"
+            ],
+            "answer": "would have chosen"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 2118,
+          "prompt_tokens": 483,
+          "completion_tokens": 44,
+          "cost_usd": 0.000703,
+          "provider": "OpenAI",
+          "output": {
+            "valid": true,
+            "reason": ""
+          }
+        }
+      ],
+      "served": true,
+      "status": "served",
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "verb sequence (tense agreement)",
+        "text": "Had the commuter realized the transit strike was ongoing, they ___ an alternate route.",
+        "options": [
+          "had chosen",
+          "would have chosen",
+          "will choose"
+        ],
+        "level": "C1"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "would have chosen",
+        "topic": "verb sequence (tense agreement)",
+        "text": "Had the commuter realized the transit strike was ongoing, they ___ an alternate route."
+      },
+      "key_grades_correct": true,
+      "ms": 11614
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 14,
+      "level": "C1",
+      "topic": "vocabulary",
+      "requested_type": "listen-and-answer",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 16829,
+          "prompt_tokens": 730,
+          "completion_tokens": 128,
+          "cost_usd": 0.000539,
+          "provider": "Google AI Studio",
+          "output": {
+            "passage": "I spent the entire weekend organizing the household budget into a comprehensive spreadsheet. Despite my meticulous efforts, my partner complained that the figures remained completely comprehensible.",
+            "question": "What is the primary irony implied by the speaker regarding the household budget?",
+            "options": [
+              "The thorough budget was criticized for being too easy to understand.",
+              "The chaotic budget failed to account for basic household expenses.",
+              "The simplified figures somehow managed to confuse the partner."
+            ],
+            "answer": "The thorough budget was criticized for being too easy to understand."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3140,
+          "prompt_tokens": 556,
+          "completion_tokens": 82,
+          "cost_usd": 0.000966,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Revise the passage and options so identifying the irony requires a genuinely C1-level inference rather than a direct paraphrase."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 2199,
+          "prompt_tokens": 749,
+          "completion_tokens": 132,
+          "cost_usd": 0.0005547,
+          "provider": "Google AI Studio",
+          "output": {
+            "passage": "I bought this tiny European hatchback because the dealership promised it was extremely economical for city driving. Yet after paying for premium fuel, constant repairs, and specialized parts, my bank account is practically weeping.",
+            "question": "What is the speaker implying about the vehicle's actual financial impact?",
+            "options": [
+              "It proved surprisingly costly to maintain despite initial promises.",
+              "It significantly boosted the local economy through frequent repairs.",
+              "It remains the most affordable commuter car available today."
+            ],
+            "answer": "It proved surprisingly costly to maintain despite initial promises."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 2824,
+          "prompt_tokens": 572,
+          "completion_tokens": 63,
+          "cost_usd": 0.000887,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Revise the passage and options to require a nuanced C1-level inference; the current answer is an obvious paraphrase."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1593,
+          "prompt_tokens": 772,
+          "completion_tokens": 123,
+          "cost_usd": 0.0005391,
+          "provider": "Google AI Studio",
+          "output": {
+            "passage": "I know the schedule is tight, but we need to bear responsibility for this delay instead of shifting the blame. Let us simply meet the deadline tomorrow without cutting corners.",
+            "question": "What does the speaker imply about the current situation?",
+            "options": [
+              "The team must accept ownership and finish the work properly.",
+              "The deadline should be extended to avoid mistakes.",
+              "Someone else is entirely to blame for the setback."
+            ],
+            "answer": "The team must accept ownership and finish the work properly."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3353,
+          "prompt_tokens": 554,
+          "completion_tokens": 81,
+          "cost_usd": 0.000959,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Revise the passage and question so the answer requires a genuinely C1-level inference rather than a direct paraphrase."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1909,
+          "prompt_tokens": 704,
+          "completion_tokens": 73,
+          "cost_usd": 0.0003937,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Although the weather forecast predicted torrential rain, the traveler packed only light summer clothes, which proved hardly ___ (sensible: showing good judgment).",
+            "options": [
+              "sensible",
+              "sensitive",
+              "comprehensive"
+            ],
+            "answer": "sensible"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 4302,
+          "prompt_tokens": 500,
+          "completion_tokens": 76,
+          "cost_usd": 0.00088,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace the basic, explicitly given answer with a C1-level vocabulary choice that requires nuanced discrimination."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 20841,
+          "prompt_tokens": 745,
+          "completion_tokens": 75,
+          "cost_usd": 0.000411,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Despite initial skepticism regarding its hefty upfront cost, the household decided to purchase the more ___ (cheap to run and efficient) appliance to reduce monthly utility bills.",
+            "options": [
+              "economic",
+              "economical",
+              "comprehensive"
+            ],
+            "answer": "economical"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra"
+        }
+      ],
+      "served": false,
+      "status": "generation_failed",
+      "error": "OllamaTimeoutError",
+      "detail": "The exercise took too long to validate. Try again.",
+      "ms": 60007
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 15,
+      "level": "B2",
+      "topic": "prepositions",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 867,
+          "prompt_tokens": 589,
+          "completion_tokens": 61,
+          "cost_usd": 0.0003292,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Although the tenant strongly objected ___ paying the extra fee, the landlord refused.",
+            "options": [
+              "to",
+              "against",
+              "on",
+              "for"
+            ],
+            "answer": "to"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3747,
+          "prompt_tokens": 472,
+          "completion_tokens": 125,
+          "cost_usd": 0.001097,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace the basic 'object to' preposition lookup with a context requiring a genuinely B2-level preposition choice."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1844,
+          "prompt_tokens": 629,
+          "completion_tokens": 63,
+          "cost_usd": 0.0003462,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Despite struggling with the new schedule, the resident manager was resolute ___ implementing the policy.",
+            "options": [
+              "in",
+              "on",
+              "at",
+              "for"
+            ],
+            "answer": "in"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 4886,
+          "prompt_tokens": 476,
+          "completion_tokens": 196,
+          "cost_usd": 0.001456,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace “on” with an unambiguously incorrect distractor; “resolute on implementing” is also acceptable."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1460,
+          "prompt_tokens": 628,
+          "completion_tokens": 58,
+          "cost_usd": 0.0003334,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Although the neighbors objected ___ the new fence, construction continued.",
+            "options": [
+              "to",
+              "against",
+              "about",
+              "with"
+            ],
+            "answer": "to"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 3413,
+          "prompt_tokens": 466,
+          "completion_tokens": 101,
+          "cost_usd": 0.000971,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace the basic 'object to' preposition lookup with a choice that tests a more nuanced B2-level distinction."
+          }
+        }
+      ],
+      "served": false,
+      "status": "generation_failed",
+      "error": "OllamaError",
+      "detail": "The model produced an unusable exercise. Try again.",
+      "ms": 16220
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 16,
+      "level": "C1",
+      "topic": "articles",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1241,
+          "prompt_tokens": 600,
+          "completion_tokens": 65,
+          "cost_usd": 0.0003425,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "By the time the coffee machine broke down, ___ very fact that morning had barely begun made the queue groan in unison.",
+            "options": [
+              "the",
+              "a",
+              "this"
+            ],
+            "answer": "the"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 4705,
+          "prompt_tokens": 487,
+          "completion_tokens": 204,
+          "cost_usd": 0.001507,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace “this” with an unambiguously incorrect distractor; “this very fact that…” is also acceptable."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1181,
+          "prompt_tokens": 639,
+          "completion_tokens": 60,
+          "cost_usd": 0.0003417,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Staring at ___ very fact that the groceries cost twice as much today, the shopper sighed.",
+            "options": [
+              "the",
+              "a",
+              "some"
+            ],
+            "answer": "the"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 4176,
+          "prompt_tokens": 473,
+          "completion_tokens": 170,
+          "cost_usd": 0.001323,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace “Staring at” with “Confronted by”; one cannot literally stare at a fact."
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 1796,
+          "prompt_tokens": 639,
+          "completion_tokens": 65,
+          "cost_usd": 0.0003542,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Confronted by ___ very fact that the appliance had failed yet again, the exasperated owner demanded an immediate refund.",
+            "options": [
+              "the",
+              "a",
+              "an"
+            ],
+            "answer": "the"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 5106,
+          "prompt_tokens": 485,
+          "completion_tokens": 160,
+          "cost_usd": 0.001285,
+          "provider": "OpenAI",
+          "output": {
+            "valid": false,
+            "reason": "Replace the straightforward fixed phrase with a C1-level article choice that tests a subtle distinction in meaning."
+          }
+        }
+      ],
+      "served": false,
+      "status": "generation_failed",
+      "error": "OllamaError",
+      "detail": "The model produced an unusable exercise. Try again.",
+      "ms": 18211
+    }
+  ]
+}

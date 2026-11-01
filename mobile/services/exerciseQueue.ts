@@ -1,34 +1,25 @@
-// Pre-generation buffer for exercises (framework-agnostic → unit-testable).
-//
-// Each exercise is a live LLM call (slow), so we keep a few generated ahead: while the learner
-// solves the current card, the next ones are fetched in the background and served instantly on
-// "Next". Selection params are resolved lazily (at fetch time), so each prefetched card uses the
-// freshest learner model available — but a buffered card is inherently up to one answer "stale"
-// (it was chosen before the in-progress answer updated the skill). That drift is at most a fraction
-// of a level, so the served CEFR rarely changes; acceptable for the latency win.
+// Exercises are selected from the current learner snapshot. Practice prefetches during feedback,
+// after recording the answer; fixed-spec exams may keep prefetch-on-serve. A model revision change
+// invalidates both buffered cards and in-flight results, including an on-demand cold fetch.
 import { getExercise, type Exercise } from "./api";
 
-export type FetchParams = { topic: string; level: string; type: string; context: string; mistakes?: string[] };
+export type FetchParams = { topic: string; level: string; type: string; context: string; mistakes?: string[]; practice_index?: number };
 
 export type QueueDeps = {
-  /** Resolve the next exercise's params from the current learner model (called per fetch). */
   selectParams: () => FetchParams;
-  /** Override the fetcher (tests). Defaults to the real API call. */
   fetch?: (params: FetchParams) => Promise<Exercise>;
-  /** Target number of cards ready-or-in-flight. */
   size?: number;
-  /** Delay before the single re-try of a failed background prefetch (tests shrink it). */
   retryDelayMs?: number;
+  /** Learner-model revision (e.g. total recorded answers). An older card must never cross it. */
+  revision?: () => number | string;
+  /** Practice sets false and calls prefetch only AFTER recording the current answer. */
+  prefetchOnServe?: boolean;
 };
 
 export type ExerciseQueue = {
-  /** Next card: instant if buffered, otherwise fetched on demand (errors propagate here only). */
   next: () => Promise<Exercise>;
-  /** Kick background prefetch up to `size` (safe to call repeatedly). */
   prefetch: () => void;
-  /** Drop buffered + discard in-flight results (e.g. when the topic/context changes). */
   clear: () => void;
-  /** Count currently ready to serve instantly (for tests/diagnostics). */
   readyCount: () => number;
 };
 
@@ -38,52 +29,95 @@ export function createExerciseQueue(deps: QueueDeps): ExerciseQueue {
   const retryDelayMs = deps.retryDelayMs ?? 1500;
   let ready: Exercise[] = [];
   let inFlight = 0;
-  let gen = 0; // bumped on clear() so stragglers from a stale generation are dropped
+  let gen = 0;
+  let revision = deps.revision?.();
+  const retryTimers = new Set<ReturnType<typeof setTimeout>>();
+  const waiters = new Set<() => void>();
 
-  // Best-effort background fetch: failures are swallowed (next() re-fetches and surfaces the error
-  // only when the learner actually needs a card and none is buffered) — but each failed slot gets
-  // ONE delayed re-try first. Without it a transient backend blip leaves the buffer cold, and the
-  // learner pays on "Next" with a full-latency spinner or a visible error.
-  function prefetchOne(retriesLeft = 1): void {
-    const myGen = gen;
-    inFlight++;
-    void fetchFn(deps.selectParams())
-      .then((ex) => {
-        if (myGen === gen) ready.push(ex);
-      })
-      .catch(() => {
-        if (retriesLeft > 0 && myGen === gen) {
-          setTimeout(() => {
-            // Re-check at fire time: the topic may have changed (gen) or next() may have refilled.
-            if (myGen === gen && ready.length + inFlight < size) prefetchOne(retriesLeft - 1);
-          }, retryDelayMs);
-        }
-      })
-      .finally(() => {
-        inFlight--;
-      });
-  }
-
-  function prefetch(): void {
-    while (ready.length + inFlight < size) prefetchOne();
-  }
-
-  async function next(): Promise<Exercise> {
-    if (ready.length > 0) {
-      const ex = ready.shift() as Exercise;
-      prefetch(); // refill in the background
-      return ex;
-    }
-    // Cold start or drained buffer: fetch directly so errors reach the caller.
-    const ex = await fetchFn(deps.selectParams());
-    prefetch();
-    return ex;
+  function wakeWaiters(): void {
+    for (const wake of waiters) wake();
+    waiters.clear();
   }
 
   function clear(): void {
     gen++;
     ready = [];
+    // Old fetch finalizers must not consume the new generation's slots.
+    inFlight = 0;
+    revision = deps.revision?.();
+    for (const timer of retryTimers) clearTimeout(timer);
+    retryTimers.clear();
+    wakeWaiters();
   }
 
-  return { next, prefetch, clear, readyCount: () => ready.length };
+  function reconcileRevision(): void {
+    if (deps.revision && deps.revision() !== revision) clear();
+  }
+
+  function current(myGen: number): boolean {
+    reconcileRevision();
+    return myGen === gen;
+  }
+
+  function prefetchOne(retriesLeft = 1): void {
+    const myGen = gen;
+    const params = deps.selectParams();
+    inFlight++;
+    let request: Promise<Exercise>;
+    try { request = fetchFn(params); } catch (error) { request = Promise.reject(error); }
+    void request
+      .then((ex) => {
+        if (current(myGen)) ready.push(ex);
+      })
+      .catch(() => {
+        if (retriesLeft > 0 && current(myGen)) {
+          const timer = setTimeout(() => {
+            retryTimers.delete(timer);
+            if (current(myGen) && ready.length + inFlight < size) prefetchOne(retriesLeft - 1);
+          }, retryDelayMs);
+          retryTimers.add(timer);
+        }
+      })
+      .finally(() => {
+        if (myGen === gen) {
+          inFlight--;
+          wakeWaiters();
+        }
+      });
+  }
+
+  function prefetch(): void {
+    reconcileRevision();
+    while (ready.length + inFlight < size) prefetchOne();
+  }
+
+  async function next(): Promise<Exercise> {
+    for (;;) {
+      reconcileRevision();
+      if (ready.length > 0) {
+        const ex = ready.shift() as Exercise;
+        if (deps.prefetchOnServe !== false) prefetch();
+        return ex;
+      }
+      if (inFlight > 0) {
+        // Next can be tapped before feedback-time generation finishes. Reuse that work instead
+        // of launching a third paid request alongside the two prefetches.
+        await new Promise<void>((resolve) => waiters.add(resolve));
+        continue;
+      }
+      const myGen = gen;
+      try {
+        const ex = await fetchFn(deps.selectParams());
+        // Steering/model changed while this slow request was running: fetch the current spec.
+        if (!current(myGen)) continue;
+        if (deps.prefetchOnServe !== false) prefetch();
+        return ex;
+      } catch (error) {
+        if (!current(myGen)) continue;
+        throw error;
+      }
+    }
+  }
+
+  return { next, prefetch, clear, readyCount: () => { reconcileRevision(); return ready.length; } };
 }

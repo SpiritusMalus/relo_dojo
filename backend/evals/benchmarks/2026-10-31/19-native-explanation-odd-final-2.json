@@ -1,0 +1,71 @@
+{
+  "created_at_utc": "2026-11-01T07:58:41.254129+00:00",
+  "dataset": "native-odd-explanation-regression-v1",
+  "model": "google/gemini-3.5-flash-lite",
+  "scope": "2 structured Explain calls on synthetic full visible context; no new generation matrix or live API restart",
+  "source_sha256": {
+    "app/core/config.py": "188beb60027ca90423b5749691e4fc96461081ef53475895b58579565798ffed",
+    "app/services/_grammar_feedback.py": "66fe3676c73c7b79c787a94f4e9b18f4d23eb685bbee1eb76214b70297ce1823",
+    "app/services/_grammar_generators.py": "0f5d6b239bba102582b424025de6ed93eb770bf9222e9414790a304e3005c520",
+    "app/services/_grammar_prompts.py": "0317def2d9c362899ec162c7787c4afa8af54b5c8856e577e857304db53420fd",
+    "app/services/_grammar_rules.py": "07f0660a6170143332d17ea0cfb613093c4809627ebd22e5a112389219fb4894",
+    "app/services/llm.py": "e58cf4544767a8d95dd515679a2d2a491f64f8d79d99f970940486e236081803",
+    "evals/check_explanations.py": "6b76352a037c7159467edebf6c8fc8b37c2a29f5bb28c412eaf3629844dc794d"
+  },
+  "budget_cap_usd": 0.0484,
+  "reported_cost_usd": 0.0009193,
+  "conservative_accounted_usd": 0.0009193,
+  "manual_review_criteria": {
+    "odd-classification": "Distinguish affirmative normal order from negative-fronting inversion; do not call the inverted alternatives bad English or claim the subject is the first word in Always we deploy.",
+    "ordinary-mc": "Explain present-simple third-person singular works in the requested language without weakening correctness."
+  },
+  "manual_review_status": "Inspected: both classification explanations fail; stronger prompt guard alone did not establish reliable reasoning. New word-order odd cards are instead prevented by deterministic MC routing.",
+  "results": [
+    {
+      "case": "odd-classification",
+      "lang": "ru",
+      "text": "Exercise type: odd-one-out\nTopic: word order\nInstruction: Tap the one that doesn't belong.\nVisible options:\n- Always we deploy\n- Seldom do we\n- Rarely can they\n- Little did anyone",
+      "key": "Always we deploy",
+      "response": "Rarely can they",
+      "output": {
+        "explanation": "Почти получилось — фраза 'Always we deploy' нарушает порядок слов, так как наречие частотности требует стандартной позиции перед глаголом или после подлежащего, в то время как остальные варианты используют инверсию после отрицательных наречий.",
+        "tip": "Слова вроде seldom, rarely и little на первом месте требуют вспомогательного глагола перед подлежащим."
+      },
+      "status": "returned",
+      "ms": 2268,
+      "calls": [
+        {
+          "model": "google/gemini-3.5-flash-lite",
+          "conservative_reservation_usd": 0.011181900000000002,
+          "cost_usd": 0.0004342,
+          "prompt_tokens": 689,
+          "completion_tokens": 91
+        }
+      ],
+      "manual_review": "Fail: calls Always we deploy a word-order violation rather than explaining only the negative-inversion classification difference."
+    },
+    {
+      "case": "odd-classification",
+      "lang": "en",
+      "text": "Exercise type: odd-one-out\nTopic: word order\nInstruction: Tap the one that doesn't belong.\nVisible options:\n- Always we deploy\n- Seldom do we\n- Rarely can they\n- Little did anyone",
+      "key": "Always we deploy",
+      "response": "Rarely can they",
+      "output": {
+        "explanation": "Almost there — 'Always we deploy' breaks the standard subject-before-verb rule because it lacks the necessary inversion found in the other phrases. Fronted negative adverbials like 'seldom', 'rarely', and 'little' require auxiliary-subject inversion, making 'Seldom do we', 'Rarely can they', and 'Little did anyone' grammatically correct.",
+        "tip": "Remember to invert the subject and auxiliary verb only when starting a sentence with a negative or restrictive word."
+      },
+      "status": "returned",
+      "ms": 1586,
+      "calls": [
+        {
+          "model": "google/gemini-3.5-flash-lite",
+          "conservative_reservation_usd": 0.011181900000000002,
+          "cost_usd": 0.0004851,
+          "prompt_tokens": 692,
+          "completion_tokens": 111
+        }
+      ],
+      "manual_review": "Fail: claims Always we deploy needs inversion; Always is affirmative, not a negative/restrictive fronting trigger. Also contradicts its own subject-before-verb claim."
+    }
+  ]
+}

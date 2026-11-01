@@ -1,6 +1,7 @@
 import {
   blendListening,
   combineLevels,
+  excludeListening,
   isDone,
   levelTestResult,
   nextItem,
@@ -206,5 +207,36 @@ describe("level test engine — writing blend", () => {
   test("a writing prompt is chosen near the estimated ability", () => {
     expect(pickWritingPrompt(0.5).level).toBeLessThan(2);
     expect(pickWritingPrompt(4.5).level).toBeGreaterThan(3.5);
+  });
+});
+
+describe("unavailable listening is a coverage gap, never a failed answer", () => {
+  test("exclusion preserves theta, evidence count and outcomes, then stops selecting listening", () => {
+    let s = startLevelTest(2.5);
+    for (let i = 0; i < 3; i++) s = recordAnswer(s, nextItem(s)!, true);
+    const unavailable = nextItem(s)!;
+    expect(skillOf(unavailable)).toBe("listening");
+    const next = excludeListening(s);
+    expect(next.theta).toBe(s.theta);
+    expect(next.answered).toBe(s.answered);
+    expect(next.recent).toEqual(s.recent);
+    expect(next.answers).toEqual(s.answers);
+    expect(levelTestResult(next).partial).toBe(true);
+    expect(recordAnswer(next, unavailable, false)).toBe(next); // cannot accidentally score a skip
+    let run = next;
+    while (!isDone(run)) {
+      const item = nextItem(run)!;
+      expect(skillOf(item)).not.toBe("listening");
+      run = recordAnswer(run, item, true);
+    }
+    expect(skillReport(run).listening).toBeUndefined();
+    expect(run.answered).toBeLessThanOrEqual(LT_MAX_ITEMS);
+  });
+
+  test("a double local submit cannot credit the same test question twice", () => {
+    const initial = startLevelTest(2.5);
+    const item = nextItem(initial)!;
+    const once = recordAnswer(initial, item, true);
+    expect(recordAnswer(once, item, true)).toBe(once);
   });
 });

@@ -20,12 +20,13 @@ The LLM is routed by LLM_PROVIDER (.env): ollama (local dev, default) | anthropi
 import asyncio
 import hashlib
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncIterator, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -177,7 +178,9 @@ def run_migrations() -> None:
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
+def health(response: Response) -> dict[str, str]:
+    # Set by the release launcher, so disk HEAD and the running process are verifiable separately.
+    response.headers["X-Relo-Revision"] = os.environ.get("RELO_RELEASE_SHA", "unknown")
     return {"status": "ok"}
 
 
@@ -228,6 +231,7 @@ async def exercise(
             context=context,
             mistakes=mistakes,
             lang=payload.lang,
+            practice_index=payload.practice_index,
         )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -439,8 +443,12 @@ async def explain_stream(
     )
 
     async def _stream():
+        fallback = grammar.explanation_context_fallback(payload.text, payload.lang)
+        if fallback is not None:
+            yield " ".join((fallback["explanation"], fallback["tip"]))
+            return
         try:
-            async for chunk in llm_generate_stream(prompt, temperature=0.2):
+            async for chunk in llm_generate_stream(prompt, temperature=0.2, tier="smart"):
                 yield chunk
         except OllamaError as exc:
             # The response is already 200/streaming, so surface the failure inline as text.

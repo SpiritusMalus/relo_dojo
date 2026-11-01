@@ -56,6 +56,14 @@ export async function consumeGuestExercise(today: string): Promise<boolean> {
   return allowed;
 }
 
+/** Meter a delivered card, not a failed network attempt. null means the shared cap is exhausted. */
+export async function deliverGuestExercise<T>(today: string, fetchCard: () => Promise<T>): Promise<T | null> {
+  if (remaining(await loadGuestLimit(), today) === 0) return null;
+  const card = await fetchCard();
+  if (!(await consumeGuestExercise(today))) return null;
+  return card;
+}
+
 /** Clear the counter (called on logout so a fresh guest starts clean). */
 export async function resetGuestLimit(): Promise<void> {
   try {

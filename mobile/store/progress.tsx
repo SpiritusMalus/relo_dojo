@@ -14,14 +14,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getProgress, putProgress, syncLearnerProfile, type ExerciseType } from "../services/api";
+import { getProgress, isCurrentAuthToken, putProgress, syncLearnerProfile, type ExerciseType } from "../services/api";
 import { useAuth } from "./auth";
 import { resetWall } from "./registerWall";
 import { resetGuestLimit } from "./guestLimit";
 import { resetJourney } from "./journey";
 import { resetReviewHook } from "./reviewHook";
 import { useWallet } from "./wallet";
-import { LISTENING_FORMATS, updateListening, updateSkill, type ListeningStat } from "./adaptive";
+import { effectiveSkill, LISTENING_FORMATS, RECENT_ANSWERS, updateListening, updateSkill, type AnswerEffort, type AnswerEvidence, type ListeningStat } from "./adaptive";
 import { MASTERY_WINDOW, type AnswerMark } from "./curriculum";
 import {
   MIN_REPAIRABLE_STREAK,
@@ -42,7 +42,7 @@ export const COMBO_BONUS_XP = 20;
 export const BOOST_MINUTES = 15;
 export const BOOST_MULTIPLIER = 2;
 
-export type TopicStat = { attempts: number; correct: number; lastSeen?: string }; // lastSeen: local YYYY-MM-DD
+export type TopicStat = { attempts: number; correct: number; lastSeen?: string; recent?: AnswerEvidence[] }; // lastSeen: local YYYY-MM-DD
 
 export type Profile = {
   goals: string[];
@@ -97,6 +97,7 @@ export type LevelSnapshot = {
   level: number; // blended overall estimate (0..5)
   cefr: string;
   skills: Record<string, number>;
+  partial?: boolean; // this run explicitly omitted an unavailable modality or the writing section
 };
 
 // Keep the last 12 snapshots (~3 years at the quarterly cadence) — enough for every delta the UI
@@ -122,6 +123,7 @@ export type Progress = {
   currentCorrectRun: number;
   bestCorrectRun: number;
   topics: Record<string, TopicStat>;
+  recentFormats?: string[]; // last two actual formats across topics; avoids repeated card shapes
   achievements: string[]; // unlocked ids
   skill: Record<string, number>; // per-topic adaptive level (0..5), see store/adaptive.ts
   onboarded: boolean;
@@ -132,7 +134,9 @@ export type Progress = {
   brokenStreak?: BrokenStreak | null;
   // ISO timestamp until which the x2-XP "kensei" boost runs ("" = no boost).
   boostUntil?: string;
-  // Belt exam: highest belt idx EARNED through an exam (worn belt). undefined = legacy, skill belt shown.
+  // Highest explicitly awarded belt (exam or full Level Test; 0 = fresh White).
+  // Missing/null means no recorded award: hydration/sync normalize it to 0 while preserving
+  // every numeric award. Warm-up/skill estimates alone never supply an earned belt.
   beltEarned?: number;
   lastExamDate?: string; // local YYYY-MM-DD of the last exam attempt (one attempt per day)
   // Full Level Test trail: when it was last taken (drives the quarterly re-check nudge) and the saved
@@ -163,6 +167,7 @@ export const DEFAULT_PROGRESS: Progress = {
   todayCount: 0,
   brokenStreak: null,
   boostUntil: "",
+  beltEarned: 0,
   steering: DEFAULT_STEERING,
   course: DEFAULT_COURSE,
 };
@@ -225,7 +230,7 @@ function isYesterday(prev: string, today: Date): boolean {
 /** Optional grading signal for a difficulty-aware skill update (store/adaptive.ts). `score` is the
  *  partial credit (0..1); `difficulty` is the served item's difficulty on the 0..5 scale; `format`
  *  is the exercise type — course mastery weighs constructive formats above guessable ones. */
-export type GradeSignal = { score?: number; difficulty?: number; format?: string };
+export type GradeSignal = AnswerEffort & { score?: number; difficulty?: number; format?: string };
 
 /** Apply one answer to progress, returning a new immutable Progress. `now` is injectable for tests. */
 export function recordAnswer(
@@ -238,12 +243,20 @@ export function recordAnswer(
   const today = localDate(now);
 
   const existing = prev.topics[topic] ?? { attempts: 0, correct: 0 };
+  const score = Number.isFinite(grade?.score) ? Math.min(1, Math.max(0, grade!.score!)) : correct ? 1 : 0;
+  const difficulty = Number.isFinite(grade?.difficulty)
+    ? Math.min(5, Math.max(0, grade!.difficulty!))
+    : effectiveSkill(prev, topic);
+  const evidence: AnswerEvidence = { score, difficulty, format: grade?.format ?? "" };
+  if (Number.isFinite(grade?.elapsedMs)) evidence.elapsedMs = Math.min(600_000, Math.max(0, Math.round(grade!.elapsedMs!)));
+  if (grade?.hintUsed) evidence.hintUsed = true;
   const topics = {
     ...prev.topics,
     [topic]: {
       attempts: existing.attempts + 1,
       correct: existing.correct + (correct ? 1 : 0),
       lastSeen: today, // drives spaced-repetition review urgency (store/adaptive.ts)
+      recent: [...(existing.recent ?? []), evidence].slice(-RECENT_ANSWERS),
     },
   };
 
@@ -254,7 +267,7 @@ export function recordAnswer(
   // the unit READY for its checkpoint (зачёт) — mastery itself is granted only by passing that quiz
   // (withUnitMastered, called from the checkpoint screen). Never granted here, never revoked.
   const prevCourse = prev.course ?? DEFAULT_COURSE;
-  const marks = [...(prevCourse.history[topic] ?? []), { c: correct, f: grade?.format ?? "" }].slice(
+  const marks = [...(prevCourse.history[topic] ?? []), { c: correct && !grade?.hintUsed, f: grade?.format ?? "" }].slice(
     -MASTERY_WINDOW
   );
   const course: CourseState = {
@@ -288,6 +301,7 @@ export function recordAnswer(
     ...prev,
     xp: prev.xp + earnedXp,
     topics,
+    recentFormats: grade?.format ? [...(prev.recentFormats ?? []), grade.format].slice(-2) : prev.recentFormats,
     currentCorrectRun,
     bestCorrectRun,
     dailyStreak,
@@ -296,11 +310,11 @@ export function recordAnswer(
     // Adaptive level update uses prior attempts (prev), so compute before the increment is "seen".
     // Prefer the partial score + served difficulty when available (difficulty-aware update);
     // otherwise fall back to the boolean correctness.
-    skill: updateSkill(prev, topic, grade?.score ?? correct, grade?.difficulty),
+    skill: updateSkill(prev, topic, score, difficulty, grade),
     // Listening exercises also feed the modality estimate (Level Test diagnosis between tests).
     listening:
       grade?.format && LISTENING_FORMATS.has(grade.format)
-        ? updateListening(prev.listening, grade?.score ?? correct, grade?.difficulty)
+        ? updateListening(prev.listening, score, difficulty, grade)
         : prev.listening,
     // Daily-goal counter: reset on a new local day, otherwise increment.
     todayDate: today,
@@ -370,6 +384,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     currentCorrectRun: Math.max(a.currentCorrectRun, b.currentCorrectRun),
     bestCorrectRun: Math.max(a.bestCorrectRun, b.bestCorrectRun),
     topics,
+    recentFormats: ((totalAttempts(b) > totalAttempts(a) ? b.recentFormats : a.recentFormats) ?? a.recentFormats ?? b.recentFormats)?.slice(-2),
     achievements: Array.from(new Set([...a.achievements, ...b.achievements])),
     skill,
     onboarded: a.onboarded || b.onboarded,
@@ -395,12 +410,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     // Boost: the later expiry wins (ISO strings compare lexicographically).
     boostUntil: (a.boostUntil ?? "") >= (b.boostUntil ?? "") ? a.boostUntil ?? "" : b.boostUntil ?? "",
     // Belt exam: the highest earned belt wins; the later attempt date wins.
-    beltEarned:
-      a.beltEarned === undefined
-        ? b.beltEarned
-        : b.beltEarned === undefined
-        ? a.beltEarned
-        : Math.max(a.beltEarned, b.beltEarned),
+    beltEarned: Math.max(a.beltEarned ?? 0, b.beltEarned ?? 0),
     lastExamDate: (a.lastExamDate ?? "") >= (b.lastExamDate ?? "") ? a.lastExamDate : b.lastExamDate,
     lastLevelTestDate:
       (a.lastLevelTestDate ?? "") >= (b.lastLevelTestDate ?? "") ? a.lastLevelTestDate : b.lastLevelTestDate,
@@ -466,6 +476,7 @@ async function load(): Promise<Progress> {
       profile: stored.profile ?? null,
       brokenStreak: stored.brokenStreak ?? null,
       boostUntil: stored.boostUntil ?? "",
+      beltEarned: stored.beltEarned ?? 0,
       steering: stored.steering ? { ...DEFAULT_STEERING, ...stored.steering } : DEFAULT_STEERING,
       course: stored.course
         ? { history: stored.course.history ?? {}, mastered: stored.course.mastered ?? [] }
@@ -490,7 +501,7 @@ type ProgressContextValue = {
   progress: Progress;
   ready: boolean; // false until the first local load completes
   synced: boolean; // false until the post-login server reconciliation settles (success or offline)
-  recordAnswer: (topic: string, correct: boolean, grade?: GradeSignal) => void;
+  recordAnswer: (topic: string, correct: boolean, grade?: GradeSignal) => Progress;
   completeOnboarding: (profile: Profile, skill: Record<string, number>) => void;
   resetOnboarding: () => void;
   /** Merge a partial change into the profile (e.g. tone or a new goal from settings). */
@@ -529,22 +540,49 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   progressRef.current = progress;
   const syncedToken = useRef<string | null>(null);
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const session = useRef({ token, version: 0 });
+  const cacheVersion = useRef(0);
+  if (session.current.token !== token) {
+    if (session.current.token !== null) cacheVersion.current++;
+    session.current = { token, version: session.current.version + 1 };
+  }
+  // Serialize cache writes: a slow old-session native write must finish BEFORE a logout/new-account
+  // snapshot replaces it, never after. Pending writes for invalidated sessions are skipped entirely.
+  const cacheWrites = useRef<Promise<void>>(Promise.resolve());
+  const persist = useCallback((p: Progress) => {
+    const captured = session.current;
+    const write = cacheWrites.current.then(async () => {
+      if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
+      await save(p);
+    });
+    cacheWrites.current = write.catch(() => {});
+    return write;
+  }, []);
 
   // Load the local cache once on mount.
   useEffect(() => {
+    let disposed = false;
+    const originalCache = cacheVersion.current;
     load().then((p) => {
-      setProgress(p);
+      if (disposed) return;
+      const snapshot = originalCache === cacheVersion.current ? p : DEFAULT_PROGRESS;
+      progressRef.current = snapshot;
+      setProgress(snapshot);
       setReady(true);
     });
+    return () => { disposed = true; };
   }, []);
 
   // Debounced push of the latest snapshot to the server (only when authed).
   const schedulePush = useCallback(
-    (p: Progress) => {
-      if (!token) return;
+    (_p: Progress) => {
+      const captured = session.current;
+      if (!token || captured.token !== token || !isCurrentAuthToken(token)) return;
       if (pushTimer.current) clearTimeout(pushTimer.current);
       pushTimer.current = setTimeout(() => {
-        void putProgress(p).catch(() => {}); // best-effort; AsyncStorage already has it
+        pushTimer.current = null;
+        if (session.current !== captured || !isCurrentAuthToken(token)) return;
+        void putProgress(progressRef.current, token).catch(() => {});
       }, 1200);
     },
     [token]
@@ -552,6 +590,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   // React to login/logout: merge-on-login (server canonical), clear-on-logout (avoid mixing accounts).
   useEffect(() => {
+    // Cleanup/guards apply to logout too, including the gap before React runs this effect.
+    if (pushTimer.current) clearTimeout(pushTimer.current);
+    pushTimer.current = null;
     if (!ready || !authReady) return;
     if (token === syncedToken.current) {
       // No token transition. Anonymous-first: with no token there's nothing to reconcile, so settle
@@ -562,8 +603,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     if (!token) {
       syncedToken.current = null;
       setSynced(true); // logged-out: settled, the user is now an anonymous guest
+      progressRef.current = DEFAULT_PROGRESS;
       setProgress(DEFAULT_PROGRESS);
-      void save(DEFAULT_PROGRESS);
+      void persist(DEFAULT_PROGRESS);
       // Reset the anon-funnel counters so a fresh guest doesn't inherit the previous user's state
       // (register-wall lesson count + guest daily cap + relocation-journey stage + review-hook).
       void resetWall();
@@ -572,25 +614,42 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       void resetReviewHook();
       return;
     }
+    if (syncedToken.current !== null && syncedToken.current !== token) {
+      // A direct account switch must not merge the previous member's private local history.
+      progressRef.current = DEFAULT_PROGRESS;
+      setProgress(DEFAULT_PROGRESS);
+      void persist(DEFAULT_PROGRESS);
+    }
     syncedToken.current = token;
     setSynced(false); // new token → hold onboarding routing until the server snapshot lands
     // Cancel any debounced push still holding a PRE-merge snapshot: the reconcile below pushes the
     // merged state itself, so a stale queued push must not fire afterward and clobber the server.
-    if (pushTimer.current) clearTimeout(pushTimer.current);
+    const captured = session.current;
+    let disposed = false;
+    const current = () => !disposed && session.current === captured && isCurrentAuthToken(token);
     (async () => {
       try {
-        const server = await getProgress();
+        const server = await getProgress(token);
+        if (!current()) return;
         const merged = mergeProgress(progressRef.current, server);
+        progressRef.current = merged;
         setProgress(merged);
-        await save(merged);
-        await putProgress(merged);
+        await persist(merged);
+        if (!current()) return;
+        // An answer may have landed while the local cache was saving. Push the latest snapshot.
+        await putProgress(progressRef.current, token);
       } catch {
         // offline / server down — keep local; a later change or re-login will sync
       } finally {
-        setSynced(true);
+        if (current()) setSynced(true);
       }
     })();
-  }, [ready, authReady, token]);
+    return () => {
+      disposed = true;
+      if (pushTimer.current) clearTimeout(pushTimer.current);
+      pushTimer.current = null;
+    };
+  }, [ready, authReady, token, persist]);
 
   // Streak reconciliation on launch / after sync: a gap is either bridged by an owned omamori
   // (consumed server-side — the charm exists to be silently useful) or surfaced as a BREAK event
@@ -608,7 +667,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     if (p.brokenStreak && !repairOpen(p.brokenStreak, now)) {
       setProgress((prev) => {
         const next = { ...prev, brokenStreak: null };
-        void save(next);
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -616,6 +675,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     }
     const status = streakStatus(p.dailyStreak, p.lastActiveDate, now);
     if (status.kind !== "broken") return;
+    const captured = session.current;
     void (async () => {
       let bridged = false;
       if (freezes > 0) {
@@ -626,6 +686,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           // 409 (charm raced away) / offline → fall through to the break event
         }
       }
+      if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
       setProgress((prev) => {
         const next: Progress = bridged
           ? { ...prev, lastActiveDate: yesterdayOf(now) } // gap bridged — practicing today extends it
@@ -637,7 +698,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
               dailyStreak: 0,
             };
         if (next !== prev) {
-          void save(next);
+          void persist(next);
           schedulePush(next);
         }
         return next;
@@ -646,14 +707,18 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, [ready, walletReady, freezes, spend, schedulePush]);
 
   const repairStreak = useCallback(async () => {
+    const captured = session.current;
+    if (!captured.token || !isCurrentAuthToken(captured.token)) return;
     const broken = progressRef.current.brokenStreak;
     if (!broken || !repairOpen(broken, new Date())) return;
     // Flush the snapshot first so the server prices the repair off ITS copy of brokenStreak.streak
     // (server-authoritative — a patched client can't understate the lost streak to pay less).
     // Best-effort: if the push fails the server falls back to the qty below, so repair never blocks.
-    await putProgress(progressRef.current).catch(() => {});
+    await putProgress(progressRef.current, captured.token).catch(() => {});
+    if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
     // Server charges koku (price scales with the lost streak); throws ApiError 409 if short.
     await spend("streak_repair", broken.streak);
+    if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
     const now = new Date();
     setProgress((prev) => {
       const practicedToday = prev.lastActiveDate === localDate(now);
@@ -664,7 +729,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         lastActiveDate: practicedToday ? prev.lastActiveDate : yesterdayOf(now),
         brokenStreak: null,
       };
-      void save(next);
+      void persist(next);
       schedulePush(next);
       return next;
     });
@@ -674,7 +739,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     setProgress((prev) => {
       if (!prev.brokenStreak) return prev;
       const next: Progress = { ...prev, brokenStreak: null };
-      void save(next);
+      void persist(next);
       schedulePush(next);
       return next;
     });
@@ -684,7 +749,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     setProgress((prev) => {
       const until = new Date(Date.now() + BOOST_MINUTES * 60000).toISOString();
       const next: Progress = { ...prev, boostUntil: until };
-      void save(next);
+      void persist(next);
       schedulePush(next);
       return next;
     });
@@ -692,12 +757,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const record = useCallback(
     (topic: string, correct: boolean, grade?: GradeSignal) => {
-      setProgress((prev) => {
-        const next = recordAnswer(prev, topic, correct, new Date(), grade);
-        void save(next);
-        schedulePush(next);
-        return next;
-      });
+      // The caller can select the next card immediately after grading, before React re-renders.
+      // Keeping this ref current also prevents two same-tick answers from sharing a stale snapshot.
+      const next = recordAnswer(progressRef.current, topic, correct, new Date(), grade);
+      progressRef.current = next;
+      setProgress(next);
+      void persist(next);
+      schedulePush(next);
+      return next;
     },
     [schedulePush]
   );
@@ -705,8 +772,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const completeOnboarding = useCallback(
     (profile: Profile, skill: Record<string, number>) => {
       setProgress((prev) => {
-        const next: Progress = { ...prev, profile, skill, onboarded: true };
-        void save(next);
+        const next: Progress = { ...prev, profile, skill, onboarded: true, beltEarned: prev.beltEarned ?? 0 };
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -726,7 +793,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       setProgress((prev) => {
         if (!prev.profile) return prev;
         const next: Progress = { ...prev, profile: { ...prev.profile, ...patch } };
-        void save(next);
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -745,7 +812,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       setProgress((prev) => {
         const next = withUnitMastered(prev, topic);
         if (next !== prev) {
-          void save(next);
+          void persist(next);
           schedulePush(next);
         }
         return next;
@@ -762,7 +829,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           lastExamDate: date,
           beltEarned: passed ? Math.max(prev.beltEarned ?? 0, targetIdx) : prev.beltEarned,
         };
-        void save(next);
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -793,7 +860,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
               ? { level: snapshot.skills.listening, attempts: prev.listening?.attempts ?? 0 }
               : prev.listening,
         };
-        void save(next);
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -810,7 +877,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           xp: prev.xp + xp,
           profile: { ...prev.profile, ...profilePatch },
         };
-        void save(next);
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -822,7 +889,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     (next: Steering) => {
       setProgress((prev) => {
         const p: Progress = { ...prev, steering: next };
-        void save(p);
+        void persist(p);
         schedulePush(p);
         return p;
       });
@@ -833,7 +900,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const resetOnboarding = useCallback(() => {
     setProgress((prev) => {
       const next: Progress = { ...prev, onboarded: false };
-      void save(next);
+      void persist(next);
       schedulePush(next);
       return next;
     });

@@ -6,7 +6,7 @@ with an automatic 422 before it ever reaches Ollama.
 
 from __future__ import annotations
 
-from typing import Optional, Union
+from typing import Annotated, Literal, Optional, Union
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -29,6 +29,7 @@ class ExerciseIn(BaseModel):
     # server-side). Count bounded here; per-item length/whitespace handled in grammar._sanitize_mistakes.
     mistakes: list[str] = Field(default_factory=list, max_length=5)
     lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language for LLM-generated task instructions (transform-the-sentence)
+    practice_index: Optional[int] = Field(default=None, ge=0, le=1_000_000_000)
 
 
 class MatchItem(BaseModel):
@@ -58,6 +59,7 @@ class ExerciseOut(BaseModel):
     type: str
     topic: str
     level: str = ""  # effective CEFR served (A1..C1); lets the client score difficulty-aware
+    source: Literal["generated", "curated"] = "generated"  # diagnostics; never a claim that a safety-net item was AI-written
     text: str = ""
     prompt: str = ""  # source line for translation exercises (e.g. the Russian sentence)
     instruction: str = ""  # transform-the-sentence: the grammar transform to apply to `prompt`
@@ -365,10 +367,21 @@ class MessageOut(BaseModel):
 
 
 # --- progress sync (Phase 4): typed mirror of the client snapshot ---
+class AnswerEvidence(BaseModel):
+    """Small recent-evidence window used by the client adaptive tutor across devices."""
+
+    score: float = Field(ge=0, le=1)
+    difficulty: float = Field(ge=0, le=5)
+    format: str = Field(max_length=80)
+    elapsedMs: Optional[float] = Field(default=None, ge=0, le=600_000)
+    hintUsed: Optional[bool] = None
+
+
 class TopicStat(BaseModel):
     attempts: int = 0
     correct: int = 0
     lastSeen: str = ""  # local YYYY-MM-DD of last practice; drives spaced repetition (adaptive.ts)
+    recent: list[AnswerEvidence] = Field(default_factory=list, max_length=6)
 
 
 class Profile(BaseModel):
@@ -436,6 +449,7 @@ class LevelSnapshot(BaseModel):
     level: float = 0.0  # blended overall estimate (0..5)
     cefr: str = ""
     skills: dict[str, float] = {}
+    partial: bool = False  # e.g. native audio unavailable; do not present as a complete assessment
 
 
 class ListeningStat(BaseModel):
@@ -453,6 +467,7 @@ class ProgressData(BaseModel):
     currentCorrectRun: int = 0
     bestCorrectRun: int = 0
     topics: dict[str, TopicStat] = {}
+    recentFormats: list[Annotated[str, Field(max_length=80)]] = Field(default_factory=list, max_length=2)
     achievements: list[str] = []
     skill: dict[str, float] = {}  # per-topic adaptive level (0..5)
     onboarded: bool = False

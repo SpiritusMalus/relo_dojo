@@ -1,4 +1,5 @@
 import { Linking, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
@@ -20,6 +21,7 @@ export default function ConsentScreen() {
   const { accept } = useConsent();
   const params = useLocalSearchParams<{ review?: string }>();
   const review = params.review === "1";
+  const insets = useSafeAreaInsets();
 
   async function onAgree() {
     await accept();
@@ -38,7 +40,7 @@ export default function ConsentScreen() {
   }
 
   return (
-    <Screen contentStyle={{ paddingBottom: 32 }}>
+    <Screen contentStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 32 }}>
       <Txt variant="screenTitle" style={{ marginTop: 8 }}>
         {tr("consent.title")}
       </Txt>

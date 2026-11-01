@@ -63,7 +63,7 @@ const longPressWord = (r: ReactTestRenderer, word: string) =>
 const longPressButton = (r: ReactTestRenderer, label: string) =>
   longPress(r, (n) => n.props.accessibilityLabel === label);
 
-beforeEach(() => mockTranslate.mockClear());
+beforeEach(() => { mockTranslate.mockReset(); mockTranslate.mockResolvedValue("развёртывание"); });
 
 describe("tap-to-translate popover", () => {
   it("long-pressing a word in the English prompt requests + shows its translation", async () => {
@@ -96,5 +96,41 @@ describe("tap-to-translate popover", () => {
     longPressButton(r, "Word: deployment.");
     await flush();
     expect(mockTranslate).toHaveBeenCalledWith("deployment", "The deployment. failed");
+  });
+
+  it("records assistance only after a successful translation, never for a failed lookup", async () => {
+    const hint = jest.fn();
+    const r = render(<ExerciseCard exercise={ex({ text: "deployment" })} locked={false} onChange={jest.fn()} onHint={hint} />);
+    longPressWord(r, "deployment");
+    expect(hint).not.toHaveBeenCalled();
+    await flush();
+    expect(hint).toHaveBeenCalledTimes(1);
+    mockTranslate.mockRejectedValueOnce(new Error("offline"));
+    longPressWord(r, "deployment");
+    await flush();
+    expect(hint).toHaveBeenCalledTimes(1);
+    act(() => r.unmount());
+  });
+
+  it("closed-book cards never request a translation or provide a hidden hint", async () => {
+    const hint = jest.fn();
+    const r = render(<ExerciseCard exercise={ex({ text: "deployment" })} locked={false} onChange={jest.fn()} onHint={hint} translationEnabled={false} />);
+    longPressWord(r, "deployment");
+    await flush();
+    expect(mockTranslate).not.toHaveBeenCalled();
+    expect(hint).not.toHaveBeenCalled();
+    expect(texts(r)).not.toContain("ex.translating");
+    act(() => r.unmount());
+  });
+
+  it("a previous card's late translation cannot mark the next attempt as assisted", async () => {
+    let resolve!: (text: string) => void;
+    mockTranslate.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
+    const hint = jest.fn();
+    const r = render(<ExerciseCard exercise={ex({ text: "deployment" })} locked={false} onChange={jest.fn()} onHint={hint} />);
+    longPressWord(r, "deployment");
+    act(() => r.unmount());
+    await act(async () => { resolve("развёртывание"); });
+    expect(hint).not.toHaveBeenCalled();
   });
 });

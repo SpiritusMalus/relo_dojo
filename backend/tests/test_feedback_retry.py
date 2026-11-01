@@ -34,7 +34,7 @@ async def test_second_attempt_prompt_carries_the_rejection_reason(monkeypatch):
     assert len(prompts) == 2
     assert "rejected" not in prompts[0]  # first attempt is clean
     assert "your previous output was rejected" in prompts[1]
-    assert "missing text, options or answer" in prompts[1]  # the specific defect, not a generic nudge
+    assert "exactly ONE blank" in prompts[1]  # the specific defect, not a generic nudge
 
 
 async def test_fallback_to_multiple_choice_still_works(monkeypatch):

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { useProgress } from "../../store/progress";
 import { useAuth } from "../../store/auth";
 import { useAccess } from "../../store/access";
@@ -33,7 +32,7 @@ import Icon from "../../components/ui/Icon";
 import { beltByIndex } from "../../theme/theme";
 import BeltKnot from "../../components/ui/BeltKnot";
 import { TOPIC_LABELS, minutesToGoal } from "../../store/onboarding";
-import { RU_TOPIC_LABELS } from "../../i18n/strings";
+import { RU_TOPIC_LABELS, beltName } from "../../i18n/strings";
 import { isoDay } from "../../store/adaptive";
 import { requestPlan } from "../../services/api";
 import RuleSheet from "../../components/ui/RuleSheet";
@@ -163,50 +162,29 @@ export default function HomeScreen() {
 
       <ActivationBanner />
 
-      {/* Broken-streak repair offer (loss aversion): visible while the repair window is open */}
-      <StreakRepairSheet belt={bp.belt} />
-
-      {/* One-shot timed offer (FOMO with an honest clock) */}
-      <OfferBanner />
-
-      {/* Soft save-progress wall: after a few anonymous lessons, offer (never force) an account to
-          sync progress. Driven by access.sync (false only for anonymous users). */}
-      {shouldShowWall(wall, access.sync) && (
-        <RegisterWall
-          onCreate={() => router.push("/login")}
-          onDismiss={() => {
-            const next = dismissWall(wall);
-            setWall(next);
-            void saveWall(next);
-          }}
-        />
-      )}
-
-      {/* Belt hero — background is the current belt colour */}
-      <LinearGradient
-        colors={[bp.belt.color, bp.belt.edge]}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
-        style={[styles.hero, { borderRadius: t.spacing.radiusLg }]}
-      >
-        <View style={styles.heroMascot}>
-          <Sensei belt={bp.belt} size={92} mood="cheer" bob />
+      <View style={[styles.hero, { backgroundColor: t.c.surface, borderRadius: t.spacing.radiusLg, borderColor: t.c.line }]}>
+        <View style={{ flex: 1, gap: 6 }}>
+          <Txt variant="screenTitle">{beltName(bp.belt, lang)}</Txt>
+          <Txt variant="secondary" color={t.c.ink2}>
+            {!bp.started
+              ? tr("belt.untrained")
+              : bp.atMax
+              ? tr("home.topBelt", { cefr: bp.cefr })
+              : tr("home.toNext", { cefr: bp.cefr, pct: bp.pctToNext, belt: beltName(bp.nextBelt, lang) })}
+          </Txt>
+          <ProgressBar pct={bp.atMax ? 100 : bp.pctToNext} color={t.c.accent} style={{ marginTop: 6 }} />
         </View>
-        <Txt variant="label" color={bp.belt.ink} style={{ opacity: 0.8 }}>
-          {tr("home.yourBelt")}
+        <Sensei belt={bp.belt} size={76} mood="happy" />
+      </View>
+
+      {/* The daily ritual stays findable before the optional path and rewards. */}
+      <DailyMixButton onPress={() => router.push("/practice")} />
+      {leftToday !== null && (
+        <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center", marginTop: -6 }}>
+          {tr("home.leftToday", { n: leftToday })}
         </Txt>
-        <Txt variant="hero" color={bp.belt.ink} style={{ marginTop: 2 }}>
-          {bp.belt.name}
-        </Txt>
-        <Txt variant="bodyStrong" color={bp.belt.ink} style={{ opacity: 0.9, marginTop: 4, marginBottom: 12 }}>
-          {!bp.started
-            ? tr("home.notStarted")
-            : bp.atMax
-            ? tr("home.topBelt", { cefr: bp.cefr })
-            : tr("home.toNext", { cefr: bp.cefr, pct: bp.pctToNext, belt: bp.nextBelt.name })}
-        </Txt>
-        <ProgressBar pct={bp.atMax ? 100 : bp.pctToNext} color={bp.belt.ink} track="rgba(0,0,0,0.16)" />
-      </LinearGradient>
+      )}
+      {goalTarget > 0 && <DailyGoalRing done={progress.todayCount} target={goalTarget} />}
 
       {/* Sensei's line, spoken: the mascot + a speech bubble (the memory layer, made personal). */}
       {!!greetingText && <SenseiBubble belt={bp.belt} mood={greetingMood} text={greetingText} />}
@@ -224,7 +202,10 @@ export default function HomeScreen() {
           }}
         >
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Txt variant="label">{`📜 ${tr("quest.title")}`}</Txt>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Icon name="scroll" size={20} color={t.c.gold} />
+              <Txt variant="label">{tr("quest.title")}</Txt>
+            </View>
             <Txt variant="caption" color={t.c.ink3}>
               {progress.profile?.planBonusPaid === progress.profile?.planDate
                 ? tr("quest.done")
@@ -257,24 +238,24 @@ export default function HomeScreen() {
           <Pressable
             onPress={() => router.push("/belt-exam")}
             accessibilityRole="button"
-            accessibilityLabel="Belt exam"
+            accessibilityLabel={tr("home.beltTest")}
             style={({ pressed }) => [
               styles.examBtn,
               {
-                backgroundColor: t.c.gold,
+                backgroundColor: t.c.fireSoft,
                 borderRadius: t.spacing.radius,
-                borderBottomWidth: pressed ? 1 : 4,
+                borderBottomWidth: pressed ? 1 : 2,
                 borderBottomColor: target.edge,
               },
-              pressed ? { transform: [{ translateY: 3 }] } : null,
+              pressed ? { transform: [{ translateY: 1 }] } : null,
             ]}
           >
             <BeltKnot belt={target} size={40} />
             <View style={{ flex: 1 }}>
-              <Txt variant="cardTitle" color={target.ink}>
-                {tr("exam.btnTitle", { belt: target.name })}
+              <Txt variant="cardTitle" color={t.c.ink}>
+                {tr("exam.btnTitle", { belt: beltName(target, lang) })}
               </Txt>
-              <Txt variant="secondary" color={target.ink} style={{ opacity: 0.8 }}>
+              <Txt variant="secondary" color={t.c.ink} style={{ opacity: 0.8 }}>
                 {allowed ? tr("exam.btnSub") : tr("exam.tomorrow")}
               </Txt>
             </View>
@@ -293,7 +274,7 @@ export default function HomeScreen() {
           <Pressable
             onPress={() => router.push("/level-test")}
             accessibilityRole="button"
-            accessibilityLabel="Level check"
+            accessibilityLabel={tr("lt.entry")}
             style={({ pressed }) => [
               styles.examBtn,
               {
@@ -319,7 +300,6 @@ export default function HomeScreen() {
       })()}
 
       {/* Today's goal as a ring + the shakiest-topic coach card — restored designer Home hooks. */}
-      {goalTarget > 0 && <DailyGoalRing done={progress.todayCount} target={goalTarget} />}
       {weakTopic && (
         <CoachCard
           topicLabel={weakLabel}
@@ -354,12 +334,23 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* The one daily action (starter — always open). Every other mode lives in the Train tab. */}
-      <DailyMixButton onPress={() => router.push("/practice")} />
-      {leftToday !== null && (
-        <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center", marginTop: -6 }}>
-          {tr("home.leftToday", { n: leftToday })}
-        </Txt>
+      {/* Broken-streak repair offer (loss aversion): visible while the repair window is open */}
+      <StreakRepairSheet belt={bp.belt} />
+
+      {/* One-shot timed offer (FOMO with an honest clock) */}
+      {access.sync && <OfferBanner />}
+
+      {/* Soft save-progress wall: after a few anonymous lessons, offer (never force) an account to
+          sync progress. Driven by access.sync (false only for anonymous users). */}
+      {shouldShowWall(wall, access.sync) && (
+        <RegisterWall
+          onCreate={() => router.push("/login")}
+          onDismiss={() => {
+            const next = dismissWall(wall);
+            setWall(next);
+            void saveWall(next);
+          }}
+        />
       )}
 
       {/* Daily contracts (engagement v2): the come-back-every-day + earn-varied hook.
@@ -370,7 +361,6 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { padding: 20, overflow: "hidden" },
-  heroMascot: { position: "absolute", top: 6, right: 10 },
+  hero: { padding: 18, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 16 },
   examBtn: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, minHeight: 64 },
 });
