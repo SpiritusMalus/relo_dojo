@@ -28,6 +28,8 @@ const TOKEN_KEY = "relo_dojo_token";
 // Native writes cannot be cancelled once dispatched. Serialize even across provider remounts so
 // an old A write finishes before the logout/B replacement, never after the newer credentials.
 let secureStoreWrites: Promise<void> = Promise.resolve();
+const IDENTITY_RETRY_INITIAL_MS = 15000;
+const IDENTITY_RETRY_MAX_MS = 60000;
 
 type AuthContextValue = {
   ready: boolean; // false until we've checked storage for a saved token
@@ -48,11 +50,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [identityEpoch, setIdentityEpoch] = useState(0);
   const sessionVersion = useRef(0);
+  const tokenRef = useRef<string | null>(null);
+  const userRef = useRef<AuthUser | null>(null);
+  const mounted = useRef(true);
+  const identityRequest = useRef<{ token: string; version: number; promise: Promise<AuthUser | null> } | null>(null);
 
   // Apply a token everywhere (api client + state + secure storage).
   const apply = useCallback(async (newToken: string | null) => {
     const version = ++sessionVersion.current;
+    setIdentityEpoch(version);
+    tokenRef.current = newToken;
+    userRef.current = null;
     setAuthToken(newToken);
     setToken(newToken);
     setUser(null);
@@ -66,9 +76,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return version;
   }, []);
 
+  // Startup, foreground/manual refresh and retry share a request. A slow /me must not create
+  // overlapping reads, and neither a late success nor a late 401 may affect a replacement login.
+  const requestIdentity = useCallback((expectedToken: string, version: number): Promise<AuthUser | null> => {
+    const current = () => mounted.current && version === sessionVersion.current
+      && tokenRef.current === expectedToken && isCurrentAuthToken(expectedToken);
+    if (!current()) return Promise.resolve(null);
+    const pending = identityRequest.current;
+    if (pending?.token === expectedToken && pending.version === version) return pending.promise;
+    const request = { token: expectedToken, version, promise: Promise.resolve<AuthUser | null>(null) };
+    request.promise = (async () => {
+      // Install the in-flight marker before even a synchronously throwing transport can settle.
+      await Promise.resolve();
+      try {
+        if (!current()) return null;
+        const me = await getMe();
+        if (!current()) return null;
+        userRef.current = me;
+        setUser(me);
+        return me;
+      } catch (error) {
+        if (current() && error instanceof ApiError && error.status === 401) await apply(null);
+        throw error;
+      } finally {
+        if (identityRequest.current === request) identityRequest.current = null;
+      }
+    })();
+    identityRequest.current = request;
+    return request.promise;
+  }, [apply]);
+
   // Storage is the startup gate. A slow/offline server must not hide the whole app
   // or erase saved credentials; only an explicit 401 establishes an invalid session.
   useEffect(() => {
+    mounted.current = true;
     let disposed = false;
     const version = sessionVersion.current;
     (async () => {
@@ -76,17 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const saved = await SecureStore.getItemAsync(TOKEN_KEY);
         if (disposed || version !== sessionVersion.current) return;
         if (saved) {
+          tokenRef.current = saved;
           setAuthToken(saved);
           setToken(saved);
           setReady(true);
-          try {
-            const me = await getMe();
-            if (!disposed && version === sessionVersion.current) setUser(me);
-          } catch (error) {
-            if (!disposed && version === sessionVersion.current && error instanceof ApiError && error.status === 401) {
-              await apply(null);
-            }
-          }
+          await requestIdentity(saved, version).catch(() => {});
         }
       } catch {
         // A SecureStore read failure is recoverable; do not destroy data we could not read.
@@ -94,37 +129,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!disposed) setReady(true);
       }
     })();
-    return () => { disposed = true; };
-  }, [apply]);
+    return () => { disposed = true; mounted.current = false; };
+  }, [requestIdentity]);
 
   const login = useCallback(
     async (email: string, password: string) => {
       const requestVersion = ++sessionVersion.current;
+      setIdentityEpoch(requestVersion);
       const { access_token } = await apiLogin(email.trim(), password);
       if (requestVersion !== sessionVersion.current) return;
       const version = await apply(access_token);
       if (version !== sessionVersion.current) return;
-      const me = await getMe();
-      if (version !== sessionVersion.current) return;
-      setUser(me);
+      const me = await requestIdentity(access_token, version);
+      if (!me || version !== sessionVersion.current) return;
       void syncConsentToServer(); // replay a consent accepted while anonymous (audit trail)
     },
-    [apply]
+    [apply, requestIdentity]
   );
 
   const register = useCallback(
     async (email: string, password: string) => {
       const requestVersion = ++sessionVersion.current;
+      setIdentityEpoch(requestVersion);
       const { access_token } = await apiRegister(email.trim(), password);
       if (requestVersion !== sessionVersion.current) return;
       const version = await apply(access_token);
       if (version !== sessionVersion.current) return;
-      const me = await getMe();
-      if (version !== sessionVersion.current) return;
-      setUser(me);
+      const me = await requestIdentity(access_token, version);
+      if (!me || version !== sessionVersion.current) return;
       void syncConsentToServer(); // replay a consent accepted while anonymous (audit trail)
     },
-    [apply]
+    [apply, requestIdentity]
   );
 
   const logout = useCallback(async () => {
@@ -132,26 +167,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [apply]);
 
   const refreshUser = useCallback(async () => {
+    const expectedToken = tokenRef.current;
+    if (!expectedToken) return;
     const version = sessionVersion.current;
-    try {
-      const me = await getMe();
-      if (version === sessionVersion.current) setUser(me);
-    } catch (error) {
-      if (version === sessionVersion.current && error instanceof ApiError && error.status === 401) {
-        await apply(null);
-      }
-    }
-  }, [apply]);
+    await requestIdentity(expectedToken, version).catch(() => {});
+  }, [requestIdentity]);
 
   useEffect(() => {
     if (!ready || !token) return;
-    // A session restored offline is revalidated when the learner returns. A temporary
-    // outage never needs a fresh login just to recover the account display.
+    let stopped = false;
+    let foreground = AppState.currentState !== "background" && AppState.currentState !== "inactive";
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let delay = IDENTITY_RETRY_INITIAL_MS;
+    const version = sessionVersion.current;
+    const unknownCurrentUser = () => !stopped && foreground && !userRef.current
+      && version === sessionVersion.current && tokenRef.current === token && isCurrentAuthToken(token);
+    const clear = () => { if (timer) clearTimeout(timer); timer = null; };
+    const schedule = () => {
+      if (timer || !unknownCurrentUser()) return;
+      timer = setTimeout(() => {
+        timer = null;
+        if (!unknownCurrentUser()) return;
+        void refreshUser().finally(() => {
+          delay = Math.min(delay * 2, IDENTITY_RETRY_MAX_MS);
+          schedule();
+        });
+      }, delay);
+    };
+    // A restored session can come online while the app stays open. Poll only the missing identity
+    // with bounded backoff; known users keep the ordinary foreground revalidation behavior.
+    schedule();
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") void refreshUser();
+      foreground = state === "active";
+      clear();
+      if (foreground) {
+        delay = IDENTITY_RETRY_INITIAL_MS;
+        void refreshUser().finally(schedule);
+      }
     });
-    return () => subscription.remove();
-  }, [ready, token, refreshUser]);
+    return () => { stopped = true; clear(); subscription.remove(); };
+  }, [ready, token, user, identityEpoch, refreshUser]);
 
   const resendVerification = useCallback(async () => {
     await apiRequestVerification();

@@ -9,10 +9,17 @@ import { trackReviewSubmitted } from "../../services/analytics";
 
 const mockLogout = jest.fn(async () => {});
 const mockUpdate = jest.fn();
+const mockRefreshUser = jest.fn(async () => {});
+const mockRefreshWallet = jest.fn(async () => {});
+const mockRefreshCosmetics = jest.fn(async () => {});
+let mockUser: { email: string } | null = { email: "a@example.com" };
+let mockToken: string | null = null;
 jest.mock("expo-router", () => ({ useRouter: () => ({ back: jest.fn(), replace: jest.fn(), push: jest.fn() }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock("../../store/i18n", () => ({ useI18n: () => ({ lang: "en", t: (key: string) => key, setLang: jest.fn() }) }));
-jest.mock("../../store/auth", () => ({ useAuth: () => ({ user: { email: "a@example.com" }, logout: mockLogout }) }));
+jest.mock("../../store/auth", () => ({ useAuth: () => ({ token: mockToken, user: mockUser, logout: mockLogout, refreshUser: mockRefreshUser }) }));
+jest.mock("../../store/wallet", () => ({ useWallet: () => ({ refresh: mockRefreshWallet }) }));
+jest.mock("../../store/cosmeticsStore", () => ({ useCosmetics: () => ({ refresh: mockRefreshCosmetics }) }));
 jest.mock("../../store/progress", () => ({ useProgress: () => ({ progress: {}, resetOnboarding: jest.fn(), updateProfile: mockUpdate }) }));
 jest.mock("../../components/ui/Sensei", () => () => null);
 jest.mock("../../services/analytics", () => ({ trackReviewSubmitted: jest.fn() }));
@@ -25,8 +32,31 @@ function mount(screen: React.ReactElement) {
   return renderer!;
 }
 const button = (r: ReactTestRenderer, label: string) => r.root.findAll((n) => n.type === Button).find((n) => n.props.label === label)!;
-beforeEach(() => { jest.clearAllMocks(); setAuthToken(token("A")); });
+beforeEach(() => { jest.clearAllMocks(); mockUser = { email: "a@example.com" }; mockToken = token("A"); setAuthToken(mockToken); });
 afterEach(() => { if (renderer) act(() => renderer!.unmount()); renderer = undefined; setAuthToken(null); jest.restoreAllMocks(); });
+
+it("a saved offline session stays an account and can refresh identity, balance and outfits together", async () => {
+  mockUser = null;
+  const r = mount(<SettingsScreen />);
+  const visible = JSON.stringify(r.toJSON());
+  expect(visible).toContain("settings.accountOffline");
+  expect(visible).not.toContain("settings.accountEntry");
+  await act(async () => { await button(r, "settings.retryAccount").props.onPress(); });
+  expect(mockRefreshUser).toHaveBeenCalledTimes(1);
+  expect(mockRefreshWallet).toHaveBeenCalledTimes(1);
+  expect(mockRefreshCosmetics).toHaveBeenCalledTimes(1);
+});
+
+it("a held account-refresh button cannot dispatch after replacement by B", async () => {
+  mockUser = null;
+  const r = mount(<SettingsScreen />);
+  const retry = button(r, "settings.retryAccount").props.onPress;
+  act(() => setAuthToken(token("B")));
+  await act(async () => { await retry(); });
+  expect(mockRefreshUser).not.toHaveBeenCalled();
+  expect(mockRefreshWallet).not.toHaveBeenCalled();
+  expect(mockRefreshCosmetics).not.toHaveBeenCalled();
+});
 
 it("does not execute A's native deletion confirmation after a switch to B", async () => {
   const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});

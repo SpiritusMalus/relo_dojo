@@ -7,10 +7,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { AppState } from "react-native";
 import { getWallet, spendItem, type SpendItem, type Wallet } from "../services/api";
 import { useAuth } from "./auth";
 import { captureAccountScope, isCurrentAccountScope, subscribeAccountScope, type AccountScope } from "./accountScope";
@@ -21,7 +23,7 @@ export const PRICE_EXTRA_PACK = 50;
 export const EXTRA_PACK_SIZE = 10;
 
 type WalletContextValue = {
-  ready: boolean; // false until the first fetch after login resolves (or fails)
+  ready: boolean; // true only after a full authoritative mirror is known for this account
   coins: number;
   freezes: number;
   isPremium: boolean;
@@ -39,60 +41,81 @@ const EMPTY: Wallet = { coins: 0, freezes: 0, is_premium: false, left_today: nul
 const WalletContext = createContext<WalletContextValue | null>(null);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const scope = useSyncExternalStore(subscribeAccountScope, captureAccountScope, captureAccountScope);
   const [mirror, setMirror] = useState(() => ({ scope, ready: false, wallet: EMPTY }));
+  const mounted = useRef(true);
+  const inFlight = useRef<{ scope: AccountScope; promise: Promise<void> } | null>(null);
+  const mutationVersion = useRef(0);
   // Scope publication happens synchronously in the API token setter. Hide the old account even
   // before React's token effect runs; a delayed refresh must never briefly expose A's balance to B.
   const ready = mirror.scope === scope && mirror.ready;
   const wallet = mirror.scope === scope ? mirror.wallet : EMPTY;
 
-  // (Re)load on login; clear on logout.
   useEffect(() => {
-    let cancelled = false;
-    setMirror({ scope, ready: false, wallet: EMPTY });
-    if (!token || !isCurrentAccountScope(scope)) return;
-    (async () => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  const refresh = useCallback((): Promise<void> => {
+    const requestScope = scope;
+    if (!mounted.current || !token || requestScope.owner === null || !isCurrentAccountScope(requestScope)) return Promise.resolve();
+    if (inFlight.current?.scope === requestScope) return inFlight.current.promise;
+    const version = mutationVersion.current;
+    const pending = { scope: requestScope, promise: Promise.resolve() };
+    inFlight.current = pending;
+    pending.promise = (async () => {
       try {
         const w = await getWallet();
-        if (!cancelled && isCurrentAccountScope(scope)) setMirror({ scope, ready: true, wallet: w });
+        if (!mounted.current || !isCurrentAccountScope(requestScope) || mutationVersion.current !== version) return;
+        setMirror((current) => mounted.current && isCurrentAccountScope(requestScope) && mutationVersion.current === version
+          ? { scope: requestScope, ready: true, wallet: w } : current);
       } catch {
-        // offline / old backend — keep the cached zero state; /check patches will still land
-        if (!cancelled && isCurrentAccountScope(scope)) {
-          setMirror((current) => isCurrentAccountScope(scope)
-            ? { scope, ready: true, wallet: current.scope === scope ? current.wallet : EMPTY } : current);
-        }
+        // Unknown stays unknown after an offline boot. Revalidation preserves a known mirror.
+      } finally {
+        if (inFlight.current === pending) inFlight.current = null;
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [token, scope]);
+    return pending.promise;
+  }, [scope, token]);
 
-  const refresh = useCallback(async () => {
-    const requestScope = scope;
-    if (!isCurrentAccountScope(requestScope)) return;
-    try {
-      const w = await getWallet();
-      setMirror((current) => isCurrentAccountScope(requestScope)
-        ? { scope: requestScope, ready: true, wallet: w } : current);
-    } catch {
-      // ignore — next /check patch or refresh will catch up
-    }
-  }, [scope]);
+  // A new epoch hides the previous mirror immediately. Revalidation within this epoch never
+  // resets a successful balance to zero, and all concurrent free GET triggers share one request.
+  useEffect(() => {
+    setMirror((current) => current.scope === scope ? current : { scope, ready: false, wallet: EMPTY });
+    void refresh();
+  }, [scope, refresh]);
+
+  useEffect(() => {
+    if (!token) return;
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refresh();
+    });
+    return () => subscription.remove();
+  }, [token, refresh]);
+
+  useEffect(() => {
+    // /auth/me can recover in the foreground without changing a JWT's already known scope.
+    // Retry only an unknown mirror on this identity edge; mirror changes do not create a poller.
+    if (user?.id != null && (mirror.scope !== scope || !mirror.ready)) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, scope, refresh]);
 
   const spend = useCallback(async (item: SpendItem, qty = 1) => {
     const requestScope = scope;
-    if (!isCurrentAccountScope(requestScope)) return;
+    if (!mounted.current || !isCurrentAccountScope(requestScope)) return;
     // Server is the source of truth; it returns the post-spend wallet (409 → throws, no change).
     const w = await spendItem(item, qty);
-    setMirror((current) => isCurrentAccountScope(requestScope)
+    if (!mounted.current || !isCurrentAccountScope(requestScope)) return;
+    mutationVersion.current++;
+    setMirror((current) => mounted.current && isCurrentAccountScope(requestScope)
       ? { scope: requestScope, ready: true, wallet: w } : current);
   }, [scope]);
 
   const applyCheckReward = useCallback((coins?: number | null, requestScope = scope) => {
-    if (typeof coins !== "number" || !isCurrentAccountScope(scope) || !isCurrentAccountScope(requestScope)) return;
-    setMirror((current) => isCurrentAccountScope(requestScope)
+    if (typeof coins !== "number" || !mounted.current || !isCurrentAccountScope(scope) || !isCurrentAccountScope(requestScope)) return;
+    mutationVersion.current++;
+    setMirror((current) => mounted.current && isCurrentAccountScope(requestScope)
       ? { scope: requestScope, ready: current.scope === requestScope && current.ready,
           wallet: { ...(current.scope === requestScope ? current.wallet : EMPTY), coins } } : current);
   }, [scope]);

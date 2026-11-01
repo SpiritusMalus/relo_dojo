@@ -172,6 +172,11 @@ export const STRINGS = {
 
     "settings.title": "Settings",
     "settings.account": "Account",
+    "settings.accountOffline": "Your session is saved. Account details are unavailable until the connection returns.",
+    "settings.retryAccount": "Refresh account",
+    "settings.refreshingAccount": "Refreshing account…",
+    "wallet.balanceOpen": "Koku: {n}. Open the shop",
+    "wallet.balanceUnavailable": "Balance unavailable. Open the shop",
     "settings.dark": "Dark mode",
     "settings.language": "Language",
     "settings.redoOnboarding": "Redo onboarding",
@@ -704,6 +709,11 @@ export const STRINGS = {
 
     "settings.title": "Настройки",
     "settings.account": "Аккаунт",
+    "settings.accountOffline": "Вход сохранён. Данные аккаунта появятся, когда восстановится связь.",
+    "settings.retryAccount": "Обновить аккаунт",
+    "settings.refreshingAccount": "Обновляем аккаунт…",
+    "wallet.balanceOpen": "Коку: {n}. Открыть магазин",
+    "wallet.balanceUnavailable": "Баланс недоступен. Открыть магазин",
     "settings.dark": "Тёмная тема",
     "settings.language": "Язык",
     "settings.redoOnboarding": "Пройти онбординг заново",
