@@ -109,6 +109,14 @@ it("stops permission work when the account changes during a native permissions r
   expect(Native.requestPermissionsAsync).not.toHaveBeenCalled();
 });
 
+it("respects a prior denial instead of asking again on another login or launch", async () => {
+  jest.mocked(Native.getPermissionsAsync).mockResolvedValueOnce({
+    granted: false, canAskAgain: true, status: "denied", expires: "never",
+  } as Awaited<ReturnType<typeof Native.getPermissionsAsync>>);
+  expect(await ensurePermission()).toBe(false);
+  expect(Native.requestPermissionsAsync).not.toHaveBeenCalled();
+});
+
 it("discards a granted permission response that belongs to an earlier account scope", async () => {
   type Permission = Awaited<ReturnType<typeof Native.requestPermissionsAsync>>;
   const permission = deferred<Permission>();
