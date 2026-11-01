@@ -1,0 +1,30 @@
+{
+  "scope": "Offline authored-item clarification after independent semantic review; not a new LLM holdout",
+  "requested_level": "B1",
+  "actual_level": "A2",
+  "source": "curated",
+  "task": {
+    "type": "multiple-choice",
+    "topic": "punctuation",
+    "level": "A2",
+    "text": "Write a list of three separate items (tea / bread / milk): ___",
+    "options": [
+      "We bought tea bread and milk.",
+      "We bought tea bread and, milk.",
+      "We bought, tea bread and milk.",
+      "We bought tea, bread and milk."
+    ],
+    "source": "curated"
+  },
+  "checks": {
+    "response_schema": true,
+    "correct_key_grades_true": true,
+    "distractor_grades": [
+      false,
+      false,
+      false
+    ]
+  },
+  "clarification": "The displayed stem explicitly requires three separate items: tea / bread / milk. The old unqualified list could be read as two items including tea bread.",
+  "bank_sha256": "b10e87b76f1dc8c11b657e49af0b0e899b75ffa454b2ce0fee37238c6ae78d20"
+}

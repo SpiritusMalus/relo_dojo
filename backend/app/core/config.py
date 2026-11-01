@@ -33,18 +33,17 @@ class Settings(BaseSettings):
     # --- OpenRouter (OpenAI-compatible gateway) — text + read-aloud audio go through one sk-or key.
     # Realtime voice (Gemini Live) is NOT available via OpenRouter; only the gemini provider has it.
     OPENROUTER_API_KEY: str = ""
-    # Model slug is provider/name (see openrouter.ai/models). gemini-3.1-flash-lite is the owner's
-    # pick and (confirmed on the OpenRouter model list) accepts audio input — so the SAME slug serves
-    # both text and read-aloud transcription. Override in .env to change models.
-    OPENROUTER_MODEL: str = "google/gemini-3.1-flash-lite"
-    # Read-aloud transcription model — must accept audio input; defaults to the text model (it does).
+    # Text model selected by the synthetic A1-C1 release comparison (2026-10-31). Keep audio on
+    # its independently compatible model; text model changes must not break transcription.
+    OPENROUTER_MODEL: str = "google/gemini-3.5-flash-lite"
+    # Read-aloud transcription model — must accept audio input.
     OPENROUTER_TRANSCRIBE_MODEL: str = "google/gemini-3.1-flash-lite"
     # Reasoning cap for OpenRouter calls: "none" disables thinking, "minimal"/"low"/"medium"/"high"
     # cap it (OpenRouter maps effort → Gemini thinkingLevel). Empty = parameter not sent. Measured
     # live 2026-07-03: gemini-3.1-flash-lite reports tok_think=0 on our exercise calls either way,
     # so for THAT model this is insurance (a future slug that thinks by default would silently eat
     # 6x-priced reasoning tokens); it is NOT the per-call latency lever — provider routing is.
-    OPENROUTER_REASONING_EFFORT: str = ""
+    OPENROUTER_REASONING_EFFORT: str = "low"
     # Upstream routing preference: "latency"/"throughput"/"price" → payload `provider.sort`.
     # gemini-3.1-flash-lite is served by several upstreams with a 1.7s..9s TTFT spread (measured
     # live on our cards); sorting by latency trims the slow tail. Empty = OpenRouter's default
@@ -58,13 +57,20 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL_SMART: str = ""
     OPENAI_MODEL_SMART: str = ""
     GEMINI_MODEL_SMART: str = ""
-    OPENROUTER_MODEL_SMART: str = ""
+    OPENROUTER_MODEL_SMART: str = "openai/gpt-6.1-terra"
+    OPENROUTER_MODEL_REPAIR: str = "google/gemini-3.8-flash"
     OLLAMA_MODEL_SMART: str = ""
 
     # --- Ollama (local dev path) ---
     OLLAMA_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "gemma3:4b"
     EXERCISE_TEMPERATURE: float = 0.7
+    # Validate meaning/answerability as well as JSON shape before serving an AI-written card.
+    # The smart tier can use a separately evaluated reviewer; failed reviews feed the retry prompt.
+    EXERCISE_REVIEW_ENABLED: bool = True
+    EXERCISE_REPAIR_ENABLED: bool = True  # one stronger checked MC attempt after validation failures
+    EXERCISE_CURATED_FALLBACK_ENABLED: bool = True  # authored safety net only after a checked repair fails
+    EXERCISE_TIMEOUT_S: float = 60.0  # entire generation + review + retry budget
     CHECK_TEMPERATURE: float = 0.2
 
     # --- Interactive-exercise token sealing (Phase 2.5) ---

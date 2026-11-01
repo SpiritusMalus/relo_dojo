@@ -50,6 +50,14 @@ class LLMRefusedError(LLMError):
     attempt because each retry re-sent the same quoted learner miss containing a name). Callers
     with retry loops must CHANGE the prompt (drop the user-derived clauses) before retrying."""
 
+
+class LLMConfigurationError(LLMError):
+    """Credentials, credit or model-access errors that regeneration cannot repair."""
+
+
+class LLMOutputError(LLMError):
+    """The model responded but its content is malformed, truncated or schema-invalid."""
+
 logger = logging.getLogger(__name__)
 
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
@@ -89,6 +97,8 @@ def _model_for(provider: str, tier: str) -> str:
     if provider == "openai":
         return (settings.OPENAI_MODEL_SMART if smart else "") or settings.OPENAI_MODEL
     if provider == "openrouter":
+        if tier == "repair":
+            return settings.OPENROUTER_MODEL_REPAIR or settings.OPENROUTER_MODEL
         return (settings.OPENROUTER_MODEL_SMART if smart else "") or settings.OPENROUTER_MODEL
     if provider == "gemini":
         return (settings.GEMINI_MODEL_SMART if smart else "") or settings.GEMINI_MODEL
@@ -119,6 +129,8 @@ def build_anthropic_payload(
 
 
 def parse_anthropic_response(data: dict[str, Any], expect_json: bool) -> Any:
+    if data.get("stop_reason") == "refusal":
+        raise LLMRefusedError("Anthropic refused this request.")
     for block in data.get("content") or []:
         if expect_json and block.get("type") == "tool_use":
             inp = block.get("input")
@@ -126,7 +138,7 @@ def parse_anthropic_response(data: dict[str, Any], expect_json: bool) -> Any:
                 return inp
         if not expect_json and block.get("type") == "text":
             return str(block.get("text") or "").strip()
-    raise LLMError("Anthropic returned no usable content.")
+    raise LLMOutputError("Anthropic returned no usable content.")
 
 
 def build_openai_payload(
@@ -144,13 +156,61 @@ def build_openai_payload(
     if temperature is not None:
         payload["temperature"] = temperature
     if schema is not None:
-        # strict=False: our schemas don't carry additionalProperties=false on purpose
-        # (strict mode would reject them); loose json_schema adherence is enough here.
         payload["response_format"] = {
             "type": "json_schema",
-            "json_schema": {"name": "out", "schema": schema, "strict": False},
+            "json_schema": {"name": "out", "schema": strict_json_schema(schema), "strict": True},
         }
     return payload
+
+
+def strict_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Adapt our small object/array schemas to native strict structured output.
+
+    Strict providers require all object properties to be required. Optional properties are
+    represented as nullable, preserving their original optional meaning without mutating callers.
+    """
+    out = dict(schema)
+    if out.get("type") == "object":
+        required = set(out.get("required", []))
+        properties = {}
+        for key, child in out.get("properties", {}).items():
+            adapted = strict_json_schema(child)
+            if key not in required:
+                adapted = {"anyOf": [adapted, {"type": "null"}]}
+            properties[key] = adapted
+        out.update(properties=properties, required=list(properties), additionalProperties=False)
+    elif out.get("type") == "array" and isinstance(out.get("items"), dict):
+        out["items"] = strict_json_schema(out["items"])
+    return out
+
+
+def validate_json_output(value: Any, schema: dict[str, Any], path: str = "output") -> None:
+    """Enforce the schema subset used by this app even when an upstream ignores its schema.
+
+    Type/required/enum checks here are transport guards. Pedagogical correctness is checked by
+    exercise validators and semantic review, never inferred from well-formed JSON.
+    """
+    kind = schema.get("type")
+    types = {"object": dict, "array": list, "string": str, "number": (int, float),
+             "integer": int, "boolean": bool, "null": type(None)}
+    if kind in types and (not isinstance(value, types[kind]) or
+                          kind in {"number", "integer"} and isinstance(value, bool)):
+        raise LLMOutputError(f"Model output does not match schema: {path} must be {kind}.")
+    if "enum" in schema and value not in schema["enum"]:
+        raise LLMOutputError(f"Model output does not match schema: {path} has an invalid value.")
+    if kind == "object":
+        required = schema.get("required", [])
+        if any(key not in value for key in required):
+            raise LLMOutputError(f"Model output does not match schema: {path} is missing required fields.")
+        properties = schema.get("properties", {})
+        if properties and set(value) - set(properties):
+            raise LLMOutputError(f"Model output does not match schema: {path} has unexpected fields.")
+        for key, child in properties.items():
+            if key in value and not (key not in required and value[key] is None):
+                validate_json_output(value[key], child, f"{path}.{key}")
+    elif kind == "array" and isinstance(schema.get("items"), dict):
+        for child in value:
+            validate_json_output(child, schema["items"], f"{path}[]")
 
 
 def with_openrouter_prefs(payload: dict[str, Any]) -> dict[str, Any]:
@@ -162,9 +222,22 @@ def with_openrouter_prefs(payload: dict[str, Any]) -> dict[str, Any]:
     effort = (settings.OPENROUTER_REASONING_EFFORT or "").strip().lower()
     if effort:
         payload["reasoning"] = {"effort": effort}
+    # An endpoint silently ignoring response_format makes JSON-valid pedagogical garbage look
+    # like structured output. Route only to endpoints supporting the requested schema.
+    provider = dict(payload.get("provider") or {})
+    if "response_format" in payload:
+        provider["require_parameters"] = True
+    # These reasoning models expose no temperature parameter in OpenRouter's model catalogue.
+    # Sending it with require_parameters would exclude every usable endpoint.
+    if str(payload.get("model", "")).startswith(
+        ("openai/gpt-5", "openai/gpt-6", "anthropic/claude-haiku-5.5")
+    ):
+        payload.pop("temperature", None)
     sort = (settings.OPENROUTER_PROVIDER_SORT or "").strip().lower()
     if sort:
-        payload["provider"] = {"sort": sort}
+        provider["sort"] = sort
+    if provider:
+        payload["provider"] = provider
     return payload
 
 
@@ -174,15 +247,25 @@ with_openrouter_reasoning = with_openrouter_prefs
 
 def parse_openai_response(data: dict[str, Any], expect_json: bool) -> Any:
     try:
-        content = str(data["choices"][0]["message"]["content"] or "")
+        choice = data["choices"][0]
+        if not isinstance(choice, dict):
+            raise TypeError("Invalid choice envelope")
+        if choice.get("finish_reason") == "content_filter":
+            raise LLMRefusedError("The provider refused this request.")
+        message = choice.get("message")
+        if not isinstance(message, dict):
+            raise TypeError("Invalid message envelope")
+        if message.get("refusal"):
+            raise LLMRefusedError("The provider refused this request.")
+        content = str(message.get("content") or "")
     except (KeyError, IndexError, TypeError) as exc:
-        raise LLMError("OpenAI returned no usable content.") from exc
+        raise LLMOutputError("OpenAI returned no usable content.") from exc
     if not expect_json:
         return content.strip()
     try:
         return json.loads(content)
     except json.JSONDecodeError as exc:
-        raise LLMError(f"Model returned invalid JSON: {content[:200]}") from exc
+        raise LLMOutputError("Model returned invalid JSON.") from exc
 
 
 # Keys Gemini's responseSchema (an OpenAPI 3.0 subset) accepts; everything else is stripped.
@@ -229,19 +312,24 @@ def build_gemini_payload(
 
 
 def parse_gemini_response(data: dict[str, Any], expect_json: bool) -> Any:
+    if (data.get("promptFeedback") or {}).get("blockReason"):
+        raise LLMRefusedError("Gemini refused this request.")
     try:
-        parts = data["candidates"][0]["content"]["parts"]
+        candidate = data["candidates"][0]
+        if candidate.get("finishReason") in {"SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"}:
+            raise LLMRefusedError("Gemini refused this request.")
+        parts = candidate["content"]["parts"]
         text = "".join(str(p.get("text") or "") for p in parts)
     except (KeyError, IndexError, TypeError) as exc:
-        raise LLMError("Gemini returned no usable content.") from exc
+        raise LLMOutputError("Gemini returned no usable content.") from exc
     if not text.strip():
-        raise LLMError("Gemini returned no usable content.")
+        raise LLMOutputError("Gemini returned no usable content.")
     if not expect_json:
         return text.strip()
     try:
         return json.loads(text)
     except json.JSONDecodeError as exc:
-        raise LLMError(f"Model returned invalid JSON: {text[:200]}") from exc
+        raise LLMOutputError("Model returned invalid JSON.") from exc
 
 
 # --- streaming line parsers (SSE; unit-tested offline, mirror the Ollama NDJSON parser) ----------
@@ -329,9 +417,11 @@ def _raise_for_status(status: int, name: str, text: str = "") -> None:
     # per-request refusal — content moderation/guardrail flag or key permissions. Telling the user
     # to "check the key" for a 403 sends them (and us) debugging the wrong thing.
     if status == 401:
-        raise LLMError(f"{name} API key missing or rejected — check the key in .env.")
+        raise LLMConfigurationError(f"{name} API key missing or rejected — check the key in .env.")
     if status == 402:
-        raise LLMError(f"{name}: the account is out of credits — top up the provider balance.")
+        raise LLMConfigurationError(f"{name}: the account is out of credits — top up the provider balance.")
+    if status == 404:
+        raise LLMConfigurationError(f"{name} model access unavailable: {_error_reason(text)}")
     if status == 403:
         reason = _error_reason(text) or "permissions or content guardrail"
         raise LLMRefusedError(f"{name} refused this request ({reason}).")
@@ -589,14 +679,17 @@ async def generate_json(
     p = _provider()
     model = _model_for(p, tier)
     if p == "anthropic":
-        return await _anthropic(prompt, schema, temperature, model)
-    if p == "openai":
-        return await _openai(prompt, schema, temperature, model)
-    if p == "openrouter":
-        return await _openrouter(prompt, schema, temperature, model)
-    if p == "gemini":
-        return await _gemini(prompt, schema, temperature, model)
-    return await _ollama_generate_json(prompt, schema, temperature=temperature, model=model)
+        result = await _anthropic(prompt, schema, temperature, model)
+    elif p == "openai":
+        result = await _openai(prompt, schema, temperature, model)
+    elif p == "openrouter":
+        result = await _openrouter(prompt, schema, temperature, model)
+    elif p == "gemini":
+        result = await _gemini(prompt, schema, temperature, model)
+    else:
+        result = await _ollama_generate_json(prompt, schema, temperature=temperature, model=model)
+    validate_json_output(result, schema)
+    return result
 
 
 async def generate_stream(prompt: str, *, temperature: float | None = None) -> AsyncIterator[str]:

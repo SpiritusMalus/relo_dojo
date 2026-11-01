@@ -228,13 +228,13 @@ async def test_openrouter_reasoning_effort_reaches_the_payload(monkeypatch):
     monkeypatch.setattr(settings, "OPENROUTER_PROVIDER_SORT", "latency")
     await llm.generate_json("p", {"type": "object"})
     assert seen["payload"]["reasoning"] == {"effort": "none"}
-    assert seen["payload"]["provider"] == {"sort": "latency"}  # trims the slow-upstream TTFT tail
+    assert seen["payload"]["provider"] == {"sort": "latency", "require_parameters": True}
 
     monkeypatch.setattr(settings, "OPENROUTER_REASONING_EFFORT", "")
     monkeypatch.setattr(settings, "OPENROUTER_PROVIDER_SORT", "")
     await llm.generate_json("p", {"type": "object"})
     assert "reasoning" not in seen["payload"]  # empty = provider default, payload untouched
-    assert "provider" not in seen["payload"]
+    assert seen["payload"]["provider"] == {"require_parameters": True}
 
 
 def test_usage_from_extracts_reasoning_tokens():

@@ -24,9 +24,11 @@ GRAMMAR_RULES: dict[str, str] = {
         "e.g. 'If it rains, we will stay'; 'If I had known, I would have called'."
     ),
     "verb sequence (tense agreement)": (
-        "Keep tenses consistent; backshift in reported speech (say→said, will→would, present→past). "
-        "After a past main verb the subordinate clause is usually past too. "
-        "e.g. 'She said she was tired' (not 'is tired')."
+        "Keep tenses consistent. Backshift is common in reported speech (will→would, present→past) "
+        "but OPTIONAL if the statement remains true or relevant. Both 'She said she is tired' "
+        "and 'She said she was tired' can be correct. Never use optional backshift alternatives "
+        "as wrong distractors without an explicit task constraint. Prefer genuinely exclusive "
+        "agreement forms or clear time cues."
     ),
     "vocabulary": (
         "Use the natural collocation, register and word form (noun/verb/adj); watch false friends. "
@@ -74,6 +76,32 @@ GRAMMAR_RULES: dict[str, str] = {
 # keeps an A-level prompt free of third-conditional noise and a C-level prompt free of basics — a
 # smaller, sharper anchor for the level being practiced (and fewer tokens, not more).
 GRAMMAR_RULES_BY_BAND: dict[tuple[str, str], str] = {
+    ("prepositions", "B"): (
+        "Test dependent prepositions and verb/noun-preposition patterns in clear context: "
+        "'object to doing', 'insist on doing', 'responsible for', 'in contrast to'. "
+        "Use a meaningful contrast, not a basic day/time in/on/at question. Avoid accepted variants."
+    ),
+    ("articles", "B"): (
+        "Test countability, general vs specific reference and established fixed phrases with enough "
+        "displayed context to force the key. Do not guess shared knowledge or test only vowel-sound a/an."
+    ),
+    ("prepositions", "C"): (
+        "Test idiomatic dependent prepositions and abstract relations in precise context, "
+        "e.g. 'with a view to', 'in accordance with', 'under the auspices of'. Avoid basic "
+        "day/time in/on/at decisions and avoid variants that are both accepted by dialect/register."
+    ),
+    ("articles", "C"): (
+        "Test advanced article usage in emphatic nominal phrases ('the very fact that'), "
+        "nominalised adjective groups, or formal fixed phrases ('in the abstract'). Display enough "
+        "context to force the key. Never assume shared knowledge or contrast bare a/the before an "
+        "ordinary noun where either could fit. Do not test only vowel-sound a/an."
+    ),
+    ("verb sequence (tense agreement)", "A"): (
+        "Practice simple present/past subject-verb agreement with clear time cues: "
+        "'She works here'; 'They worked yesterday'. Use familiar everyday verbs. "
+        "Do NOT introduce reported speech, backshift, past perfect or complex subordinate clauses "
+        "at A1/A2. Choose form contrasts, not two equally plausible tenses."
+    ),
     ("conditionals", "A"): (
         "Zero: if + present, present (general truth). First: if + present, will + base (real future). "
         "Never put 'will' in the if-clause. "

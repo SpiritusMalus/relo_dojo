@@ -1,0 +1,29 @@
+{
+  "created_at_utc": "2026-11-01T07:24:55.629966+00:00",
+  "scope": "Backend final offline verification and previously captured live eval receipts; main task owns Git/CI/deployment/native acceptance",
+  "offline_tests": {
+    "command": "./.venv312/bin/python -m pytest -q with isolated throwaway env and provider keys disabled",
+    "passed": 486,
+    "seconds": 0.64
+  },
+  "reported_provider_cost_usd": 0.5594368,
+  "uncollected_cancelled_run_hard_cap_usd": 1.0,
+  "task_evaluation_budget_usd": 3.0,
+  "budget_note": "Reported usage excludes an interrupted wrong-source run; that run was cancelled and had its own $1 hard cap. No purchases or account budget changes were made by this evaluator. HTTP policy/access refusals are not model quality scores.",
+  "source_sha256": {
+    "backend/app/core/config.py": "188beb60027ca90423b5749691e4fc96461081ef53475895b58579565798ffed",
+    "backend/app/schemas.py": "a165ac46d9989648f84074a3612500991596372310f33fc979a16f9bf715be1a",
+    "backend/app/services/_grammar_generators.py": "0a1686f5169e01e0902f1bd56058abf258461cd9bffa3e24c8c51949e7911945",
+    "backend/app/services/_grammar_prompts.py": "0317def2d9c362899ec162c7787c4afa8af54b5c8856e577e857304db53420fd",
+    "backend/app/services/_grammar_rules.py": "07f0660a6170143332d17ea0cfb613093c4809627ebd22e5a112389219fb4894",
+    "backend/app/services/_grammar_feedback.py": "9de0f07353ff7414dc7d497386a57ad03b6f9ba2982914428eaa5888bc7e7b3c",
+    "backend/app/services/llm.py": "e58cf4544767a8d95dd515679a2d2a491f64f8d79d99f970940486e236081803",
+    "backend/app/services/curated_fallback.py": "b10e87b76f1dc8c11b657e49af0b0e899b75ffa454b2ce0fee37238c6ae78d20"
+  },
+  "final_live_evidence": {
+    "generation_regression": "14-final-integration-20.json",
+    "writing": "15-writing-final-18.json",
+    "bank_stem_clarification": "16-curated-list-clarification.json",
+    "core_feedback": "10-feedback-writing-regression.json"
+  }
+}

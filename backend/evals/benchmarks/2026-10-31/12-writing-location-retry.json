@@ -1,0 +1,41 @@
+{
+  "accuracy": 1.0,
+  "results": [
+    {
+      "id": "w02",
+      "prompt": "Write about your family.",
+      "text": "My family have four people. Mother, father, sister and me. Sister is student. We live Moscow.",
+      "expected": [
+        "A1",
+        "A2"
+      ],
+      "note": "Very basic phrases; agreement and preposition errors; no linking.",
+      "got": "A1",
+      "ok": true,
+      "model_output": {
+        "cefr": "A1",
+        "score": 0.5,
+        "note": "Practise writing complete sentences with the correct articles and verb forms."
+      }
+    },
+    {
+      "id": "w09",
+      "prompt": "Describe your plans for the future.",
+      "text": "I am planning to move to Germany next year because I received a job offer from a company in Berlin. First I need to prepare all documents and improve my English. If everything goes well, I will start in September. I hope that my family can join me after some months.",
+      "expected": [
+        "B1"
+      ],
+      "note": "Connected, mostly accurate; first conditional handled; vocabulary plain.",
+      "got": "B1",
+      "ok": true,
+      "model_output": {
+        "cefr": "B1",
+        "score": 2.5,
+        "note": "Develop a wider range of complex sentence structures to express your plans in more detail."
+      }
+    }
+  ],
+  "model": "openai/gpt-6.1-terra",
+  "scope": "Exact two LOCATION-refused fixtures after owner-approved Address Block-to-Redact; no input or rubric changes",
+  "reported_cost_usd": 0.00124
+}

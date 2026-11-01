@@ -422,8 +422,9 @@ WRITING_BAND_ANCHORS = (
     "Band anchors:\n"
     "A1: isolated short phrases; very basic vocabulary; verb-form and word-order slips throughout.\n"
     "A2: short simple sentences joined with and/but/because; frequent slips in tenses and articles.\n"
-    "B1: connected text on familiar topics; simple structures mostly accurate; complex ones attempted "
-    "but with visible errors.\n"
+    "B1: straightforward connected communication on familiar topics; a clear sequence, purpose "
+    "and relevant reasons; familiar structures mostly controlled. Complex grammar and visible "
+    "errors are NOT requirements for this band.\n"
     "B2: clear detailed text; complex sentences under good control; occasional slips that do not "
     "impede understanding.\n"
     "C1: fluent, well-organized text; wide precise vocabulary and flexible structures; only rare "
@@ -452,7 +453,10 @@ async def assess_writing(
         "You are a strict but fair English examiner. Rate the learner's short written response on the "
         "CEFR scale (A1–C1) by its grammatical RANGE, ACCURACY, COHERENCE and appropriacy — judge the "
         "English, not the ideas or length. Be conservative: award B2 or C1 only for consistently "
-        "complex, accurate, well-organized writing; a few sentences with basic vocabulary is A1–A2.\n"
+        "complex, accurate, well-organized writing. Do not downgrade solely for brevity or everyday "
+        "vocabulary: a concise, coherent, task-complete practical message can demonstrate B1 through "
+        "controlled familiar forms and relevant reasons. Lack of B2 evidence does not imply A2. "
+        "Judge only the evidence in this short sample, not the learner's certified overall level.\n"
         + WRITING_BAND_ANCHORS
         + GUARDRAIL
         + (f"The task the learner was answering: {prompt}\n" if prompt else "")

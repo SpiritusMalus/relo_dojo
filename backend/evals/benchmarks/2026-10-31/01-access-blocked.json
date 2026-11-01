@@ -1,0 +1,3868 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-11-01T05:46:20.364223+00:00",
+  "scope": "synthetic generation, structural validation, conditional independent semantic review, retries and grading; no customer data",
+  "review_model": "openai/gpt-6.1-terra",
+  "budget_cap_usd": 3.0,
+  "conservative_reserved_usd": 2.724091500000002,
+  "sources": [
+    "https://openrouter.ai/api/v1/models",
+    "https://openrouter.ai/docs/guides/features/structured-outputs"
+  ],
+  "catalogue": {
+    "google/gemini-3.1-flash-lite": {
+      "id": "google/gemini-3.1-flash-lite",
+      "pricing": {
+        "prompt": "0.00000025",
+        "completion": "0.0000015",
+        "image": "0.00000025",
+        "audio": "0.0000005",
+        "input_audio_cache": "0.00000005",
+        "web_search": "0.014",
+        "internal_reasoning": "0.0000015",
+        "input_cache_read": "0.000000025",
+        "input_cache_write": "0.0000000833333333333333"
+      },
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ]
+    },
+    "google/gemini-3.5-flash-lite": {
+      "id": "google/gemini-3.5-flash-lite",
+      "pricing": {
+        "prompt": "0.0000003",
+        "completion": "0.0000025",
+        "image": "0.0000003",
+        "audio": "0.0000003",
+        "input_audio_cache": "0.00000003",
+        "web_search": "0.014",
+        "internal_reasoning": "0.0000025",
+        "input_cache_read": "0.00000003",
+        "input_cache_write": "0.0000000833333333333333"
+      },
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ]
+    },
+    "openai/gpt-6-luna": {
+      "id": "openai/gpt-6-luna",
+      "pricing": {
+        "prompt": "0.0000001",
+        "completion": "0.0000005",
+        "web_search": "0.01",
+        "input_cache_read": "0.00000001",
+        "input_cache_write": "0.000000125",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.0000002",
+            "completion": "0.00000075",
+            "input_cache_read": "0.00000002",
+            "input_cache_write": "0.00000025"
+          }
+        ]
+      },
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    "anthropic/claude-haiku-5.5": {
+      "id": "anthropic/claude-haiku-5.5",
+      "pricing": {
+        "prompt": "0.0000001",
+        "completion": "0.0000005",
+        "web_search": "0.01",
+        "input_cache_read": "0.00000001",
+        "input_cache_write": "0.000000125",
+        "input_cache_write_1h": "0.0000002",
+        "overrides": [
+          {
+            "min_prompt_tokens": 100000,
+            "prompt": "0.0000005",
+            "completion": "0.0000025",
+            "input_cache_read": "0.00000005",
+            "input_cache_write": "0.000000625",
+            "input_cache_write_1h": "0.000001"
+          }
+        ]
+      },
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    "openai/gpt-6.1-terra": {
+      "id": "openai/gpt-6.1-terra",
+      "pricing": {
+        "prompt": "0.000001",
+        "completion": "0.000005",
+        "web_search": "0.01",
+        "input_cache_read": "0.00000005",
+        "input_cache_write": "0.00000125",
+        "overrides": [
+          {
+            "min_prompt_tokens": 272000,
+            "prompt": "0.000002",
+            "completion": "0.0000075",
+            "input_cache_read": "0.0000001",
+            "input_cache_write": "0.0000025"
+          }
+        ]
+      },
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "seed",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    }
+  },
+  "summary": [
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "cases": 15,
+      "served": 2,
+      "requested_format_served": 2,
+      "semantic_rejections": 0,
+      "provider_calls": 119,
+      "median_ms": 8308,
+      "p95_ms": 10129,
+      "reported_cost_usd": 0.027932,
+      "calls_with_reported_cost": 63
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "cases": 15,
+      "served": 0,
+      "requested_format_served": 0,
+      "semantic_rejections": 0,
+      "provider_calls": 69,
+      "median_ms": 134,
+      "p95_ms": 175,
+      "reported_cost_usd": 0,
+      "calls_with_reported_cost": 0
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "cases": 15,
+      "served": 0,
+      "requested_format_served": 0,
+      "semantic_rejections": 0,
+      "provider_calls": 69,
+      "median_ms": 139,
+      "p95_ms": 631,
+      "reported_cost_usd": 0,
+      "calls_with_reported_cost": 0
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "cases": 15,
+      "served": 0,
+      "requested_format_served": 0,
+      "semantic_rejections": 0,
+      "provider_calls": 69,
+      "median_ms": 173,
+      "p95_ms": 782,
+      "reported_cost_usd": 0,
+      "calls_with_reported_cost": 0
+    }
+  ],
+  "results": [
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 0,
+      "level": "A1",
+      "topic": "articles",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2026,
+          "prompt_tokens": 469,
+          "completion_tokens": 134,
+          "cost_usd": 0.00031825,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence": "Today is a unique opportunity for lunch."
+          }
+        }
+      ],
+      "served": true,
+      "actual_type": "multiple-choice",
+      "task": {
+        "type": "multiple-choice",
+        "topic": "articles",
+        "text": "Today is ___ unique opportunity for lunch.",
+        "options": [
+          "an",
+          "a"
+        ],
+        "level": "A1"
+      },
+      "key": {
+        "t": "multiple-choice",
+        "answer": "a",
+        "topic": "articles",
+        "text": "Today is ___ unique opportunity for lunch.",
+        "rule": "'a/an' is chosen by the SOUND that follows: an hour, a university, an old server."
+      },
+      "key_grades_correct": true,
+      "ms": 2054
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 1,
+      "level": "A1",
+      "topic": "vocabulary",
+      "requested_type": "match-pairs",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2613,
+          "prompt_tokens": 556,
+          "completion_tokens": 233,
+          "cost_usd": 0.0004885,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "The clown is very ___.",
+                "right": "funny"
+              },
+              {
+                "left": "I ___ with you.",
+                "right": "agree"
+              },
+              {
+                "left": "That party was great ___.",
+                "right": "fun"
+              },
+              {
+                "left": "I need some good ___.",
+                "right": "advice"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 52,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1644,
+          "prompt_tokens": 558,
+          "completion_tokens": 225,
+          "cost_usd": 0.000477,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "I like to ___ TV daily.",
+                "right": "watch"
+              },
+              {
+                "left": "Please ___ at this old photo.",
+                "right": "look"
+              },
+              {
+                "left": "Did you ___ my friend today?",
+                "right": "see"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 32,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1481,
+          "prompt_tokens": 557,
+          "completion_tokens": 232,
+          "cost_usd": 0.00048725,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "I ___ TV every night.",
+                "right": "watch"
+              },
+              {
+                "left": "Please ___ to my house.",
+                "right": "come"
+              },
+              {
+                "left": "The clown is very ___.",
+                "right": "funny"
+              },
+              {
+                "left": "This game is so ___.",
+                "right": "fun"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 30,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2225,
+          "prompt_tokens": 616,
+          "completion_tokens": 151,
+          "cost_usd": 0.0003805,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "I need to ___ a decision today.",
+            "options": [
+              "do",
+              "make",
+              "go"
+            ],
+            "answer": "make"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1390,
+          "prompt_tokens": 612,
+          "completion_tokens": 169,
+          "cost_usd": 0.0004065,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Please ___ me your name.",
+            "options": [
+              "say",
+              "tell",
+              "come",
+              "fun"
+            ],
+            "answer": "tell"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 44,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 9543
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 2,
+      "level": "A1",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "build-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2077,
+          "prompt_tokens": 531,
+          "completion_tokens": 169,
+          "cost_usd": 0.00038625,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "She said she liked the tea.",
+            "sentence_ru": "Она сказала, что ей нравится чай.",
+            "distractors": [
+              "like",
+              "likes"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2588,
+          "prompt_tokens": 531,
+          "completion_tokens": 187,
+          "cost_usd": 0.00041325,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "I said that I liked the coffee.",
+            "sentence_ru": "Я сказал, что мне понравился кофе.",
+            "distractors": [
+              "like",
+              "likes"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 51,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1541,
+          "prompt_tokens": 531,
+          "completion_tokens": 183,
+          "cost_usd": 0.00040725,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "He said he was at home.",
+            "sentence_ru": "Он сказал, что был дома.",
+            "distractors": [
+              "is",
+              "be"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 244,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1108,
+          "prompt_tokens": 522,
+          "completion_tokens": 161,
+          "cost_usd": 0.000372,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "He said he ___ his lunch.",
+            "options": [
+              "eats",
+              "ate",
+              "eating"
+            ],
+            "answer": "ate"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 36,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1543,
+          "prompt_tokens": 522,
+          "completion_tokens": 166,
+          "cost_usd": 0.0003795,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "He said he ___ very tired.",
+            "options": [
+              "is",
+              "was",
+              "be"
+            ],
+            "answer": "was"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 33,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 9254
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 3,
+      "level": "A2",
+      "topic": "prepositions",
+      "requested_type": "tap-the-error",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1509,
+          "prompt_tokens": 479,
+          "completion_tokens": 137,
+          "cost_usd": 0.00032525,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence": "I always drink coffee in the morning."
+          }
+        }
+      ],
+      "served": true,
+      "actual_type": "tap-the-error",
+      "task": {
+        "type": "tap-the-error",
+        "topic": "prepositions",
+        "text": "Tap the word that is wrong.",
+        "tokens": [
+          "I",
+          "always",
+          "drink",
+          "coffee",
+          "on",
+          "the",
+          "morning."
+        ],
+        "level": "A2"
+      },
+      "key": {
+        "t": "tap-the-error",
+        "index": 4,
+        "answer": "'on' → 'in'",
+        "topic": "prepositions",
+        "text": "I always drink coffee on the morning.",
+        "rule": "Parts of the day take 'in': in the morning (but 'at night')."
+      },
+      "key_grades_correct": true,
+      "ms": 1510
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 4,
+      "level": "A2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "multiple-blanks",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1758,
+          "prompt_tokens": 649,
+          "completion_tokens": 228,
+          "cost_usd": 0.00050425,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Yesterday, John said he ___ tired. He ___ to sleep early.",
+            "blanks": [
+              {
+                "options": [
+                  "is",
+                  "was"
+                ],
+                "answer": "was"
+              },
+              {
+                "options": [
+                  "goes",
+                  "went"
+                ],
+                "answer": "went"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1549,
+          "prompt_tokens": 649,
+          "completion_tokens": 222,
+          "cost_usd": 0.00049525,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Yesterday, my mom said she ___ hungry, so I ___ some soup.",
+            "blanks": [
+              {
+                "options": [
+                  "is",
+                  "was"
+                ],
+                "answer": "was"
+              },
+              {
+                "options": [
+                  "cook",
+                  "cooked"
+                ],
+                "answer": "cooked"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1392,
+          "prompt_tokens": 681,
+          "completion_tokens": 214,
+          "cost_usd": 0.00049125,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "He said he ___ hungry and ___ dinner.",
+            "blanks": [
+              {
+                "options": [
+                  "is",
+                  "was"
+                ],
+                "answer": "was"
+              },
+              {
+                "options": [
+                  "wanted",
+                  "wants"
+                ],
+                "answer": "wanted"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1335,
+          "prompt_tokens": 520,
+          "completion_tokens": 150,
+          "cost_usd": 0.000355,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "He said that he ___ his breakfast.",
+            "options": [
+              "eat",
+              "ate",
+              "eats"
+            ],
+            "answer": "ate"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 21,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1243,
+          "prompt_tokens": 520,
+          "completion_tokens": 150,
+          "cost_usd": 0.000355,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Yesterday, Sarah said she ___ hungry.",
+            "options": [
+              "is",
+              "was",
+              "be"
+            ],
+            "answer": "was"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 29,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 7362
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 5,
+      "level": "A2",
+      "topic": "vocabulary",
+      "requested_type": "listen-and-answer",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1746,
+          "prompt_tokens": 641,
+          "completion_tokens": 191,
+          "cost_usd": 0.00044675,
+          "provider": "Google AI Studio",
+          "output": {
+            "passage": "I need to do my homework now. Then I will make a mistake on purpose. I want to make my friends laugh.",
+            "question": "What does the speaker want to do first?",
+            "options": [
+              "Make a mistake",
+              "Do homework",
+              "Make friends"
+            ],
+            "answer": "Do homework"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 27,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1535,
+          "prompt_tokens": 653,
+          "completion_tokens": 200,
+          "cost_usd": 0.00046325,
+          "provider": "Google AI Studio",
+          "output": {
+            "passage": "I have a lot of housework today. First, I must do the dishes. Then, I need to make a decision about dinner. Maybe I will make some pasta.",
+            "question": "What does the speaker have to do first?",
+            "options": [
+              "Make some pasta",
+              "Do the dishes",
+              "Make a decision"
+            ],
+            "answer": "Do the dishes"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 38,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1682,
+          "prompt_tokens": 649,
+          "completion_tokens": 222,
+          "cost_usd": 0.00049525,
+          "provider": "Google AI Studio",
+          "output": {
+            "passage": "My brother told me about a great cafe. He said the coffee is cheap there. I agree with him completely because I have little money today.",
+            "question": "What did the brother say about the coffee?",
+            "options": [
+              "It is expensive.",
+              "It is cheap.",
+              "It is very bad."
+            ],
+            "answer": "It is cheap."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 40,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1332,
+          "prompt_tokens": 596,
+          "completion_tokens": 154,
+          "cost_usd": 0.00038,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "I need to ___ my homework before dinner.",
+            "options": [
+              "do",
+              "make",
+              "give",
+              "take"
+            ],
+            "answer": "do"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 514,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1846,
+          "prompt_tokens": 600,
+          "completion_tokens": 204,
+          "cost_usd": 0.000456,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Please ___ me the time, it is late.",
+            "options": [
+              "say",
+              "tell",
+              "watch",
+              "borrow"
+            ],
+            "answer": "tell"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 33,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 8796
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 6,
+      "level": "B1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1324,
+          "prompt_tokens": 518,
+          "completion_tokens": 149,
+          "cost_usd": 0.000353,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "If I ___ more time, I would cook dinner every night.",
+            "options": [
+              "had",
+              "have",
+              "would have"
+            ],
+            "answer": "had"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 43,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1324,
+          "prompt_tokens": 518,
+          "completion_tokens": 170,
+          "cost_usd": 0.0003845,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "If I ___ more time, I would cook dinner tonight.",
+            "options": [
+              "had",
+              "have",
+              "would have"
+            ],
+            "answer": "had"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 48,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1632,
+          "prompt_tokens": 518,
+          "completion_tokens": 159,
+          "cost_usd": 0.000368,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "If I ___ more time this morning, I would have cooked breakfast.",
+            "options": [
+              "had",
+              "had had",
+              "would have"
+            ],
+            "answer": "had had"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 942,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 5314
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 7,
+      "level": "B1",
+      "topic": "word order",
+      "requested_type": "build-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1478,
+          "prompt_tokens": 528,
+          "completion_tokens": 199,
+          "cost_usd": 0.0004305,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "He usually eats a healthy green apple for breakfast.",
+            "sentence_ru": "Он обычно ест полезное зеленое яблоко на завтрак.",
+            "distractors": [
+              "eat",
+              "apples"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1451,
+          "prompt_tokens": 528,
+          "completion_tokens": 182,
+          "cost_usd": 0.000405,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "I usually drink hot black coffee in the morning.",
+            "sentence_ru": "Я обычно пью горячий черный кофе по утрам.",
+            "distractors": [
+              "dranks",
+              "coffees"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 20,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1590,
+          "prompt_tokens": 528,
+          "completion_tokens": 176,
+          "cost_usd": 0.000396,
+          "provider": "Google AI Studio",
+          "output": {
+            "sentence_en": "I always drink hot black coffee in the morning.",
+            "sentence_ru": "Я всегда пью горячий черный кофе по утрам.",
+            "distractors": [
+              "drinks",
+              "coffees"
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 16,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1336,
+          "prompt_tokens": 519,
+          "completion_tokens": 166,
+          "cost_usd": 0.00037875,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "My neighbor always walks her ___ dog in the park.",
+            "options": [
+              "big playful brown",
+              "playful big brown",
+              "brown big playful"
+            ],
+            "answer": "playful big brown"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 15,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2140,
+          "prompt_tokens": 519,
+          "completion_tokens": 184,
+          "cost_usd": 0.00040575,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "My lazy cat ___ sleeps on the soft velvet sofa.",
+            "options": [
+              "always",
+              "is always",
+              "always is"
+            ],
+            "answer": "always"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 21,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 8094
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 8,
+      "level": "B1",
+      "topic": "phrasal verbs",
+      "requested_type": "odd-one-out",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1776,
+          "prompt_tokens": 568,
+          "completion_tokens": 187,
+          "cost_usd": 0.0004225,
+          "provider": "Google AI Studio",
+          "output": {
+            "items": [
+              "run into",
+              "look after",
+              "set up",
+              "rely on"
+            ],
+            "odd": "set up",
+            "reason": "It is a separable phrasal verb, whereas the others are inseparable."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 30,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1725,
+          "prompt_tokens": 563,
+          "completion_tokens": 165,
+          "cost_usd": 0.00038825,
+          "provider": "Google AI Studio",
+          "output": {
+            "items": [
+              "put off",
+              "give up",
+              "take up",
+              "look after"
+            ],
+            "odd": "look after",
+            "reason": "The other verbs are separable, but 'look after' is inseparable."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1435,
+          "prompt_tokens": 567,
+          "completion_tokens": 172,
+          "cost_usd": 0.00039975,
+          "provider": "Google AI Studio",
+          "output": {
+            "items": [
+              "put off",
+              "figure out",
+              "run into",
+              "turn off"
+            ],
+            "odd": "run into",
+            "reason": "It is an inseparable phrasal verb, while the others are separable."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 41,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1619,
+          "prompt_tokens": 609,
+          "completion_tokens": 176,
+          "cost_usd": 0.00041625,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "I was surprised to ___ an old friend at the grocery store today.",
+            "options": [
+              "run into",
+              "figure out",
+              "give up"
+            ],
+            "answer": "run into"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 29,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1585,
+          "prompt_tokens": 612,
+          "completion_tokens": 163,
+          "cost_usd": 0.0003975,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "I cannot ___ this complex IKEA desk because the instructions are missing.",
+            "options": [
+              "give up",
+              "set up",
+              "take up"
+            ],
+            "answer": "set up"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 36,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 8308
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 9,
+      "level": "B2",
+      "topic": "conditionals",
+      "requested_type": "transform-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1708,
+          "prompt_tokens": 526,
+          "completion_tokens": 191,
+          "cost_usd": 0.000418,
+          "provider": "Google AI Studio",
+          "output": {
+            "instruction": "Перепишите предложение, используя структуру третьего условного предложения (Third Conditional).",
+            "source": "If I leave my keys at home, I am late for work.",
+            "target": "If I had left my keys at home, I would have been late for work."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 34,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1634,
+          "prompt_tokens": 526,
+          "completion_tokens": 191,
+          "cost_usd": 0.000418,
+          "provider": "Google AI Studio",
+          "output": {
+            "instruction": "Перепишите предложение, используя условное предложение третьего типа (Third Conditional).",
+            "source": "I didn't set my alarm, so I missed the morning bus to work.",
+            "target": "If I had set my alarm, I would not have missed the morning bus."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 393,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2363,
+          "prompt_tokens": 526,
+          "completion_tokens": 172,
+          "cost_usd": 0.0003895,
+          "provider": "Google AI Studio",
+          "output": {
+            "instruction": "Переделайте предложение в третье условное наклонение (Third Conditional).",
+            "source": "If I leave my keys on the counter, I am late for work.",
+            "target": "If I had left my keys on the counter, I would have been late for work."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 30,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2055,
+          "prompt_tokens": 526,
+          "completion_tokens": 212,
+          "cost_usd": 0.0004495,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "If I had set my alarm earlier this morning, I ___ the bus to work.",
+            "options": [
+              "would catch",
+              "would have caught",
+              "had caught"
+            ],
+            "answer": "would have caught"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 31,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1848,
+          "prompt_tokens": 526,
+          "completion_tokens": 176,
+          "cost_usd": 0.0003955,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "If I had set my alarm earlier, I ___ the bus to work this morning.",
+            "options": [
+              "would catch",
+              "would have caught",
+              "had caught"
+            ],
+            "answer": "would have caught"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 28,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 10129
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 10,
+      "level": "B2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "order-the-dialog",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1025,
+          "prompt_tokens": 543,
+          "completion_tokens": 163,
+          "cost_usd": 0.00038025,
+          "provider": "Google AI Studio",
+          "output": {
+            "lines": [
+              "Hi, did you hear that the local cafe closed down yesterday?",
+              "Oh no! I thought it was doing well.",
+              "The manager said they were losing too much money lately.",
+              "That makes sense, although I assumed they had plenty of customers."
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 21,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1805,
+          "prompt_tokens": 543,
+          "completion_tokens": 214,
+          "cost_usd": 0.00045675,
+          "provider": "Google AI Studio",
+          "output": {
+            "lines": [
+              "Hey, did you say you were leaving for the grocery store?",
+              "Yes, I mentioned I needed to pick up some fresh bread.",
+              "I thought you said the bakery was already closed by six.",
+              "It was, but I heard they extended their hours until eight.",
+              "That sounds perfect, so I will come along with you then."
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 27,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1307,
+          "prompt_tokens": 543,
+          "completion_tokens": 172,
+          "cost_usd": 0.00039375,
+          "provider": "Google AI Studio",
+          "output": {
+            "lines": [
+              "Hi, did you hear that Sarah said she was moving to Spain?",
+              "Yes, she told me that she had finally found a job there.",
+              "That sounds exciting, but did she mention when she would leave?",
+              "She said she was planning to depart early next month."
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 19,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1427,
+          "prompt_tokens": 531,
+          "completion_tokens": 183,
+          "cost_usd": 0.00040725,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "My neighbor claimed that he ___ his keys inside the house all morning.",
+            "options": [
+              "has left",
+              "had left",
+              "leaves",
+              "will leave"
+            ],
+            "answer": "had left"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 18,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2697,
+          "prompt_tokens": 531,
+          "completion_tokens": 751,
+          "cost_usd": 0.00125925,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "My roommate insisted that he ___ the dishes while I was at the gym.",
+            "options": [
+              "washes",
+              "washed",
+              "will wash"
+            ],
+            "answer": "washed"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 16,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 8365
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 11,
+      "level": "B2",
+      "topic": "vocabulary",
+      "requested_type": "match-pairs",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1495,
+          "prompt_tokens": 570,
+          "completion_tokens": 256,
+          "cost_usd": 0.0005265,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "Please ___ me to buy milk.",
+                "right": "remind"
+              },
+              {
+                "left": "I ___ locking the front door.",
+                "right": "remember"
+              },
+              {
+                "left": "This job is a great ___.",
+                "right": "opportunity"
+              },
+              {
+                "left": "That topic is highly ___ now.",
+                "right": "relevant"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 31,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1634,
+          "prompt_tokens": 580,
+          "completion_tokens": 240,
+          "cost_usd": 0.000505,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "The new tax policy will ___ our monthly budget.",
+                "right": "affect"
+              },
+              {
+                "left": "The unexpected ___ of the medicine was immediate.",
+                "right": "effect"
+              },
+              {
+                "left": "Please ___ your hand if you have questions.",
+                "right": "raise"
+              },
+              {
+                "left": "Sunlight levels ___ early during the summer solstice.",
+                "right": "rise"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 27,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2285,
+          "prompt_tokens": 555,
+          "completion_tokens": 244,
+          "cost_usd": 0.00050475,
+          "provider": "Google AI Studio",
+          "output": {
+            "pairs": [
+              {
+                "left": "It is time to ___ now.",
+                "right": "make a decision"
+              },
+              {
+                "left": "Please ___ to the teacher.",
+                "right": "pay attention"
+              },
+              {
+                "left": "I need to ___ soon.",
+                "right": "take a break"
+              },
+              {
+                "left": "This will ___ on us.",
+                "right": "have an impact"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1899,
+          "prompt_tokens": 618,
+          "completion_tokens": 180,
+          "cost_usd": 0.0004245,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "I finally finished reading that long novel ___ of the summer holiday.",
+            "options": [
+              "at the end",
+              "in the end",
+              "by the end"
+            ],
+            "answer": "at the end"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 29,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1140,
+          "prompt_tokens": 631,
+          "completion_tokens": 163,
+          "cost_usd": 0.00040225,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "The sudden noise from the street ___ my concentration while I was reading.",
+            "options": [
+              "affected",
+              "effected",
+              "raised",
+              "risen"
+            ],
+            "answer": "affected"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 56,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 8628
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 12,
+      "level": "C1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1570,
+          "prompt_tokens": 534,
+          "completion_tokens": 199,
+          "cost_usd": 0.000432,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Had I remembered to charge my phone last night, I ___ currently stranded without a map in this unfamiliar city.",
+            "options": [
+              "would not be",
+              "would not have been",
+              "will not be"
+            ],
+            "answer": "would not be"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 17,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1503,
+          "prompt_tokens": 534,
+          "completion_tokens": 185,
+          "cost_usd": 0.000411,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Had I remembered to renew my train pass last week, I ___ standing on this freezing platform right now.",
+            "options": [
+              "would not be",
+              "would not have been",
+              "will not be",
+              "had not been"
+            ],
+            "answer": "would not be"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 23,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2012,
+          "prompt_tokens": 534,
+          "completion_tokens": 232,
+          "cost_usd": 0.0004815,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Had I remembered to charge my phone last night, I ___ stranded at the train station without a map right now.",
+            "options": [
+              "would not be",
+              "would not have been",
+              "will not be",
+              "had not been"
+            ],
+            "answer": "would not be"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 37,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 5165
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 13,
+      "level": "C1",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "multiple-blanks",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1814,
+          "prompt_tokens": 665,
+          "completion_tokens": 260,
+          "cost_usd": 0.00055625,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "I insisted that he ___ the dishes immediately, yet he claimed he ___ already ___ them earlier that morning.",
+            "blanks": [
+              {
+                "options": [
+                  "washes",
+                  "washed"
+                ],
+                "answer": "washed"
+              },
+              {
+                "options": [
+                  "has",
+                  "had"
+                ],
+                "answer": "had"
+              },
+              {
+                "options": [
+                  "done",
+                  "did"
+                ],
+                "answer": "done"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1572,
+          "prompt_tokens": 727,
+          "completion_tokens": 245,
+          "cost_usd": 0.00054925,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "My neighbor insisted that he ___ the package yesterday, although I assured him that I ___ it yet.",
+            "blanks": [
+              {
+                "options": [
+                  "delivered",
+                  "delivers",
+                  "delivering"
+                ],
+                "answer": "delivered"
+              },
+              {
+                "options": [
+                  "hadn't received",
+                  "haven't received",
+                  "won't receive"
+                ],
+                "answer": "hadn't received"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1499,
+          "prompt_tokens": 727,
+          "completion_tokens": 231,
+          "cost_usd": 0.00052825,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Although she promised that she ___ the groceries later, she realized at dusk that she ___ completely forgotten to purchase them.",
+            "blanks": [
+              {
+                "options": [
+                  "would buy",
+                  "will buy"
+                ],
+                "answer": "would buy"
+              },
+              {
+                "options": [
+                  "has",
+                  "had"
+                ],
+                "answer": "had"
+              }
+            ]
+          }
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1356,
+          "prompt_tokens": 536,
+          "completion_tokens": 181,
+          "cost_usd": 0.0004055,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "When I arrived home, I realized that I ___ my keys on the kitchen counter in my haste to leave.",
+            "options": [
+              "had left",
+              "have left",
+              "would leave"
+            ],
+            "answer": "had left"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 46,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1420,
+          "prompt_tokens": 536,
+          "completion_tokens": 166,
+          "cost_usd": 0.000383,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "My neighbor insisted that he ___ the hedge himself, though I clearly saw a professional crew doing the work yesterday.",
+            "options": [
+              "has trimmed",
+              "had trimmed",
+              "trims"
+            ],
+            "answer": "had trimmed"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 57,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 7769
+    },
+    {
+      "model": "google/gemini-3.1-flash-lite",
+      "case": 14,
+      "level": "C1",
+      "topic": "vocabulary",
+      "requested_type": "listen-and-answer",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1780,
+          "prompt_tokens": 642,
+          "completion_tokens": 241,
+          "cost_usd": 0.000522,
+          "provider": "Google AI Studio",
+          "output": {
+            "passage": "My roommate insists that our decision to buy a solar-powered charger was purely economical because it saves us money on electricity bills. I acknowledge that it was a shrewd purchase, but I am still sensitive to the fact that it barely charges my phone.",
+            "question": "What is the speaker's main point about the solar charger?",
+            "options": [
+              "It is highly efficient.",
+              "It is cost-effective.",
+              "It is very powerful."
+            ],
+            "answer": "It is cost-effective."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 40,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1591,
+          "prompt_tokens": 642,
+          "completion_tokens": 237,
+          "cost_usd": 0.000516,
+          "provider": "Google AI Studio",
+          "output": {
+            "passage": "I know the project is overdue, but we simply must reach a compromise on the timeline. If we rush now, the quality will suffer, which is a risk I am not prepared to take. Let us agree to extend the deadline by three days to ensure everything is perfect.",
+            "question": "What is the speaker proposing to do regarding the project?",
+            "options": [
+              "Reach a compromise on the timeline",
+              "Bear full responsibility for the delay",
+              "Draw a conclusion about the quality"
+            ],
+            "answer": "Reach a compromise on the timeline"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 39,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 2170,
+          "prompt_tokens": 641,
+          "completion_tokens": 241,
+          "cost_usd": 0.00052175,
+          "provider": "Google AI Studio",
+          "output": {
+            "passage": "I am exhausted because I stayed up all night trying to meet a deadline for my project. My partner thinks we should just order pizza, which seems like a sensible way to save time. I am so sensitive to noise that the thought of cooking right now actually makes me want to cry.",
+            "question": "Why is the speaker exhausted?",
+            "options": [
+              "Because they had to meet a deadline.",
+              "Because they had to reach a compromise.",
+              "Because they had to bear responsibility."
+            ],
+            "answer": "Because they had to meet a deadline."
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 32,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1651,
+          "prompt_tokens": 602,
+          "completion_tokens": 213,
+          "cost_usd": 0.00047,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Although the antique vase is quite ___, I insisted on dusting it myself to ensure it remained pristine.",
+            "options": [
+              "sensible",
+              "sensitive",
+              "economic"
+            ],
+            "answer": "sensitive"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 38,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.1-flash-lite",
+          "ms": 1351,
+          "prompt_tokens": 604,
+          "completion_tokens": 163,
+          "cost_usd": 0.0003955,
+          "provider": "Google AI Studio",
+          "output": {
+            "text": "Despite the heated argument over the household budget, we managed to ___ a compromise before the weekend arrived.",
+            "options": [
+              "bear",
+              "reach",
+              "draw",
+              "meet"
+            ],
+            "answer": "reach"
+          }
+        },
+        {
+          "stage": "review",
+          "model": "openai/gpt-6.1-terra",
+          "ms": 706,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 1 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 9401
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 0,
+      "level": "A1",
+      "topic": "articles",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 21,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 30,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 29,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 83
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 1,
+      "level": "A1",
+      "topic": "vocabulary",
+      "requested_type": "match-pairs",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 33,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 30,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 36,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 20,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 152
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 2,
+      "level": "A1",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "build-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 19,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 19,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 21,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 17,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 18,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 96
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 3,
+      "level": "A2",
+      "topic": "prepositions",
+      "requested_type": "tap-the-error",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 21,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 17,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 23,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 19,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 20,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 102
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 4,
+      "level": "A2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "multiple-blanks",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 17,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 19,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 25,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 30,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 28,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 120
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 5,
+      "level": "A2",
+      "topic": "vocabulary",
+      "requested_type": "listen-and-answer",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 36,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 37,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 23,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 32,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 24,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 158
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 6,
+      "level": "B1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 21,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 23,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 35,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 82
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 7,
+      "level": "B1",
+      "topic": "word order",
+      "requested_type": "build-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 30,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 29,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 26,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 26,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 135
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 8,
+      "level": "B1",
+      "topic": "phrasal verbs",
+      "requested_type": "odd-one-out",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 19,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 22,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 26,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 24,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 117
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 9,
+      "level": "B2",
+      "topic": "conditionals",
+      "requested_type": "transform-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 22,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 28,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 134
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 10,
+      "level": "B2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "order-the-dialog",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 29,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 37,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 36,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 37,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 28,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 168
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 11,
+      "level": "B2",
+      "topic": "vocabulary",
+      "requested_type": "match-pairs",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 31,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 31,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 32,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 30,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 157
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 12,
+      "level": "C1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 30,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 37,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 25,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 94
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 13,
+      "level": "C1",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "multiple-blanks",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 31,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 25,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 138
+    },
+    {
+      "model": "google/gemini-3.5-flash-lite",
+      "case": 14,
+      "level": "C1",
+      "topic": "vocabulary",
+      "requested_type": "listen-and-answer",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 35,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 22,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 30,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "google/gemini-3.5-flash-lite",
+          "ms": 58,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 175
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 0,
+      "level": "A1",
+      "topic": "articles",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 25,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 37,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 31,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 94
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 1,
+      "level": "A1",
+      "topic": "vocabulary",
+      "requested_type": "match-pairs",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 21,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 46,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 39,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 23,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 159
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 2,
+      "level": "A1",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "build-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 35,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 25,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 22,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 29,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 139
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 3,
+      "level": "A2",
+      "topic": "prepositions",
+      "requested_type": "tap-the-error",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 21,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 31,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 25,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 27,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 34,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 148
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 4,
+      "level": "A2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "multiple-blanks",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 29,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 29,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 19,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 32,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 23,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 133
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 5,
+      "level": "A2",
+      "topic": "vocabulary",
+      "requested_type": "listen-and-answer",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 32,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 25,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 32,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 25,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 28,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 143
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 6,
+      "level": "B1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 20,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 19,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 16,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 59
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 7,
+      "level": "B1",
+      "topic": "word order",
+      "requested_type": "build-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 18,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 16,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 33,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 17,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 113
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 8,
+      "level": "B1",
+      "topic": "phrasal verbs",
+      "requested_type": "odd-one-out",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 19,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 12,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 21,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 13,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 18,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 85
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 9,
+      "level": "B2",
+      "topic": "conditionals",
+      "requested_type": "transform-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 17,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 26,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 27,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 23,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 23,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 117
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 10,
+      "level": "B2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "order-the-dialog",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 473,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 35,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 39,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 55,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 631
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 11,
+      "level": "B2",
+      "topic": "vocabulary",
+      "requested_type": "match-pairs",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 45,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 41,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 40,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 89,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 95,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 312
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 12,
+      "level": "C1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 29,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 38,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 30,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 98
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 13,
+      "level": "C1",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "multiple-blanks",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 35,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 38,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 32,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 47,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 50,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 215
+    },
+    {
+      "model": "openai/gpt-6-luna",
+      "case": 14,
+      "level": "C1",
+      "topic": "vocabulary",
+      "requested_type": "listen-and-answer",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 67,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 64,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 45,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 32,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "openai/gpt-6-luna",
+          "ms": 58,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 2 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 270
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 0,
+      "level": "A1",
+      "topic": "articles",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 36,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 52,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 65,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 154
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 1,
+      "level": "A1",
+      "topic": "vocabulary",
+      "requested_type": "match-pairs",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 34,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 73,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 67,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 272,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 52,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 501
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 2,
+      "level": "A1",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "build-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 39,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 54,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 49,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 31,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 30,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 206
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 3,
+      "level": "A2",
+      "topic": "prepositions",
+      "requested_type": "tap-the-error",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 27,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 59,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 29,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 173
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 4,
+      "level": "A2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "multiple-blanks",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 62,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 40,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 30,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 43,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 45,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 220
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 5,
+      "level": "A2",
+      "topic": "vocabulary",
+      "requested_type": "listen-and-answer",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 50,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 67,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 40,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 37,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 42,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 237
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 6,
+      "level": "B1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 25,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 23,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 16,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 65
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 7,
+      "level": "B1",
+      "topic": "word order",
+      "requested_type": "build-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 23,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 16,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 15,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 20,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 15,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 90
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 8,
+      "level": "B1",
+      "topic": "phrasal verbs",
+      "requested_type": "odd-one-out",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 38,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 26,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 59,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 37,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 36,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 198
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 9,
+      "level": "B2",
+      "topic": "conditionals",
+      "requested_type": "transform-the-sentence",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 15,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 20,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 21,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 24,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 22,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 104
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 10,
+      "level": "B2",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "order-the-dialog",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 15,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 20,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 17,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 45,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 21,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 121
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 11,
+      "level": "B2",
+      "topic": "vocabulary",
+      "requested_type": "match-pairs",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 34,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 36,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 32,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 31,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 35,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 171
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 12,
+      "level": "C1",
+      "topic": "conditionals",
+      "requested_type": "multiple-choice",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 27,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 737,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 17,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 782
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 13,
+      "level": "C1",
+      "topic": "verb sequence (tense agreement)",
+      "requested_type": "multiple-blanks",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 29,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 35,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 29,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 39,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 161
+    },
+    {
+      "model": "anthropic/claude-haiku-5.5",
+      "case": 14,
+      "level": "C1",
+      "topic": "vocabulary",
+      "requested_type": "listen-and-answer",
+      "calls": [
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 42,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 41,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 28,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 33,
+          "error": "OllamaError"
+        },
+        {
+          "stage": "generation",
+          "model": "anthropic/claude-haiku-5.5",
+          "ms": 30,
+          "error": "OllamaError"
+        }
+      ],
+      "served": false,
+      "error": "OllamaError",
+      "detail": "OpenRouter API error 404: 0 endpoints out of 5 requested are available matching your guardrail restrictions and data policy. We removed them for the following reasons (an endpoint may have matched multiple reasons): Model bloc",
+      "ms": 178
+    }
+  ]
+}

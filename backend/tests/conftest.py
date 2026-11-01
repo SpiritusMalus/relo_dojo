@@ -12,3 +12,8 @@ os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://user:pass@localhost/
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret")
 os.environ.setdefault("CHECK_SECRET", "5s6wvK1N7CHNonLkBmfCVh5zC8iE5IQEIFD8wZyca8k=")
 os.environ.setdefault("OLLAMA_URL", "http://localhost:11434")
+# Existing generator fixtures isolate their structural rules; semantic-review tests enable the
+# separate reviewer explicitly and mock its output. No test may call a funded provider.
+os.environ.setdefault("EXERCISE_REVIEW_ENABLED", "false")
+os.environ.setdefault("EXERCISE_REPAIR_ENABLED", "false")
+os.environ.setdefault("EXERCISE_CURATED_FALLBACK_ENABLED", "false")
