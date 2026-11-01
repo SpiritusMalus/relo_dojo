@@ -142,3 +142,39 @@ it("a slow native cache write from A finishes before B's replacement, never over
     setItem.mockImplementation(nativeWrite);
   }
 });
+
+it("a fresh guest keeps White after a high warm-up seed and a 9/10 lesson until an exam is passed", async () => {
+  mockToken = null;
+  setAuthToken(null);
+  await mount();
+  expect(store.progress.beltEarned).toBe(0);
+  const { TOPIC_PRIORS } = require("../adaptive");
+  const { beltProgress } = require("../dojo");
+  const { examOffer } = require("../exam");
+  const profile = { goals: [], focusTopics: [], selfLevel: "advanced", dailyMinutes: 10,
+    sphere: "", domains: [], painText: "" };
+  const seeded = Object.fromEntries(Object.keys(TOPIC_PRIORS).map((topic) => [topic, 3.9]));
+  act(() => { store.completeOnboarding(profile, seeded); });
+  expect(store.progress.beltEarned).toBe(0);
+  for (let i = 0; i < 10; i++) {
+    act(() => { store.recordAnswer("word order", i < 9, { format: "multiple-choice", difficulty: 3.5 }); });
+  }
+  expect(store.progress.xp).toBe(110);
+  expect(store.progress.topics["word order"].attempts).toBe(10);
+  expect(beltProgress(store.progress).belt.idx).toBe(0);
+  expect(examOffer(store.progress)).toEqual({ target: 1, confirm: false });
+  act(() => { store.recordExamResult(true, 1, "2026-11-01"); });
+  expect(beltProgress(store.progress).belt.idx).toBe(1);
+  // The explicit full Level Test award remains its existing, separate contract.
+  act(() => { store.applyLevelTest(seeded, 3, "2026-11-01"); });
+  expect(beltProgress(store.progress).belt.idx).toBe(3);
+});
+
+it.each([undefined, null, 3])("hydrates missing/null earned belts conservatively while preserving numeric awards: %s", async (earned) => {
+  mockToken = null;
+  setAuthToken(null);
+  const cached = { ...A, beltEarned: earned };
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
+  await mount();
+  expect(store.progress.beltEarned).toBe(earned ?? 0);
+});

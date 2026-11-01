@@ -15,7 +15,7 @@ const TODAY = "2026-06-12";
 function withSkill(level: number, over: Partial<Progress> = {}): Progress {
   const skill: Record<string, number> = {};
   for (const t of Object.keys(TOPIC_PRIORS)) skill[t] = level;
-  return { ...DEFAULT_PROGRESS, onboarded: true, skill, ...over };
+  return { ...DEFAULT_PROGRESS, beltEarned: undefined, onboarded: true, skill, ...over };
 }
 
 function withPractice(level: number, over: Partial<Progress> = {}): Progress {

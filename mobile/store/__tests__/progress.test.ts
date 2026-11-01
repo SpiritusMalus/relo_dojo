@@ -279,3 +279,11 @@ it("merges the bounded global format window from the snapshot with more real ans
   expect(mergeProgress(a, b).recentFormats).toEqual(["multiple-choice", "build-the-sentence"]);
   expect(mergeProgress(b, a).recentFormats).toEqual(b.recentFormats);
 });
+
+it("normalizes missing/null earned belts on sync without downgrading a recorded numeric award", () => {
+  const legacy = { ...DEFAULT_PROGRESS, beltEarned: undefined };
+  const server = { ...DEFAULT_PROGRESS, beltEarned: null } as unknown as Progress;
+  expect(mergeProgress(legacy, server).beltEarned).toBe(0);
+  expect(mergeProgress({ ...legacy, beltEarned: 3 }, server).beltEarned).toBe(3);
+  expect(mergeProgress(server, { ...legacy, beltEarned: 3 }).beltEarned).toBe(3);
+});

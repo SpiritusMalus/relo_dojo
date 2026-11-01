@@ -134,7 +134,9 @@ export type Progress = {
   brokenStreak?: BrokenStreak | null;
   // ISO timestamp until which the x2-XP "kensei" boost runs ("" = no boost).
   boostUntil?: string;
-  // Belt exam: highest belt idx EARNED through an exam (worn belt). undefined = legacy, skill belt shown.
+  // Highest explicitly awarded belt (exam or full Level Test; 0 = fresh White).
+  // Missing/null means no recorded award: hydration/sync normalize it to 0 while preserving
+  // every numeric award. Warm-up/skill estimates alone never supply an earned belt.
   beltEarned?: number;
   lastExamDate?: string; // local YYYY-MM-DD of the last exam attempt (one attempt per day)
   // Full Level Test trail: when it was last taken (drives the quarterly re-check nudge) and the saved
@@ -165,6 +167,7 @@ export const DEFAULT_PROGRESS: Progress = {
   todayCount: 0,
   brokenStreak: null,
   boostUntil: "",
+  beltEarned: 0,
   steering: DEFAULT_STEERING,
   course: DEFAULT_COURSE,
 };
@@ -407,12 +410,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     // Boost: the later expiry wins (ISO strings compare lexicographically).
     boostUntil: (a.boostUntil ?? "") >= (b.boostUntil ?? "") ? a.boostUntil ?? "" : b.boostUntil ?? "",
     // Belt exam: the highest earned belt wins; the later attempt date wins.
-    beltEarned:
-      a.beltEarned === undefined
-        ? b.beltEarned
-        : b.beltEarned === undefined
-        ? a.beltEarned
-        : Math.max(a.beltEarned, b.beltEarned),
+    beltEarned: Math.max(a.beltEarned ?? 0, b.beltEarned ?? 0),
     lastExamDate: (a.lastExamDate ?? "") >= (b.lastExamDate ?? "") ? a.lastExamDate : b.lastExamDate,
     lastLevelTestDate:
       (a.lastLevelTestDate ?? "") >= (b.lastLevelTestDate ?? "") ? a.lastLevelTestDate : b.lastLevelTestDate,
@@ -478,6 +476,7 @@ async function load(): Promise<Progress> {
       profile: stored.profile ?? null,
       brokenStreak: stored.brokenStreak ?? null,
       boostUntil: stored.boostUntil ?? "",
+      beltEarned: stored.beltEarned ?? 0,
       steering: stored.steering ? { ...DEFAULT_STEERING, ...stored.steering } : DEFAULT_STEERING,
       course: stored.course
         ? { history: stored.course.history ?? {}, mastered: stored.course.mastered ?? [] }
@@ -773,7 +772,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const completeOnboarding = useCallback(
     (profile: Profile, skill: Record<string, number>) => {
       setProgress((prev) => {
-        const next: Progress = { ...prev, profile, skill, onboarded: true };
+        const next: Progress = { ...prev, profile, skill, onboarded: true, beltEarned: prev.beltEarned ?? 0 };
         void persist(next);
         schedulePush(next);
         return next;
