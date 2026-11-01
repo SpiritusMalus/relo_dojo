@@ -184,11 +184,11 @@ export default function HomeScreen() {
             <Icon name="chevron" size={20} color={t.c.ink2} />
           </View>
           <DojoScene equipped={room.equipped} compact />
-          <Txt variant="secondary" color={t.c.ink2}>
+          {room.practiceDays !== null && <Txt variant="secondary" color={t.c.ink2}>
             {room.nextMilestone && room.practiceDays !== null
               ? copy.dojoMilestone(room.nextMilestone.progress, room.nextMilestone.days)
-              : room.practiceDays !== null ? copy.dojoReady : copy.dojoPreview}
-          </Txt>
+              : copy.dojoReady}
+          </Txt>}
         </Pressable>
       )}
 

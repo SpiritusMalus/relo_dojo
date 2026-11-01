@@ -145,6 +145,7 @@ async def buy(user: User, db: AsyncSession, cosmetic_id: str) -> User:
     await db.refresh(user, with_for_update=True)
     if cosmetic_id in owned_ids(user):
         await db.rollback()  # idempotent: already owned → release the lock, charge nothing
+        await db.refresh(user)  # rollback expires async ORM attributes used by the response
         return user
     if not is_season_active(item.get("season")):
         await db.rollback()
