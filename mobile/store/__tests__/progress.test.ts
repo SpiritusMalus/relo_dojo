@@ -272,3 +272,10 @@ describe("recent adaptive evidence", () => {
     expect(recordAnswer(legacy, "articles", true).topics.articles.recent).toHaveLength(1);
   });
 });
+
+it("merges the bounded global format window from the snapshot with more real answers", () => {
+  const a = recordAnswer(DEFAULT_PROGRESS, "articles", true, at(DAY), { format: "multiple-choice" });
+  const b = recordAnswer(a, "prepositions", true, at(DAY), { format: "build-the-sentence" });
+  expect(mergeProgress(a, b).recentFormats).toEqual(["multiple-choice", "build-the-sentence"]);
+  expect(mergeProgress(b, a).recentFormats).toEqual(b.recentFormats);
+});

@@ -14,7 +14,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { recordConsent } from "../services/api";
 
 // Current consent document version. Bump on any material change to what/where/why data is sent.
-export const PD_CONSENT_VERSION = "pd-2026-06";
+export const PD_CONSENT_VERSION = "pd-2026-10-31";
 // Hosted legal docs on the studio's central host (family-pie mirrors legal/PRIVACY_POLICY.md +
 // TERMS_OF_USE.md). Linked from the consent screen and Settings. Конфиденциальность = Privacy,
 // Оферта = Terms.

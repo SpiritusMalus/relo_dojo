@@ -196,11 +196,13 @@ export default function SettingsScreen() {
             onPress={resetOnboarding}
             style={{ marginBottom: 10 }}
           />
-          <Pressable onPress={logout} style={{ minHeight: 44, justifyContent: "center", alignItems: "center" }}>
-            <Txt variant="bodyStrong" color={t.c.bad}>
-              {tr("settings.logout")}
-            </Txt>
-          </Pressable>
+          {user ? (
+            <Pressable onPress={logout} accessibilityRole="button" style={{ minHeight: 48, justifyContent: "center", alignItems: "center" }}>
+              <Txt variant="bodyStrong" color={t.c.bad}>{tr("settings.logout")}</Txt>
+            </Pressable>
+          ) : (
+            <Button label={tr("settings.accountEntry")} variant="ghost" onPress={() => router.push("/login")} />
+          )}
 
           {/* Store-compliance: data export + in-app account deletion (signed-in accounts only). */}
           {!!user && (

@@ -1,5 +1,6 @@
 // Auth state (Phase 4): holds the JWT + current user, persisted in SecureStore.
 import * as SecureStore from "expo-secure-store";
+import { AppState } from "react-native";
 import {
   createContext,
   useCallback,
@@ -123,6 +124,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [apply]);
+
+  useEffect(() => {
+    if (!ready || !token) return;
+    // A session restored offline is revalidated when the learner returns. A temporary
+    // outage never needs a fresh login just to recover the account display.
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshUser();
+    });
+    return () => subscription.remove();
+  }, [ready, token, refreshUser]);
 
   const resendVerification = useCallback(async () => {
     await apiRequestVerification();

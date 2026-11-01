@@ -227,3 +227,15 @@ describe("adaptive revision boundaries", () => {
     expect(d.calls).toBe(4); // old finalizers did not make the new inFlight count negative
   });
 });
+
+it("reselects the persisted topic practice index after each recorded answer", async () => {
+  let attempts = 4;
+  const fetch = jest.fn(async (p: FetchParams) => fakeExercise(p.practice_index!));
+  const q = createExerciseQueue({ selectParams: () => ({ ...PARAMS, practice_index: attempts }), revision: () => attempts, prefetchOnServe: false, fetch });
+  expect((await q.next()).text).toBe("q4");
+  attempts++;
+  q.prefetch();
+  await flush();
+  expect((await q.next()).text).toBe("q5");
+  expect(fetch.mock.calls[1][0].practice_index).toBe(5);
+});

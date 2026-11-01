@@ -91,6 +91,7 @@ export default function CheckpointScreen() {
       revision: () => Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0),
       selectParams: () => ({
         topic, // the unit under test — always forced
+        practice_index: progressRef.current.topics[topic]?.attempts ?? 0,
         level: levelToCefr(effectiveSkill(progressRef.current, topic)),
         // Constructive formats only, rotated so one quiz spans several shapes. Closed book:
         // no miss hints — the зачёт must be fresh items, not replays.
@@ -287,7 +288,7 @@ export default function CheckpointScreen() {
         )}
 
         {exercise && !loading && (
-          <ExerciseCard key={round} exercise={exercise} locked={phase === "feedback"} onChange={(v) => setResponse(v)} />
+          <ExerciseCard translationEnabled={false} key={round} exercise={exercise} locked={phase === "feedback"} onChange={(v) => setResponse(v)} />
         )}
 
         {phase === "feedback" && result && (

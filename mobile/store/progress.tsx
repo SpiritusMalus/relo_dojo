@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getProgress, putProgress, syncLearnerProfile, type ExerciseType } from "../services/api";
+import { getProgress, isCurrentAuthToken, putProgress, syncLearnerProfile, type ExerciseType } from "../services/api";
 import { useAuth } from "./auth";
 import { resetWall } from "./registerWall";
 import { resetGuestLimit } from "./guestLimit";
@@ -123,6 +123,7 @@ export type Progress = {
   currentCorrectRun: number;
   bestCorrectRun: number;
   topics: Record<string, TopicStat>;
+  recentFormats?: string[]; // last two actual formats across topics; avoids repeated card shapes
   achievements: string[]; // unlocked ids
   skill: Record<string, number>; // per-topic adaptive level (0..5), see store/adaptive.ts
   onboarded: boolean;
@@ -297,6 +298,7 @@ export function recordAnswer(
     ...prev,
     xp: prev.xp + earnedXp,
     topics,
+    recentFormats: grade?.format ? [...(prev.recentFormats ?? []), grade.format].slice(-2) : prev.recentFormats,
     currentCorrectRun,
     bestCorrectRun,
     dailyStreak,
@@ -379,6 +381,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     currentCorrectRun: Math.max(a.currentCorrectRun, b.currentCorrectRun),
     bestCorrectRun: Math.max(a.bestCorrectRun, b.bestCorrectRun),
     topics,
+    recentFormats: ((totalAttempts(b) > totalAttempts(a) ? b.recentFormats : a.recentFormats) ?? a.recentFormats ?? b.recentFormats)?.slice(-2),
     achievements: Array.from(new Set([...a.achievements, ...b.achievements])),
     skill,
     onboarded: a.onboarded || b.onboarded,
@@ -538,22 +541,49 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   progressRef.current = progress;
   const syncedToken = useRef<string | null>(null);
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const session = useRef({ token, version: 0 });
+  const cacheVersion = useRef(0);
+  if (session.current.token !== token) {
+    if (session.current.token !== null) cacheVersion.current++;
+    session.current = { token, version: session.current.version + 1 };
+  }
+  // Serialize cache writes: a slow old-session native write must finish BEFORE a logout/new-account
+  // snapshot replaces it, never after. Pending writes for invalidated sessions are skipped entirely.
+  const cacheWrites = useRef<Promise<void>>(Promise.resolve());
+  const persist = useCallback((p: Progress) => {
+    const captured = session.current;
+    const write = cacheWrites.current.then(async () => {
+      if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
+      await save(p);
+    });
+    cacheWrites.current = write.catch(() => {});
+    return write;
+  }, []);
 
   // Load the local cache once on mount.
   useEffect(() => {
+    let disposed = false;
+    const originalCache = cacheVersion.current;
     load().then((p) => {
-      setProgress(p);
+      if (disposed) return;
+      const snapshot = originalCache === cacheVersion.current ? p : DEFAULT_PROGRESS;
+      progressRef.current = snapshot;
+      setProgress(snapshot);
       setReady(true);
     });
+    return () => { disposed = true; };
   }, []);
 
   // Debounced push of the latest snapshot to the server (only when authed).
   const schedulePush = useCallback(
-    (p: Progress) => {
-      if (!token) return;
+    (_p: Progress) => {
+      const captured = session.current;
+      if (!token || captured.token !== token || !isCurrentAuthToken(token)) return;
       if (pushTimer.current) clearTimeout(pushTimer.current);
       pushTimer.current = setTimeout(() => {
-        void putProgress(p).catch(() => {}); // best-effort; AsyncStorage already has it
+        pushTimer.current = null;
+        if (session.current !== captured || !isCurrentAuthToken(token)) return;
+        void putProgress(progressRef.current, token).catch(() => {});
       }, 1200);
     },
     [token]
@@ -561,6 +591,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   // React to login/logout: merge-on-login (server canonical), clear-on-logout (avoid mixing accounts).
   useEffect(() => {
+    // Cleanup/guards apply to logout too, including the gap before React runs this effect.
+    if (pushTimer.current) clearTimeout(pushTimer.current);
+    pushTimer.current = null;
     if (!ready || !authReady) return;
     if (token === syncedToken.current) {
       // No token transition. Anonymous-first: with no token there's nothing to reconcile, so settle
@@ -571,8 +604,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     if (!token) {
       syncedToken.current = null;
       setSynced(true); // logged-out: settled, the user is now an anonymous guest
+      progressRef.current = DEFAULT_PROGRESS;
       setProgress(DEFAULT_PROGRESS);
-      void save(DEFAULT_PROGRESS);
+      void persist(DEFAULT_PROGRESS);
       // Reset the anon-funnel counters so a fresh guest doesn't inherit the previous user's state
       // (register-wall lesson count + guest daily cap + relocation-journey stage + review-hook).
       void resetWall();
@@ -581,25 +615,42 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       void resetReviewHook();
       return;
     }
+    if (syncedToken.current !== null && syncedToken.current !== token) {
+      // A direct account switch must not merge the previous member's private local history.
+      progressRef.current = DEFAULT_PROGRESS;
+      setProgress(DEFAULT_PROGRESS);
+      void persist(DEFAULT_PROGRESS);
+    }
     syncedToken.current = token;
     setSynced(false); // new token → hold onboarding routing until the server snapshot lands
     // Cancel any debounced push still holding a PRE-merge snapshot: the reconcile below pushes the
     // merged state itself, so a stale queued push must not fire afterward and clobber the server.
-    if (pushTimer.current) clearTimeout(pushTimer.current);
+    const captured = session.current;
+    let disposed = false;
+    const current = () => !disposed && session.current === captured && isCurrentAuthToken(token);
     (async () => {
       try {
-        const server = await getProgress();
+        const server = await getProgress(token);
+        if (!current()) return;
         const merged = mergeProgress(progressRef.current, server);
+        progressRef.current = merged;
         setProgress(merged);
-        await save(merged);
-        await putProgress(merged);
+        await persist(merged);
+        if (!current()) return;
+        // An answer may have landed while the local cache was saving. Push the latest snapshot.
+        await putProgress(progressRef.current, token);
       } catch {
         // offline / server down — keep local; a later change or re-login will sync
       } finally {
-        setSynced(true);
+        if (current()) setSynced(true);
       }
     })();
-  }, [ready, authReady, token]);
+    return () => {
+      disposed = true;
+      if (pushTimer.current) clearTimeout(pushTimer.current);
+      pushTimer.current = null;
+    };
+  }, [ready, authReady, token, persist]);
 
   // Streak reconciliation on launch / after sync: a gap is either bridged by an owned omamori
   // (consumed server-side — the charm exists to be silently useful) or surfaced as a BREAK event
@@ -617,7 +668,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     if (p.brokenStreak && !repairOpen(p.brokenStreak, now)) {
       setProgress((prev) => {
         const next = { ...prev, brokenStreak: null };
-        void save(next);
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -625,6 +676,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     }
     const status = streakStatus(p.dailyStreak, p.lastActiveDate, now);
     if (status.kind !== "broken") return;
+    const captured = session.current;
     void (async () => {
       let bridged = false;
       if (freezes > 0) {
@@ -635,6 +687,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           // 409 (charm raced away) / offline → fall through to the break event
         }
       }
+      if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
       setProgress((prev) => {
         const next: Progress = bridged
           ? { ...prev, lastActiveDate: yesterdayOf(now) } // gap bridged — practicing today extends it
@@ -646,7 +699,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
               dailyStreak: 0,
             };
         if (next !== prev) {
-          void save(next);
+          void persist(next);
           schedulePush(next);
         }
         return next;
@@ -655,14 +708,18 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   }, [ready, walletReady, freezes, spend, schedulePush]);
 
   const repairStreak = useCallback(async () => {
+    const captured = session.current;
+    if (!captured.token || !isCurrentAuthToken(captured.token)) return;
     const broken = progressRef.current.brokenStreak;
     if (!broken || !repairOpen(broken, new Date())) return;
     // Flush the snapshot first so the server prices the repair off ITS copy of brokenStreak.streak
     // (server-authoritative — a patched client can't understate the lost streak to pay less).
     // Best-effort: if the push fails the server falls back to the qty below, so repair never blocks.
-    await putProgress(progressRef.current).catch(() => {});
+    await putProgress(progressRef.current, captured.token).catch(() => {});
+    if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
     // Server charges koku (price scales with the lost streak); throws ApiError 409 if short.
     await spend("streak_repair", broken.streak);
+    if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
     const now = new Date();
     setProgress((prev) => {
       const practicedToday = prev.lastActiveDate === localDate(now);
@@ -673,7 +730,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         lastActiveDate: practicedToday ? prev.lastActiveDate : yesterdayOf(now),
         brokenStreak: null,
       };
-      void save(next);
+      void persist(next);
       schedulePush(next);
       return next;
     });
@@ -683,7 +740,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     setProgress((prev) => {
       if (!prev.brokenStreak) return prev;
       const next: Progress = { ...prev, brokenStreak: null };
-      void save(next);
+      void persist(next);
       schedulePush(next);
       return next;
     });
@@ -693,7 +750,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     setProgress((prev) => {
       const until = new Date(Date.now() + BOOST_MINUTES * 60000).toISOString();
       const next: Progress = { ...prev, boostUntil: until };
-      void save(next);
+      void persist(next);
       schedulePush(next);
       return next;
     });
@@ -706,7 +763,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       const next = recordAnswer(progressRef.current, topic, correct, new Date(), grade);
       progressRef.current = next;
       setProgress(next);
-      void save(next);
+      void persist(next);
       schedulePush(next);
       return next;
     },
@@ -717,7 +774,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     (profile: Profile, skill: Record<string, number>) => {
       setProgress((prev) => {
         const next: Progress = { ...prev, profile, skill, onboarded: true };
-        void save(next);
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -737,7 +794,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       setProgress((prev) => {
         if (!prev.profile) return prev;
         const next: Progress = { ...prev, profile: { ...prev.profile, ...patch } };
-        void save(next);
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -756,7 +813,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       setProgress((prev) => {
         const next = withUnitMastered(prev, topic);
         if (next !== prev) {
-          void save(next);
+          void persist(next);
           schedulePush(next);
         }
         return next;
@@ -773,7 +830,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           lastExamDate: date,
           beltEarned: passed ? Math.max(prev.beltEarned ?? 0, targetIdx) : prev.beltEarned,
         };
-        void save(next);
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -804,7 +861,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
               ? { level: snapshot.skills.listening, attempts: prev.listening?.attempts ?? 0 }
               : prev.listening,
         };
-        void save(next);
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -821,7 +878,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           xp: prev.xp + xp,
           profile: { ...prev.profile, ...profilePatch },
         };
-        void save(next);
+        void persist(next);
         schedulePush(next);
         return next;
       });
@@ -833,7 +890,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     (next: Steering) => {
       setProgress((prev) => {
         const p: Progress = { ...prev, steering: next };
-        void save(p);
+        void persist(p);
         schedulePush(p);
         return p;
       });
@@ -844,7 +901,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
   const resetOnboarding = useCallback(() => {
     setProgress((prev) => {
       const next: Progress = { ...prev, onboarded: false };
-      void save(next);
+      void persist(next);
       schedulePush(next);
       return next;
     });

@@ -33,7 +33,7 @@ export default function ReviewScreen() {
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
   const { t: tr } = useI18n();
-  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt } =
+  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
 
   const [items, setItems] = useState<Mistake[] | null>(null); // null = still loading
@@ -157,7 +157,7 @@ export default function ReviewScreen() {
           <>
             <Txt variant="label">{tr("review.progress", { n: index + 1, total })}</Txt>
             <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
-              <ExerciseCard key={current.id} exercise={current.exercise} locked={!!result} onChange={onChange} />
+              <ExerciseCard onHint={markHintUsed} key={current.id} exercise={current.exercise} locked={!!result} onChange={onChange} />
             </Animated.View>
 
             {result && (

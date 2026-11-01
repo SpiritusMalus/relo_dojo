@@ -8,10 +8,10 @@
 // exam of that same belt — no one gets downgraded by the feature.
 import type { Progress } from "./progress";
 import { skillBeltIdx } from "./dojo";
-import { TOPIC_PRIORS } from "./adaptive";
+import { practiceEligibilityFraction, PROMOTION_MIN_ATTEMPTS, PROMOTION_MIN_CORRECT } from "./promotion";
 
-export const EXAM_ITEMS = 10;
-export const EXAM_MAX_MISSES = 2;
+export const EXAM_ITEMS = PROMOTION_MIN_ATTEMPTS;
+export const EXAM_MAX_MISSES = PROMOTION_MIN_ATTEMPTS - PROMOTION_MIN_CORRECT;
 export const MAX_BELT_IDX = 5; // black
 
 export type ExamOffer = {
@@ -23,17 +23,14 @@ export type ExamOffer = {
  *  someone exam-ready, require one real lesson's worth of answers at the exam's passing standard.
  *  Counts come from practice history, so old saves work without a new flag or migration. */
 export function hasExamPractice(p: Progress): boolean {
-  const evidence = Object.keys(TOPIC_PRIORS).map((topic) => p.topics[topic]);
-  const attempts = evidence.reduce((sum, stat) => sum + (stat?.attempts ?? 0), 0);
-  const correct = evidence.reduce((sum, stat) => sum + (stat?.correct ?? 0), 0);
-  return attempts >= EXAM_ITEMS && correct >= EXAM_ITEMS - EXAM_MAX_MISSES;
+  return practiceEligibilityFraction(p) >= 1;
 }
 
 /** The exam on offer, or null when the worn belt already matches the skill. */
 export function examOffer(p: Progress): ExamOffer | null {
   if (!p.onboarded || !hasExamPractice(p)) return null;
   const raw = skillBeltIdx(p);
-  const earned = p.beltEarned;
+  const earned = p.beltEarned === null ? 0 : p.beltEarned;
   if (earned === undefined) {
     // Legacy / fresh-feature account: confirm the belt the skill already shows (white needs none).
     return raw >= 1 ? { target: Math.min(raw, MAX_BELT_IDX), confirm: true } : null;

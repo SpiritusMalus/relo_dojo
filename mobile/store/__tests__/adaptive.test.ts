@@ -560,3 +560,37 @@ describe("answer-by-answer adaptation", () => {
     expect(skillFor(progressWith({ skill: { articles: NaN } }), "articles")).toBe(START_LEVEL);
   });
 });
+
+describe("format variety without overriding learner intent", () => {
+  it("never repeats a format a third time when another allowed format is available", () => {
+    const p = progressWith({ recentFormats: ["multiple-choice", "multiple-choice"] });
+    const random = jest.spyOn(Math, "random").mockReturnValue(0);
+    for (let i = 0; i < 20; i++) expect(selectNext(p, "word order").type).not.toBe("multiple-choice");
+    random.mockRestore();
+  });
+
+  it("keeps the single permitted format and the forced topic instead of defeating steering", () => {
+    const p = progressWith({ recentFormats: ["multiple-choice", "multiple-choice"] });
+    const formatPrefs = Object.fromEntries(typeWeightsForLevel(START_LEVEL).map(([type]) => [type, type === "multiple-choice"]));
+    const spec = selectNext(p, "articles", { ...DEFAULT_STEERING, formatPrefs, mutedTopics: ["articles"] });
+    expect(spec.type).toBe("multiple-choice");
+    expect(spec.topic).toBe("articles");
+  });
+
+  it("counts formats across topics and keeps the window through sync", () => {
+    let p = recordAnswer(DEFAULT_PROGRESS, "articles", true, new Date(), { format: "multiple-choice" });
+    p = recordAnswer(p, "prepositions", true, new Date(), { format: "multiple-choice" });
+    expect(p.recentFormats).toEqual(["multiple-choice", "multiple-choice"]);
+    expect(selectNext(p, "word order").type).not.toBe("multiple-choice");
+    p = recordAnswer(p, "word order", false, new Date(), { format: "build-the-sentence" });
+    expect(p.recentFormats).toEqual(["multiple-choice", "build-the-sentence"]);
+  });
+
+  it("legacy topic history also prevents a third identical format without a new global window", () => {
+    const p = progressWith({ topics: { articles: { attempts: 2, correct: 1, recent: [
+      { score: 1, difficulty: 1.5, format: "match-pairs" },
+      { score: 0, difficulty: 1.5, format: "match-pairs" },
+    ] } } });
+    expect(selectNext(p, "articles").type).not.toBe("match-pairs");
+  });
+});

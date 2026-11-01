@@ -3,7 +3,7 @@
 // invalidates both buffered cards and in-flight results, including an on-demand cold fetch.
 import { getExercise, type Exercise } from "./api";
 
-export type FetchParams = { topic: string; level: string; type: string; context: string; mistakes?: string[] };
+export type FetchParams = { topic: string; level: string; type: string; context: string; mistakes?: string[]; practice_index?: number };
 
 export type QueueDeps = {
   selectParams: () => FetchParams;

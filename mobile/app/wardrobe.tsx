@@ -10,6 +10,7 @@ import { trackPaywallView } from "../services/analytics";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import { useWallet } from "../store/wallet";
+import { useAuth } from "../store/auth";
 import { useProgress } from "../store/progress";
 import { useCosmetics } from "../store/cosmeticsStore";
 import { beltProgress } from "../store/dojo";
@@ -45,6 +46,7 @@ export default function WardrobeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { coins, refresh: refreshWallet } = useWallet();
+  const { token } = useAuth();
   const { progress } = useProgress();
   const { owned, equipped, buy, equip } = useCosmetics();
   const belt = beltProgress(progress).belt;
@@ -100,6 +102,12 @@ export default function WardrobeScreen() {
         contentContainerStyle={{ padding: t.spacing.pad, paddingBottom: insets.bottom + 24, gap: t.spacing.gap }}
         showsVerticalScrollIndicator={false}
       >
+        {!token && (
+          <View style={{ gap: 10 }}>
+            <Txt variant="body" color={t.c.ink2}>{tr("ward.guest")}</Txt>
+            <Button variant="ghost" label={tr("settings.accountEntry")} onPress={() => router.push("/login")} />
+          </View>
+        )}
         {SLOTS.map((slot) => (
           <SlotSection
             key={slot}

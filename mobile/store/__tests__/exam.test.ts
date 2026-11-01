@@ -82,7 +82,7 @@ describe("attempts and verdicts", () => {
 
 describe("beltProgress with the exam cap", () => {
   it("wears the earned belt and shows a full bar while the exam is pending", () => {
-    const bp = beltProgress(withSkill(2.2, { beltEarned: 1 }));
+    const bp = beltProgress(withPractice(2.2, { beltEarned: 1 }));
     expect(bp.belt.idx).toBe(1);
     expect(bp.pctToNext).toBe(100);
     expect(bp.cefr).toBe("B1"); // difficulty stays skill-derived

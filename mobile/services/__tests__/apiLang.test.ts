@@ -29,6 +29,12 @@ describe("getExercise / getStory send the UI lang", () => {
     expect(lastBody.lang).toBe("en");
   });
 
+  it("carries the topic's persisted practice index to generation", async () => {
+    await getExercise({ topic: "word order", level: "A2", practice_index: 7 });
+    expect(lastBody.practice_index).toBe(7);
+    expect(lastBody.topic).toBe("word order");
+  });
+
   it("getStory sends lang", async () => {
     setApiLang("ru");
     await getStory({ id: "arc-1" });

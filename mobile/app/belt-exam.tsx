@@ -56,7 +56,7 @@ export default function BeltExamScreen() {
       selectParams: () => {
         const { topic, type } = selectNext(progressRef.current);
         // Difficulty pinned to the TARGET belt — the whole point of the trial.
-        return { topic, level: targetBelt.cefr, type, context: buildContext(progressRef.current.profile) };
+        return { topic, level: targetBelt.cefr, type, context: buildContext(progressRef.current.profile), practice_index: progressRef.current.topics[topic]?.attempts ?? 0 };
       },
     });
   }
@@ -235,7 +235,7 @@ export default function BeltExamScreen() {
         )}
 
         {exercise && !loading && (
-          <ExerciseCard key={round} exercise={exercise} locked={phase === "feedback"} onChange={(v) => setResponse(v)} />
+          <ExerciseCard translationEnabled={false} key={round} exercise={exercise} locked={phase === "feedback"} onChange={(v) => setResponse(v)} />
         )}
 
         {phase === "feedback" && result && (

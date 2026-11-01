@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
@@ -47,7 +48,11 @@ export function useTranslator(): Ctx {
   return useContext(TranslationContext) ?? NO_OP;
 }
 
-export function TranslationProvider({ children }: { children: ReactNode }) {
+export function TranslationProvider({ children, enabled = true, onReveal }: {
+  children: ReactNode;
+  enabled?: boolean;
+  onReveal?: () => void;
+}) {
   const t = useTheme();
   const { t: tr } = useI18n();
 
@@ -57,9 +62,14 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   // Guards against a slow earlier request landing after a newer tap.
   const reqId = useRef(0);
+  useEffect(() => () => { reqId.current++; }, []);
+  useEffect(() => {
+    if (!enabled) { reqId.current++; setOpen(null); }
+  }, [enabled]);
 
   const translateAt = useCallback(
     (rawWord: string, anchor: Anchor, context?: string) => {
+      if (!enabled) return; // placement/exams are closed book, including vocabulary lookups
       const word = cleanWord(rawWord);
       if (!word) return;
       const id = ++reqId.current;
@@ -72,13 +82,14 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
           if (id !== reqId.current) return;
           setResult(translation);
           setStatus(translation ? "done" : "error");
+          if (translation) onReveal?.(); // failed/empty translations provided no assistance
         })
         .catch(() => {
           if (id !== reqId.current) return;
           setStatus("error");
         });
     },
-    []
+    [enabled, onReveal]
   );
 
   const dismiss = useCallback(() => {

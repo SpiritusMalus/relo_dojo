@@ -383,6 +383,10 @@ export function selectNext(
   // Recent struggle calls for recognition/scaffolding; repeated independent wins invite production.
   // This changes the mix, never defeats explicit format preferences or the level's allowed pool.
   const recent = p.topics[topic]?.recent?.slice(-3) ?? [];
+  const formats = p.recentFormats?.length ? p.recentFormats.slice(-2) : recent.slice(-2).map((a) => a.format);
+  if (formats.length === 2 && formats[0] === formats[1] && tw.some(([type]) => type !== formats[1])) {
+    tw = tw.filter(([type]) => type !== formats[1]);
+  }
   const struggling = recent.length >= 2 && recent.slice(-2).every((a) => a.score < 0.6 || a.hintUsed);
   const confident = recent.length === 3 && recent.every((a) => a.score >= 0.9 && !a.hintUsed);
   const constructive = new Set<ExerciseType>(["build-the-sentence", "transform-the-sentence", "tap-the-error", "multiple-blanks", "order-the-dialog", "listen-and-retell"]);

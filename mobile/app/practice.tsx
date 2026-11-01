@@ -41,7 +41,7 @@ import { firstAffordableUnowned } from "../store/cosmetics";
 import { useAuth } from "../store/auth";
 import { recordLessonFinished } from "../store/registerWall";
 import { recordJourneySession, loadJourney, stageFromGoals, STAGE_GOAL } from "../store/journey";
-import { consumeGuestExercise } from "../store/guestLimit";
+import { deliverGuestExercise } from "../store/guestLimit";
 import { localDate } from "../store/streak";
 import RegisterWall from "../components/ui/RegisterWall";
 
@@ -113,6 +113,7 @@ export default function PracticeScreen() {
           topic,
           level: cefr,
           type,
+          practice_index: progressRef.current.topics[topic]?.attempts ?? 0,
           context: buildContext(progressRef.current.profile, undefined, journeyGoalRef.current),
           mistakes: mistakeHintsForTopic(mistakesRef.current, topic),
         };
@@ -143,7 +144,10 @@ export default function PracticeScreen() {
 
   const shake = useRef(new Animated.Value(0)).current;
 
+  const loadingRef = useRef(false);
   const loadExercise = useCallback(async (replace = false) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     setLoadError(null);
     setGated(false);
@@ -157,17 +161,16 @@ export default function PracticeScreen() {
     // show the register wall instead of fetching — registering lifts the cap and adds sync. (The
     // server doesn't meter anonymous callers; this is the client-side incentive fix.)
     // `replace` (a swerve swapping the current card) reuses the slot already counted — no re-charge.
-    if (!replace && !token && !(await consumeGuestExercise(localDate(new Date())))) {
-      setGuestLimited(true);
-      setLoading(false);
-      return;
-    }
     try {
       // Refresh the local miss list so freshly-refilled cards can target the latest weak points.
       mistakesRef.current = await loadMistakes();
       // Pull from the buffer (instant if prefetched); the queue handles adaptive selection and
       // refills itself in the background.
-      setExercise(await queueRef.current!.next());
+      const next = !replace && !token
+        ? await deliverGuestExercise(localDate(new Date()), () => queueRef.current!.next())
+        : await queueRef.current!.next();
+      if (!next) { setGuestLimited(true); return; }
+      setExercise(next);
       setRound((r) => r + 1);
     } catch (e) {
       // 403 routes by gate kind: "limit" → limit sheet with the upsell; "gated" → the activation
@@ -180,6 +183,7 @@ export default function PracticeScreen() {
       } else if (gate === "gated") setGated(true);
       else setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   }, [reset, token]);
@@ -451,7 +455,7 @@ export default function PracticeScreen() {
 
         {exercise && !loading && !showScroll && (
           <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
-            <ExerciseCard key={round} exercise={exercise} locked={!!result} onChange={onChange} />
+            <ExerciseCard onHint={markHintUsed} key={round} exercise={exercise} locked={!!result} onChange={onChange} />
           </Animated.View>
         )}
 

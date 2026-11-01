@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
-  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -38,13 +37,12 @@ import {
 import { pickOnboardingItem, type CalItem } from "../store/calibrationBank";
 import { useI18n } from "../store/i18n";
 import { RU_GOAL_LABELS, RU_SELF_LABELS, RU_TONE_LABELS, RU_TOPIC_LABELS } from "../i18n/strings";
-import { beltByCefr, useTheme } from "../theme/theme";
+import { belts, useTheme } from "../theme/theme";
 import Screen from "../components/ui/Screen";
 import Card from "../components/ui/Card";
 import Chip from "../components/ui/Chip";
 import Button from "../components/ui/Button";
 import Sensei from "../components/ui/Sensei";
-import BeltKnot from "../components/ui/BeltKnot";
 import Icon from "../components/ui/Icon";
 import ProgressBar from "../components/ui/ProgressBar";
 import Confetti from "../components/ui/Confetti";
@@ -209,7 +207,7 @@ function Calibration({
 
       {item && exercise && (
         <View style={{ gap: 14, marginTop: 4 }}>
-          <ExerciseCard key={item.id} exercise={exercise} locked={result !== null} onChange={(v) => setResponse(v)} />
+          <ExerciseCard translationEnabled={false} key={item.id} exercise={exercise} locked={result !== null} onChange={(v) => setResponse(v)} />
           {result === null ? (
             <Button label={tr("action.check")} onPress={check} disabled={response === null} />
           ) : (
@@ -227,7 +225,7 @@ function Calibration({
   );
 }
 
-// --- belt reveal summary ---
+// Placement sets the starting difficulty; earned belts come from practice.
 function Reveal({
   profile,
   estimatedLevel,
@@ -241,31 +239,26 @@ function Reveal({
 }) {
   const t = useTheme();
   const { t: tr, lang } = useI18n();
-  const belt = beltByCefr(levelToCefr(estimatedLevel));
-  const scale = useRef(new Animated.Value(t.reduceMotion ? 1 : 0.6)).current;
-  useEffect(() => {
-    if (t.reduceMotion) return;
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4, tension: 120 }).start();
-  }, [scale, t.reduceMotion]);
-
   const goalLabel = (g: string) => (lang === "ru" ? RU_GOAL_LABELS[g] ?? GOAL_LABELS[g] ?? g : GOAL_LABELS[g] ?? g);
   const topicLabel = (x: string) => (lang === "ru" ? RU_TOPIC_LABELS[x] ?? TOPIC_LABELS[x] ?? x : TOPIC_LABELS[x] ?? x);
   const goalText = profile.goals.map(goalLabel).join(", ") || "—";
   const focusText = profile.focusTopics.map(topicLabel).join(", ") || tr("ob.none");
   const dailyGoal = minutesToGoal(profile.dailyMinutes);
+  const selfLevelLabel = lang === "ru"
+    ? RU_SELF_LABELS[profile.selfLevel] ?? profile.selfLevel
+    : SELF_LEVELS.find((level) => level.id === profile.selfLevel)?.label ?? profile.selfLevel;
 
   return (
     <View style={{ gap: 16, alignItems: "stretch" }}>
       <View style={{ alignItems: "center", gap: 6 }}>
-        <Animated.View style={{ transform: [{ scale }] }}>
-          <BeltKnot belt={belt} size={120} />
-        </Animated.View>
-        <Txt variant="hero">{belt.name}</Txt>
-        <Txt variant="body" color={t.c.ink2}>{tr("ob.keepsAdjusting", { cefr: levelToCefr(estimatedLevel) })}</Txt>
+        <Sensei belt={belts[0]} size={100} mood="happy" />
+        <Txt variant="hero" style={{ textAlign: "center" }}>{tr("ob.warmupDone")}</Txt>
+        <Txt variant="cardTitle" style={{ textAlign: "center" }}>{tr("ob.estimate", { cefr: levelToCefr(estimatedLevel) })}</Txt>
+        <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("ob.keepsAdjusting")}</Txt>
       </View>
 
       <Card>
-        <Recap label={tr("ob.recapDifficulty")} value={profile.selfLevel || levelToCefr(estimatedLevel)} />
+        <Recap label={tr("ob.recapDifficulty")} value={selfLevelLabel || levelToCefr(estimatedLevel)} />
         <Recap label={tr("ob.recapHardTopics")} value={focusText} />
         <Recap label={tr("ob.recapDailyGoal")} value={dailyGoal ? tr("ob.minutes", { n: profile.dailyMinutes }) + ` (~${dailyGoal})` : "—"} />
         <Recap label={tr("ob.recapGoals")} value={goalText} last />

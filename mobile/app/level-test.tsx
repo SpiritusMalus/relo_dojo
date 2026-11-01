@@ -373,7 +373,7 @@ export default function LevelTestScreen() {
           </Card>
         )}
         {exercise && (
-          <ExerciseCard key={item!.id} exercise={exercise} locked={phase === "feedback" || (item?.skill === "listening" && audioState !== "ready")} onChange={(v) => setResponse(v)} />
+          <ExerciseCard translationEnabled={false} key={item!.id} exercise={exercise} locked={phase === "feedback" || (item?.skill === "listening" && audioState !== "ready")} onChange={(v) => setResponse(v)} />
         )}
 
         {phase === "feedback" && result && (
