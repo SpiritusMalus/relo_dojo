@@ -6,10 +6,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import {
+  ApiError,
   getMe,
   login as apiLogin,
   register as apiRegister,
@@ -41,33 +43,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const sessionVersion = useRef(0);
 
   // Apply a token everywhere (api client + state + secure storage).
   const apply = useCallback(async (newToken: string | null) => {
+    sessionVersion.current += 1;
     setAuthToken(newToken);
     setToken(newToken);
     if (newToken) await SecureStore.setItemAsync(TOKEN_KEY, newToken);
     else await SecureStore.deleteItemAsync(TOKEN_KEY);
   }, []);
 
-  // Restore a saved session on launch; drop it if the token is no longer valid.
+  // Storage is the startup gate. A slow/offline server must not hide the whole app
+  // or erase saved credentials; only an explicit 401 establishes an invalid session.
   useEffect(() => {
+    let disposed = false;
+    const version = sessionVersion.current;
     (async () => {
       try {
         const saved = await SecureStore.getItemAsync(TOKEN_KEY);
+        if (disposed || version !== sessionVersion.current) return;
         if (saved) {
           setAuthToken(saved);
-          const me = await getMe(); // 401 → throws → treated as logged out
           setToken(saved);
-          setUser(me);
+          setReady(true);
+          try {
+            const me = await getMe();
+            if (!disposed && version === sessionVersion.current) setUser(me);
+          } catch (error) {
+            if (!disposed && version === sessionVersion.current && error instanceof ApiError && error.status === 401) {
+              await apply(null);
+              setUser(null);
+            }
+          }
         }
       } catch {
-        await apply(null);
-        setUser(null);
+        // A SecureStore read failure is recoverable; do not destroy data we could not read.
       } finally {
-        setReady(true);
+        if (!disposed) setReady(true);
       }
     })();
+    return () => { disposed = true; };
   }, [apply]);
 
   const login = useCallback(
@@ -96,12 +112,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [apply]);
 
   const refreshUser = useCallback(async () => {
+    const version = sessionVersion.current;
     try {
-      setUser(await getMe());
-    } catch {
-      // ignore; a stale/expired session is handled by the normal 401 path elsewhere
+      const me = await getMe();
+      if (version === sessionVersion.current) setUser(me);
+    } catch (error) {
+      if (version === sessionVersion.current && error instanceof ApiError && error.status === 401) {
+        await apply(null);
+        setUser(null);
+      }
     }
-  }, []);
+  }, [apply]);
 
   const resendVerification = useCallback(async () => {
     await apiRequestVerification();

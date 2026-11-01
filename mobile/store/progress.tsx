@@ -21,7 +21,7 @@ import { resetGuestLimit } from "./guestLimit";
 import { resetJourney } from "./journey";
 import { resetReviewHook } from "./reviewHook";
 import { useWallet } from "./wallet";
-import { LISTENING_FORMATS, updateListening, updateSkill, type ListeningStat } from "./adaptive";
+import { effectiveSkill, LISTENING_FORMATS, RECENT_ANSWERS, updateListening, updateSkill, type AnswerEffort, type AnswerEvidence, type ListeningStat } from "./adaptive";
 import { MASTERY_WINDOW, type AnswerMark } from "./curriculum";
 import {
   MIN_REPAIRABLE_STREAK,
@@ -42,7 +42,7 @@ export const COMBO_BONUS_XP = 20;
 export const BOOST_MINUTES = 15;
 export const BOOST_MULTIPLIER = 2;
 
-export type TopicStat = { attempts: number; correct: number; lastSeen?: string }; // lastSeen: local YYYY-MM-DD
+export type TopicStat = { attempts: number; correct: number; lastSeen?: string; recent?: AnswerEvidence[] }; // lastSeen: local YYYY-MM-DD
 
 export type Profile = {
   goals: string[];
@@ -97,6 +97,7 @@ export type LevelSnapshot = {
   level: number; // blended overall estimate (0..5)
   cefr: string;
   skills: Record<string, number>;
+  partial?: boolean; // this run explicitly omitted an unavailable modality or the writing section
 };
 
 // Keep the last 12 snapshots (~3 years at the quarterly cadence) — enough for every delta the UI
@@ -225,7 +226,7 @@ function isYesterday(prev: string, today: Date): boolean {
 /** Optional grading signal for a difficulty-aware skill update (store/adaptive.ts). `score` is the
  *  partial credit (0..1); `difficulty` is the served item's difficulty on the 0..5 scale; `format`
  *  is the exercise type — course mastery weighs constructive formats above guessable ones. */
-export type GradeSignal = { score?: number; difficulty?: number; format?: string };
+export type GradeSignal = AnswerEffort & { score?: number; difficulty?: number; format?: string };
 
 /** Apply one answer to progress, returning a new immutable Progress. `now` is injectable for tests. */
 export function recordAnswer(
@@ -238,12 +239,20 @@ export function recordAnswer(
   const today = localDate(now);
 
   const existing = prev.topics[topic] ?? { attempts: 0, correct: 0 };
+  const score = Number.isFinite(grade?.score) ? Math.min(1, Math.max(0, grade!.score!)) : correct ? 1 : 0;
+  const difficulty = Number.isFinite(grade?.difficulty)
+    ? Math.min(5, Math.max(0, grade!.difficulty!))
+    : effectiveSkill(prev, topic);
+  const evidence: AnswerEvidence = { score, difficulty, format: grade?.format ?? "" };
+  if (Number.isFinite(grade?.elapsedMs)) evidence.elapsedMs = Math.min(600_000, Math.max(0, Math.round(grade!.elapsedMs!)));
+  if (grade?.hintUsed) evidence.hintUsed = true;
   const topics = {
     ...prev.topics,
     [topic]: {
       attempts: existing.attempts + 1,
       correct: existing.correct + (correct ? 1 : 0),
       lastSeen: today, // drives spaced-repetition review urgency (store/adaptive.ts)
+      recent: [...(existing.recent ?? []), evidence].slice(-RECENT_ANSWERS),
     },
   };
 
@@ -254,7 +263,7 @@ export function recordAnswer(
   // the unit READY for its checkpoint (зачёт) — mastery itself is granted only by passing that quiz
   // (withUnitMastered, called from the checkpoint screen). Never granted here, never revoked.
   const prevCourse = prev.course ?? DEFAULT_COURSE;
-  const marks = [...(prevCourse.history[topic] ?? []), { c: correct, f: grade?.format ?? "" }].slice(
+  const marks = [...(prevCourse.history[topic] ?? []), { c: correct && !grade?.hintUsed, f: grade?.format ?? "" }].slice(
     -MASTERY_WINDOW
   );
   const course: CourseState = {
@@ -296,11 +305,11 @@ export function recordAnswer(
     // Adaptive level update uses prior attempts (prev), so compute before the increment is "seen".
     // Prefer the partial score + served difficulty when available (difficulty-aware update);
     // otherwise fall back to the boolean correctness.
-    skill: updateSkill(prev, topic, grade?.score ?? correct, grade?.difficulty),
+    skill: updateSkill(prev, topic, score, difficulty, grade),
     // Listening exercises also feed the modality estimate (Level Test diagnosis between tests).
     listening:
       grade?.format && LISTENING_FORMATS.has(grade.format)
-        ? updateListening(prev.listening, grade?.score ?? correct, grade?.difficulty)
+        ? updateListening(prev.listening, score, difficulty, grade)
         : prev.listening,
     // Daily-goal counter: reset on a new local day, otherwise increment.
     todayDate: today,
@@ -490,7 +499,7 @@ type ProgressContextValue = {
   progress: Progress;
   ready: boolean; // false until the first local load completes
   synced: boolean; // false until the post-login server reconciliation settles (success or offline)
-  recordAnswer: (topic: string, correct: boolean, grade?: GradeSignal) => void;
+  recordAnswer: (topic: string, correct: boolean, grade?: GradeSignal) => Progress;
   completeOnboarding: (profile: Profile, skill: Record<string, number>) => void;
   resetOnboarding: () => void;
   /** Merge a partial change into the profile (e.g. tone or a new goal from settings). */
@@ -692,12 +701,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const record = useCallback(
     (topic: string, correct: boolean, grade?: GradeSignal) => {
-      setProgress((prev) => {
-        const next = recordAnswer(prev, topic, correct, new Date(), grade);
-        void save(next);
-        schedulePush(next);
-        return next;
-      });
+      // The caller can select the next card immediately after grading, before React re-renders.
+      // Keeping this ref current also prevents two same-tick answers from sharing a stale snapshot.
+      const next = recordAnswer(progressRef.current, topic, correct, new Date(), grade);
+      progressRef.current = next;
+      setProgress(next);
+      void save(next);
+      schedulePush(next);
+      return next;
     },
     [schedulePush]
   );

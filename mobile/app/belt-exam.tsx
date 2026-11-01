@@ -40,7 +40,7 @@ export default function BeltExamScreen() {
   const insets = useSafeAreaInsets();
   const { progress, recordExamResult } = useProgress();
   const { t: tr } = useI18n();
-  const { result, checking, error: checkError, check, reset } = useExerciseCheck();
+  const { result, checking, error: checkError, check, reset, beginAttempt } = useExerciseCheck();
 
   // The offer is read once at mount: mid-exam skill changes must not move the goalposts.
   const offerRef = useRef(examOffer(progress));
@@ -63,6 +63,7 @@ export default function BeltExamScreen() {
 
   const [phase, setPhase] = useState<Phase>("intro");
   const [exercise, setExercise] = useState<Exercise | null>(null);
+  useEffect(() => { if (exercise) beginAttempt(exercise); }, [exercise, beginAttempt]);
   const [round, setRound] = useState(0);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [loading, setLoading] = useState(false);

@@ -61,7 +61,7 @@ export default function PracticeScreen() {
   // Stage 2 Progress Agent: every answer of this session, pushed once at the summary screen.
   const sessionAnswersRef = useRef<SessionAnswer[]>([]);
   const summarySentRef = useRef(false);
-  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
+  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
   const params = useLocalSearchParams<{ topic?: string }>();
   const routeTopic = typeof params.topic === "string" ? params.topic : undefined;
@@ -92,8 +92,8 @@ export default function PracticeScreen() {
     };
   }, []);
 
-  // Pre-generation buffer: while the learner solves a card, the next ones are fetched in the
-  // background so "Next" is instant. Params are resolved from the freshest learner model per fetch.
+  // Prefetch during feedback, after the current answer updates the learner model.
+  // One next card avoids spending on cards that a later answer would invalidate.
   // Recent misses (per device), refreshed on each load; fed back to the generator to target weak
   // points in a fresh sentence (personalized practice). Kept in a ref so selectParams stays sync.
   const mistakesRef = useRef<Mistake[]>([]);
@@ -103,6 +103,9 @@ export default function PracticeScreen() {
   const queueRef = useRef<ExerciseQueue | null>(null);
   if (queueRef.current === null) {
     queueRef.current = createExerciseQueue({
+      size: 1,
+      prefetchOnServe: false,
+      revision: () => Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0),
       selectParams: () => {
         const steering = mergeSteering(progressRef.current.steering, sessionSteeringRef.current ?? DEFAULT_STEERING);
         const { topic, cefr, type } = selectNext(progressRef.current, forcedTopicRef.current, steering);
@@ -117,6 +120,7 @@ export default function PracticeScreen() {
     });
   }
   const [exercise, setExercise] = useState<Exercise | null>(null);
+  useEffect(() => { if (exercise) beginAttempt(exercise); }, [exercise, beginAttempt]);
   const [round, setRound] = useState(0); // bumps to remount ExerciseCard on each new exercise
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [responseDisplay, setResponseDisplay] = useState("");
@@ -244,6 +248,10 @@ export default function PracticeScreen() {
     if (!exercise || response === null || checking) return;
     const res = await check(exercise, response, runShake);
     if (res) {
+      // Grade first, then select from the updated learner snapshot during feedback.
+      if (res.progressAfter) progressRef.current = res.progressAfter;
+      queueRef.current!.clear();
+      if (solved + 1 < SESSION_LEN) queueRef.current!.prefetch();
       setSolved((s) => s + 1);
       if (res.correct) setSessionCorrect((c) => c + 1);
       sessionAnswersRef.current.push({ topic: exercise.topic, correct: res.correct, level: exercise.level });
@@ -321,7 +329,7 @@ export default function PracticeScreen() {
           {/* 📖 the unit's rule card, one tap away mid-drill (the Presentation step stays reachable) */}
           {exercise && !showScroll && RULE_CARDS[exercise.topic] && (
             <Pressable
-              onPress={() => setRuleOpen(true)}
+              onPress={() => { markHintUsed(); setRuleOpen(true); }}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={tr("course.rule")}
@@ -414,7 +422,13 @@ export default function PracticeScreen() {
                 </Txt>
               </View>
             </Card>
-            <Scroll onDone={() => router.back()} />
+            {token ? <Scroll onDone={() => router.back()} /> : (
+              <Card style={{ gap: 12 }}>
+                <Txt variant="cardTitle">{tr("scroll.guestTitle")}</Txt>
+                <Txt variant="body" color={t.c.ink2}>{tr("scroll.guestBody")}</Txt>
+                <Button label={tr("action.finish")} onPress={() => router.back()} />
+              </Card>
+            )}
             {(() => {
               // Peak-end pitch: at the emotional high, surface a reachable cosmetic reward.
               const pick = firstAffordableUnowned(coins, ownedCosmetics);

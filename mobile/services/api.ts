@@ -357,7 +357,7 @@ const translateCache = new Map<string, string>();
 export async function translate(text: string, context?: string): Promise<string> {
   const word = text.trim();
   if (!word) return "";
-  const key = `${apiLang} ${word} ${context ?? ""}`;
+  const key = `${apiLang}\u0000${word}\u0000${context ?? ""}`;
   const cached = translateCache.get(key);
   if (cached !== undefined) return cached;
   const { translation } = await request<{ translation: string }>("/translate", {
@@ -448,7 +448,7 @@ export function login(email: string, password: string): Promise<TokenResp> {
 }
 
 export function getMe(): Promise<AuthUser> {
-  return request<AuthUser>("/auth/me", undefined, "GET");
+  return request<AuthUser>("/auth/me", undefined, "GET", 12000);
 }
 
 // Resend the account-activation email to the logged-in user.

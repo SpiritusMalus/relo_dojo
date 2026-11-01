@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-01T06:16:41.269904+00:00",
+  "title": "Design System: Relo Dojo",
+  "extensions": {
+    "colorMeta": {
+      "bamboo": {
+        "role": "primary",
+        "displayName": "Bamboo",
+        "canonical": "#376347"
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Warm paper",
+        "canonical": "#F6F3EB"
+      },
+      "parchment": {
+        "role": "neutral",
+        "displayName": "Parchment",
+        "canonical": "#FFFCF5"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Dojo ink",
+        "canonical": "#253328"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Rounded dojo display",
+        "purpose": "Existing belt and screen display voice."
+      },
+      "body": {
+        "displayName": "Reading and controls",
+        "purpose": "Native body copy, with OS font scaling and glyph fallback."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "reward-reveal",
+        "value": "220ms opacity",
+        "purpose": "One completion moment; immediate with reduced motion."
+      },
+      {
+        "name": "button-press",
+        "value": "1 logical unit",
+        "purpose": "Subtle press feedback with no choreographed entrance."
+      }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Native filled daily action, normal case and generous target.",
+      "html": "<button class=\"ds-primary\">Continue practice</button>",
+      "css": ".ds-primary{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;background:#376347;color:white;border:0;border-bottom:2px solid #284B34;border-radius:12px;min-height:48px;padding:15px 18px;font-weight:600;cursor:pointer}.ds-primary:hover{background:#284B34}.ds-primary:active{transform:translateY(1px);border-bottom-width:1px}.ds-primary:focus-visible{outline:2px solid #376347;outline-offset:3px}.ds-primary:disabled{background:#E5E2D6;color:#666F61;border-color:#C9CEBD}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action using a quiet outline.",
+      "html": "<button class=\"ds-ghost\">Try again</button>",
+      "css": ".ds-ghost{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;background:#FFFCF5;color:#253328;border:1px solid #C9CEBD;border-radius:12px;min-height:48px;padding:13px 18px;font-weight:600;cursor:pointer}.ds-ghost:hover,.ds-ghost:active{background:#EEEBDD}.ds-ghost:focus-visible{outline:2px solid #376347;outline-offset:3px}"
+    },
+    {
+      "name": "Account Field",
+      "kind": "input",
+      "description": "Existing labelled native account input, with clear focus outline.",
+      "html": "<label class=\"ds-field\">Email<input type=\"email\" placeholder=\"you@example.com\" /></label>",
+      "css": ".ds-field{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;display:grid;gap:6px;color:#253328;font-size:13px;font-weight:700}.ds-field input{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;background:#FFFCF5;color:#253328;border:2px solid #C9CEBD;border-radius:12px;padding:13px 14px;font-size:15px;min-height:20px}.ds-field input::placeholder{color:#666F61}.ds-field input:focus{border-color:#376347;outline:0}"
+    },
+    {
+      "name": "Native Tab Navigation",
+      "kind": "nav",
+      "description": "Three native top-level destinations; the active target uses a soft bamboo pill.",
+      "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">Home</button><button>Train</button><button>Progress</button></nav>",
+      "css": ".ds-nav{display:flex;gap:8px;padding:8px;background:#F6F3EB;border-top:1px solid #DDDDCF}.ds-nav button{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;flex:1;min-height:48px;border:0;border-radius:24px;background:transparent;color:#666F61;font-size:12px;cursor:pointer}.ds-nav button[aria-current]{background:#E6ECDF;color:#376347;font-weight:600}.ds-nav button:hover{background:#EEEBDD}.ds-nav button:focus-visible{outline:2px solid #376347}"
+    },
+    {
+      "name": "Choice Chip",
+      "kind": "chip",
+      "description": "48-unit target and semantic selected state.",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"true\">Short daily sessions</button>",
+      "css": ".ds-chip{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;border:1px solid #C9CEBD;border-radius:999px;min-height:48px;padding:10px 16px;background:#FFFCF5;color:#253328;font-weight:600;cursor:pointer}.ds-chip[aria-pressed=true]{background:#E6ECDF;color:#376347;border-color:#376347}.ds-chip:hover{background:#EEEBDD}.ds-chip:focus-visible{outline:2px solid #376347;outline-offset:2px}"
+    },
+    {
+      "name": "Parchment Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "One outline, no ordinary card shadow.",
+      "html": "<section class=\"ds-card\"><strong>Practice saved</strong><p>Your next lesson starts from here.</p></section>",
+      "css": ".ds-card{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;padding:20px;border:1px solid #DDDDCF;border-radius:16px;background:#FFFCF5;color:#253328}.ds-card p{margin:6px 0 0;color:#566053}"
+    },
+    {
+      "name": "Training Mode Row",
+      "kind": "custom",
+      "description": "A quiet native row, secondary to Daily Mix.",
+      "html": "<button class=\"ds-mode\"><svg viewBox=\"0 0 24 24\" width=\"26\" height=\"26\" fill=\"none\" stroke=\"#376347\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"8\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg><span><strong>Review my text</strong><small>Paste your real email or message</small></span><b aria-hidden=\"true\">›</b></button>",
+      "css": ".ds-mode{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:16px;line-height:23px;display:flex;align-items:center;gap:16px;padding:16px;min-height:80px;border:1px solid #DDDDCF;border-radius:12px;background:#FFFCF5;color:#253328;text-align:left;cursor:pointer}.ds-mode span{display:grid;gap:3px;flex:1}.ds-mode small{font-size:14px;line-height:20px;color:#566053}.ds-mode:hover,.ds-mode:active{background:#EEEBDD}.ds-mode:focus-visible{outline:2px solid #376347;outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A calm dojo with game progression",
+    "overview": "The owner selected this direction on 2026-10-31. It refines the existing torii,\nSensei, belt and scroll identity. Warm paper and readable ink support a short,\nfocused training ritual. The filled bamboo action leads to practice; earned belts\nand a small reward reveal give progress a physical, recognisable form.",
+    "keyCharacteristics": [
+      "Warm neutral surfaces, restrained bamboo action colour and legible secondary ink.",
+      "Existing belt colours remain meaningful progression markers.",
+      "Standard native navigation, spacious controls and clear recovery states.",
+      "Rewards acknowledge practice without competing with the lesson."
+    ],
+    "rules": [],
+    "dos": [
+      "Keep the next useful learning action findable in the first viewport.",
+      "Use existing belt and scroll mechanics without inventing mastery or reward claims.",
+      "Verify light, dark and enlarged type in a native emulator or device.",
+      "Preserve native Back, safe areas, keyboard access and clear loading/error states."
+    ],
+    "donts": [
+      "Put promotions, reward pressure or a long catalogue ahead of the daily practice action.",
+      "Use saturated mode backgrounds, decorative gradients or shadows on every card.",
+      "Present estimated skill or unstarted topics as earned proficiency.",
+      "Replace the established dojo with a new brand or generic emoji icon vocabulary."
+    ]
+  }
+}

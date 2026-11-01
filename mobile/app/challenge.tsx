@@ -53,7 +53,7 @@ export default function ChallengeScreen() {
   const { progress } = useProgress();
   const { token } = useAuth();
   const { t: tr } = useI18n();
-  const { result, checking, error: checkError, check, reset } = useExerciseCheck();
+  const { result, checking, error: checkError, check, reset, beginAttempt } = useExerciseCheck();
 
   const progressRef = useRef(progress);
   progressRef.current = progress;
@@ -61,6 +61,9 @@ export default function ChallengeScreen() {
   const queueRef = useRef<ExerciseQueue | null>(null);
   if (queueRef.current === null) {
     queueRef.current = createExerciseQueue({
+      size: 1,
+      prefetchOnServe: false,
+      revision: () => Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0),
       selectParams: () => {
         const { topic, cefr, type } = selectNext(progressRef.current);
         return { topic, level: cefr, type, context: buildContext(progressRef.current.profile) };
@@ -70,6 +73,7 @@ export default function ChallengeScreen() {
 
   const [phase, setPhase] = useState<Phase>("intro");
   const [exercise, setExercise] = useState<Exercise | null>(null);
+  useEffect(() => { if (exercise) beginAttempt(exercise); }, [exercise, beginAttempt]);
   const [round, setRound] = useState(0);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [loading, setLoading] = useState(false);
@@ -191,6 +195,9 @@ export default function ChallengeScreen() {
     try {
       const res = await check(exercise, response);
       if (!res) return; // network error — surfaced via checkError
+      if (res.progressAfter) progressRef.current = res.progressAfter;
+      queueRef.current!.clear();
+      if (timeLeftRef.current > FEEDBACK_MS / 1000) queueRef.current!.prefetch();
       // Funnel + daily contracts: a Challenge answer is an answered exercise too (mode tags it), so it
       // counts toward the "answer N / N correct" contracts exactly like Practice (same event).
       trackExerciseAnswered({ topic: exercise.topic, correct: res.correct, level: exercise.level, mode: "challenge" });

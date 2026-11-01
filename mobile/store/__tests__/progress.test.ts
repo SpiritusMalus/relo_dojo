@@ -149,7 +149,7 @@ describe("mergeProgress — course state", () => {
 describe("recordAnswer", () => {
   it("increments attempts/correct and stamps lastSeen for the topic", () => {
     const next = recordAnswer(DEFAULT_PROGRESS, "articles", true, at(DAY));
-    expect(next.topics.articles).toEqual({ attempts: 1, correct: 1, lastSeen: DAY });
+    expect(next.topics.articles).toMatchObject({ attempts: 1, correct: 1, lastSeen: DAY });
   });
 
   it("awards XP only on a correct answer", () => {
@@ -249,5 +249,26 @@ describe("mergeProgress", () => {
     const a = progressWith({ dailyStreak: 5, lastActiveDate: "2026-06-08" });
     const b = progressWith({ dailyStreak: 7, lastActiveDate: "2026-06-08" });
     expect(mergeProgress(a, b).dailyStreak).toBe(7);
+  });
+});
+
+describe("recent adaptive evidence", () => {
+  it("keeps only six actual attempts and preserves served difficulty, hints and solve time", () => {
+    let p = DEFAULT_PROGRESS;
+    for (let i = 0; i < 9; i++) p = recordAnswer(p, "articles", i % 2 === 0, at(DAY), {
+      score: i % 2 === 0 ? 1 : 0.4, difficulty: 2.5, format: "build-the-sentence", elapsedMs: 30_000 + i, hintUsed: i === 8,
+    });
+    expect(p.topics.articles.recent).toHaveLength(6);
+    expect(p.topics.articles.recent![5]).toEqual({ score: 1, difficulty: 2.5, format: "build-the-sentence", elapsedMs: 30_008, hintUsed: true });
+    expect(p.course.history.articles[8].c).toBe(false); // assisted success is not independent mastery
+    expect(p.topics.articles.correct).toBe(5); // the learner still answered correctly
+  });
+
+  it("merges recent evidence with the authoritative topic attempt count and supports legacy saves", () => {
+    const one = recordAnswer(DEFAULT_PROGRESS, "articles", false, at(DAY), { difficulty: 2.5 });
+    const two = recordAnswer(one, "articles", true, at(DAY), { difficulty: 1.5 });
+    expect(mergeProgress(one, two).topics.articles.recent).toEqual(two.topics.articles.recent);
+    const legacy = progressWith({ topics: { articles: { attempts: 5, correct: 3 } } });
+    expect(recordAnswer(legacy, "articles", true).topics.articles.recent).toHaveLength(1);
   });
 });

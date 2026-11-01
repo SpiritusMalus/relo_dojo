@@ -1,6 +1,8 @@
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { belts, useTheme, type Belt } from "../../theme/theme";
+import { useI18n } from "../../store/i18n";
+import { beltName } from "../../i18n/strings";
 import BeltKnot from "./BeltKnot";
 import Icon from "./Icon";
 import Txt from "./Txt";
@@ -17,10 +19,11 @@ export default function BeltPickerSheet({
   onClose: () => void;
 }) {
   const t = useTheme();
+  const { t: tr, lang } = useI18n();
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel={tr("common.close")}>
         <Pressable
           accessibilityViewIsModal
           style={[
@@ -30,11 +33,14 @@ export default function BeltPickerSheet({
           onPress={(e) => e.stopPropagation()}
         >
           <View style={[styles.grabber, { backgroundColor: t.c.line2 }]} />
-          <Txt variant="cardTitle" style={{ marginBottom: 4 }}>
-            Belts
-          </Txt>
-          <Txt variant="secondary" style={{ marginBottom: 12 }}>
-            Your belt rises with your overall CEFR level.
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Txt variant="cardTitle">{tr("belt.title")}</Txt>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel={tr("common.close")} style={{ width: 48, height: 48, alignItems: "center", justifyContent: "center" }}>
+              <Icon name="x" size={22} color={t.c.ink2} />
+            </Pressable>
+          </View>
+          <Txt variant="secondary" color={t.c.ink2} style={{ marginBottom: 16 }}>
+            {tr("belt.explainer")}
           </Txt>
           <ScrollView showsVerticalScrollIndicator={false}>
             {belts.map((b) => {
@@ -53,7 +59,7 @@ export default function BeltPickerSheet({
                   <BeltKnot belt={b} size={34} />
                   <View style={{ flex: 1 }}>
                     <Txt variant="bodyStrong" color={active ? t.c.accent : t.c.ink}>
-                      {b.name}
+                      {beltName(b, lang)}
                     </Txt>
                     <Txt variant="secondary">CEFR {b.cefr}</Txt>
                   </View>

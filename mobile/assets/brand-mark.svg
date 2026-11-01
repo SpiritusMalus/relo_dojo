@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Relo Dojo torii geometry reused from marketing/icon/icon-master.svg.
+     Transparent native mark; export script supplies the calm dojo palette and launcher layers. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <g fill="none" stroke="#FFFFFF" stroke-width="46" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M232 300 Q512 196 792 300"/>
+    <path d="M250 392 H774"/>
+    <path d="M338 392 V760"/>
+    <path d="M686 392 V760"/>
+  </g>
+  <rect x="452" y="470" width="120" height="120" rx="14" fill="#D7B772"/>
+</svg>

@@ -33,7 +33,7 @@ export default function ReviewScreen() {
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
   const { t: tr } = useI18n();
-  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
+  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt } =
     useExerciseCheck();
 
   const [items, setItems] = useState<Mistake[] | null>(null); // null = still loading
@@ -74,6 +74,7 @@ export default function ReviewScreen() {
   }
 
   const current = items?.[index];
+  useEffect(() => { if (current) beginAttempt(current.exercise); }, [current, beginAttempt]);
   const total = items?.length ?? 0;
   const isLast = index >= total - 1;
 

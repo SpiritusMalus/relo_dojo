@@ -43,7 +43,7 @@ export default function StoryScreen() {
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
   const { t: tr } = useI18n();
-  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset } =
+  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt } =
     useExerciseCheck();
 
   const { coins, refresh: refreshWallet } = useWallet();
@@ -143,6 +143,7 @@ export default function StoryScreen() {
   }
 
   const beat = story?.beats[beatIndex];
+  useEffect(() => { if (beat?.exercise) beginAttempt(beat.exercise); }, [beat?.exercise, beginAttempt]);
   const isLast = !!story && beatIndex >= story.beats.length - 1;
 
   async function onCheck() {

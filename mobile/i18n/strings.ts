@@ -5,12 +5,32 @@ export type Lang = "ru" | "en";
 
 export const STRINGS = {
   en: {
+    "common.settings": "Settings",
+    "common.close": "Close",
+    "belt.title": "Belt journey",
+    "belt.open": "Belts",
+    "belt.explainer": "Belts mark your practice journey. Placement estimates your skill; practice and checkpoints earn progress.",
+    "belt.current": "Current belt",
+    "belt.untrained": "Your starting belt — practice ahead",
+    "train.intro": "Choose a practice ritual",
+    "train.topics": "Practice a topic",
+    "scroll.network": "We couldn’t confirm your scroll. Check your connection and balance, then retry when ready.",
+    "scroll.retry": "Retry opening",
+    "scroll.note": "A small reward for today’s practice",
+    "scroll.guestTitle": "Your practice is saved",
+    "scroll.guestBody": "Your progress stays on this device. Create an account to sync it and earn reward scrolls.",
+    "scroll.earned": "Your practice reward",
+    "lt.audioUnavailable": "Audio could not play. Retry or continue without listening; it will not affect your score.",
+    "lt.retryAudio": "Retry audio",
+    "lt.skipAudio": "Continue without listening",
+    "lt.partialResult": "Estimate based on the skills completed. Skipped audio/writing are not included.",
+
     "tab.home": "Home",
     "tab.train": "Train",
     "tab.progress": "Progress",
 
     "home.yourBelt": "Your belt",
-    "home.toNext": "CEFR {cefr} · {pct}% to {belt}",
+    "home.toNext": "{pct}% on the way to {belt}",
     "home.topBelt": "CEFR {cefr} · top belt",
     "home.notStarted": "Answer your first exercise to earn your belt",
     "home.todaysPath": "Today's path",
@@ -301,7 +321,7 @@ export const STRINGS = {
     "topics.adapts": "Difficulty still adapts to you.",
     "train.modes": "More ways to train",
 
-    "prog.overall": "Overall level · CEFR {cefr}",
+    "prog.overall": "Practice estimate · CEFR {cefr}",
     "prog.journeyTitle": "Your relocation journey",
     "prog.journeyNow": "You're here: {stage}",
     "prog.journeyNudge": "Nice progress — ready for {stage}?",
@@ -483,7 +503,7 @@ export const STRINGS = {
     "lt.intro": "A short adaptive test to place your English level. It adapts to your answers and stops once your level is clear — and unlike the quick onboarding, it can reach C1.",
     "lt.start": "Start the test",
     "lt.question": "Question {n}",
-    "lt.resultTitle": "Your level: {cefr}",
+    "lt.resultTitle": "Estimated level: {cefr}",
     "lt.resultSub": "Based on {n} questions. Keep practicing to climb higher.",
     "lt.save": "Save my level",
     "lt.retake": "Take the test again",
@@ -512,12 +532,32 @@ export const STRINGS = {
     "loading.default": "Loading…",
   },
   ru: {
+    "common.settings": "Настройки",
+    "common.close": "Закрыть",
+    "belt.title": "Путь поясов",
+    "belt.open": "Пояса",
+    "belt.explainer": "Пояса отмечают твой путь в практике. Тест оценивает навыки, а тренировки и зачёты закрепляют прогресс.",
+    "belt.current": "Текущий пояс",
+    "belt.untrained": "Начальный пояс — практика впереди",
+    "train.intro": "Выбери свою тренировку",
+    "train.topics": "Практика по теме",
+    "scroll.network": "Не удалось подтвердить награду. Проверь соединение и баланс, затем попробуй ещё раз.",
+    "scroll.retry": "Открыть ещё раз",
+    "scroll.note": "Небольшая награда за сегодняшнюю практику",
+    "scroll.guestTitle": "Тренировка сохранена",
+    "scroll.guestBody": "Прогресс остаётся на этом устройстве. Создай аккаунт, чтобы синхронизировать его и получать свитки с наградами.",
+    "scroll.earned": "Награда за тренировку",
+    "lt.audioUnavailable": "Звук не воспроизвёлся. Повтори или продолжи без аудирования — это не повлияет на оценку.",
+    "lt.retryAudio": "Повторить звук",
+    "lt.skipAudio": "Продолжить без аудирования",
+    "lt.partialResult": "Оценка по завершённым заданиям. Пропущенные аудирование и письмо не учитываются.",
+
     "tab.home": "Главная",
     "tab.train": "Тренировка",
     "tab.progress": "Прогресс",
 
     "home.yourBelt": "Твой пояс",
-    "home.toNext": "CEFR {cefr} · {pct}% до пояса {belt}",
+    "home.toNext": "{pct}% пути до следующего пояса",
     "home.topBelt": "CEFR {cefr} · высший пояс",
     "home.notStarted": "Ответь на первое упражнение, чтобы заслужить пояс",
     "home.todaysPath": "Путь на сегодня",
@@ -808,7 +848,7 @@ export const STRINGS = {
     "topics.adapts": "Сложность по-прежнему подстраивается под тебя.",
     "train.modes": "Другие режимы тренировки",
 
-    "prog.overall": "Общий уровень · CEFR {cefr}",
+    "prog.overall": "Оценка по практике · CEFR {cefr}",
     "prog.journeyTitle": "Твой путь релокации",
     "prog.journeyNow": "Ты здесь: {stage}",
     "prog.journeyNudge": "Хороший прогресс — готов к этапу «{stage}»?",
@@ -987,7 +1027,7 @@ export const STRINGS = {
     "lt.intro": "Короткий адаптивный тест, чтобы определить твой уровень английского. Он подстраивается под ответы и останавливается, когда уровень ясен — и, в отличие от быстрого онбординга, может дать вплоть до C1.",
     "lt.start": "Начать тест",
     "lt.question": "Вопрос {n}",
-    "lt.resultTitle": "Твой уровень: {cefr}",
+    "lt.resultTitle": "Предварительный уровень: {cefr}",
     "lt.resultSub": "По итогам {n} вопросов. Практикуйся, чтобы подняться выше.",
     "lt.save": "Сохранить уровень",
     "lt.retake": "Пройти тест заново",
@@ -1068,3 +1108,12 @@ export const RU_ACH: Record<string, { label: string; sub: string }> = {
   "run-5": { label: "Пятёрка подряд", sub: "5 верных подряд" },
   "level-5": { label: "Уровень 5", sub: "Достигнут уровень 5" },
 };
+
+// Display-only labels: canonical belt IDs and progression remain unchanged.
+const RU_BELT_NAMES: Record<string, string> = {
+  white: "Белый пояс", yellow: "Жёлтый пояс", orange: "Оранжевый пояс",
+  green: "Зелёный пояс", blue: "Синий пояс", black: "Чёрный пояс",
+};
+export function beltName(belt: { id: string; name: string }, lang: Lang): string {
+  return lang === "ru" ? RU_BELT_NAMES[belt.id] ?? belt.name : belt.name;
+}

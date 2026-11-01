@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { useProgress } from "../../store/progress";
 import { useI18n } from "../../store/i18n";
+import { RU_TOPIC_LABELS, beltName } from "../../i18n/strings";
 import { beltProgress, buildPath, type NodeState, type PathNode } from "../../store/dojo";
 import { MASTERY_MIN_CORRECT, MASTERY_MIN_HARD } from "../../store/curriculum";
 import { useTheme, type Belt } from "../../theme/theme";
@@ -91,7 +92,6 @@ function PathRow({
             borderColor: node.state === "current" ? accent : t.c.line,
             borderWidth: node.state === "current" ? 2 : 1,
             opacity: node.state === "locked" ? 0.6 : pressed ? 0.85 : 1,
-            ...t.shadows.sm,
           },
         ]}
       >
@@ -137,7 +137,7 @@ function NodeCircle({ state, belt }: { state: NodeState; belt: Belt }) {
 
 function NodeCard({ node, interactive }: { node: PathNode; interactive: boolean }) {
   const t = useTheme();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
   if (node.state === "test") {
     return (
       <View style={styles.cardInner}>
@@ -153,7 +153,7 @@ function NodeCard({ node, interactive }: { node: PathNode; interactive: boolean 
   }
   const topic = node.topic!;
   const sub: Record<Exclude<NodeState, "test">, string> = {
-    done: `${tr("jp.mastered")} · ${topic.belt.name}`,
+    done: `${tr("jp.mastered")} · ${beltName(topic.belt, lang)}`,
     review: tr("jp.review"),
     ready: tr("course.readyNode"),
     current: interactive ? tr("jp.continue") : tr("jp.inProgress"),
@@ -165,7 +165,7 @@ function NodeCard({ node, interactive }: { node: PathNode; interactive: boolean 
       <View style={{ width: 16, height: 16, borderRadius: 5, backgroundColor: topic.belt.color, borderWidth: 1.5, borderColor: topic.belt.edge }} />
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Txt variant="cardTitle">{topic.label}</Txt>
+          <Txt variant="cardTitle" style={{ flexShrink: 1 }}>{lang === "ru" ? RU_TOPIC_LABELS[topic.id] ?? topic.label : topic.label}</Txt>
           {/* CEFR band of the unit in the syllabus (the course is banded, not random) */}
           {node.band && (
             <Txt variant="caption" color={t.c.ink3}>{node.band}</Txt>

@@ -12,27 +12,27 @@ export default function DailyMixButton({ onPress }: { onPress: () => void }) {
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Daily mix — adaptive practice across all topics"
+      accessibilityLabel={`${tr("btn.mix.title")}. ${tr("btn.mix.sub")}`}
       style={({ pressed }) => [
         styles.btn,
         {
           backgroundColor: t.c.accent,
           borderRadius: t.spacing.radius,
-          borderBottomWidth: pressed ? 1 : 4,
+          borderBottomWidth: pressed ? 1 : 2,
           borderBottomColor: t.c.accentPress,
         },
         // Avoid `transform: undefined` (crashes New Arch); add it only while pressed.
-        pressed ? { transform: [{ translateY: 3 }] } : null,
+        pressed ? { transform: [{ translateY: 1 }] } : null,
       ]}
     >
-      <View style={[styles.tile, { backgroundColor: "rgba(255,255,255,0.18)" }]}>
+      <View style={styles.tile}>
         <Icon name="bolt" size={24} color={t.c.accentInk} />
       </View>
       <View style={{ flex: 1 }}>
         <Txt variant="cardTitle" color={t.c.accentInk}>
           {tr("btn.mix.title")}
         </Txt>
-        <Txt variant="secondary" color="rgba(255,255,255,0.85)">
+        <Txt variant="secondary" color={t.c.accentInk} style={{ opacity: 0.9 }}>
           {tr("btn.mix.sub")}
         </Txt>
       </View>
