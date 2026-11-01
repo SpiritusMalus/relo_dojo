@@ -21,7 +21,7 @@ Keyed answers are graded deterministically from sealed tokens; free text, writin
 and listening retells are assessed by a model.
 
 The evaluated OpenRouter configuration is Gemini 3.5 Flash Lite for generation,
-GPT-6.1 Terra for semantic review/writing/planning, and Gemini 3.8 Flash for one
+GPT-6.1 Terra for semantic review/explanations/writing/planning, and Gemini 3.8 Flash for one
 bounded repair. Audio transcription keeps its separate compatible model. See
 [model selection and real-provider evidence](backend/evals/MODEL_SELECTION.md).
 

@@ -42,7 +42,7 @@ export default function StoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
   const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
 
@@ -208,7 +208,7 @@ export default function StoryScreen() {
           <View style={{ alignItems: "center", gap: 12, marginTop: 40 }}>
             <Sensei size={88} mood="think" bob />
             <ActivityIndicator color={t.c.accent} />
-            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(0)}</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(0, lang)}</Txt>
           </View>
         )}
 

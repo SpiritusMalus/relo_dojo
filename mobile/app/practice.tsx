@@ -369,7 +369,7 @@ export default function PracticeScreen() {
         {loading && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
-            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round)}</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round, lang)}</Txt>
           </View>
         )}
 

@@ -52,7 +52,7 @@ export default function ChallengeScreen() {
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
   const { token } = useAuth();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
   const { result, checking, error: checkError, check, reset, beginAttempt, markHintUsed } = useExerciseCheck();
 
   const progressRef = useRef(progress);
@@ -311,7 +311,7 @@ export default function ChallengeScreen() {
         {loading && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
-            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round)}</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round, lang)}</Txt>
           </View>
         )}
 

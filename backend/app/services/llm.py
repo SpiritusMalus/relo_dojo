@@ -606,12 +606,12 @@ async def _gemini(
     return parse_gemini_response(data, expect_json=schema is not None)
 
 
-async def _anthropic_stream(prompt: str, temperature: float | None) -> AsyncIterator[str]:
+async def _anthropic_stream(prompt: str, temperature: float | None, model: str | None = None) -> AsyncIterator[str]:
     headers = {
         "x-api-key": _require_key(settings.ANTHROPIC_API_KEY, "ANTHROPIC_API_KEY", "anthropic"),
         "anthropic-version": ANTHROPIC_VERSION,
     }
-    payload = build_anthropic_payload(prompt, None, temperature)
+    payload = build_anthropic_payload(prompt, None, temperature, model=model)
     payload["stream"] = True
     async for line in _stream_lines(ANTHROPIC_URL, headers, payload, "Anthropic"):
         delta = parse_anthropic_sse_line(line)
@@ -619,11 +619,11 @@ async def _anthropic_stream(prompt: str, temperature: float | None) -> AsyncIter
             yield delta
 
 
-async def _openai_stream(prompt: str, temperature: float | None) -> AsyncIterator[str]:
+async def _openai_stream(prompt: str, temperature: float | None, model: str | None = None) -> AsyncIterator[str]:
     headers = {
         "Authorization": f"Bearer {_require_key(settings.OPENAI_API_KEY, 'OPENAI_API_KEY', 'openai')}"
     }
-    payload = build_openai_payload(prompt, None, temperature)
+    payload = build_openai_payload(prompt, None, temperature, model=model)
     payload["stream"] = True
     async for line in _stream_lines(OPENAI_URL, headers, payload, "OpenAI"):
         delta = parse_openai_sse_line(line)
@@ -631,12 +631,12 @@ async def _openai_stream(prompt: str, temperature: float | None) -> AsyncIterato
             yield delta
 
 
-async def _openrouter_stream(prompt: str, temperature: float | None) -> AsyncIterator[str]:
+async def _openrouter_stream(prompt: str, temperature: float | None, model: str | None = None) -> AsyncIterator[str]:
     headers = {
         "Authorization": f"Bearer {_require_key(settings.OPENROUTER_API_KEY, 'OPENROUTER_API_KEY', 'openrouter')}"
     }
     payload = with_openrouter_reasoning(
-        build_openai_payload(prompt, None, temperature, model=settings.OPENROUTER_MODEL)
+        build_openai_payload(prompt, None, temperature, model=model or settings.OPENROUTER_MODEL)
     )
     payload["stream"] = True
     async for line in _stream_lines(OPENROUTER_URL, headers, payload, "OpenRouter"):
@@ -645,10 +645,11 @@ async def _openrouter_stream(prompt: str, temperature: float | None) -> AsyncIte
             yield delta
 
 
-async def _gemini_stream(prompt: str, temperature: float | None) -> AsyncIterator[str]:
+async def _gemini_stream(prompt: str, temperature: float | None, model: str | None = None) -> AsyncIterator[str]:
     key = _require_key(settings.GEMINI_API_KEY, "GEMINI_API_KEY", "gemini")
     headers = {"x-goog-api-key": key}
-    url = f"{GEMINI_BASE}/models/{settings.GEMINI_MODEL}:streamGenerateContent?alt=sse"
+    selected = model or settings.GEMINI_MODEL
+    url = f"{GEMINI_BASE}/models/{selected}:streamGenerateContent?alt=sse"
     payload = build_gemini_payload(prompt, None, temperature)
     async for line in _stream_lines(url, headers, payload, "Gemini"):
         delta = parse_gemini_sse_line(line)
@@ -692,30 +693,35 @@ async def generate_json(
     return result
 
 
-async def generate_stream(prompt: str, *, temperature: float | None = None) -> AsyncIterator[str]:
+async def generate_stream(
+    prompt: str, *, temperature: float | None = None, tier: str = "base"
+) -> AsyncIterator[str]:
     """Stream a free-text reply as deltas, routed by provider.
 
     All providers stream incrementally: Ollama via NDJSON, Anthropic via the Messages stream,
     OpenAI via Chat-Completions SSE, Gemini via streamGenerateContent SSE. Each yields text deltas
-    (control frames filtered out). Same LLMError contract as the non-streaming surface."""
+    (control frames filtered out). Same LLMError contract as the non-streaming surface.
+    The default retains the base model; explicit tier="smart" uses the configured smart slot
+    and falls back to the base slot when it is empty, like generate_json."""
     p = _provider()
+    model = _model_for(p, tier)
     if p == "anthropic":
-        async for delta in _anthropic_stream(prompt, temperature):
+        async for delta in _anthropic_stream(prompt, temperature, model):
             yield delta
         return
     if p == "openai":
-        async for delta in _openai_stream(prompt, temperature):
+        async for delta in _openai_stream(prompt, temperature, model):
             yield delta
         return
     if p == "openrouter":
-        async for delta in _openrouter_stream(prompt, temperature):
+        async for delta in _openrouter_stream(prompt, temperature, model):
             yield delta
         return
     if p == "gemini":
-        async for delta in _gemini_stream(prompt, temperature):
+        async for delta in _gemini_stream(prompt, temperature, model):
             yield delta
         return
-    async for chunk in _ollama_generate_stream(prompt, temperature=temperature):
+    async for chunk in _ollama_generate_stream(prompt, temperature=temperature, model=model):
         yield chunk
 
 

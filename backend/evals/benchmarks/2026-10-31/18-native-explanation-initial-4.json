@@ -1,0 +1,117 @@
+{
+  "created_at_utc": "2026-11-01T07:57:30.045967+00:00",
+  "dataset": "native-odd-explanation-regression-4-v1",
+  "model": "google/gemini-3.5-flash-lite",
+  "scope": "Four structured Explain calls on synthetic full visible context; no new generation matrix or live API restart",
+  "source_sha256": {
+    "app/core/config.py": "188beb60027ca90423b5749691e4fc96461081ef53475895b58579565798ffed",
+    "app/services/_grammar_feedback.py": "7da9920a21cc40cae63a96def37866c7062985f3b2e22dbf42c65eb0e00ad2c1",
+    "app/services/_grammar_generators.py": "0f5d6b239bba102582b424025de6ed93eb770bf9222e9414790a304e3005c520",
+    "app/services/_grammar_prompts.py": "0317def2d9c362899ec162c7787c4afa8af54b5c8856e577e857304db53420fd",
+    "app/services/_grammar_rules.py": "07f0660a6170143332d17ea0cfb613093c4809627ebd22e5a112389219fb4894",
+    "app/services/llm.py": "e58cf4544767a8d95dd515679a2d2a491f64f8d79d99f970940486e236081803",
+    "evals/check_explanations.py": "a57ad405e7db64008223300ec0b649383607755605bd30739d86789453915867"
+  },
+  "budget_cap_usd": 0.05,
+  "reported_cost_usd": 0.0015879000000000002,
+  "conservative_accounted_usd": 0.0015879,
+  "manual_review_criteria": {
+    "odd-classification": "Distinguish affirmative normal order from negative-fronting inversion; do not call the inverted alternatives bad English or claim the subject is the first word in Always we deploy.",
+    "ordinary-mc": "Explain present-simple third-person singular works in the requested language without weakening correctness."
+  },
+  "manual_review_status": "Inspected: ordinary MC RU/EN pass; odd-classification explanations name inversion but are not accepted as a reliable semantic pass. EN unnecessarily normalizes the odd phrase.",
+  "results": [
+    {
+      "case": "odd-classification",
+      "lang": "ru",
+      "text": "Exercise type: odd-one-out\nTopic: word order\nInstruction: Tap the one that doesn't belong.\nVisible options:\n- Always we deploy\n- Seldom do we\n- Rarely can they\n- Little did anyone",
+      "key": "Always we deploy",
+      "response": "Rarely can they",
+      "output": {
+        "explanation": "Вариант «Always we deploy» не подходит, так как обычное наречие частотности требует стандартного порядка слов «подлежащее перед сказуемым». В то время как остальные примеры начинаются с отрицательных наречий, которые требуют инверсии.",
+        "tip": "Слова вроде «seldom» или «rarely» в начале предложения всегда требуют вспомогательного глагола перед подлежащим."
+      },
+      "status": "returned",
+      "ms": 2445,
+      "calls": [
+        {
+          "model": "google/gemini-3.5-flash-lite",
+          "conservative_reservation_usd": 0.010945200000000002,
+          "cost_usd": 0.0004357,
+          "prompt_tokens": 644,
+          "completion_tokens": 97
+        }
+      ],
+      "manual_review": "Partial: identifies negative-adverbial inversion; reason should be the category distinction, not a universal adverb placement requirement."
+    },
+    {
+      "case": "odd-classification",
+      "lang": "en",
+      "text": "Exercise type: odd-one-out\nTopic: word order\nInstruction: Tap the one that doesn't belong.\nVisible options:\n- Always we deploy\n- Seldom do we\n- Rarely can they\n- Little did anyone",
+      "key": "Always we deploy",
+      "response": "Rarely can they",
+      "output": {
+        "explanation": "Almost there — 'Always we deploy' follows standard subject-verb order, whereas the others use inversion after fronted adverbs. The phrase 'Always we deploy' becomes 'We always deploy' in standard English.",
+        "tip": "Put negative adverbs like 'seldom' or 'rarely' at the start to trigger auxiliary verb inversion."
+      },
+      "status": "returned",
+      "ms": 1236,
+      "calls": [
+        {
+          "model": "google/gemini-3.5-flash-lite",
+          "conservative_reservation_usd": 0.010945200000000002,
+          "cost_usd": 0.0003966,
+          "prompt_tokens": 647,
+          "completion_tokens": 81
+        }
+      ],
+      "manual_review": "Partial: names inversion correctly but unnecessarily rewrites Always we deploy to normal position; not accepted as a strict semantic pass."
+    },
+    {
+      "case": "ordinary-mc",
+      "lang": "ru",
+      "text": "Exercise type: multiple-choice\nTopic: verb sequence (tense agreement)\nInstruction: Choose the word that completes the sentence.\nSentence: She ___ here every day.\nVisible options:\n- works\n- work\n- working",
+      "key": "works",
+      "response": "work",
+      "output": {
+        "explanation": "Для описания регулярных действий в настоящем времени с местоимением третьего лица единственного числа нужно использовать форму works. Ваш вариант work используется с местоимениями I, you, we, they.",
+        "tip": "Помните про окончание -s в Present Simple для местоимений he, she, it."
+      },
+      "status": "returned",
+      "ms": 1278,
+      "calls": [
+        {
+          "model": "google/gemini-3.5-flash-lite",
+          "conservative_reservation_usd": 0.010947000000000002,
+          "cost_usd": 0.0003911,
+          "prompt_tokens": 637,
+          "completion_tokens": 80
+        }
+      ],
+      "manual_review": "Pass: correct present-simple third-person singular explanation in Russian."
+    },
+    {
+      "case": "ordinary-mc",
+      "lang": "en",
+      "text": "Exercise type: multiple-choice\nTopic: verb sequence (tense agreement)\nInstruction: Choose the word that completes the sentence.\nSentence: She ___ here every day.\nVisible options:\n- works\n- work\n- working",
+      "key": "works",
+      "response": "work",
+      "output": {
+        "explanation": "Almost there — when talking about daily habits with third-person singular subjects, the verb takes an 's', so the sentence becomes 'She works here every day'.",
+        "tip": "Remember to add an 's' to present simple verbs when using he, she, or it."
+      },
+      "status": "returned",
+      "ms": 1885,
+      "calls": [
+        {
+          "model": "google/gemini-3.5-flash-lite",
+          "conservative_reservation_usd": 0.010947000000000002,
+          "cost_usd": 0.0003645,
+          "prompt_tokens": 640,
+          "completion_tokens": 69
+        }
+      ],
+      "manual_review": "Pass: correct present-simple third-person singular explanation in English."
+    }
+  ]
+}

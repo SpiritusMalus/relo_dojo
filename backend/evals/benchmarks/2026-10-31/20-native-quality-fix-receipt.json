@@ -1,0 +1,36 @@
+{
+  "created_at_utc": "2026-11-01T07:59:55.335797+00:00",
+  "scope": "Native word-order odd-one-out routing and grounded structured/streaming explanations; main task owns API/native integration, Git/CI/deployment",
+  "offline_tests": {
+    "passed": 493,
+    "seconds": 0.66,
+    "command": "./.venv312/bin/python -m pytest -q with isolated throwaway env and provider keys disabled"
+  },
+  "routing_contract": "Only word order + odd-one-out requests use the existing multiple-choice generator; actual returned type and sealed grading type are multiple-choice and semantic review remains mandatory",
+  "source_sha256": {
+    "app/core/config.py": "188beb60027ca90423b5749691e4fc96461081ef53475895b58579565798ffed",
+    "app/services/_grammar_feedback.py": "66fe3676c73c7b79c787a94f4e9b18f4d23eb685bbee1eb76214b70297ce1823",
+    "app/services/_grammar_generators.py": "0f5d6b239bba102582b424025de6ed93eb770bf9222e9414790a304e3005c520",
+    "app/services/_grammar_prompts.py": "0317def2d9c362899ec162c7787c4afa8af54b5c8856e577e857304db53420fd",
+    "app/services/_grammar_rules.py": "07f0660a6170143332d17ea0cfb613093c4809627ebd22e5a112389219fb4894",
+    "app/services/llm.py": "e58cf4544767a8d95dd515679a2d2a491f64f8d79d99f970940486e236081803",
+    "evals/check_explanations.py": "6b76352a037c7159467edebf6c8fc8b37c2a29f5bb28c412eaf3629844dc794d"
+  },
+  "targeted_real_checks": {
+    "ordinary_mc_ru_en": "2/2 passed manual semantic inspection",
+    "odd_initial_ru_en": "partial explanations, not accepted as reliable semantic passes",
+    "odd_final_ru_en": "0/2 passed: both invent a grammar defect; exact outputs retained",
+    "new_word_order_odd_cards": "Prevented by deterministic generator routing, not by assuming the prompt guard solved model reasoning",
+    "streaming": "Shared grounding guard and full context retention checked offline; no extra streamed provider calls"
+  },
+  "evidence": [
+    "18-native-explanation-initial-4.json",
+    "19-native-explanation-odd-final-2.json"
+  ],
+  "targeted_budget_cap_usd": 0.05,
+  "targeted_reported_cost_usd": 0.0025072,
+  "captured_task_reported_cost_usd": 0.561944,
+  "uncollected_cancelled_run_hard_cap_usd": 1.0,
+  "task_evaluation_budget_usd": 3.0,
+  "budget_note": "Known captured usage excludes the historical cancelled run bounded by its own $1 hard cap. No new generation matrix or running API/QA tree alteration. Stage source hashes were checked before provider calls."
+}

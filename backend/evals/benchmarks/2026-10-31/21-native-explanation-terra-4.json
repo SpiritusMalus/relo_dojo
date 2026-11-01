@@ -1,0 +1,117 @@
+{
+  "created_at_utc": "2026-11-01T08:02:08.426023+00:00",
+  "dataset": "native-odd-explanation-regression-v1",
+  "model": "openai/gpt-6.1-terra",
+  "scope": "4 structured Explain calls on synthetic full visible context; no new generation matrix or live API restart",
+  "source_sha256": {
+    "app/core/config.py": "188beb60027ca90423b5749691e4fc96461081ef53475895b58579565798ffed",
+    "app/services/_grammar_feedback.py": "0d309e87d94eced3f92e01884ef975bbd4edac7490eab27517cdfa03686fdc2a",
+    "app/services/_grammar_generators.py": "0f5d6b239bba102582b424025de6ed93eb770bf9222e9414790a304e3005c520",
+    "app/services/_grammar_prompts.py": "0317def2d9c362899ec162c7787c4afa8af54b5c8856e577e857304db53420fd",
+    "app/services/_grammar_rules.py": "07f0660a6170143332d17ea0cfb613093c4809627ebd22e5a112389219fb4894",
+    "app/services/llm.py": "848698d6f56a568df43f5be226b9971044b9fe14f036f10de177af3a894f8af7",
+    "evals/check_explanations.py": "76ff610454376d20f556c0aa32212988938a2685a65c0dd1c7b9e91187f87fbf"
+  },
+  "budget_cap_usd": 0.05,
+  "reported_cost_usd": 0.007124,
+  "conservative_accounted_usd": 0.007124,
+  "manual_review_criteria": {
+    "odd-classification": "Distinguish affirmative normal order from negative-fronting inversion; do not call the inverted alternatives bad English or claim the subject is the first word in Always we deploy.",
+    "ordinary-mc": "Explain present-simple third-person singular works in the requested language without weakening correctness."
+  },
+  "manual_review_status": "Inspected: 3 clean, 1 partial; not a strict 4/4 semantic pass. RU classification and both MC explanations are sound; EN classification unnecessarily normalizes Always we deploy instead of only explaining the category difference.",
+  "results": [
+    {
+      "case": "odd-classification",
+      "lang": "ru",
+      "text": "Exercise type: odd-one-out\nTopic: word order\nInstruction: Tap the one that doesn't belong.\nVisible options:\n- Always we deploy\n- Seldom do we\n- Rarely can they\n- Little did anyone",
+      "key": "Always we deploy",
+      "response": "Rarely can they",
+      "output": {
+        "explanation": "Вы заметили необычный порядок слов в «Rarely can they» — это хороший шаг. В «Always we deploy» подлежащее стоит перед глаголом, а в «Rarely can they», «Seldom do we» и «Little did anyone» вспомогательный глагол стоит перед подлежащим.",
+        "tip": "Сравнивайте порядок подлежащего и вспомогательного глагола."
+      },
+      "status": "returned",
+      "ms": 4499,
+      "calls": [
+        {
+          "model": "openai/gpt-6.1-terra",
+          "conservative_reservation_usd": 0.026949,
+          "cost_usd": 0.001516,
+          "prompt_tokens": 706,
+          "completion_tokens": 162
+        }
+      ],
+      "manual_review": "Pass: compares subject-before-verb order against auxiliary-before-subject inversion without inventing a grammar defect."
+    },
+    {
+      "case": "odd-classification",
+      "lang": "en",
+      "text": "Exercise type: odd-one-out\nTopic: word order\nInstruction: Tap the one that doesn't belong.\nVisible options:\n- Always we deploy\n- Seldom do we\n- Rarely can they\n- Little did anyone",
+      "key": "Always we deploy",
+      "response": "Rarely can they",
+      "output": {
+        "explanation": "Nice try: 'Rarely can they,' 'Seldom do we,' and 'Little did anyone' use inversion. With 'always,' use normal order: 'We always deploy.'",
+        "tip": "After fronted 'rarely' or 'seldom,' put the auxiliary before the subject."
+      },
+      "status": "returned",
+      "ms": 6423,
+      "calls": [
+        {
+          "model": "openai/gpt-6.1-terra",
+          "conservative_reservation_usd": 0.026949,
+          "cost_usd": 0.002883,
+          "prompt_tokens": 708,
+          "completion_tokens": 435
+        }
+      ],
+      "manual_review": "Partial: correctly identifies the inverted group and its negative-fronting rule, but still rewrites the keyed phrase to We always deploy. This violates the classification-only grounding guard; do not advertise a clean pass."
+    },
+    {
+      "case": "ordinary-mc",
+      "lang": "ru",
+      "text": "Exercise type: multiple-choice\nTopic: verb sequence (tense agreement)\nInstruction: Choose the word that completes the sentence.\nSentence: She ___ here every day.\nVisible options:\n- works\n- work\n- working",
+      "key": "works",
+      "response": "work",
+      "output": {
+        "explanation": "Почти получилось: She works here every day. С подлежащим she в Present Simple добавляем -s; work подходит с I, you, we и they, а working требует вспомогательного глагола.",
+        "tip": "С he, she и it проверяйте окончание глагола."
+      },
+      "status": "returned",
+      "ms": 2230,
+      "calls": [
+        {
+          "model": "openai/gpt-6.1-terra",
+          "conservative_reservation_usd": 0.026955,
+          "cost_usd": 0.001069,
+          "prompt_tokens": 699,
+          "completion_tokens": 74
+        }
+      ],
+      "manual_review": "Pass: Russian explanation correctly distinguishes works, work and working."
+    },
+    {
+      "case": "ordinary-mc",
+      "lang": "en",
+      "text": "Exercise type: multiple-choice\nTopic: verb sequence (tense agreement)\nInstruction: Choose the word that completes the sentence.\nSentence: She ___ here every day.\nVisible options:\n- works\n- work\n- working",
+      "key": "works",
+      "response": "work",
+      "output": {
+        "explanation": "Almost there: she works here every day. With she, use works; work needs another subject, and working needs an auxiliary.",
+        "tip": "For daily habits, add -s to the verb after she."
+      },
+      "status": "returned",
+      "ms": 4595,
+      "calls": [
+        {
+          "model": "openai/gpt-6.1-terra",
+          "conservative_reservation_usd": 0.026955,
+          "cost_usd": 0.001656,
+          "prompt_tokens": 701,
+          "completion_tokens": 191
+        }
+      ],
+      "manual_review": "Pass: English explanation correctly distinguishes works, work and working."
+    }
+  ]
+}

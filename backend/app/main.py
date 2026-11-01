@@ -443,8 +443,12 @@ async def explain_stream(
     )
 
     async def _stream():
+        fallback = grammar.explanation_context_fallback(payload.text, payload.lang)
+        if fallback is not None:
+            yield " ".join((fallback["explanation"], fallback["tip"]))
+            return
         try:
-            async for chunk in llm_generate_stream(prompt, temperature=0.2):
+            async for chunk in llm_generate_stream(prompt, temperature=0.2, tier="smart"):
                 yield chunk
         except OllamaError as exc:
             # The response is already 200/streaming, so surface the failure inline as text.

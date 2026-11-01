@@ -46,6 +46,39 @@ async def test_odd_item_cannot_be_hidden_by_truncation(monkeypatch):
     assert await gen._gen_odd_one_out("vocabulary", "A1") is None
 
 
+@pytest.mark.parametrize("level,text,options,answer", [
+    ("A1", "Where ___ she work?", ["does", "do", "doing"], "does"),
+    ("C1", "At no point ___ the process unstable.", ["was", "be", "being"], "was"),
+])
+async def test_word_order_odd_request_serves_reviewed_multiple_choice_with_its_actual_contract(
+    monkeypatch, level, text, options, answer,
+):
+    monkeypatch.setattr(settings, "EXERCISE_REVIEW_ENABLED", True)
+    schemas = []
+    async def fake(prompt, schema, **kwargs):
+        schemas.append(schema)
+        if schema is gen.REVIEW_SCHEMA:
+            rendered = json.loads(prompt.rsplit("\n", 1)[-1])
+            assert rendered["task"]["type"] == "multiple-choice"
+            assert rendered["key"]["t"] == "multiple-choice"
+            return {"valid": True, "reason": ""}
+        assert schema is gen.MC_SCHEMA  # no odd generator or its hidden classification
+        return {"text": text, "options": options, "answer": answer}
+    monkeypatch.setattr(gen, "generate_json", fake)
+    item = await gen.generate_exercise("word order", level, "odd-one-out", practice_index=1)
+    assert schemas == [gen.MC_SCHEMA, gen.REVIEW_SCHEMA]
+    assert item["type"] == "multiple-choice"
+    key = tokens.unseal(item["token"])
+    assert key["t"] == "multiple-choice"
+    assert grade(key, answer)["correct"] is True
+    assert grade(key, next(option for option in options if option != answer))["correct"] is False
+
+
+def test_word_order_safety_routing_preserves_other_odd_topics_and_word_order_formats():
+    assert gen._generator_for("vocabulary", "odd-one-out", "C1") is gen._gen_odd_one_out
+    assert gen._generator_for("word order", "build-the-sentence", "C1") is gen._gen_build_the_sentence
+
+
 async def test_matching_rejects_a_left_tile_with_two_blanks(monkeypatch):
     async def fake(*args, **kwargs):
         return {"pairs": [{"left": "I ___ ___ home.", "right": "go"},

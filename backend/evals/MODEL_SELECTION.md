@@ -1,7 +1,8 @@
 # Relo Dojo model selection — 2026-10-31 to 2026-11-01
 
 The release candidate uses `google/gemini-3.5-flash-lite` for generated text and
-`openai/gpt-6.1-terra` for a separate semantic-review request, writing assessment and planning.
+`openai/gpt-6.1-terra` for a separate semantic-review request, writing assessment, planning and
+on-demand explanations (both structured and streaming).
 Audio transcription retains `google/gemini-3.1-flash-lite`. All requests go through OpenRouter.
 The selected text setting is reasoning `low`, provider sort `latency`, and a 1,024-token output cap.
 After exhausted content validation, one checked repair may use `google/gemini-3.8-flash`.
@@ -67,6 +68,12 @@ model alone did not fix the prompt contract. See
 - `practice_index` rotates a topic's actual learning objective. Word-order rotation replaces the
   old frequency-adverb anchor, rather than renaming nouns in another always/is-always question.
   Recent answer evidence and the two-format window survive progress synchronization.
+- Word-order `odd-one-out` requests use the existing multiple-choice generator and return its
+  actual type/key. Native acceptance found short inversion starters with an unstated category;
+  their explanation invented a grammar defect. This narrow routing avoids that unsupported
+  combination while retaining other topics' classification tasks. Both explanation paths receive
+  a grounding rule: compare the visible alternatives, distinguish category from grammaticality,
+  and acknowledge insufficient context. The rule is a prompt instruction, not a correctness proof.
 
 An agent inspection of an earlier same-model-review run found false acceptance of ambiguous
 reported speech and inappropriate beginner grammar. That run is retained as evidence of the
@@ -136,7 +143,8 @@ Input-policy and model-allowlist behavior is documented in
 
 ## Completion receipt
 
-- Offline backend: **486 tests passed**; existing environment requirements pass `pip check`.
+- Offline backend after native-quality regressions: **520 tests passed**; existing environment
+  requirements previously passed `pip check`.
 - Earlier post-policy-change generation: **17/17 served**, **15/17 requested formats**;
   eight semantic rejections were repaired or replaced before serving. Median **4.43 s**, maximum
   **18.38 s**, reported API usage **$0.03876** for this run. Every delivered keyed response also
@@ -184,3 +192,63 @@ within the task's $3 evaluation limit. The source/test/cost receipt is
 [`17-final-source-receipt.json`](benchmarks/2026-10-31/17-final-source-receipt.json).
 Private provider request headers/diagnostics are preserved outside Git; no account budget,
 credential or customer data is included here.
+
+## Native explanation follow-up — 2026-11-01
+
+The visible `word order` odd card contained `Always we deploy`, `Seldom do we`, `Rarely can they`
+and `Little did anyone`. Its key is defensible as a classification: the latter three start negative
+fronting with auxiliary-subject inversion. Grammaticality alone does not invalidate an odd item;
+the original contract explicitly permits short phrases. The native explanation nevertheless
+claimed “subject first” and missed that actual distinction. The grammatical inversion rule follows
+the [British Council C1 explanation](https://learnenglish.britishcouncil.org/free-resources/grammar/c1/inversion-after-negative-adverbials).
+
+Only this topic/format pair is now routed to MC before inference. Tests cover actual response type,
+sealed key type, correct/incorrect grading, retained semantic review and unchanged other formats.
+The main task separately supplies the full visible exercise context to Explain.
+
+Six bounded structured Explain requests used the selected base model with all four options visible.
+Ordinary wrong-MC explanations passed manual inspection in RU/EN. The first two classification
+answers named inversion but did not establish reliable reasoning; a stronger general classification
+guard still produced two materially flawed answers. One falsely claimed that affirmative `Always`
+required inversion. These are **known explanation failures**, not a 4/4 semantic pass. They remain
+unchanged in [`18-native-explanation-initial-4.json`](benchmarks/2026-10-31/18-native-explanation-initial-4.json)
+and [`19-native-explanation-odd-final-2.json`](benchmarks/2026-10-31/19-native-explanation-odd-final-2.json).
+The deterministic routing prevents new cards of this combination; the prompt guard does not
+guarantee sound explanations of historical classification cards. No further prompt/model search
+was run. Streaming uses the same grounding rule and was verified offline, without extra paid calls.
+
+Reported usage for this follow-up is **$0.0025072** across six calls, below its **$0.05** cap. Captured
+task usage at that stage was **$0.561944**, still excluding the historical interrupted run's uncollected cost
+bounded by its own $1 cap. Current hashes and 493-test receipt are in
+[`20-native-quality-fix-receipt.json`](benchmarks/2026-10-31/20-native-quality-fix-receipt.json).
+The standalone `evals/check_explanations.py` verifies expected source hashes before any provider
+call and reserves conservative cost including transport retries. Only isolated evaluation staging
+was updated; the running QA/API was not restarted or overwritten.
+
+The next bounded check used the already selected smart model for Explain, while generation and
+the 53-case free-text checker retained their original base-model routing. Structured Explain now
+explicitly requests the smart tier; streaming accepts an optional tier, retains its base default,
+and only the main task's Explain stream requests smart. Offline tests exercise the actual selected
+payload/URL for all five provider paths, default preservation and an empty-smart-slot fallback.
+
+Terra's four grounded RU/EN responses cost **$0.007124** and took **2.23–6.42 seconds**. Manual
+inspection found three clean responses: RU classification and ordinary MC in both languages.
+The EN classification named inversion correctly but still unnecessarily rewrote `Always we deploy`
+as `We always deploy`. This is recorded as **partial, not a strict 4/4 pass**; no more calls were
+made. Exact outputs and hashes are in
+[`21-native-explanation-terra-4.json`](benchmarks/2026-10-31/21-native-explanation-terra-4.json).
+The native follow-up's captured cost is **$0.0096312** total, below its two separately authorized
+$0.05 caps; captured whole-task usage is **$0.569068**, with the earlier cancelled run still
+separately bounded as described above. No further paid calls were made.
+
+The residual legacy case is handled deterministically: public
+`grammar.explanation_context_fallback(text, lang)` recognizes only JSON metadata
+`type=odd-one-out, topic=word order` and returns an authored RU/EN note that the grouping rule is
+not clear enough for a reliable explanation. It never matches specific option phrases and invokes
+no provider. Structured Explain returns that note immediately; the main task's stream uses the
+same public helper before generation. Other-topic odd cards and word-order MC still use Terra.
+Behavioral tests forbid a model call for this legacy context and verify other contexts retain their
+smart routing. Current full backend verification is **520 passed**; final hashes and cost are in
+[`22-smart-explanation-source-receipt.json`](benchmarks/2026-10-31/22-smart-explanation-source-receipt.json).
+The four Terra outputs above predate this deterministic legacy guard and remain unchanged as
+evidence of why the guard is required, rather than being presented as final served explanations.

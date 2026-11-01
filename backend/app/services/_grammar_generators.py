@@ -1058,6 +1058,11 @@ async def _gen_from_blueprint(topic: str, level: str | None = None, context: str
 
 def _generator_for(topic: str, ex_type: str, level: str | None = None):
     """The generator to use: key-first where our rule can decide the answer, model-authored elsewhere."""
+    if topic == "word order" and ex_type == "odd-one-out":
+        # Short clause starters hide the intended classification (e.g. negative inversion)
+        # behind the generic odd-one-out instruction. Use an explicit, complete gap instead;
+        # the generator returns its actual multiple-choice type and sealed grading contract.
+        ex_type = "multiple-choice"
     if (topic in blueprints.BLUEPRINT_TOPICS and ex_type in BLUEPRINT_TYPES
             and _cefr(level) not in {"B2", "C1"}):
         return partial(_gen_from_blueprint, ex_type=ex_type)

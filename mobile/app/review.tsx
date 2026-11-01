@@ -32,7 +32,7 @@ export default function ReviewScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
   const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
 
@@ -131,7 +131,7 @@ export default function ReviewScreen() {
         {items === null && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
-            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(0)}</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(0, lang)}</Txt>
           </View>
         )}
 

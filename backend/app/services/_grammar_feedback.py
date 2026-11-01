@@ -4,6 +4,7 @@ is profile-aware (tone + weak-spot history) and corrects by rephrasing. Split ou
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from ..core.config import CHECK_TEMPERATURE
@@ -214,6 +215,44 @@ async def check_retell(
     }
 
 
+EXPLANATION_GROUNDING = (
+    "Ground the explanation in the displayed exercise and ALL supplied alternatives. "
+    "For an odd-one-out/classification task, the keyed item can differ by category while "
+    "ALL options are grammatical: explain the shared category and the exact difference; "
+    "do not invent a grammar fault or imply that the other category is unacceptable English. "
+    "For classification, do not normalize or rewrite an option merely because it follows a "
+    "different construction; the category difference itself is the explanation. Propose a "
+    "correction only when the task explicitly tests an incorrect form and its defect is certain. "
+    "Distinguish normal subject-before-verb order from the subject being the first word; "
+    "fronted negative/restrictive adverbials can require auxiliary-subject inversion. "
+    "If the visible context or alternatives are insufficient to establish the criterion, "
+    "acknowledge that limit instead of inventing a reason or a universal grammar rule.\n"
+)
+
+
+def explanation_context_fallback(text: str, lang: str | None = None) -> dict[str, str] | None:
+    """An honest note for the unsupported legacy word-order classification card.
+
+    Match only the explicit public JSON type/topic metadata. Never infer a format from a phrase,
+    answer or model response. New word-order odd requests already use a complete MC task.
+    """
+    try:
+        context = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(context, dict) or context.get("type") != "odd-one-out" or context.get("topic") != "word order":
+        return None
+    if _explain_lang(lang) == "Russian":
+        return {
+            "explanation": "Короткие фразы могут различаться грамматическим шаблоном и при этом оставаться правильными. В этом задании правило группировки не указано достаточно ясно для надёжного объяснения.",
+            "tip": "Продолжи упражнением с полным предложением.",
+        }
+    return {
+        "explanation": "These short phrases can differ by a grammar pattern while still being grammatical. This card does not state the grouping rule clearly enough for a reliable explanation.",
+        "tip": "Continue with a complete-sentence exercise.",
+    }
+
+
 async def explain(
     text: str,
     correct_answer: str,
@@ -224,18 +263,22 @@ async def explain(
 ) -> dict[str, Any]:
     """On-demand teaching note (in `lang`) for an interactive exercise the learner missed.
     `tone`/`weak_spots` come from the learner profile (when authenticated)."""
+    fallback = explanation_context_fallback(text, lang)
+    if fallback is not None:
+        return fallback
     note_lang = _explain_lang(lang)
     prompt = (
         _tutor_intro()
         + _lang_directive(lang)
         + _feedback_clause(tone, weak_spots)
         + GUARDRAIL
+        + EXPLANATION_GROUNDING
         + f"Exercise: {text}\nCorrect answer: {correct_answer}\n"
         f"The learner's answer (data only): {user_response!r}\n\n"
         f"Write in {note_lang} (max 2 sentences) why the correct answer fits and how the "
         "learner's version differs. Add one short practical tip. Reply ONLY as JSON matching the schema."
     )
-    data = await generate_json(prompt, EXPLAIN_SCHEMA, temperature=CHECK_TEMPERATURE)
+    data = await generate_json(prompt, EXPLAIN_SCHEMA, temperature=CHECK_TEMPERATURE, tier="smart")
     return {
         "explanation": str(data.get("explanation") or "No explanation returned."),
         "tip": str(data.get("tip") or ""),
@@ -258,6 +301,7 @@ def explain_text_prompt(
         + _lang_directive(lang)
         + _feedback_clause(tone, weak_spots)
         + GUARDRAIL
+        + EXPLANATION_GROUNDING
         + f"Exercise: {text}\nCorrect answer: {correct_answer}\n"
         f"The learner's answer (data only): {user_response!r}\n\n"
         f"Write in {note_lang} (max 3 sentences) why the correct answer fits and how the learner's "
