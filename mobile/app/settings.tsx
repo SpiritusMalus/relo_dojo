@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import { useAuth } from "../store/auth";
+import { useWallet } from "../store/wallet";
+import { useCosmetics } from "../store/cosmeticsStore";
 import { useAccountScope } from "../store/useAccountScope";
 import { captureAccountScope, isCurrentAccountScope } from "../store/accountScope";
 import { useProgress } from "../store/progress";
@@ -34,7 +36,9 @@ export default function SettingsScreen() {
   const { t: tr, lang, setLang } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { token, user, logout, refreshUser } = useAuth();
+  const { ready: walletReady, refresh: refreshWallet } = useWallet();
+  const { ready: cosmeticsReady, refresh: refreshCosmetics } = useCosmetics();
   const { progress, resetOnboarding, updateProfile } = useProgress();
   const tone = progress.profile?.tone || DEFAULT_TONE;
   const [goalText, setGoalText] = useState("");
@@ -42,6 +46,17 @@ export default function SettingsScreen() {
   const [goalSaved, setGoalSaved] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function retryAccount() {
+    if (!current() || refreshing || !token) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([refreshUser(), refreshWallet(), refreshCosmetics()]);
+    } finally {
+      if (current()) setRefreshing(false);
+    }
+  }
 
   // Store-compliance: export the caller's data (GET /auth/export) and hand it to the OS share sheet
   // so they can save/send the JSON. Read-only on the server. Only a genuine fetch failure is an
@@ -142,6 +157,12 @@ export default function SettingsScreen() {
               {user.email}
             </Txt>
           )}
+          {!!token && (!user || !walletReady || !cosmeticsReady) && (
+            <View style={{ gap: 10, marginBottom: 12 }}>
+              <Txt variant="secondary" color={t.c.ink2}>{tr("settings.accountOffline")}</Txt>
+              <Button label={tr(refreshing ? "settings.refreshingAccount" : "settings.retryAccount")} variant="ghost" onPress={retryAccount} disabled={refreshing} />
+            </View>
+          )}
           <View style={styles.toggleRow}>
             <Txt variant="bodyStrong">{tr("settings.dark")}</Txt>
             <Switch
@@ -209,8 +230,8 @@ export default function SettingsScreen() {
             onPress={resetOnboarding}
             style={{ marginBottom: 10 }}
           />
-          {user ? (
-            <Pressable onPress={logout} accessibilityRole="button" style={{ minHeight: 48, justifyContent: "center", alignItems: "center" }}>
+          {token ? (
+            <Pressable onPress={() => { if (current()) void logout(); }} accessibilityRole="button" style={{ minHeight: 48, justifyContent: "center", alignItems: "center" }}>
               <Txt variant="bodyStrong" color={t.c.bad}>{tr("settings.logout")}</Txt>
             </Pressable>
           ) : (

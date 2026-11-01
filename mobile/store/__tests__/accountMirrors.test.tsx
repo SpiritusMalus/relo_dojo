@@ -1,4 +1,6 @@
+import { useState } from "react";
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
+import { AppState, type AppStateStatus } from "react-native";
 import { WalletProvider, useWallet } from "../wallet";
 import { CosmeticsProvider, useCosmetics } from "../cosmeticsStore";
 import { captureAccountScope } from "../accountScope";
@@ -8,7 +10,8 @@ import {
 } from "../../services/api";
 
 let mockToken: string | null = null;
-jest.mock("../auth", () => ({ useAuth: () => ({ token: mockToken }) }));
+let mockUser: { id: string } | null = null;
+jest.mock("../auth", () => ({ useAuth: () => ({ token: mockToken, user: mockUser }) }));
 jest.mock("../../services/api", () => ({
   ...jest.requireActual("../../services/api"), getWallet: jest.fn(), spendItem: jest.fn(),
   getCosmetics: jest.fn(), buyCosmetic: jest.fn(), equipCosmetic: jest.fn(),
@@ -28,10 +31,20 @@ const deferred = <T,>() => {
 let wallet!: ReturnType<typeof useWallet>;
 let cosmetics!: ReturnType<typeof useCosmetics>;
 let renderer: ReactTestRenderer | undefined;
+let rerender!: () => void;
+const activeListeners: Array<{ callback: (state: AppStateStatus) => void; removed: boolean }> = [];
 function Harness() { wallet = useWallet(); cosmetics = useCosmetics(); return null; }
+function Providers() {
+  const [, update] = useState(0);
+  rerender = () => update((value) => value + 1);
+  return <WalletProvider><CosmeticsProvider><Harness /></CosmeticsProvider></WalletProvider>;
+}
+function activate() {
+  for (const listener of [...activeListeners]) if (!listener.removed) listener.callback("active");
+}
 async function mount() {
   await act(async () => {
-    renderer = TestRenderer.create(<WalletProvider><CosmeticsProvider><Harness /></CosmeticsProvider></WalletProvider>);
+    renderer = TestRenderer.create(<Providers />);
   });
 }
 async function switchToB() {
@@ -43,6 +56,13 @@ async function switchToB() {
 }
 beforeEach(() => {
   jest.clearAllMocks();
+  activeListeners.length = 0;
+  jest.spyOn(AppState, "addEventListener").mockImplementation((_event, callback) => {
+    const listener = { callback, removed: false };
+    activeListeners.push(listener);
+    return { remove: () => { listener.removed = true; } };
+  });
+  mockUser = null;
   mockToken = token("a");
   setAuthToken(mockToken);
   jest.mocked(getWallet).mockResolvedValue(A);
@@ -52,6 +72,7 @@ afterEach(() => {
   if (renderer) act(() => renderer!.unmount());
   renderer = undefined;
   setAuthToken(null);
+  jest.restoreAllMocks();
 });
 
 it("hides A's mirrors at scope publication before B fetches resolve", async () => {
@@ -160,4 +181,98 @@ it("old A confirmation callbacks cannot borrow B's bearer or patch B after login
   expect(equipCosmetic).not.toHaveBeenCalled();
   expect(wallet.coins).toBe(B.coins);
   expect(cosmetics.owned).toEqual(CB.owned);
+});
+
+it("recovers an offline cold boot on foreground without changing the retained token", async () => {
+  jest.mocked(getWallet).mockRejectedValueOnce(new Error("offline"));
+  jest.mocked(getCosmetics).mockRejectedValueOnce(new Error("offline"));
+  const originalScope = captureAccountScope();
+  await mount();
+  expect(wallet.ready).toBe(false); // zero is unknown, not an authoritative server balance
+  expect(cosmetics.ready).toBe(false);
+  expect(getWallet).toHaveBeenCalledTimes(1);
+  expect(getCosmetics).toHaveBeenCalledTimes(1);
+  await act(async () => { activate(); });
+  expect(captureAccountScope()).toBe(originalScope);
+  expect(wallet.ready).toBe(true);
+  expect(wallet.coins).toBe(A.coins);
+  expect(cosmetics.ready).toBe(true);
+  expect(cosmetics.equipped).toEqual(CA.equipped);
+  expect(getWallet).toHaveBeenCalledTimes(2);
+  expect(getCosmetics).toHaveBeenCalledTimes(2);
+});
+
+it("retries an unknown mirror when auth identity recovers, without a second initial GET", async () => {
+  jest.mocked(getWallet).mockRejectedValueOnce(new Error("offline"));
+  jest.mocked(getCosmetics).mockRejectedValueOnce(new Error("offline"));
+  await mount();
+  await act(async () => { mockUser = { id: "a" }; rerender(); });
+  expect(wallet.coins).toBe(A.coins);
+  expect(cosmetics.equipped).toEqual(CA.equipped);
+  expect(getWallet).toHaveBeenCalledTimes(2);
+  expect(getCosmetics).toHaveBeenCalledTimes(2);
+  await act(async () => { mockUser = { id: "a" }; rerender(); });
+  expect(getWallet).toHaveBeenCalledTimes(2);
+  expect(getCosmetics).toHaveBeenCalledTimes(2);
+});
+
+it("a known identity and simultaneous foreground/manual retries dedupe one in-flight GET per mirror", async () => {
+  mockUser = { id: "a" };
+  await mount();
+  expect(getWallet).toHaveBeenCalledTimes(1);
+  expect(getCosmetics).toHaveBeenCalledTimes(1);
+  const w = deferred<Wallet>(); const c = deferred<Cosmetics>();
+  jest.mocked(getWallet).mockReturnValueOnce(w.promise);
+  jest.mocked(getCosmetics).mockReturnValueOnce(c.promise);
+  let requests!: Promise<void>[];
+  act(() => {
+    activate(); activate();
+    requests = [wallet.refresh(), wallet.refresh(), cosmetics.refresh(), cosmetics.refresh()];
+  });
+  expect(getWallet).toHaveBeenCalledTimes(2);
+  expect(getCosmetics).toHaveBeenCalledTimes(2);
+  expect(wallet.ready).toBe(true);
+  expect(wallet.coins).toBe(A.coins); // no known-balance-to-zero flicker while revalidating
+  expect(cosmetics.equipped).toEqual(CA.equipped);
+  await act(async () => { w.resolve(B); c.resolve(CB); await Promise.all(requests); });
+  expect(wallet.coins).toBe(B.coins);
+  expect(cosmetics.equipped).toEqual(CB.equipped);
+});
+
+it("keeps successful mirrors authoritative when a later foreground revalidation is offline", async () => {
+  await mount();
+  jest.mocked(getWallet).mockRejectedValueOnce(new Error("offline"));
+  jest.mocked(getCosmetics).mockRejectedValueOnce(new Error("offline"));
+  await act(async () => { activate(); });
+  expect(wallet.ready).toBe(true);
+  expect(wallet.coins).toBe(A.coins);
+  expect(cosmetics.ready).toBe(true);
+  expect(cosmetics.equipped).toEqual(CA.equipped);
+});
+
+it("old A foreground listeners cannot issue reads or overwrite B after the scope switches", async () => {
+  await mount();
+  const oldListeners = activeListeners.map((listener) => listener.callback);
+  await switchToB();
+  const walletReads = jest.mocked(getWallet).mock.calls.length;
+  const cosmeticsReads = jest.mocked(getCosmetics).mock.calls.length;
+  await act(async () => { for (const listener of oldListeners) listener("active"); });
+  expect(getWallet).toHaveBeenCalledTimes(walletReads);
+  expect(getCosmetics).toHaveBeenCalledTimes(cosmeticsReads);
+  expect(wallet.coins).toBe(B.coins);
+  expect(cosmetics.equipped).toEqual(CB.equipped);
+});
+
+it("a foreground GET cannot roll back a newer check reward or cosmetic purchase", async () => {
+  await mount();
+  const w = deferred<Wallet>(); const c = deferred<Cosmetics>();
+  jest.mocked(getWallet).mockReturnValueOnce(w.promise);
+  jest.mocked(getCosmetics).mockReturnValueOnce(c.promise);
+  let reads!: Promise<void>[];
+  act(() => { reads = [wallet.refresh(), cosmetics.refresh()]; });
+  jest.mocked(buyCosmetic).mockResolvedValueOnce(CB);
+  await act(async () => { wallet.applyCheckReward(1000); await cosmetics.buy("sensei_ronin"); });
+  await act(async () => { w.resolve(A); c.resolve(CA); await Promise.all(reads); });
+  expect(wallet.coins).toBe(1000);
+  expect(cosmetics.equipped).toEqual(CB.equipped);
 });

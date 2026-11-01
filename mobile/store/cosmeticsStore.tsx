@@ -7,13 +7,15 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { AppState } from "react-native";
 import { buyCosmetic, equipCosmetic, getCosmetics } from "../services/api";
 import { useAuth } from "./auth";
-import { captureAccountScope, isCurrentAccountScope, subscribeAccountScope } from "./accountScope";
+import { captureAccountScope, isCurrentAccountScope, subscribeAccountScope, type AccountScope } from "./accountScope";
 import { knotVisual, senseiVisual, starterFor, type KnotVisual, type SenseiVisual } from "./cosmetics";
 
 type CosmeticsContextValue = {
@@ -35,60 +37,78 @@ const EMPTY: CosmeticsState = {
 const CosmeticsContext = createContext<CosmeticsContextValue | null>(null);
 
 export function CosmeticsProvider({ children }: { children: ReactNode }) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const scope = useSyncExternalStore(subscribeAccountScope, captureAccountScope, captureAccountScope);
   const [mirror, setMirror] = useState(() => ({ scope, ready: false, state: EMPTY }));
+  const mounted = useRef(true);
+  const inFlight = useRef<{ scope: AccountScope; promise: Promise<void> } | null>(null);
+  const mutationVersion = useRef(0);
   const ready = mirror.scope === scope && mirror.ready;
   const state = mirror.scope === scope ? mirror.state : EMPTY;
 
   useEffect(() => {
-    let cancelled = false;
-    setMirror({ scope, ready: false, state: EMPTY });
-    if (!token || !isCurrentAccountScope(scope)) return;
-    (async () => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  const refresh = useCallback((): Promise<void> => {
+    const requestScope = scope;
+    if (!mounted.current || !token || requestScope.owner === null || !isCurrentAccountScope(requestScope)) return Promise.resolve();
+    if (inFlight.current?.scope === requestScope) return inFlight.current.promise;
+    const version = mutationVersion.current;
+    const pending = { scope: requestScope, promise: Promise.resolve() };
+    inFlight.current = pending;
+    pending.promise = (async () => {
       try {
         const c = await getCosmetics();
-        if (!cancelled && isCurrentAccountScope(scope)) {
-          setMirror({ scope, ready: true, state: { owned: c.owned, equipped: c.equipped } });
-        }
+        if (!mounted.current || !isCurrentAccountScope(requestScope) || mutationVersion.current !== version) return;
+        setMirror((current) => mounted.current && isCurrentAccountScope(requestScope) && mutationVersion.current === version
+          ? { scope: requestScope, ready: true, state: { owned: c.owned, equipped: c.equipped } } : current);
       } catch {
-        // offline / old backend — keep the starter default so Sensei still renders
-        if (!cancelled && isCurrentAccountScope(scope)) {
-          setMirror((current) => isCurrentAccountScope(scope)
-            ? { scope, ready: true, state: current.scope === scope ? current.state : EMPTY } : current);
-        }
+        // The starter visual is a rendering fallback, not proof of server ownership.
+      } finally {
+        if (inFlight.current === pending) inFlight.current = null;
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [token, scope]);
+    return pending.promise;
+  }, [scope, token]);
 
-  const refresh = useCallback(async () => {
-    const requestScope = scope;
-    if (!isCurrentAccountScope(requestScope)) return;
-    try {
-      const c = await getCosmetics();
-      setMirror((current) => isCurrentAccountScope(requestScope)
-        ? { scope: requestScope, ready: true, state: { owned: c.owned, equipped: c.equipped } } : current);
-    } catch {
-      // ignore — next action refreshes
-    }
-  }, [scope]);
+  useEffect(() => {
+    setMirror((current) => current.scope === scope ? current : { scope, ready: false, state: EMPTY });
+    void refresh();
+  }, [scope, refresh]);
+
+  useEffect(() => {
+    if (!token) return;
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refresh();
+    });
+    return () => subscription.remove();
+  }, [token, refresh]);
+
+  useEffect(() => {
+    if (user?.id != null && (mirror.scope !== scope || !mirror.ready)) void refresh();
+    // Identity recovery is an edge trigger, not an automatic loop after a failed GET.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, scope, refresh]);
 
   const buy = useCallback(async (id: string) => {
     const requestScope = scope;
-    if (!isCurrentAccountScope(requestScope)) return;
+    if (!mounted.current || !isCurrentAccountScope(requestScope)) return;
     const c = await buyCosmetic(id); // throws on failure → caller surfaces it
-    setMirror((current) => isCurrentAccountScope(requestScope)
+    if (!mounted.current || !isCurrentAccountScope(requestScope)) return;
+    mutationVersion.current++;
+    setMirror((current) => mounted.current && isCurrentAccountScope(requestScope)
       ? { scope: requestScope, ready: true, state: { owned: c.owned, equipped: c.equipped } } : current);
   }, [scope]);
 
   const equip = useCallback(async (id: string) => {
     const requestScope = scope;
-    if (!isCurrentAccountScope(requestScope)) return;
+    if (!mounted.current || !isCurrentAccountScope(requestScope)) return;
     const c = await equipCosmetic(id);
-    setMirror((current) => isCurrentAccountScope(requestScope)
+    if (!mounted.current || !isCurrentAccountScope(requestScope)) return;
+    mutationVersion.current++;
+    setMirror((current) => mounted.current && isCurrentAccountScope(requestScope)
       ? { scope: requestScope, ready: true, state: { owned: c.owned, equipped: c.equipped } } : current);
   }, [scope]);
 
