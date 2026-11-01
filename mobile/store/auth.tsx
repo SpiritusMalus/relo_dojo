@@ -14,6 +14,7 @@ import {
 import {
   ApiError,
   getMe,
+  isCurrentAuthToken,
   login as apiLogin,
   register as apiRegister,
   requestVerification as apiRequestVerification,
@@ -24,6 +25,9 @@ import { syncConsentToServer } from "./consent";
 
 // SecureStore keys allow only [A-Za-z0-9._-] — no "/".
 const TOKEN_KEY = "relo_dojo_token";
+// Native writes cannot be cancelled once dispatched. Serialize even across provider remounts so
+// an old A write finishes before the logout/B replacement, never after the newer credentials.
+let secureStoreWrites: Promise<void> = Promise.resolve();
 
 type AuthContextValue = {
   ready: boolean; // false until we've checked storage for a saved token
@@ -51,8 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const version = ++sessionVersion.current;
     setAuthToken(newToken);
     setToken(newToken);
-    if (newToken) await SecureStore.setItemAsync(TOKEN_KEY, newToken);
-    else await SecureStore.deleteItemAsync(TOKEN_KEY);
+    setUser(null);
+    const write = secureStoreWrites.then(async () => {
+      if (version !== sessionVersion.current || !isCurrentAuthToken(newToken)) return;
+      if (newToken) await SecureStore.setItemAsync(TOKEN_KEY, newToken);
+      else await SecureStore.deleteItemAsync(TOKEN_KEY);
+    });
+    secureStoreWrites = write.catch(() => {});
+    await write;
     return version;
   }, []);
 
@@ -75,7 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } catch (error) {
             if (!disposed && version === sessionVersion.current && error instanceof ApiError && error.status === 401) {
               await apply(null);
-              setUser(null);
             }
           }
         }
@@ -120,7 +129,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await apply(null);
-    setUser(null);
   }, [apply]);
 
   const refreshUser = useCallback(async () => {
@@ -131,7 +139,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       if (version === sessionVersion.current && error instanceof ApiError && error.status === 401) {
         await apply(null);
-        setUser(null);
       }
     }
   }, [apply]);

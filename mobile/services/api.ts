@@ -9,6 +9,7 @@
 import Constants from "expo-constants";
 import { fetch as expoFetch } from "expo/fetch";
 import type { Progress } from "../store/progress";
+import { bindAccountUser, captureAccountScope, isCurrentAccountScope, setAccountToken, type AccountScope } from "../store/accountScope";
 
 const FALLBACK_HOST = "192.168.1.9";
 const PORT = 8000;
@@ -34,6 +35,7 @@ export const BASE_URL = resolveBaseUrl();
 let authToken: string | null = null;
 export function setAuthToken(token: string | null): void {
   authToken = token;
+  setAccountToken(token);
 }
 
 /** Progress sync must never borrow a newer account's mutable global bearer token. */
@@ -41,7 +43,7 @@ export function isCurrentAuthToken(expected: string | null): boolean {
   return authToken === expected;
 }
 
-function assertProgressSession(expected?: string): void {
+function assertProgressSession(expected?: string | null): void {
   if (expected !== undefined && !isCurrentAuthToken(expected)) {
     throw new ApiError("The signed-in account changed.", 409, "session_changed");
   }
@@ -88,12 +90,17 @@ async function request<T>(
   body?: unknown,
   method: Method = "POST",
   timeoutMs: number = REQUEST_TIMEOUT_MS,
-  expectedAuthToken?: string
+  expectedAuthToken?: string | null
 ): Promise<T> {
   assertProgressSession(expectedAuthToken);
+  const requestScope = captureAccountScope();
+  const assertRequestScope = () => {
+    if (!isCurrentAccountScope(requestScope)) throw new ApiError("The signed-in account changed.", 409, "session_changed");
+    assertProgressSession(expectedAuthToken);
+  };
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  const requestToken = expectedAuthToken ?? authToken;
+  const requestToken = expectedAuthToken === undefined ? authToken : expectedAuthToken;
   if (requestToken) headers["Authorization"] = `Bearer ${requestToken}`;
 
   const controller = new AbortController();
@@ -107,6 +114,7 @@ async function request<T>(
       signal: controller.signal,
     });
   } catch (e) {
+    assertRequestScope();
     if (e instanceof Error && e.name === "AbortError") {
       throw new Error("The server took too long to respond. Is the backend running?");
     }
@@ -115,7 +123,7 @@ async function request<T>(
     clearTimeout(timer);
   }
 
-  assertProgressSession(expectedAuthToken);
+  assertRequestScope();
 
   if (!res.ok) {
     // Errors carry {detail: "..."} (string), {detail: {code, message, ...}} (structured gating),
@@ -137,6 +145,7 @@ async function request<T>(
     } catch {
       // non-JSON error body — keep the generic message
     }
+    assertRequestScope();
     throw new ApiError(detail, res.status, code);
   }
   // 204 No Content (e.g. DELETE /auth/account) has no body — don't try to parse JSON.
@@ -147,10 +156,10 @@ async function request<T>(
   // other backend error, not "can't reach the backend".
   try {
     const data = (await res.json()) as T;
-    assertProgressSession(expectedAuthToken);
+    assertRequestScope();
     return data;
   } catch {
-    assertProgressSession(expectedAuthToken);
+    assertRequestScope();
     throw new ApiError("Malformed response from the backend.", res.status);
   }
 }
@@ -329,10 +338,13 @@ export function putLearnerProfile(p: LearnerProfileData): Promise<LearnerProfile
 // Merge a partial update into the server profile (fetch → patch → put). Best-effort:
 // silently no-ops when logged out / offline — the local snapshot still syncs via /progress.
 export async function syncLearnerProfile(patch: Partial<LearnerProfileData>): Promise<void> {
-  if (!authToken) return;
+  const expectedToken = authToken;
+  const scope = captureAccountScope();
+  if (!expectedToken || !scope.owner) return;
   try {
-    const current = await getLearnerProfile();
-    await putLearnerProfile({ ...current, ...patch });
+    const current = await request<LearnerProfileData>("/profile", undefined, "GET", REQUEST_TIMEOUT_MS, expectedToken);
+    if (!isCurrentAccountScope(scope)) return;
+    await request<LearnerProfileData>("/profile", { ...current, ...patch }, "PUT", REQUEST_TIMEOUT_MS, expectedToken);
   } catch {
     // best-effort
   }
@@ -467,8 +479,12 @@ export function login(email: string, password: string): Promise<TokenResp> {
   return request<TokenResp>("/auth/login", { email, password });
 }
 
-export function getMe(): Promise<AuthUser> {
-  return request<AuthUser>("/auth/me", undefined, "GET", 12000);
+export async function getMe(): Promise<AuthUser> {
+  const expectedToken = authToken;
+  const scope = captureAccountScope();
+  const user = await request<AuthUser>("/auth/me", undefined, "GET", 12000);
+  if (isCurrentAuthToken(expectedToken) && isCurrentAccountScope(scope)) bindAccountUser(user.id, scope);
+  return user;
 }
 
 // Resend the account-activation email to the logged-in user.
@@ -499,8 +515,11 @@ export type AccountExport = {
 
 // Permanently delete the caller's account (204, no body). The caller must clear local state + sign
 // out afterwards — the bearer token is dead the moment this returns.
-export function deleteAccount(): Promise<void> {
-  return request<void>("/auth/account", undefined, "DELETE");
+export function deleteAccount(expectedScope: AccountScope = captureAccountScope()): Promise<void> {
+  if (!expectedScope.owner || !isCurrentAccountScope(expectedScope)) {
+    return Promise.reject(new ApiError("The signed-in account changed.", 409, "session_changed"));
+  }
+  return request<void>("/auth/account", undefined, "DELETE", REQUEST_TIMEOUT_MS, authToken);
 }
 
 // 152-ФЗ cross-border consent (the standalone PD/transborder consent screen): record acceptance of
@@ -613,11 +632,17 @@ export function postAdReward(): Promise<AdReward> {
 // Best-effort batch upload. Open to anonymous callers; the bearer token (if set) attributes the
 // events to the account server-side. `anon_id` carries pre-login identity.
 export type AnalyticsEventPayload = { name: string; props: Record<string, unknown>; ts: number };
-export function postEvents(
+export async function postEvents(
   anonId: string | null,
-  events: AnalyticsEventPayload[]
+  events: AnalyticsEventPayload[],
+  expectedScope: AccountScope = captureAccountScope()
 ): Promise<{ accepted: number }> {
-  return request<{ accepted: number }>("/events", { anon_id: anonId, events });
+  if (!expectedScope.owner || !isCurrentAccountScope(expectedScope)) {
+    throw new ApiError("The signed-in account changed.", 409, "session_changed");
+  }
+  const result = await request<{ accepted: number }>("/events", { anon_id: anonId, events }, "POST", REQUEST_TIMEOUT_MS, authToken);
+  if (!isCurrentAccountScope(expectedScope)) throw new ApiError("The signed-in account changed.", 409, "session_changed");
+  return result;
 }
 
 export function getProgress(expectedToken?: string): Promise<Progress> {

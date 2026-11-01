@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Switch, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import { useAuth } from "../store/auth";
+import { useAccountScope } from "../store/useAccountScope";
+import { captureAccountScope, isCurrentAccountScope } from "../store/accountScope";
 import { useProgress } from "../store/progress";
 import { DEFAULT_TONE, TONES } from "../store/onboarding";
 
@@ -24,6 +26,10 @@ import Txt from "../components/ui/Txt";
 // Settings: account + app preferences, reached from the gear in the TopBar. Moved out of the
 // Progress tab so stats stay stats and logout/language aren't buried under achievements.
 export default function SettingsScreen() {
+  const scope = useAccountScope();
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const current = () => mounted.current && isCurrentAccountScope(scope);
   const t = useTheme();
   const { t: tr, lang, setLang } = useI18n();
   const router = useRouter();
@@ -42,12 +48,14 @@ export default function SettingsScreen() {
   // "export failed"; the share sheet being dismissed/cancelled (which can reject on some platforms)
   // is a normal outcome and must NOT surface an error — so the fetch and the share are guarded apart.
   async function onExportData() {
-    if (exporting) return;
+    if (exporting || !current()) return;
     setExporting(true);
     let data: unknown;
     try {
       data = await exportMyData();
+      if (!current()) return;
     } catch {
+      if (!current()) return;
       setExporting(false);
       Alert.alert(tr("settings.exportData"), tr("settings.exportFail"));
       return;
@@ -57,29 +65,33 @@ export default function SettingsScreen() {
     } catch {
       // The user dismissed the share sheet (or the platform rejected a cancel) — not an export failure.
     } finally {
-      setExporting(false);
+      if (current()) setExporting(false);
     }
   }
 
   // Store-compliance: in-app account deletion. Confirm first (irreversible), then DELETE the account
   // and sign out — logout() clears the token, which resets the local progress cache (see store/progress).
   function onDeleteAccount() {
-    if (deleting) return;
+    if (deleting || !current()) return;
     Alert.alert(tr("settings.deleteTitle"), tr("settings.deleteMsg"), [
       { text: tr("settings.deleteCancel"), style: "cancel" },
       {
         text: tr("settings.deleteConfirm"),
         style: "destructive",
         onPress: async () => {
+          if (!current()) return;
           setDeleting(true);
           try {
-            await deleteAccount();
-            await logout(); // clears the dead token → progress store wipes local state for the guest
-            router.replace("/");
+            await deleteAccount(scope);
+            if (!current()) return;
+            const pendingLogout = logout();
+            const guestScope = captureAccountScope();
+            await pendingLogout;
+            if (guestScope.owner === "guest" && isCurrentAccountScope(guestScope)) router.replace("/");
           } catch {
-            Alert.alert(tr("settings.deleteAccount"), tr("settings.deleteFail"));
+            if (current()) Alert.alert(tr("settings.deleteAccount"), tr("settings.deleteFail"));
           } finally {
-            setDeleting(false);
+            if (current()) setDeleting(false);
           }
         },
       },
@@ -90,11 +102,12 @@ export default function SettingsScreen() {
   // persists it into the server-side learner profile; locally it refreshes painText + focusTopics.
   async function submitGoal() {
     const text = goalText.trim();
-    if (!text || goalBusy) return;
+    if (!text || goalBusy || !current()) return;
     setGoalBusy(true);
     setGoalSaved(false);
     try {
       const { topics } = await analyzePain(text);
+      if (!current()) return;
       const prevFocus = progress.profile?.focusTopics ?? [];
       updateProfile({ painText: text, focusTopics: Array.from(new Set([...prevFocus, ...topics])) });
       setGoalText("");
@@ -102,7 +115,7 @@ export default function SettingsScreen() {
     } catch {
       // offline / model down — keep the text so the user can retry
     } finally {
-      setGoalBusy(false);
+      if (current()) setGoalBusy(false);
     }
   }
 

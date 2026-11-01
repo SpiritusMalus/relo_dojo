@@ -7,6 +7,8 @@ import { useAccess } from "../../store/access";
 import { useI18n } from "../../store/i18n";
 import { beltProgress } from "../../store/dojo";
 import { dueCount } from "../../store/mistakes";
+import { useAccountScope } from "../../store/useAccountScope";
+import { isCurrentAccountScope } from "../../store/accountScope";
 import { getStoryCatalog } from "../../services/api";
 import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
@@ -24,6 +26,7 @@ import Txt from "../../components/ui/Txt";
 // Challenge, Review, Review-my-text, Shop). Home keeps just the belt + path + one daily action; the
 // modes moved here, each keeping the exact access gate it had on Home.
 export default function TrainScreen() {
+  const scope = useAccountScope();
   const router = useRouter();
   const { progress } = useProgress();
   const { user } = useAuth();
@@ -39,10 +42,12 @@ export default function TrainScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      dueCount().then((n) => active && setMistakes(n)); // SRS: only DUE items count — the button is a to-do, not an archive
+      setMistakes(0);
+      setFeaturedArc(null);
+      dueCount(scope).then((n) => active && isCurrentAccountScope(scope) && setMistakes(n));
       getStoryCatalog()
         .then((c) => {
-          if (!active) return;
+          if (!active || !isCurrentAccountScope(scope)) return;
           const arc = c.arcs.find((a) => a.id === c.featured_id);
           setFeaturedArc(arc ? arc.title : null);
         })
@@ -50,7 +55,7 @@ export default function TrainScreen() {
       return () => {
         active = false;
       };
-    }, [])
+    }, [scope])
   );
 
   return (

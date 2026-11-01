@@ -1,8 +1,9 @@
 // Progress & gamification store (Phase 3 local; Phase 4 backend sync).
 //
 // AsyncStorage is the working cache (offline-safe). When logged in, the store also syncs with the
-// server: on login it pulls the server snapshot, merges by max with local, and pushes the result;
+// server: on login it pulls the server snapshot, merges by max with this owner's local cache, and pushes the result;
 // later changes are pushed (debounced). The update logic stays a pure function (`recordAnswer`).
+// Ownerless v1 data is retained in quarantine; it cannot safely identify an account while offline.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   createContext,
@@ -16,10 +17,8 @@ import {
 } from "react";
 import { getProgress, isCurrentAuthToken, putProgress, syncLearnerProfile, type ExerciseType } from "../services/api";
 import { useAuth } from "./auth";
-import { resetWall } from "./registerWall";
-import { resetGuestLimit } from "./guestLimit";
-import { resetJourney } from "./journey";
-import { resetReviewHook } from "./reviewHook";
+import { isCurrentAccountScope, type AccountScope } from "./accountScope";
+import { useAccountScope } from "./useAccountScope";
 import { useWallet } from "./wallet";
 import { effectiveSkill, LISTENING_FORMATS, RECENT_ANSWERS, updateListening, updateSkill, type AnswerEffort, type AnswerEvidence, type ListeningStat } from "./adaptive";
 import { MASTERY_WINDOW, type AnswerMark } from "./curriculum";
@@ -31,7 +30,9 @@ import {
   type BrokenStreak,
 } from "./streak";
 
-const STORAGE_KEY = "relo_dojo/progress/v1";
+const LEGACY_STORAGE_KEY = "relo_dojo/progress/v1";
+const CACHE_PREFIX = "relo_dojo/progress/v2/";
+export const PROGRESS_LEGACY_ARCHIVE_KEY = "relo_dojo/progress/quarantine/unowned-v1";
 
 export const XP_PER_CORRECT = 10;
 export const XP_PER_LEVEL = 100;
@@ -462,37 +463,110 @@ function pickLaterBreak(a: BrokenStreak | null, b: BrokenStreak | null): BrokenS
 
 // --- Persistence -------------------------------------------------------------
 
-async function load(): Promise<Progress> {
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_PROGRESS;
-    const stored = JSON.parse(raw) as Partial<Progress>;
-    // Merge over defaults so a future shape change doesn't crash on old data.
-    return {
-      ...DEFAULT_PROGRESS,
-      ...stored,
-      topics: stored.topics ?? {},
-      skill: stored.skill ?? {},
-      profile: stored.profile ?? null,
-      brokenStreak: stored.brokenStreak ?? null,
-      boostUntil: stored.boostUntil ?? "",
-      beltEarned: stored.beltEarned ?? 0,
-      steering: stored.steering ? { ...DEFAULT_STEERING, ...stored.steering } : DEFAULT_STEERING,
-      course: stored.course
-        ? { history: stored.course.history ?? {}, mastered: stored.course.mastered ?? [] }
-        : DEFAULT_COURSE,
-    };
-  } catch {
-    return DEFAULT_PROGRESS;
-  }
+function normalizeProgress(value: unknown): Progress {
+  const stored = value && typeof value === "object" && !Array.isArray(value) ? value as Partial<Progress> : {};
+  // Merge over defaults so a future shape change doesn't crash on old data.
+  return {
+    ...DEFAULT_PROGRESS,
+    ...stored,
+    topics: stored.topics ?? {},
+    skill: stored.skill ?? {},
+    profile: stored.profile ?? null,
+    brokenStreak: stored.brokenStreak ?? null,
+    boostUntil: stored.boostUntil ?? "",
+    beltEarned: stored.beltEarned ?? 0,
+    steering: stored.steering ? { ...DEFAULT_STEERING, ...stored.steering } : DEFAULT_STEERING,
+    course: stored.course
+      ? { history: stored.course.history ?? {}, mastered: stored.course.mastered ?? [] }
+      : DEFAULT_COURSE,
+  };
 }
 
-async function save(p: Progress): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(p));
-  } catch {
-    // Best-effort; losing a write is non-fatal for a learning app.
+type PendingClaim = { id: string; progress: Progress };
+type ProgressCache = { owner: string; progress: Progress; pendingClaims?: Record<string, PendingClaim> };
+// One queue also covers remounts and the atomic guest-claim outbox. User data still has separate
+// immutable keys, so an already-dispatched A native write can never replace B's cache.
+let cacheIO: Promise<void> = Promise.resolve();
+let claimSequence = 0;
+function storageTask<T>(run: () => Promise<T>): Promise<T> {
+  const task = cacheIO.then(run);
+  cacheIO = task.then(() => {}, () => {});
+  return task;
+}
+const cacheKey = (owner: string) => CACHE_PREFIX + encodeURIComponent(owner);
+
+async function preserveUnknown(raw: string, key: string): Promise<void> {
+  if (await AsyncStorage.getItem(key) === null) await AsyncStorage.setItem(key, raw);
+}
+
+async function readCache(owner: string): Promise<ProgressCache> {
+  const raw = await AsyncStorage.getItem(cacheKey(owner));
+  if (raw) {
+    try {
+      const envelope = JSON.parse(raw) as ProgressCache;
+      if (envelope.owner === owner && envelope.progress && typeof envelope.progress === "object") {
+        return { owner, progress: normalizeProgress(envelope.progress), pendingClaims: owner === "guest" ? envelope.pendingClaims : undefined };
+      }
+    } catch { /* Preserve an unreadable/misowned envelope before replacing its key. */ }
+    await preserveUnknown(raw, `relo_dojo/progress/quarantine/invalid-${encodeURIComponent(owner)}`);
   }
+  return { owner, progress: DEFAULT_PROGRESS };
+}
+
+function meaningfulGuest(p: Progress): boolean {
+  return p.onboarded || p.xp > 0 || p.profile !== null || (p.beltEarned ?? 0) > 0
+    || Object.keys(p.topics).length > 0 || Object.keys(p.skill).length > 0;
+}
+
+async function loadCache(scope: AccountScope, guestSeed?: Progress, localSeed?: Progress): Promise<{ progress: Progress; claimId?: string } | null> {
+  return storageTask(async () => {
+    const legacy = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy !== null) await preserveUnknown(legacy, PROGRESS_LEGACY_ARCHIVE_KEY);
+    if (!scope.owner || !isCurrentAccountScope(scope)) return null;
+    const owner = scope.owner;
+    const own = await readCache(owner);
+    let progress = own.progress;
+    let claimId: string | undefined;
+    if (owner !== "guest") {
+      let guest = await readCache("guest");
+      if (guestSeed && meaningfulGuest(guestSeed)) {
+        if (!isCurrentAccountScope(scope)) return null;
+        const previous = guest.pendingClaims?.[owner];
+        const donation = mergeProgress(guest.progress, guestSeed);
+        const claim = { id: `${Date.now().toString(36)}-${++claimSequence}`, progress: previous ? mergeProgress(previous.progress, donation) : donation };
+        // Consume the live guest snapshot and pin its recovery payload to this owner in ONE write.
+        // A crash before the account save can only recover it for this same account, never B.
+        guest = { owner: "guest", progress: DEFAULT_PROGRESS, pendingClaims: { ...guest.pendingClaims, [owner]: claim } };
+        await AsyncStorage.setItem(cacheKey("guest"), JSON.stringify(guest));
+      }
+      const claim = guest.pendingClaims?.[owner];
+      if (claim) {
+        progress = mergeProgress(progress, normalizeProgress(claim.progress));
+        claimId = claim.id;
+      }
+    }
+    if (localSeed) progress = mergeProgress(progress, localSeed);
+    return isCurrentAccountScope(scope) ? { progress, claimId } : null;
+  });
+}
+
+async function saveCache(p: Progress, scope: AccountScope, claimId?: string): Promise<void> {
+  await storageTask(async () => {
+    if (!scope.owner || !isCurrentAccountScope(scope)) return;
+    const owner = scope.owner;
+    const previous = owner === "guest" ? await readCache("guest") : undefined;
+    if (!isCurrentAccountScope(scope)) return;
+    await AsyncStorage.setItem(cacheKey(owner), JSON.stringify({ owner, progress: p, ...(previous?.pendingClaims ? { pendingClaims: previous.pendingClaims } : {}) }));
+    // Acknowledge only the exact claim included in this saved snapshot. Keep any newer donation.
+    if (owner !== "guest" && claimId) {
+      const guest = await readCache("guest");
+      if (guest.pendingClaims?.[owner]?.id === claimId) {
+        const pendingClaims = { ...guest.pendingClaims };
+        delete pendingClaims[owner];
+        await AsyncStorage.setItem(cacheKey("guest"), JSON.stringify({ ...guest, pendingClaims }));
+      }
+    }
+  });
 }
 
 // --- React Context -----------------------------------------------------------
@@ -527,121 +601,105 @@ type ProgressContextValue = {
 };
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
+type ProgressSession = {
+  token: string | null; scope: AccountScope; loaded: boolean; synced: boolean; reconciled: boolean;
+  guestSeed?: Progress; localSeed?: Progress; claimId?: string;
+};
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
   const { token, ready: authReady } = useAuth();
+  const scope = useAccountScope();
   const { freezes, spend, ready: walletReady } = useWallet();
-  const [progress, setProgress] = useState<Progress>(DEFAULT_PROGRESS);
-  const [ready, setReady] = useState(false);
-  // Gates onboarding routing: stays false from a token change until the server snapshot is merged
-  // in (or the attempt fails offline), so we never flash onboarding using the reset local default.
-  const [synced, setSynced] = useState(false);
-  const progressRef = useRef(progress);
-  progressRef.current = progress;
-  const syncedToken = useRef<string | null>(null);
+  const [snapshot, setSnapshot] = useState<{ session: ProgressSession | null; progress: Progress; ready: boolean; synced: boolean }>({ session: null, progress: DEFAULT_PROGRESS, ready: false, synced: false });
+  const progressRef = useRef<Progress>(DEFAULT_PROGRESS);
   const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const session = useRef({ token, version: 0 });
-  const cacheVersion = useRef(0);
-  if (session.current.token !== token) {
-    if (session.current.token !== null) cacheVersion.current++;
-    session.current = { token, version: session.current.version + 1 };
+  const session = useRef<ProgressSession>({ token, scope, loaded: false, synced: false, reconciled: false });
+  if (session.current.token !== token || session.current.scope !== scope) {
+    const previous = session.current;
+    const sameScope = previous.scope === scope;
+    const guestSeed = sameScope ? previous.guestSeed
+      : previous.scope.owner === "guest" && previous.loaded ? progressRef.current
+      : previous.scope.owner === null && previous.token === token && token && isCurrentAuthToken(token) ? previous.guestSeed : undefined;
+    const localSeed = previous.scope.owner === scope.owner && scope.owner && previous.loaded ? progressRef.current : sameScope ? previous.localSeed : undefined;
+    session.current = { token, scope, loaded: false, synced: false, reconciled: false, guestSeed: scope.owner === "guest" ? undefined : guestSeed, localSeed };
+    progressRef.current = DEFAULT_PROGRESS;
   }
-  // Serialize cache writes: a slow old-session native write must finish BEFORE a logout/new-account
-  // snapshot replaces it, never after. Pending writes for invalidated sessions are skipped entirely.
-  const cacheWrites = useRef<Promise<void>>(Promise.resolve());
-  const persist = useCallback((p: Progress) => {
-    const captured = session.current;
-    const write = cacheWrites.current.then(async () => {
-      if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
-      await save(p);
-    });
-    cacheWrites.current = write.catch(() => {});
-    return write;
-  }, []);
+  const active = session.current;
+  const current = useCallback(() => session.current === active && isCurrentAccountScope(active.scope) && isCurrentAuthToken(active.token), [active]);
+  const visible = snapshot.session === active && current();
+  // Never render the previous owner's raw state while waiting for a reset effect or native read.
+  const progress = visible ? snapshot.progress : DEFAULT_PROGRESS;
+  const ready = visible && snapshot.ready;
+  const synced = visible && snapshot.synced;
+  const canMutate = useCallback(() => active.loaded && current(), [active, current]);
+  const setProgress = useCallback((update: Progress | ((prev: Progress) => Progress)) => {
+    if (!canMutate()) return;
+    const next = typeof update === "function" ? update(progressRef.current) : update;
+    if (!current()) return;
+    progressRef.current = next;
+    setSnapshot({ session: active, progress: next, ready: true, synced: active.synced });
+  }, [active, canMutate, current]);
+  const persist = useCallback(async (p: Progress) => {
+    if (!canMutate()) return;
+    await saveCache(p, active.scope, active.claimId).catch(() => {});
+  }, [active, canMutate]);
 
-  // Load the local cache once on mount.
+  // Reload the correct durable owner cache on every account epoch, including offline restart.
   useEffect(() => {
+    if (!authReady || !scope.owner || !current()) return;
     let disposed = false;
-    const originalCache = cacheVersion.current;
-    load().then((p) => {
-      if (disposed) return;
-      const snapshot = originalCache === cacheVersion.current ? p : DEFAULT_PROGRESS;
-      progressRef.current = snapshot;
-      setProgress(snapshot);
-      setReady(true);
+    loadCache(scope, active.guestSeed, active.localSeed).catch(() => ({ progress: DEFAULT_PROGRESS })).then((loaded) => {
+      if (disposed || !current() || !loaded) return;
+      active.loaded = true;
+      active.claimId = "claimId" in loaded ? loaded.claimId : undefined;
+      active.synced = !token;
+      progressRef.current = loaded.progress;
+      setSnapshot({ session: active, progress: loaded.progress, ready: true, synced: active.synced });
+      // Complete an interrupted guest claim locally even if the server is offline.
+      if (active.claimId) void persist(loaded.progress);
     });
     return () => { disposed = true; };
-  }, []);
+  }, [active, authReady, scope, token, current, persist]);
 
   // Debounced push of the latest snapshot to the server (only when authed).
   const schedulePush = useCallback(
     (_p: Progress) => {
-      const captured = session.current;
-      if (!token || captured.token !== token || !isCurrentAuthToken(token)) return;
+      if (!token || !canMutate()) return;
       if (pushTimer.current) clearTimeout(pushTimer.current);
       pushTimer.current = setTimeout(() => {
         pushTimer.current = null;
-        if (session.current !== captured || !isCurrentAuthToken(token)) return;
+        if (!canMutate()) return;
         void putProgress(progressRef.current, token).catch(() => {});
       }, 1200);
     },
-    [token]
+    [token, canMutate]
   );
 
-  // React to login/logout: merge-on-login (server canonical), clear-on-logout (avoid mixing accounts).
+  // Reconcile only this owner's cache with this owner's server snapshot.
   useEffect(() => {
-    // Cleanup/guards apply to logout too, including the gap before React runs this effect.
     if (pushTimer.current) clearTimeout(pushTimer.current);
     pushTimer.current = null;
-    if (!ready || !authReady) return;
-    if (token === syncedToken.current) {
-      // No token transition. Anonymous-first: with no token there's nothing to reconcile, so settle
-      // the routing gate immediately (otherwise `synced` would stay false and block onboarding).
-      if (!token) setSynced(true);
-      return;
-    }
-    if (!token) {
-      syncedToken.current = null;
-      setSynced(true); // logged-out: settled, the user is now an anonymous guest
-      progressRef.current = DEFAULT_PROGRESS;
-      setProgress(DEFAULT_PROGRESS);
-      void persist(DEFAULT_PROGRESS);
-      // Reset the anon-funnel counters so a fresh guest doesn't inherit the previous user's state
-      // (register-wall lesson count + guest daily cap + relocation-journey stage + review-hook).
-      void resetWall();
-      void resetGuestLimit();
-      void resetJourney();
-      void resetReviewHook();
-      return;
-    }
-    if (syncedToken.current !== null && syncedToken.current !== token) {
-      // A direct account switch must not merge the previous member's private local history.
-      progressRef.current = DEFAULT_PROGRESS;
-      setProgress(DEFAULT_PROGRESS);
-      void persist(DEFAULT_PROGRESS);
-    }
-    syncedToken.current = token;
-    setSynced(false); // new token → hold onboarding routing until the server snapshot lands
-    // Cancel any debounced push still holding a PRE-merge snapshot: the reconcile below pushes the
-    // merged state itself, so a stale queued push must not fire afterward and clobber the server.
-    const captured = session.current;
+    if (!ready || !authReady || !token || !canMutate()) return;
     let disposed = false;
-    const current = () => !disposed && session.current === captured && isCurrentAuthToken(token);
+    const stillCurrent = () => !disposed && current();
     (async () => {
       try {
         const server = await getProgress(token);
-        if (!current()) return;
+        if (!stillCurrent()) return;
         const merged = mergeProgress(progressRef.current, server);
         progressRef.current = merged;
         setProgress(merged);
         await persist(merged);
-        if (!current()) return;
+        if (!stillCurrent()) return;
         // An answer may have landed while the local cache was saving. Push the latest snapshot.
         await putProgress(progressRef.current, token);
       } catch {
         // offline / server down — keep local; a later change or re-login will sync
       } finally {
-        if (current()) setSynced(true);
+        if (stillCurrent()) {
+          active.synced = true;
+          setSnapshot({ session: active, progress: progressRef.current, ready: true, synced: true });
+        }
       }
     })();
     return () => {
@@ -649,15 +707,14 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       if (pushTimer.current) clearTimeout(pushTimer.current);
       pushTimer.current = null;
     };
-  }, [ready, authReady, token, persist]);
+  }, [active, ready, authReady, token, persist, current, canMutate, setProgress]);
 
   // Streak reconciliation on launch / after sync: a gap is either bridged by an owned omamori
   // (consumed server-side — the charm exists to be silently useful) or surfaced as a BREAK event
   // with a paid repair window. Without this, a missed day would only be noticed mid-practice.
-  const reconciled = useRef(false);
   useEffect(() => {
-    if (!ready || !walletReady || reconciled.current) return;
-    reconciled.current = true;
+    if (!ready || !walletReady || active.reconciled || !canMutate()) return;
+    active.reconciled = true;
     const now = new Date();
     const p = progressRef.current;
     // Expire a stale repair offer first (the window closed — the loss is final). The break was
@@ -675,7 +732,6 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     }
     const status = streakStatus(p.dailyStreak, p.lastActiveDate, now);
     if (status.kind !== "broken") return;
-    const captured = session.current;
     void (async () => {
       let bridged = false;
       if (freezes > 0) {
@@ -686,7 +742,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           // 409 (charm raced away) / offline → fall through to the break event
         }
       }
-      if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
+      if (!current()) return;
       setProgress((prev) => {
         const next: Progress = bridged
           ? { ...prev, lastActiveDate: yesterdayOf(now) } // gap bridged — practicing today extends it
@@ -704,21 +760,21 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         return next;
       });
     })();
-  }, [ready, walletReady, freezes, spend, schedulePush]);
+  }, [active, ready, walletReady, freezes, spend, schedulePush, canMutate, current, setProgress]);
 
   const repairStreak = useCallback(async () => {
-    const captured = session.current;
-    if (!captured.token || !isCurrentAuthToken(captured.token)) return;
+    const captured = active;
+    if (!canMutate() || !captured.token) return;
     const broken = progressRef.current.brokenStreak;
     if (!broken || !repairOpen(broken, new Date())) return;
     // Flush the snapshot first so the server prices the repair off ITS copy of brokenStreak.streak
     // (server-authoritative — a patched client can't understate the lost streak to pay less).
     // Best-effort: if the push fails the server falls back to the qty below, so repair never blocks.
     await putProgress(progressRef.current, captured.token).catch(() => {});
-    if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
+    if (!current()) return;
     // Server charges koku (price scales with the lost streak); throws ApiError 409 if short.
     await spend("streak_repair", broken.streak);
-    if (session.current !== captured || !isCurrentAuthToken(captured.token)) return;
+    if (!current()) return;
     const now = new Date();
     setProgress((prev) => {
       const practicedToday = prev.lastActiveDate === localDate(now);
@@ -733,7 +789,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       schedulePush(next);
       return next;
     });
-  }, [spend, schedulePush]);
+  }, [active, canMutate, current, spend, schedulePush]);
 
   const dismissBrokenStreak = useCallback(() => {
     setProgress((prev) => {
@@ -757,6 +813,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const record = useCallback(
     (topic: string, correct: boolean, grade?: GradeSignal) => {
+      if (!canMutate()) return DEFAULT_PROGRESS;
       // The caller can select the next card immediately after grading, before React re-renders.
       // Keeping this ref current also prevents two same-tick answers from sharing a stale snapshot.
       const next = recordAnswer(progressRef.current, topic, correct, new Date(), grade);
@@ -766,11 +823,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       schedulePush(next);
       return next;
     },
-    [schedulePush]
+    [canMutate, schedulePush]
   );
 
   const completeOnboarding = useCallback(
     (profile: Profile, skill: Record<string, number>) => {
+      if (!canMutate()) return;
       setProgress((prev) => {
         const next: Progress = { ...prev, profile, skill, onboarded: true, beltEarned: prev.beltEarned ?? 0 };
         void persist(next);
@@ -785,11 +843,12 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         tone: profile.tone || "balanced",
       });
     },
-    [schedulePush]
+    [canMutate, schedulePush]
   );
 
   const updateProfile = useCallback(
     (patch: Partial<Profile>) => {
+      if (!canMutate()) return;
       setProgress((prev) => {
         if (!prev.profile) return prev;
         const next: Progress = { ...prev, profile: { ...prev.profile, ...patch } };
@@ -804,7 +863,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       if (patch.domains !== undefined) serverPatch.domains = patch.domains;
       if (Object.keys(serverPatch).length) void syncLearnerProfile(serverPatch);
     },
-    [schedulePush]
+    [canMutate, schedulePush]
   );
 
   const masterUnit = useCallback(

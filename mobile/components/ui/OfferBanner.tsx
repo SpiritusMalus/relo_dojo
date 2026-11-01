@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import {
@@ -13,6 +13,7 @@ import {
 } from "../../store/offers";
 import { useI18n } from "../../store/i18n";
 import { useWallet } from "../../store/wallet";
+import { captureAccountScope, isCurrentAccountScope } from "../../store/accountScope";
 import { useTheme } from "../../theme/theme";
 import Button from "./Button";
 import Card from "./Card";
@@ -28,15 +29,24 @@ export default function OfferBanner() {
   const [state, setState] = useState<OfferState>({});
   const [nowMs, setNowMs] = useState(Date.now());
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const mounted = useRef(true);
+  const ownerScope = useRef(captureAccountScope()).current;
+  const current = useCallback(() => mounted.current && isCurrentAccountScope(ownerScope), [ownerScope]);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      loadOffers().then((s) => active && setState(s));
+      if (current()) void loadOffers().then((s) => { if (active && current()) setState(s); });
       return () => {
         active = false;
       };
-    }, [])
+    }, [current])
   );
 
   // Pick the active offer (limit48 outranks starter24 — it's the fresher pain).
@@ -47,31 +57,37 @@ export default function OfferBanner() {
   // Tick the clock only while a banner is visible.
   useEffect(() => {
     if (!id) return;
-    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    const timer = setInterval(() => { if (current()) setNowMs(Date.now()); }, 1000);
     return () => clearInterval(timer);
-  }, [id]);
+  }, [id, current]);
 
-  if (!id) return null;
+  if (!id || !current()) return null;
   const offer = OFFERS[id];
   const msLeft = offerMsLeft(state[id], new Date(nowMs));
 
   async function redeem() {
-    if (busy || !id) return;
+    if (!current() || busyRef.current || !id) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       await spend(offer.item);
-      setState(await markOffer(id, { redeemed: true }));
+      if (!current()) return;
+      const next = await markOffer(id, { redeemed: true }, ownerScope);
+      if (!current()) return;
+      setState(next);
       void refresh();
     } catch {
       // 409 — not enough koku; the price line already shows the target
     } finally {
-      setBusy(false);
+      busyRef.current = false;
+      if (current()) setBusy(false);
     }
   }
 
   async function dismiss() {
-    if (!id) return;
-    setState(await markOffer(id, { dismissed: true }));
+    if (!id || !current()) return;
+    const next = await markOffer(id, { dismissed: true }, ownerScope);
+    if (current()) setState(next);
   }
 
   return (

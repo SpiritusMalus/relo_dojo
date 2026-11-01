@@ -22,6 +22,8 @@ import { cefrMidpoint, effectiveSkill, isCefr, levelToCefr } from "./adaptive";
 import { captureMistake } from "./mistakes";
 import { AttemptClock, exerciseAttemptKey, expectedSolveMs } from "./answerAttempt";
 import { explanationContext } from "./explanationContext";
+import { captureAccountScope, isCurrentAccountScope, type AccountScope } from "./accountScope";
+import { useAccountScope } from "./useAccountScope";
 
 export type Result = {
   correct: boolean;
@@ -40,6 +42,7 @@ export type Result = {
 };
 
 export function useExerciseCheck() {
+  const scope = useAccountScope();
   const { progress, recordAnswer } = useProgress();
   const { applyCheckReward } = useWallet();
   // Latest progress for selecting/grading without stale closures.
@@ -55,13 +58,13 @@ export function useExerciseCheck() {
   // In-flight explanation stream, so a new card (reset) can cancel a half-streamed note.
   const explainAbort = useRef<AbortController | null>(null);
   const foreground = useRef(AppState.currentState !== "background" && AppState.currentState !== "inactive");
-  const attemptRef = useRef<{ key: string | null; clock: AttemptClock | null; inFlight: boolean; complete: boolean }>({ key: null, clock: null, inFlight: false, complete: false });
+  const attemptRef = useRef<{ key: string | null; clock: AttemptClock | null; inFlight: boolean; complete: boolean; scope: AccountScope }>({ key: null, clock: null, inFlight: false, complete: false, scope });
 
   // Call when the card becomes visible, rather than when a slow fetch begins.
   const beginAttempt = useCallback((exercise: Exercise) => {
     const key = exerciseAttemptKey(exercise);
-    if (attemptRef.current.key === key) return;
-    attemptRef.current = { key, clock: new AttemptClock(Date.now, foreground.current), inFlight: false, complete: false };
+    if (attemptRef.current.key === key && isCurrentAccountScope(attemptRef.current.scope)) return;
+    attemptRef.current = { key, clock: new AttemptClock(Date.now, foreground.current), inFlight: false, complete: false, scope: captureAccountScope() };
   }, []);
   const markHintUsed = useCallback(() => {
     if (attemptRef.current.clock && !attemptRef.current.complete) attemptRef.current.clock.hintUsed = true;
@@ -88,15 +91,16 @@ export function useExerciseCheck() {
   // `onWrong` lets the caller trigger UI feedback (e.g. a shake) without re-deriving correctness.
   const check = useCallback(
     async (exercise: Exercise, response: ResponseValue, onWrong?: () => void): Promise<Result | null> => {
+      if (!isMounted.current || !isCurrentAccountScope(scope) || scope.owner === null) return null;
       const key = exerciseAttemptKey(exercise);
       if (attemptRef.current.key !== key) {
         // Legacy callers can still grade without measuring timing until they wire beginAttempt.
-        attemptRef.current = { key, clock: null, inFlight: false, complete: false };
+        attemptRef.current = { key, clock: null, inFlight: false, complete: false, scope };
       }
       const attempt = attemptRef.current;
       // React's checking state updates one render later. A ref closes the double-tap/StrictMode race,
       // and a completed card cannot award XP or affect ability a second time.
-      if (attempt.inFlight || attempt.complete) return null;
+      if (attempt.inFlight || attempt.complete || !isCurrentAccountScope(attempt.scope)) return null;
       attempt.inFlight = true;
       attempt.clock?.pause();
       const effort = attempt.clock ? {
@@ -115,13 +119,13 @@ export function useExerciseCheck() {
             : exercise.token
             ? await checkInteractive(exercise.token, response)
             : await checkFreeText(exercise.text, String(response));
-        if (!isMounted.current || attemptRef.current !== attempt) return null;
+        if (!isMounted.current || attemptRef.current !== attempt || !isCurrentAccountScope(scope)) return null;
         // Koku earned server-side on a correct answer — patch the cached wallet balance.
-        applyCheckReward(res.coins);
+        applyCheckReward(res.coins, scope);
         if (!res.correct) {
           onWrong?.();
           // Remember the exact missed item so it can be resurfaced in Review (fire-and-forget).
-          void captureMistake(exercise);
+          void captureMistake(exercise, scope);
         }
         // Difficulty-aware skill signal: partial score + the difficulty of the served item.
         const fallback = cefrMidpoint(levelToCefr(effectiveSkill(progressRef.current, exercise.topic)));
@@ -142,7 +146,7 @@ export function useExerciseCheck() {
         }
         return committed;
       } catch (e) {
-        if (isMounted.current && attemptRef.current === attempt) {
+        if (isMounted.current && attemptRef.current === attempt && isCurrentAccountScope(scope)) {
           setError(e instanceof Error ? e.message : "Failed to check answer");
           // Network wait did not measure the learner. A retry may include more thinking time.
           if (foreground.current) attempt.clock?.resume();
@@ -150,22 +154,23 @@ export function useExerciseCheck() {
         return null;
       } finally {
         attempt.inFlight = false;
-        if (isMounted.current && attemptRef.current === attempt) setChecking(false);
+        if (isMounted.current && attemptRef.current === attempt && isCurrentAccountScope(scope)) setChecking(false);
       }
     },
-    [recordAnswer, applyCheckReward]
+    [recordAnswer, applyCheckReward, scope]
   );
 
   // On-demand teaching note for an interactive miss. Streams token-by-token (/explain/stream) so the
   // note appears as it's written; on any stream failure (old server, network, "unavailable") it falls
   // back to the one-shot structured /explain so the feature degrades, never breaks.
   const doExplain = useCallback(async (exercise: Exercise, responseDisplay: string) => {
-    if (!result || explainLoading || explainAbort.current) return;
+    if (!isMounted.current || !isCurrentAccountScope(scope) || !result || explainLoading || explainAbort.current) return;
     setExplainLoading(true);
     const correct = result.correct_answer;
     const context = explanationContext(exercise);
     const controller = new AbortController();
     explainAbort.current = controller;
+    const current = () => isMounted.current && isCurrentAccountScope(scope) && explainAbort.current === controller && !controller.signal.aborted;
     try {
       let started = false;
       const finalText = await explainStream(
@@ -173,7 +178,7 @@ export function useExerciseCheck() {
         correct,
         responseDisplay,
         (full) => {
-          if (!isMounted.current) return; // screen gone mid-stream — stop updating state
+          if (!current()) return;
           // First token in: drop the spinner and start showing the growing note.
           if (!started) {
             started = true;
@@ -183,25 +188,25 @@ export function useExerciseCheck() {
         },
         controller.signal
       );
-      if (isMounted.current) setExplained({ explanation: finalText, tip: "" });
+      if (current()) setExplained({ explanation: finalText, tip: "" });
     } catch (e) {
-      if (controller.signal.aborted) return; // cancelled by the next card — stay silent
+      if (!current()) return;
       try {
         const note = await explain(context, correct, responseDisplay);
-        if (isMounted.current) setExplained(note);
+        if (current()) setExplained(note);
       } catch (e2) {
-        if (isMounted.current) setError(e2 instanceof Error ? e2.message : "Failed to explain");
+        if (current()) setError(e2 instanceof Error ? e2.message : "Failed to explain");
       }
     } finally {
+      if (current()) setExplainLoading(false);
       if (explainAbort.current === controller) explainAbort.current = null;
-      if (isMounted.current) setExplainLoading(false);
     }
-  }, [result, explainLoading]);
+  }, [result, explainLoading, scope]);
 
   // Clear all per-card state before showing the next exercise.
   const reset = useCallback(() => {
     attemptRef.current.clock?.pause();
-    attemptRef.current = { key: null, clock: null, inFlight: false, complete: false };
+    attemptRef.current = { key: null, clock: null, inFlight: false, complete: false, scope: captureAccountScope() };
     explainAbort.current?.abort();
     explainAbort.current = null;
     setResult(null);
@@ -211,6 +216,8 @@ export function useExerciseCheck() {
     setChecking(false);
     setExplainLoading(false);
   }, []);
+
+  useEffect(() => { reset(); }, [scope, reset]);
 
   return { result, checking, error, levelUp, explained, explainLoading, check, doExplain, reset, setError, beginAttempt, markHintUsed };
 }

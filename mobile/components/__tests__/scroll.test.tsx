@@ -2,6 +2,8 @@ import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import Scroll from "../ui/Scroll";
 import Button from "../ui/Button";
 import { ApiError, openScroll } from "../../services/api";
+import { trackScrollOpen } from "../../services/analytics";
+import { setAccountToken } from "../../store/accountScope";
 
 const mockRefresh = jest.fn();
 const mockBoost = jest.fn();
@@ -37,7 +39,9 @@ function hasText(screen: ReactTestRenderer, key: string) {
   return JSON.stringify(screen.toJSON()).includes(key);
 }
 
-beforeEach(() => jest.clearAllMocks());
+const token = (sub: string) => `header.${Buffer.from(JSON.stringify({ sub })).toString("base64url")}.signature`;
+beforeEach(() => { jest.clearAllMocks(); setAccountToken(null); });
+afterEach(() => { setAccountToken(null); });
 
 describe("Reward scroll recovery", () => {
   it("offers explicit retry for a network failure without claiming the daily cap", async () => {
@@ -88,6 +92,51 @@ describe("Reward scroll recovery", () => {
       await pending;
     });
     expect(hasText(screen, "scroll.koku")).toBe(true);
+    act(() => screen.unmount());
+  });
+
+  it.each(["success", "failure"] as const)("ignores A's late %s after B replaces the session", async (outcome) => {
+    setAccountToken(token("a"));
+    let resolve!: (reward: object) => void;
+    let reject!: (reason: Error) => void;
+    (openScroll as jest.Mock).mockReturnValueOnce(new Promise((done, fail) => { resolve = done; reject = fail; }));
+    const screen = render();
+    let pending!: Promise<void>;
+    act(() => { pending = button(screen, "scroll.open").props.onPress(); });
+    setAccountToken(token("b"));
+    await act(async () => {
+      if (outcome === "success") resolve({ kind: "kensei", amount: 0, coins: 30, freezes: 0 });
+      else reject(new Error("response lost"));
+      await pending;
+    });
+    expect(mockBoost).not.toHaveBeenCalled();
+    expect(mockRefresh).not.toHaveBeenCalled();
+    expect(hasText(screen, "scroll.earned")).toBe(false);
+    expect(hasText(screen, "scroll.network")).toBe(false);
+    act(() => screen.unmount());
+  });
+
+  it("cannot apply a late boost or wallet refresh after its screen unmounts", async () => {
+    setAccountToken(token("a"));
+    let resolve!: (reward: object) => void;
+    (openScroll as jest.Mock).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    const screen = render();
+    let pending!: Promise<void>;
+    act(() => { pending = button(screen, "scroll.open").props.onPress(); });
+    act(() => screen.unmount());
+    await act(async () => { resolve({ kind: "kensei", amount: 0, coins: 30, freezes: 0 }); await pending; });
+    expect(mockBoost).not.toHaveBeenCalled();
+    expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  it("an old A open callback cannot send a request or analytics with B's identity", async () => {
+    setAccountToken(token("a"));
+    const screen = render();
+    const press = button(screen, "scroll.open").props.onPress;
+    setAccountToken(token("b"));
+    await act(async () => { await press(); });
+    expect(openScroll).not.toHaveBeenCalled();
+    expect(trackScrollOpen).not.toHaveBeenCalled();
     act(() => screen.unmount());
   });
 });

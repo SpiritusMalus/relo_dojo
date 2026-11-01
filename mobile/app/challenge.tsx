@@ -20,9 +20,11 @@ import { beltProgress } from "../store/dojo";
 import { ensureOffer } from "../store/offers";
 import { useProgress } from "../store/progress";
 import { useAuth } from "../store/auth";
+import { captureAccountScope, isCurrentAccountScope } from "../store/accountScope";
 import { deliverGuestExercise } from "../store/guestLimit";
 import { localDate } from "../store/streak";
 import { useExerciseCheck } from "../store/useExerciseCheck";
+import { useExerciseQueueLifetime } from "../store/useExerciseQueueLifetime";
 import { useI18n } from "../store/i18n";
 import { loadingMessageFor } from "../i18n/loading";
 import { selectNext } from "../store/adaptive";
@@ -52,6 +54,7 @@ export default function ChallengeScreen() {
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
   const { token } = useAuth();
+  const ownerScope = useRef(captureAccountScope()).current;
   const { t: tr, lang } = useI18n();
   const { result, checking, error: checkError, check, reset, beginAttempt, markHintUsed } = useExerciseCheck();
 
@@ -75,6 +78,7 @@ export default function ChallengeScreen() {
   const [exercise, setExercise] = useState<Exercise | null>(null);
   useEffect(() => { if (exercise) beginAttempt(exercise); }, [exercise, beginAttempt]);
   const [round, setRound] = useState(0);
+  useExerciseQueueLifetime(queueRef.current);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,11 +107,16 @@ export default function ChallengeScreen() {
   const submittingRef = useRef(false);
 
   useEffect(() => {
-    loadBestScore().then(setBest);
+    let active = true;
+    const scope = ownerScope;
+    loadBestScore(scope).then((value) => {
+      if (active && isCurrentAccountScope(scope)) setBest(value);
+    });
     return () => {
+      active = false;
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
     };
-  }, []);
+  }, [ownerScope]);
 
   const loadingRef = useRef(false);
   const loadExercise = useCallback(async () => {
@@ -158,12 +167,15 @@ export default function ChallengeScreen() {
   }, [phase, timeLeft, loading, error, limited, gated, guestLimited]);
 
   const finish = useCallback(async () => {
+    const scope = ownerScope;
+    if (!isCurrentAccountScope(scope)) return;
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
     setPhase("done");
-    const { best: newBest, isRecord: rec } = await recordBestScore(score);
+    const { best: newBest, isRecord: rec } = await recordBestScore(score, scope);
+    if (!isCurrentAccountScope(scope)) return;
     setBest(newBest);
     setIsRecord(rec);
-  }, [score]);
+  }, [score, ownerScope]);
 
   useEffect(() => {
     if (timeLeft <= 0 && (phase === "solving" || phase === "feedback")) finish();

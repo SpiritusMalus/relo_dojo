@@ -6,6 +6,7 @@
 // score. Answers still flow through useExerciseCheck, so XP / streak / the adaptive model update
 // exactly as in normal practice — only the headline "score" and "best" are challenge-local.
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { captureAccountScope, isCurrentAccountScope, type AccountScope } from "./accountScope";
 
 export const CHALLENGE_SECONDS = 60;
 export const BASE_POINTS = 10;
@@ -30,12 +31,21 @@ export function scoreAnswer(combo: number, correct: boolean, fraction = 1): Scor
 }
 
 const BEST_KEY = "relo_dojo/challenge-best/v1";
+const writes = new Map<string, Promise<unknown>>();
 
-export async function loadBestScore(): Promise<number> {
+// Preserve the unowned legacy key without showing its record to an unrelated member.
+function storageKey(scope: AccountScope): string | null {
+  return scope.owner === null ? null : `${BEST_KEY}/owner/${encodeURIComponent(scope.owner)}`;
+}
+
+export async function loadBestScore(scope: AccountScope = captureAccountScope()): Promise<number> {
+  const key = storageKey(scope);
+  if (!key || !isCurrentAccountScope(scope)) return 0;
   try {
-    const raw = await AsyncStorage.getItem(BEST_KEY);
+    const raw = await AsyncStorage.getItem(key);
+    if (!isCurrentAccountScope(scope)) return 0;
     const n = raw ? Number(raw) : 0;
-    return Number.isFinite(n) ? n : 0;
+    return Number.isFinite(n) && n >= 0 ? n : 0;
   } catch {
     return 0;
   }
@@ -43,13 +53,18 @@ export async function loadBestScore(): Promise<number> {
 
 // Persist `score` if it beats the stored best. Returns the best score after the write and whether it
 // was a new record, so the summary screen can celebrate a personal best.
-export async function recordBestScore(score: number): Promise<{ best: number; isRecord: boolean }> {
-  const prev = await loadBestScore();
-  if (score <= prev) return { best: prev, isRecord: false };
-  try {
-    await AsyncStorage.setItem(BEST_KEY, String(score));
-  } catch {
-    // best-effort; an unsaved record just won't persist
-  }
-  return { best: score, isRecord: true };
+export async function recordBestScore(score: number, scope: AccountScope = captureAccountScope()): Promise<{ best: number; isRecord: boolean }> {
+  const key = storageKey(scope);
+  const cancelled = { best: 0, isRecord: false };
+  if (!key || !isCurrentAccountScope(scope)) return cancelled;
+  const pending = (writes.get(key) ?? Promise.resolve()).catch(() => {}).then(async () => {
+    const prev = await loadBestScore(scope);
+    if (!isCurrentAccountScope(scope)) return cancelled;
+    if (!Number.isFinite(score) || score <= prev) return { best: prev, isRecord: false };
+    await AsyncStorage.setItem(key, String(score)).catch(() => {});
+    return isCurrentAccountScope(scope) ? { best: score, isRecord: true } : cancelled;
+  });
+  writes.set(key, pending);
+  void pending.finally(() => { if (writes.get(key) === pending) writes.delete(key); }).catch(() => {});
+  return pending;
 }

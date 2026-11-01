@@ -18,6 +18,7 @@ import { canAttemptToday, examFailedNow, examOffer, examPassed, EXAM_ITEMS, EXAM
 import { isoDay, selectNext } from "../store/adaptive";
 import { useProgress } from "../store/progress";
 import { useExerciseCheck } from "../store/useExerciseCheck";
+import { useExerciseQueueLifetime } from "../store/useExerciseQueueLifetime";
 import { useI18n } from "../store/i18n";
 import { loadingMessageFor } from "../i18n/loading";
 import { buildContext } from "../store/onboarding";
@@ -61,6 +62,7 @@ export default function BeltExamScreen() {
     });
   }
 
+  useExerciseQueueLifetime(queueRef.current);
   const [phase, setPhase] = useState<Phase>("intro");
   const [exercise, setExercise] = useState<Exercise | null>(null);
   useEffect(() => { if (exercise) beginAttempt(exercise); }, [exercise, beginAttempt]);
