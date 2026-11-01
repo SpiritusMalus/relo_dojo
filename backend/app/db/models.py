@@ -67,6 +67,8 @@ class User(Base):
     # Unlocked content ids (engagement v2 Phase 3): koku-bought story arcs / packs. Free content is
     # never stored here. Server-authoritative — the client can't grant itself an unlock.
     unlocks: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    # Presentation preference only; ownership remains in cosmetics/equipped.
+    dojo_target: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     # --- 152-ФЗ cross-border consent (PD transfer to Google LLC / Gemini, США) ---
     # Audit trail for the STANDALONE personal-data + cross-border consent (separate from the
     # оферта/Terms, per the 01.09.2025 rule): the version string the user accepted + when. Empty
@@ -275,3 +277,53 @@ class ProcessedPayment(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class LearningSession(Base):
+    """Opt-in practice evidence, separate from mutable progress and analytics."""
+
+    __tablename__ = "learning_sessions"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    client_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    # First actual grade for each ordinal. No answer text, estimates or client assertions.
+    grades: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    reward_day: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    __table_args__ = (
+        UniqueConstraint("user_id", "client_id", name="uq_learning_session_client"),
+        Index("ix_learning_sessions_user_created", "user_id", "created_at"),
+    )
+
+
+class LearningIssuedItem(Base):
+    """Every issued token is bound to its owner/session/ordinal before grading."""
+
+    __tablename__ = "learning_issued_items"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("learning_sessions.id", ondelete="CASCADE"), nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    exercise_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    rewarded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    __table_args__ = (Index("ix_learning_items_session", "session_id"),)
+
+
+class DojoPracticeDay(Base):
+    __tablename__ = "dojo_practice_days"
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    day: Mapped[str] = mapped_column(String(10), primary_key=True)
+
+
+class DojoGrant(Base):
+    __tablename__ = "dojo_grants"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    rule_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    item_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    practice_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    acknowledged_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    __table_args__ = (UniqueConstraint("user_id", "rule_id", "item_id", name="uq_dojo_grant_rule"),)

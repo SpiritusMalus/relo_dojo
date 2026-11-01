@@ -202,7 +202,10 @@ async function mutate(scope: AccountScope, update: (list: Mistake[]) => Mistake[
 // Capture a missed exercise. Only interactive (token-bearing) items can be replayed/regraded.
 export async function captureMistake(ex: Exercise, scope: AccountScope = captureAccountScope()): Promise<void> {
   if (!ex.token) return;
-  await mutate(scope, (list) => upsertMistake(list, ex, new Date().toISOString()));
+  // A lesson's session token expires. Its separately sealed, owner-bound review token retains
+  // ordinary grading for the 1/3/7/21-day deck without minting another lesson receipt.
+  const review = ex.review_token ? { ...ex, token: ex.review_token, review_token: undefined } : ex;
+  await mutate(scope, (list) => upsertMistake(list, review, new Date().toISOString()));
 }
 
 // Remove an item outright (stale/unusable token — no SRS credit).

@@ -3,8 +3,9 @@ import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, 
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { gateKind, getExercise, postSessionSummary, type Exercise, type ResponseValue, type SessionAnswer } from "../services/api";
+import { ApiError, gateKind, postSessionSummary, type Exercise, type ResponseValue, type SessionAnswer } from "../services/api";
 import { track, trackExerciseAnswered } from "../services/analytics";
+import { createLearningSessionTracker } from "../services/learningSession";
 import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQueue";
 import ActivationBanner from "../components/ui/ActivationBanner";
 import LimitSheet from "../components/ui/LimitSheet";
@@ -40,6 +41,9 @@ import { boostActive } from "../store/progress";
 import { ensureOffer } from "../store/offers";
 import { useWallet } from "../store/wallet";
 import { useCosmetics } from "../store/cosmeticsStore";
+import { useDojoRoom } from "../store/dojoRoom";
+import { learningGoalRoute, nextLearningGoal, type LearningGoal } from "../store/nextLearningGoal";
+import { learningLoopCopy } from "../i18n/learningLoopCopy";
 import { firstAffordableUnowned } from "../store/cosmetics";
 import { useAuth } from "../store/auth";
 import { recordLessonFinished } from "../store/registerWall";
@@ -62,6 +66,22 @@ export default function PracticeScreen() {
   const { granted: voiceGranted } = useVoiceConsent();
   const showPronun = canServePronunciation(voiceFeatureEnabled(), voiceGranted, progress.steering.formatPrefs.pronunciation);
   const { t: tr, lang } = useI18n();
+  const copy = learningLoopCopy(lang);
+  const room = useDojoRoom();
+  const trackerRef = useRef<{ scope: typeof scope; tracker: ReturnType<typeof createLearningSessionTracker> } | null>(null);
+  if (!trackerRef.current || trackerRef.current.scope !== scope) {
+    trackerRef.current = { scope, tracker: createLearningSessionTracker(scope, !!token) };
+  }
+  const sessionTracker = trackerRef.current.tracker;
+  const mountedTracker = useRef<typeof sessionTracker | null>(sessionTracker);
+  useEffect(() => {
+    mountedTracker.current = sessionTracker;
+    return () => {
+      mountedTracker.current = null;
+      // Match the queue's lifetime guard while allowing React's immediate effect replay.
+      void Promise.resolve().then(() => { if (mountedTracker.current !== sessionTracker) void sessionTracker.dispose(); });
+    };
+  }, [sessionTracker]);
   // Stage 2 Progress Agent: every answer of this session, pushed once at the summary screen.
   const sessionAnswersRef = useRef<SessionAnswer[]>([]);
   const summarySentRef = useRef(false);
@@ -110,12 +130,13 @@ export default function PracticeScreen() {
     queueRef.current?.dispose();
     queueScopeRef.current = scope;
     const queueScope = scope;
+    const sessionTracker = trackerRef.current.tracker;
     queueRef.current = createExerciseQueue({
       size: 1,
       prefetchOnServe: false,
       fetch: (params) => {
         if (!isCurrentAccountScope(queueScope)) return Promise.reject(new Error("The signed-in account changed."));
-        return getExercise(params);
+        return sessionTracker.fetch(params);
       },
       revision: () => `${scope.epoch}:${Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0)}`,
       selectParams: () => {
@@ -145,14 +166,18 @@ export default function PracticeScreen() {
   const [guestLimited, setGuestLimited] = useState(false); // anon hit today's client-side cap → register wall
   const [solved, setSolved] = useState(0);
   const [sessionCorrect, setSessionCorrect] = useState(0);
+  const [sessionXp, setSessionXp] = useState(0);
+  const [sessionUnaided, setSessionUnaided] = useState(0);
+  const [sessionKoku, setSessionKoku] = useState<number | null>(null);
+  const [nextGoal, setNextGoal] = useState<LearningGoal | null>(null);
+  const [dojoSave, setDojoSave] = useState<"saving" | "saved" | "pending" | "expired" | null>(null);
+  const finishStartedRef = useRef(false);
+  const dojoSavingRef = useRef(false);
   const [showScroll, setShowScroll] = useState(false); // end-of-session summary + reward scroll
   const [swerveOpen, setSwerveOpen] = useState(false); // learner's "steer the lesson" sheet
   const [ruleOpen, setRuleOpen] = useState(false); // 📖 rule card for the current card's topic
   const { isPremium, coins } = useWallet();
   const { owned: ownedCosmetics } = useCosmetics();
-  // XP at session start — the summary shows the delta (combo/boost included automatically).
-  const startXpRef = useRef<number | null>(null);
-  if (startXpRef.current === null) startXpRef.current = progress.xp;
   const error = loadError ?? checkError;
 
   const shake = useRef(new Animated.Value(0)).current;
@@ -272,13 +297,51 @@ export default function PracticeScreen() {
     if (res) {
       // Grade first, then select from the updated learner snapshot during feedback.
       if (res.progressAfter) progressRef.current = res.progressAfter;
+      trackerRef.current?.tracker.recordGraded(exercise);
       queueRef.current!.clear();
       if (solved + 1 < SESSION_LEN) queueRef.current!.prefetch();
       setSolved((s) => s + 1);
       if (res.correct) setSessionCorrect((c) => c + 1);
+      setSessionXp((n) => n + (res.xpEarned ?? 0));
+      if (res.correct && !res.hintUsed) setSessionUnaided((n) => n + 1);
+      if (typeof res.coins_earned === "number") setSessionKoku((n) => (n ?? 0) + res.coins_earned!);
       sessionAnswersRef.current.push({ topic: exercise.topic, correct: res.correct, level: exercise.level });
       trackExerciseAnswered({ topic: exercise.topic, correct: res.correct, level: exercise.level, mode: "practice" });
     }
+  }
+
+  async function saveDojoDay() {
+    const tracker = trackerRef.current?.tracker;
+    const current = () => isCurrentAccountScope(scope) && mountedTracker.current === tracker;
+    if (!current() || !tracker?.hasBoundSession() || dojoSavingRef.current) return;
+    dojoSavingRef.current = true;
+    setDojoSave("saving");
+    try {
+      const receipt = await tracker.complete();
+      if (!current()) return;
+      if (!receipt) { setDojoSave(null); return; }
+      if (receipt.dojo) room.acceptSnapshot(receipt.dojo, scope);
+      else await room.refresh();
+      if (!current()) return;
+      setDojoSave("saved");
+      track("dojo_session_saved", { items: receipt.session.graded_count });
+    } catch (error) {
+      if (current()) setDojoSave(error instanceof ApiError && error.status === 410 ? "expired" : "pending");
+    } finally { dojoSavingRef.current = false; }
+  }
+
+  function finishSession() {
+    if (!isCurrentAccountScope(scope) || finishStartedRef.current || solved < SESSION_LEN) return;
+    finishStartedRef.current = true;
+    pushSessionSummary();
+    if (!token) void recordLessonFinished();
+    void recordJourneySession(progressRef.current.profile?.goals);
+    setShowScroll(true);
+    const tracker = sessionTracker;
+    void loadMistakes(scope).then((deck) => {
+      if (isCurrentAccountScope(scope) && mountedTracker.current === tracker) setNextGoal(nextLearningGoal(progressRef.current, deck, new Date().toISOString()));
+    });
+    void saveDojoDay();
   }
 
   // Fire-and-forget memory update (auth required server-side; anonymous callers just 401 → ignored).
@@ -445,10 +508,31 @@ export default function PracticeScreen() {
                   {tr("summary.stats", { correct: sessionCorrect, total: solved })}
                 </Txt>
                 <Txt variant="bodyStrong" color={t.c.gold}>
-                  {tr("summary.xp", { n: progress.xp - (startXpRef.current ?? progress.xp) })}
+                  {tr("summary.xp", { n: sessionXp })}
                 </Txt>
+                <Txt variant="secondary" color={t.c.ink2}>{copy.unassisted(sessionUnaided, solved)}</Txt>
+                {sessionKoku !== null && sessionKoku > 0 && <Txt variant="bodyStrong" color={t.c.gold}>{copy.koku(sessionKoku)}</Txt>}
               </View>
             </Card>
+            {dojoSave && (
+              <View style={{ gap: 8 }}>
+                <Txt variant="secondary" color={t.c.ink2}>
+                  {dojoSave === "saved" ? copy.roomSaved : dojoSave === "saving" ? copy.roomSaving : dojoSave === "expired" ? copy.roomExpired : copy.roomPending}
+                </Txt>
+                {dojoSave === "pending" && <Button label={copy.retry} variant="ghost" onPress={saveDojoDay} />}
+              </View>
+            )}
+            {nextGoal && (() => {
+              const nextCopy = copy.goal(nextGoal, nextGoal.topic ? labelFor(nextGoal.topic) : "");
+              return (
+                <View style={{ gap: 8 }}>
+                  <Txt variant="cardTitle">{copy.next}</Txt>
+                  <Txt variant="secondary" color={t.c.ink2}>{nextCopy.description}</Txt>
+                  {nextGoal.nextReviewAt && nextGoal.kind !== "review" && <Txt variant="secondary" color={t.c.ink2}>{copy.nextReview(new Date(nextGoal.nextReviewAt).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US"))}</Txt>}
+                  <Button label={nextCopy.action} variant="ghost" onPress={() => router.replace(learningGoalRoute(nextGoal))} />
+                </View>
+              );
+            })()}
             {token ? <Scroll onDone={() => router.back()} /> : (
               <Card style={{ gap: 12 }}>
                 <Txt variant="cardTitle">{tr("scroll.guestTitle")}</Txt>
@@ -546,16 +630,7 @@ export default function PracticeScreen() {
             solved >= SESSION_LEN ? (
               <Button
                 label={tr("action.finish")}
-                onPress={() => {
-                  if (!isCurrentAccountScope(scope)) return;
-                  pushSessionSummary();
-                  // Anon-first funnel: count finished lessons so Home can surface the soft
-                  // save-progress wall after a few. No-op effect for signed-in users.
-                  if (!token) void recordLessonFinished();
-                  // Relocation journey: count a finished session so we can nudge to the next stage.
-                  void recordJourneySession(progressRef.current.profile?.goals);
-                  setShowScroll(true);
-                }}
+                onPress={finishSession}
               />
             ) : (
               <Button label={tr("action.next")} onPress={() => loadExercise()} />

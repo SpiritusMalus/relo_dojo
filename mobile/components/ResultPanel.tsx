@@ -3,7 +3,8 @@
 // is the on-demand "Explain" request via onExplain.
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import type { Exercise, ExplainResult } from "../services/api";
-import { useProgress, XP_PER_CORRECT } from "../store/progress";
+import { useProgress } from "../store/progress";
+import { learningLoopCopy } from "../i18n/learningLoopCopy";
 import { useI18n } from "../store/i18n";
 import type { Result } from "../store/useExerciseCheck";
 import { useTheme } from "../theme/theme";
@@ -22,7 +23,8 @@ type Props = {
 export default function ResultPanel({ result, exercise, levelUp, explained, explainLoading, onExplain }: Props) {
   const t = useTheme();
   const { progress } = useProgress();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
+  const copy = learningLoopCopy(lang);
   const canExplain = !result.correct && !result.explanation && !explained && !!exercise.token;
 
   return (
@@ -42,15 +44,16 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
           <Txt variant="cardTitle" color={result.correct ? t.c.accent : t.c.bad}>
             {result.correct ? tr("result.correct") : tr("result.wrong")}
           </Txt>
-          {result.correct ? (
-            <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.xp", { n: XP_PER_CORRECT })}</Txt>
-          ) : (result.score ?? 0) > 0 && !!result.detail ? (
+          {result.correct && typeof result.xpEarned === "number" ? (
+            <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.xp", { n: result.xpEarned })}</Txt>
+          ) : !result.correct && (result.score ?? 0) > 0 && !!result.detail ? (
             <Txt variant="bodyStrong" color={t.c.fire}>{tr("result.almost", { detail: result.detail })}</Txt>
           ) : null}
         </View>
       </View>
 
       {!result.correct && <CorrectAnswer result={result} />}
+      {result.correct && result.hintUsed && <Txt variant="secondary" color={t.c.ink2}>{copy.withHint}</Txt>}
       {result.correct && progress.currentCorrectRun >= 3 && (
         <Txt variant="bodyStrong" color={t.c.fire}>{tr("result.streak", { n: progress.currentCorrectRun })}</Txt>
       )}

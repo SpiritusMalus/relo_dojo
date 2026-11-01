@@ -21,6 +21,7 @@ import asyncio
 import hashlib
 import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +40,7 @@ from .routers import auth as auth_router
 from .routers import billing as billing_router
 from .routers import contracts as contracts_router
 from .routers import cosmetics as cosmetics_router
+from .routers import dojo as dojo_router
 from .routers import events as events_router
 from .routers import profile as profile_router
 from .routers import progress as progress_router
@@ -71,7 +73,7 @@ from .schemas import (
     StoryIn,
     StoryOut,
 )
-from .services import ads, analytics, content, gating, grammar, http_client, learner_profile, miss_log, rewards, stories, tokens
+from .services import ads, analytics, content, dojo, gating, grammar, http_client, learner_profile, miss_log, rewards, stories, tokens
 from .services import wallet as wallet_service
 from .services.llm import LLMError as OllamaError  # one exception across providers
 from .services.llm import generate_stream as llm_generate_stream
@@ -157,6 +159,7 @@ app.include_router(auth_router.router)
 app.include_router(billing_router.router)
 app.include_router(contracts_router.router)
 app.include_router(cosmetics_router.router)
+app.include_router(dojo_router.router)
 app.include_router(events_router.router)
 app.include_router(profile_router.router)
 app.include_router(progress_router.router)
@@ -195,6 +198,7 @@ async def exercise(
     # Reject a capped caller up front (cheap, read-only) so we never spend an LLM call on a request
     # that can't be served; meter only AFTER a successful generation, so a 503 / retried generation
     # never burns the user's daily quota.
+    await dojo.prepare_issue(user, db, payload.learning_session_id, payload.learning_item)
     gating.ensure_daily_quota(user)
     # "About my life": when the client didn't supply a context, compose one from the learner's OWN
     # server-side profile (goal / field / interests + weak-spot summary) so generation quietly leans
@@ -235,6 +239,8 @@ async def exercise(
         )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if payload.learning_session_id is not None and settings.DOJO_ENABLED:
+        data = await dojo.bind_exercise(user, db, payload.learning_session_id, payload.learning_item, data, payload.lang)
     await gating.consume_daily_exercise(user, db)
     # grammar guarantees keys; the answer stays sealed in `token`, never in plaintext here.
     return ExerciseOut(**data)
@@ -310,6 +316,7 @@ async def check(
     payload: CheckIn,
     user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
+    request: Request = None,
 ) -> CheckOut:
     """Deterministic grade for interactive types. No LLM — instant and reliable.
 
@@ -319,14 +326,32 @@ async def check(
         sealed = tokens.unseal(payload.token)
     except tokens.TokenError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    evidence = await dojo.validate_grade(user, db, sealed, payload.token)
+    if sealed.get("t") == "listen-and-retell":
+        raise HTTPException(400, detail="Use the retelling check for this exercise.")
+    if sealed.get("t") == "dojo-free-text":
+        if request is not None:
+            await llm_rate_limit(request)
+        if not isinstance(payload.response, str) or not payload.response.strip() or len(payload.response) > 1000:
+            raise HTTPException(422, detail="Enter a short text answer.")
+        prof = await learner_profile.get_data(user, db)
+        try:
+            result = await grammar.check_answer(sealed["text"], payload.response, sealed.get("lang"),
+                tone=prof.tone if prof else None, weak_spots=prof.weakSpots if prof else None)
+        except OllamaError as exc:
+            raise HTTPException(503, detail=str(exc)) from exc
+        await dojo.record_grade(user, db, evidence, result.get("correct", False))
+        return CheckOut(**result, score=1.0 if result.get("correct") else 0.0)
     result = grammar.grade(sealed, payload.response)
+    await dojo.record_grade(user, db, evidence, result.get("correct", False))
     coins_earned, coins, first_win_bonus, combo_bonus = 0, None, 0, 0
     if result.get("correct"):
         # One-time-use: key the koku award on the token's hash so resubmitting the same correct
         # token can't farm coins (anti-replay; see wallet.award_correct_check).
-        jti = hashlib.sha256(payload.token.encode()).hexdigest()
+        jti = sealed.get("_dojo_reward_jti") if sealed.get("_dojo_review_owner") else hashlib.sha256(payload.token.encode()).hexdigest()
+        source_item = sealed.get("_dojo_reward_item") if sealed.get("_dojo_review_owner") else (sealed.get("_dojo") or {}).get("item")
         coins_earned, coins, first_win_bonus, combo_bonus = await wallet_service.award_correct_check(
-            user, db, jti=jti
+            user, db, jti=jti, **({"durable_item_id": uuid.UUID(source_item)} if source_item else {})
         )
     else:
         # A wrong answer breaks the consecutive-correct combo run (server-side).
@@ -383,6 +408,7 @@ async def check_retell(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if sealed.get("t") != "listen-and-retell" or not sealed.get("passage"):
         raise HTTPException(status_code=400, detail="Not a listen-and-retell token.")
+    evidence = await dojo.validate_grade(user, db, sealed, payload.token)
     prof = await learner_profile.get_data(user, db)
     try:
         data = await grammar.check_retell(
@@ -394,6 +420,7 @@ async def check_retell(
         )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    await dojo.record_grade(user, db, evidence, data.get("correct", False))
     if not data.get("correct"):
         # Same weak-spot memory as /check: a missed retelling is a listening miss on this topic.
         await miss_log.record_miss(db, user, sealed.get("topic"), sealed.get("passage"))

@@ -23,7 +23,8 @@ import { captureAccountScope, isCurrentAccountScope } from "../store/accountScop
 import ActivationBanner from "../components/ui/ActivationBanner";
 import ExerciseCard from "../components/ExerciseCard";
 import ResultPanel from "../components/ResultPanel";
-import { useProgress, XP_PER_CORRECT } from "../store/progress";
+import { useProgress } from "../store/progress";
+import { learningLoopCopy } from "../i18n/learningLoopCopy";
 import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
 import { buildContext } from "../store/onboarding";
@@ -44,6 +45,7 @@ export default function StoryScreen() {
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
   const { t: tr, lang } = useI18n();
+  const copy = learningLoopCopy(lang);
   const ownerScope = useRef(captureAccountScope()).current;
   const activeRef = useRef(true);
   useEffect(() => {
@@ -65,6 +67,8 @@ export default function StoryScreen() {
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [responseDisplay, setResponseDisplay] = useState("");
   const [correctCount, setCorrectCount] = useState(0);
+  const [sessionXp, setSessionXp] = useState(0);
+  const [unaidedCount, setUnaidedCount] = useState(0);
   const [finished, setFinished] = useState(false);
   const error = loadError ?? checkError;
 
@@ -80,6 +84,8 @@ export default function StoryScreen() {
     setResponseDisplay("");
     setBeatIndex(0);
     setCorrectCount(0);
+    setSessionXp(0);
+    setUnaidedCount(0);
     setFinished(false);
     setStory(null);
     try {
@@ -166,7 +172,11 @@ export default function StoryScreen() {
     if (!beat || response === null || checking) return;
     const res = await check(beat.exercise, response, runShake);
     if (!current()) return;
-    if (res?.correct) setCorrectCount((c) => c + 1);
+    if (res) {
+      setSessionXp((n) => n + (res.xpEarned ?? 0));
+      if (res.correct) setCorrectCount((c) => c + 1);
+      if (res.correct && !res.hintUsed) setUnaidedCount((c) => c + 1);
+    }
   }
 
   function onExplain() {
@@ -202,7 +212,7 @@ export default function StoryScreen() {
   const canSubmit = response !== null && !checking;
   const total = story?.beats.length ?? 0;
   // Header progress: count answered beats (the current one once it's been checked).
-  const answered = beatIndex + (result ? 1 : 0);
+  const answered = finished ? total : beatIndex + (result ? 1 : 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
@@ -295,7 +305,8 @@ export default function StoryScreen() {
             <Sensei size={104} mood="cheer" bob />
             <Txt variant="cardTitle" color={t.c.accent}>{tr("story.done", { title: story.title })}</Txt>
             <Txt variant="bodyStrong">{tr("story.correctOfTotal", { c: correctCount, t: total })}</Txt>
-            <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.xp", { n: correctCount * XP_PER_CORRECT })}</Txt>
+            <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.xp", { n: sessionXp })}</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{copy.unassisted(unaidedCount, total)}</Txt>
           </View>
         )}
 

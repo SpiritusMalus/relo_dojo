@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "../store/auth";
 import { ProgressProvider, useProgress } from "../store/progress";
 import { WalletProvider } from "../store/wallet";
 import { CosmeticsProvider } from "../store/cosmeticsStore";
+import { DojoRoomProvider } from "../store/dojoRoom";
 import { ConsentProvider, useConsent } from "../store/consent";
 import { VoiceConsentProvider } from "../store/voiceConsent";
 import { I18nProvider, useI18n } from "../store/i18n";
@@ -183,6 +184,7 @@ function RootNav() {
       <Stack.Screen name="review" options={{ headerShown: false }} />
       <Stack.Screen name="shop" options={{ headerShown: false }} />
       <Stack.Screen name="wardrobe" options={{ headerShown: false }} />
+      <Stack.Screen name="dojo" options={{ headerShown: false }} />
       <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen name="premium" options={{ headerShown: false }} />
       <Stack.Screen name="level-test" options={{ headerShown: false }} />
@@ -222,11 +224,13 @@ export default function RootLayout() {
           <WalletProvider>
             <CosmeticsProvider>
               <ProgressProvider>
+                <DojoRoomProvider>
                 <ConsentProvider>
                   <VoiceConsentProvider>
                     <RootNav />
                   </VoiceConsentProvider>
                 </ConsentProvider>
+                </DojoRoomProvider>
               </ProgressProvider>
             </CosmeticsProvider>
           </WalletProvider>

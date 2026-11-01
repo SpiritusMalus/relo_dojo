@@ -21,6 +21,7 @@ import { useAccountScope } from "../store/useAccountScope";
 import { isCurrentAccountScope } from "../store/accountScope";
 import { dueMistakes, loadMistakes, nextDueAt, promoteMistakeStored, resolveMistake, type Mistake } from "../store/mistakes";
 import { loadingMessageFor } from "../i18n/loading";
+import { learningLoopCopy } from "../i18n/learningLoopCopy";
 import { useTheme } from "../theme/theme";
 import Button from "../components/ui/Button";
 import Icon from "../components/ui/Icon";
@@ -36,6 +37,7 @@ export default function ReviewScreen() {
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
   const { t: tr, lang } = useI18n();
+  const copy = learningLoopCopy(lang);
   const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
 
@@ -45,6 +47,8 @@ export default function ReviewScreen() {
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [responseDisplay, setResponseDisplay] = useState("");
   const [fixed, setFixed] = useState(0);
+  const [sessionXp, setSessionXp] = useState(0);
+  const [remainingDue, setRemainingDue] = useState(0);
   const [finished, setFinished] = useState(false);
 
   const shake = useRef(new Animated.Value(0)).current;
@@ -56,6 +60,8 @@ export default function ReviewScreen() {
     setItems(null);
     setIndex(0);
     setFixed(0);
+    setSessionXp(0);
+    setRemainingDue(0);
     setFinished(false);
     setResponse(null);
     setResponseDisplay("");
@@ -93,7 +99,9 @@ export default function ReviewScreen() {
   async function onCheck() {
     if (!current || response === null || checking) return;
     const res = await check(current.exercise, response, runShake);
-    if (res?.correct && isCurrentAccountScope(scope)) {
+    if (!res || !isCurrentAccountScope(scope)) return;
+    setSessionXp((n) => n + (res.xpEarned ?? 0));
+    if (res.correct && !res.hintUsed) {
       setFixed((n) => n + 1);
       await promoteMistakeStored(current.id, scope);
     }
@@ -108,7 +116,15 @@ export default function ReviewScreen() {
     reset();
     setResponse(null);
     setResponseDisplay("");
-    if (isLast) setFinished(true);
+    if (isLast) {
+      setFinished(true);
+      void loadMistakes(scope).then((list) => {
+        if (!isCurrentAccountScope(scope)) return;
+        const now = new Date().toISOString();
+        setNextDue(nextDueAt(list, now));
+        setRemainingDue(dueMistakes(list, now).length);
+      });
+    }
     else setIndex((i) => i + 1);
   }
 
@@ -120,7 +136,7 @@ export default function ReviewScreen() {
   }
 
   const canSubmit = response !== null && !checking;
-  const answered = index + (result ? 1 : 0);
+  const answered = finished ? total : index + (result ? 1 : 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
@@ -165,6 +181,8 @@ export default function ReviewScreen() {
             <Sensei size={108} mood="cheer" bob />
             <Txt variant="cardTitle" color={t.c.accent}>{tr("review.done")}</Txt>
             <Txt variant="bodyStrong">{tr("review.fixedOfTotal", { c: fixed, t: total })}</Txt>
+            <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.xp", { n: sessionXp })}</Txt>
+            {remainingDue > 0 ? <Txt variant="secondary" color={t.c.ink2}>{copy.reviewReady(remainingDue)}</Txt> : nextDue && <Txt variant="secondary" color={t.c.ink2}>{copy.nextReview(new Date(nextDue).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US"))}</Txt>}
           </View>
         )}
 
@@ -186,6 +204,7 @@ export default function ReviewScreen() {
                 onExplain={onExplain}
               />
             )}
+            {result?.correct && result.hintUsed && <Txt variant="secondary" color={t.c.ink2}>{copy.reviewHint}</Txt>}
 
             {!!checkError && (
               <View style={{ gap: 8 }}>
@@ -203,7 +222,7 @@ export default function ReviewScreen() {
       {items !== null && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
           {finished || total === 0 ? (
-            <Button label={tr("review.backHome")} onPress={() => router.back()} />
+            <Button label={copy.back} onPress={() => router.replace("/(tabs)")} />
           ) : result ? (
             <Button label={isLast ? tr("action.finish") : tr("action.continue")} onPress={onAdvance} />
           ) : (

@@ -85,7 +85,7 @@ const REQUEST_TIMEOUT_MS = 90000;
 // A mini-story generates 3 exercises in sequence (each may retry), so it needs more headroom.
 const STORY_TIMEOUT_MS = 180000;
 
-async function request<T>(
+export async function request<T>(
   path: string,
   body?: unknown,
   method: Method = "POST",
@@ -116,9 +116,9 @@ async function request<T>(
   } catch (e) {
     assertRequestScope();
     if (e instanceof Error && e.name === "AbortError") {
-      throw new Error("The server took too long to respond. Is the backend running?");
+      throw new Error(apiLang === "ru" ? "Ответ задерживается. Попробуй ещё раз." : "The reply is taking longer. Try again.");
     }
-    throw new Error("Can't reach the backend. Check it's running and on the same network.");
+    throw new Error(apiLang === "ru" ? "Не удалось подключиться. Попробуй ещё раз." : "Couldn't connect. Try again.");
   } finally {
     clearTimeout(timer);
   }
@@ -198,6 +198,7 @@ export type Exercise = {
   // is understanding by ear); absent/empty for every other type.
   speak?: string;
   token: string | null; // sealed answer for interactive types; null for free-text
+  review_token?: string;
 };
 
 // The user's answer, shape depends on the exercise type:
@@ -230,6 +231,8 @@ export function getExercise(params?: {
   context?: string;
   mistakes?: string[];
   practice_index?: number;
+  learning_session_id?: string;
+  learning_item?: number;
 }): Promise<Exercise> {
   // `lang` lets the backend write the LLM-generated task instruction (transform-the-sentence) in the
   // learner's UI language; the exercise content itself stays English (it's an English course).
