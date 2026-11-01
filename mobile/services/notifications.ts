@@ -147,6 +147,7 @@ export async function ensurePermission(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
   if (!isCurrentAccountScope(scope)) return false;
   if (current.granted) return true;
+  if (current.status === "denied") return false;
   if (!current.canAskAgain) return false;
   const asked = await Notifications.requestPermissionsAsync();
   return isCurrentAccountScope(scope) && asked.granted;

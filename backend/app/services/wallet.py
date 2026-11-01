@@ -19,6 +19,7 @@ Catalog items:
 """
 
 from __future__ import annotations
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import select, update
@@ -26,7 +27,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
-from ..db.models import AwardedToken, Progress, User
+from ..db.models import AwardedToken, LearningIssuedItem, LearningSession, Progress, User
 from .gating import _utc_day
 
 _UNKNOWN_ITEM = "Unknown shop item."
@@ -53,7 +54,7 @@ async def reset_correct_run(user: User | None, db: AsyncSession) -> None:
 
 
 async def award_correct_check(
-    user: User | None, db: AsyncSession, jti: str | None = None
+    user: User | None, db: AsyncSession, jti: str | None = None, *, durable_item_id: UUID | None = None
 ) -> tuple[int, int | None, int, int]:
     """Credit koku for one correct interactive answer.
 
@@ -70,6 +71,18 @@ async def award_correct_check(
     # and double-credit the first-win bonus, or both read the same correct_run and lose a combo step.
     # Mirrors the lock in gating.consume_daily_exercise / rewards.grant_scroll. Released by the commit.
     await db.refresh(user, with_for_update=True)
+    if durable_item_id is not None:
+        item = (await db.execute(select(LearningIssuedItem).join(LearningSession).where(
+            LearningIssuedItem.id == durable_item_id, LearningSession.user_id == user.id)
+            .with_for_update().execution_options(populate_existing=True))).scalar_one_or_none()
+        if item is None:
+            raise HTTPException(400, detail="The source practice item is unavailable.")
+        if item.token_hash != jti:
+            raise HTTPException(400, detail="The reward identity does not match the issued item.")
+        if item.rewarded:
+            return 0, user.coins, 0, 0
+        # Persisted in the very same transaction as the credit. Outlives AwardedToken pruning.
+        item.rewarded = True
     if jti:
         # Insert the token's id; a PK conflict means it was already rewarded → credit nothing.
         res = await db.execute(
@@ -79,6 +92,8 @@ async def award_correct_check(
         )
         if res.rowcount == 0:
             balance = (await db.execute(select(User.coins).where(User.id == user.id))).scalar_one()
+            if durable_item_id is not None:
+                await db.commit()
             return 0, balance, 0, 0  # replay — idempotent no-op
     # Black Belt perk: double koku per correct answer.
     base = settings.COIN_REWARD_CORRECT * (2 if user.is_premium else 1)

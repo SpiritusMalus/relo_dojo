@@ -39,6 +39,9 @@ export type Result = {
   combo_bonus?: number; // consecutive-correct combo bonus included in coins_earned
   /** Local-only snapshot, already updated when check resolves (never sent to the API). */
   progressAfter?: Progress;
+  /** Actual local XP committed for this answer, including combo and boost. */
+  xpEarned?: number;
+  hintUsed?: boolean;
 };
 
 export function useExerciseCheck() {
@@ -135,10 +138,11 @@ export function useExerciseCheck() {
         const before = effectiveSkill(progressRef.current, exercise.topic);
         // `format` feeds the course mastery evidence: constructive formats weigh more than
         // guessable ones (store/curriculum.ts).
+        const xpBefore = progressRef.current.xp;
         const progressAfter = recordAnswer(exercise.topic, res.correct, { score: res.score, difficulty: servedDifficulty, format: exercise.type, ...effort });
         progressRef.current = progressAfter;
         attempt.complete = true;
-        const committed = { ...res, progressAfter };
+        const committed = { ...res, progressAfter, xpEarned: progressAfter.xp - xpBefore, hintUsed: effort.hintUsed === true };
         setResult(committed);
         const after = effectiveSkill(progressAfter, exercise.topic);
         if (after > before && levelToCefr(after) !== levelToCefr(before)) {

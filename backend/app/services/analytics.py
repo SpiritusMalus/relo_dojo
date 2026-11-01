@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 
 from ..db.models import Event
@@ -166,3 +166,18 @@ def compute_retention(
             retained += 1
     rate = round(retained / cohort, 4) if cohort else 0.0
     return {"cohort": cohort, "retained": retained, "rate": rate, "day_n": day_n}
+
+
+def compute_learning_retention(rows: Iterable[tuple[str, Any]], *, day_n: int = 7,
+                               today: Optional[date] = None) -> dict[str, Any]:
+    """Learning cohort outcomes mature by the UTC calendar, even when nobody has returned yet."""
+    today = today or datetime.now(timezone.utc).date()
+    by_subject: dict[str, set[date]] = {}
+    for subject, raw_day in rows:
+        value = _as_date(raw_day)
+        if value <= today:
+            by_subject.setdefault(str(subject), set()).add(value)
+    eligible = [days for days in by_subject.values() if min(days) + timedelta(days=day_n) <= today]
+    retained = sum(min(days) + timedelta(days=day_n) in days for days in eligible)
+    return {"cohort": len(eligible), "retained": retained,
+            "rate": round(retained / len(eligible), 4) if eligible else 0.0, "day_n": day_n}

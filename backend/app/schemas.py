@@ -5,6 +5,7 @@ with an automatic 422 before it ever reaches Ollama.
 """
 
 from __future__ import annotations
+from uuid import UUID
 
 from typing import Annotated, Literal, Optional, Union
 
@@ -30,6 +31,8 @@ class ExerciseIn(BaseModel):
     mistakes: list[str] = Field(default_factory=list, max_length=5)
     lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language for LLM-generated task instructions (transform-the-sentence)
     practice_index: Optional[int] = Field(default=None, ge=0, le=1_000_000_000)
+    learning_session_id: Optional[UUID] = None
+    learning_item: Optional[int] = Field(default=None, ge=0, le=9)
 
 
 class MatchItem(BaseModel):
@@ -78,6 +81,8 @@ class ExerciseOut(BaseModel):
     blankOptions: list[list[str]] = []  # multiple-blanks: choices per blank, left-to-right
     anchor: str = ""  # order-the-dialog: the opening line, given to the learner (they order the rest)
     token: Optional[str] = None
+    # Owner-bound regrading token without session evidence; preserves the existing SRS TTL policy.
+    review_token: Optional[str] = None
 
 
 # --- themed sets / mini-stories (Batch 2) ---
@@ -160,6 +165,8 @@ class CheckOut(BaseModel):
     first_win_bonus: int = 0
     # Portion of coins_earned from the consecutive-correct combo (0 otherwise).
     combo_bonus: int = 0
+    explanation: str = ""
+    tip: str = ""
 
 
 # --- free-text check (LLM) ---
@@ -303,6 +310,7 @@ class AccountExport(BaseModel):
     learner_profile: dict = Field(default_factory=dict)  # learner_profile.data ({} if none)
     events: list[ExportEvent] = Field(default_factory=list)
     payments: list[ExportPayment] = Field(default_factory=list)  # purchase history ([] if none)
+    dojo: dict = Field(default_factory=dict)
 
 
 # --- cosmetics (engagement v2) ---
@@ -315,6 +323,57 @@ class CosmeticsOut(BaseModel):
 
 class CosmeticIn(BaseModel):
     id: str = Field(min_length=1, max_length=40)
+
+
+class DojoCatalogItem(BaseModel):
+    id: str
+    slot: str
+    gate: Literal["starter", "buy", "achievement"]
+    price: int
+    practice_days: Optional[int] = None
+
+
+class DojoReceipt(BaseModel):
+    id: str
+    item_id: str
+    rule_id: str
+    practice_days: int
+    granted_at: str
+
+
+class DojoState(BaseModel):
+    version: int = 1
+    catalog_version: int = 1
+    slots: list[str]
+    catalog: list[DojoCatalogItem]
+    owned: list[str]
+    equipped: dict[str, str]
+    selected_target: Optional[str] = None
+    practice_days: int
+    next_milestone: Optional[int] = None
+    receipts: list[DojoReceipt]
+
+
+class DojoTargetIn(BaseModel):
+    id: Optional[str] = Field(default=None, min_length=1, max_length=40)
+
+
+class LearningSessionIn(BaseModel):
+    client_id: UUID
+
+
+class LearningSessionOut(BaseModel):
+    id: str
+    item_count: int = 10
+    expires_at: str
+    graded_count: int
+    completed: bool
+    reward_day: Optional[str] = None
+
+
+class LearningCompletionOut(BaseModel):
+    session: LearningSessionOut
+    dojo: DojoState
 
 
 # --- daily contracts (engagement v2, Phase 2) ---

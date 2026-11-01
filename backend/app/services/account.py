@@ -23,10 +23,12 @@ def build_account_export(
     profile: Optional[LearnerProfile],
     events: Iterable[Event],
     payments: Iterable[ProcessedPayment] = (),
+    dojo_data: Optional[dict] = None,
 ) -> AccountExport:
     """Assemble the caller's full data export. `progress`/`profile` are None when never synced;
     `payments` is the caller's purchase history (empty when they've never bought premium)."""
     return AccountExport(
+        dojo=dojo_data or {},
         account=ExportAccount(
             id=str(user.id),
             email=user.email,

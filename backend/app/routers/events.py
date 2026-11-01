@@ -29,6 +29,27 @@ router = APIRouter(prefix="/events", tags=["events"])
 _log = logging.getLogger("uvicorn.error")
 
 
+@router.get("/learning-retention")
+async def learning_retention(
+    day: int = Query(default=7, ge=1, le=90),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Separate UTC cohort: first confirmed full session, returned via a confirmed full session.
+
+    The historical any-event metric remains unchanged. Scene opens, analytics and old mutable
+    snapshots cannot enter this denominator. New capability cohorts only, never retroactive.
+    """
+    if not settings.ANALYTICS_ADMIN:
+        raise HTTPException(404, detail="Not found.")
+    # Practice days survive short-lived receipt retention and are cascade-deleted with the owner.
+    from ..db.models import DojoPracticeDay
+    pairs = (await db.execute(select(DojoPracticeDay.user_id, DojoPracticeDay.day))).all()
+    return {**analytics.compute_learning_retention(pairs, day_n=day),
+            "metric": "learning_d7" if day == 7 else f"learning_d{day}",
+            "cohort_definition": "first_confirmed_full_practice_utc", "timezone": "UTC"}
+
+
 @router.post("", response_model=EventAck, dependencies=[Depends(events_rate_limit)])
 async def ingest_events(
     payload: EventBatchIn,

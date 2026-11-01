@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { AppState } from "react-native";
-import { buyCosmetic, equipCosmetic, getCosmetics } from "../services/api";
+import { buyCosmetic, equipCosmetic, getCosmetics, type Cosmetics } from "../services/api";
 import { useAuth } from "./auth";
 import { captureAccountScope, isCurrentAccountScope, subscribeAccountScope, type AccountScope } from "./accountScope";
 import { knotVisual, senseiVisual, starterFor, type KnotVisual, type SenseiVisual } from "./cosmetics";
@@ -27,6 +27,9 @@ type CosmeticsContextValue = {
   buy: (id: string) => Promise<void>;
   /** Equip an owned cosmetic. Throws ApiError on 409/400. */
   equip: (id: string) => Promise<void>;
+  /** Adopt the /dojo projection into this same inventory mirror. Cached data never supersedes a server read. */
+  acceptSnapshot: (state: Cosmetics, scope: AccountScope, confirmed?: boolean, expectedVersion?: number) => boolean;
+  snapshotVersion: () => number;
 };
 
 type CosmeticsState = { owned: string[]; equipped: Record<string, string> };
@@ -112,9 +115,22 @@ export function CosmeticsProvider({ children }: { children: ReactNode }) {
       ? { scope: requestScope, ready: true, state: { owned: c.owned, equipped: c.equipped } } : current);
   }, [scope]);
 
+  const acceptSnapshot = useCallback((next: Cosmetics, requestScope: AccountScope, confirmed = true, expectedVersion?: number): boolean => {
+    if (!mounted.current || requestScope !== scope || !isCurrentAccountScope(requestScope)
+      || (expectedVersion !== undefined && expectedVersion !== mutationVersion.current)) return false;
+    if (confirmed) mutationVersion.current++;
+    setMirror((current) => {
+      if (!mounted.current || !isCurrentAccountScope(requestScope)) return current;
+      if (!confirmed && current.scope === requestScope && current.ready) return current;
+      return { scope: requestScope, ready: confirmed, state: { owned: next.owned, equipped: next.equipped } };
+    });
+    return true;
+  }, [scope]);
+  const snapshotVersion = useCallback(() => mutationVersion.current, []);
+
   const value = useMemo<CosmeticsContextValue>(
-    () => ({ ready, owned: state.owned, equipped: state.equipped, refresh, buy, equip }),
-    [ready, state, refresh, buy, equip]
+    () => ({ ready, owned: state.owned, equipped: state.equipped, refresh, buy, equip, acceptSnapshot, snapshotVersion }),
+    [ready, state, refresh, buy, equip, acceptSnapshot, snapshotVersion]
   );
 
   return <CosmeticsContext.Provider value={value}>{children}</CosmeticsContext.Provider>;

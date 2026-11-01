@@ -25,6 +25,21 @@ GPT-6.1 Terra for semantic review/explanations/writing/planning, and Gemini 3.8 
 bounded repair. Audio transcription keeps its separate compatible model. See
 [model selection and real-provider evidence](backend/evals/MODEL_SELECTION.md).
 
+## My Dojo
+
+Home points to a due review or the next course step. Lesson results show the actual
+XP and koku received, with a direct way to finish or open the dojo.
+
+The room has three fixed positions and eight decorative variants. Complete ten
+server-issued exercises to record a practice day; the first, third and seventh
+nonconsecutive UTC practice days unlock a scroll, bamboo and lantern. Decorations
+use the existing cosmetic inventory and never change difficulty or earned belts.
+Dojo Plus is the membership name, separate from belt progression.
+
+Apply migration `0019_dojo_practice` before enabling `DOJO_ENABLED=true`. The flag
+defaults off. Sessions, grants and purchases are idempotent; cached room state is
+account-scoped and can be viewed offline, while changes require a connection.
+
 ## Development
 
 Provision a local PostgreSQL database, then configure `backend/.env` from

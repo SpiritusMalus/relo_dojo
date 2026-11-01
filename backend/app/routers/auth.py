@@ -30,7 +30,7 @@ from ..schemas import (
     TokenOut,
     UserOut,
 )
-from ..services import access, cosmetics as cosmetics_service
+from ..services import access, dojo, cosmetics as cosmetics_service
 from ..services.account import build_account_export
 from ..services.email import send_verification_email
 
@@ -165,7 +165,7 @@ async def delete_account(
 
     A single User row delete fans out through the FKs declared in db/models.py:
       - progress / learner_profile  → deleted (relationship cascade="all, delete-orphan")
-      - claimed_contracts / sent_emails → deleted (FK ondelete="CASCADE")
+      - claimed_contracts / sent_emails / dojo evidence → deleted (FK ondelete="CASCADE")
       - events / awarded_tokens / processed_payments → user_id set NULL (FK ondelete="SET NULL")
     Payment receipts (processed_payments) intentionally SURVIVE, anonymized, for refund/audit —
     they no longer reference the person. After this, the old token resolves to a missing user → 401.
@@ -205,7 +205,7 @@ async def export_account(
             .order_by(ProcessedPayment.created_at)
         )
     ).scalars().all()
-    return build_account_export(user, progress, profile, events, payments)
+    return build_account_export(user, progress, profile, events, payments, await dojo.export_data(user, db))
 
 
 @router.get("/verify", response_class=HTMLResponse)

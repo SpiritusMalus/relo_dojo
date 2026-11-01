@@ -18,29 +18,31 @@ import OfferBanner from "../../components/ui/OfferBanner";
 import { ensureOffer } from "../../store/offers";
 import RegisterWall from "../../components/ui/RegisterWall";
 import { dismiss as dismissWall, loadWall, saveWall, shouldShowWall, DEFAULT_WALL, type WallState } from "../../store/registerWall";
-import DailyMixButton from "../../components/ui/DailyMixButton";
-import CoachCard from "../../components/ui/CoachCard";
-import DailyGoalRing from "../../components/ui/DailyGoalRing";
+import Button from "../../components/ui/Button";
+import DojoScene from "../../components/ui/DojoScene";
+import { useDojoRoom } from "../../store/dojoRoom";
+import { loadMistakes, type Mistake } from "../../store/mistakes";
+import { nextLearningGoal, learningGoalRoute } from "../../store/nextLearningGoal";
+import { learningLoopCopy } from "../../i18n/learningLoopCopy";
+import { recoverLearningSessions } from "../../services/learningSession";
+import { track } from "../../services/analytics";
 import ContractsCard from "../../components/ui/ContractsCard";
 import JourneyPath from "../../components/ui/JourneyPath";
 import { buildStats, planPatch, shouldReplan } from "../../store/planner";
 import { bonusDue, bonusPaidPatch, buildQuests, questBaseline, QUEST_BONUS_XP } from "../../store/quest";
 import { tickDiary } from "../../store/diary";
 import ProgressBarUi from "../../components/ui/ProgressBar";
-import { senseiGreeting, weakestTopic } from "../../store/greeting";
 import { canAttemptToday, examOffer } from "../../store/exam";
 import { levelCheckDue } from "../../store/levelCheck";
 import Icon from "../../components/ui/Icon";
 import { beltByIndex } from "../../theme/theme";
 import BeltKnot from "../../components/ui/BeltKnot";
-import { TOPIC_LABELS, minutesToGoal } from "../../store/onboarding";
+import { TOPIC_LABELS } from "../../store/onboarding";
 import { RU_TOPIC_LABELS, beltName } from "../../i18n/strings";
 import { isoDay } from "../../store/adaptive";
 import { requestPlan } from "../../services/api";
 import RuleSheet from "../../components/ui/RuleSheet";
-import Sensei, { type Mood } from "../../components/ui/Sensei";
-import SenseiBubble from "../../components/ui/SenseiBubble";
-import ProgressBar from "../../components/ui/ProgressBar";
+import Sensei from "../../components/ui/Sensei";
 import Txt from "../../components/ui/Txt";
 
 // Home = "твой пояс → твой путь → one thing to do": the belt hero, the belt JourneyPath, and a
@@ -56,41 +58,15 @@ export default function HomeScreen() {
   const { leftToday, refresh } = useWallet();
   const { t: tr, lang } = useI18n();
 
-  // Sensei's personal line — the memory layer made visible (Praktika's "caring friend who
-  // remembers"). Pure selection from local state; copy comes from i18n.
-  const greeting = senseiGreeting(progress, isoDay(new Date()));
-  const greetingText = (() => {
-    if (!greeting) return null;
-    switch (greeting.kind) {
-      case "doneToday":
-        return tr("greet.doneToday", { n: greeting.n });
-      case "wins":
-        return greeting.wins;
-      case "weakTopic": {
-        const label =
-          lang === "ru"
-            ? RU_TOPIC_LABELS[greeting.topic] ?? greeting.topic
-            : TOPIC_LABELS[greeting.topic] ?? greeting.topic;
-        return tr("greet.weakTopic", { topic: label });
-      }
-      case "streak":
-        return tr("greet.streak", { n: greeting.n });
-      default:
-        return tr((["greet.d0", "greet.d1", "greet.d2"] as const)[greeting.idx] ?? "greet.d0");
-    }
-  })();
-  // Sensei's mood matches what he's saying (think when nudging a weak topic, cheer when you're done).
-  const greetingMood: Mood =
-    greeting?.kind === "weakTopic" ? "think" : greeting?.kind === "doneToday" ? "cheer" : "happy";
-
   const bp = beltProgress(progress);
-  // Restored designer Home hooks (reference/dojo-home.jsx): the shakiest topic as a one-tap coach CTA
-  // + today's goal as a ring. Pure reads of local state — no backend, no logic change.
-  const weakTopic = weakestTopic(progress);
-  const weakLabel = weakTopic ? (lang === "ru" ? RU_TOPIC_LABELS[weakTopic] ?? weakTopic : TOPIC_LABELS[weakTopic] ?? weakTopic) : "";
-  const weakStat = weakTopic ? progress.topics[weakTopic] : undefined;
-  const weakAccPct = weakStat && weakStat.attempts > 0 ? Math.round((weakStat.correct / weakStat.attempts) * 100) : 0;
-  const goalTarget = minutesToGoal(progress.profile?.dailyMinutes ?? 0);
+  const room = useDojoRoom();
+  const { refresh: refreshRoom, acceptSnapshot } = room;
+  const copy = learningLoopCopy(lang);
+  const [deck, setDeck] = useState<{ scope: typeof scope; items: Mistake[] | null }>({ scope, items: null });
+  const goalReady = deck.scope === scope && deck.items !== null;
+  const goal = nextLearningGoal(progress, deck.scope === scope ? deck.items ?? [] : [], new Date().toISOString());
+  const topicLabel = goal.topic ? (lang === "ru" ? RU_TOPIC_LABELS[goal.topic] : TOPIC_LABELS[goal.topic]) ?? goal.topic : "";
+  const goalCopy = copy.goal(goal, topicLabel);
   // Feature gating is data-driven (store/access.ts → backend services/access.py). Content modes are
   // open to everyone (incl. anonymous); these flags stay false today but auto-lock if a feature is
   // ever moved behind an account/premium gate — no screen rewrite needed.
@@ -151,14 +127,20 @@ export default function HomeScreen() {
     useCallback(() => {
       let active = true;
       // Re-read the anon lesson count (bumped at each session finish in practice.tsx).
-      loadWall().then((w) => active && setWall(w));
+      loadWall().then((w) => { if (active && isCurrentAccountScope(scope)) setWall(w); });
+      loadMistakes(scope).then((items) => { if (active && isCurrentAccountScope(scope)) setDeck({ scope, items }); });
       // Refresh the wallet too: koku earned and the daily allowance spent in Practice should be
       // visible the moment the learner lands back on Home (the shrinking counter is the point).
       void refresh();
+      void recoverLearningSessions(scope).then((receipts) => {
+        if (!active || !isCurrentAccountScope(scope)) return;
+        for (const receipt of receipts) if (receipt.dojo) acceptSnapshot(receipt.dojo, scope);
+        void refreshRoom();
+      });
       return () => {
         active = false;
       };
-    }, [refresh])
+    }, [scope, refresh, refreshRoom, acceptSnapshot])
   );
 
   return (
@@ -168,31 +150,47 @@ export default function HomeScreen() {
       <ActivationBanner />
 
       <View style={[styles.hero, { backgroundColor: t.c.surface, borderRadius: t.spacing.radiusLg, borderColor: t.c.line }]}>
-        <View style={{ flex: 1, gap: 6 }}>
-          <Txt variant="screenTitle">{beltName(bp.belt, lang)}</Txt>
-          <Txt variant="secondary" color={t.c.ink2}>
-            {!bp.started
-              ? tr("belt.untrained")
-              : bp.atMax
-              ? tr("home.topBelt", { cefr: bp.cefr })
-              : tr("home.toNext", { cefr: bp.cefr, pct: bp.pctToNext, belt: beltName(bp.nextBelt, lang) })}
-          </Txt>
-          <ProgressBar pct={bp.atMax ? 100 : bp.pctToNext} color={t.c.accent} style={{ marginTop: 6 }} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+          <View style={{ flex: 1, gap: 8 }}>
+            <Txt variant="screenTitle">{goalReady ? goalCopy.title : copy.loadingGoal}</Txt>
+            {goalReady && <Txt variant="body" color={t.c.ink2}>{goalCopy.description}</Txt>}
+          </View>
+          <Sensei belt={bp.belt} size={62} mood="happy" />
         </View>
-        <Sensei belt={bp.belt} size={76} mood="happy" />
+        <Button label={goalCopy.action} disabled={!goalReady} onPress={() => {
+          track("learning_goal_open", { kind: goal.kind, source: "home" });
+          router.push(learningGoalRoute(goal));
+        }} />
       </View>
-
-      {/* The daily ritual stays findable before the optional path and rewards. */}
-      <DailyMixButton onPress={() => router.push("/practice")} />
       {leftToday !== null && (
         <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center", marginTop: -6 }}>
           {tr("home.leftToday", { n: leftToday })}
         </Txt>
       )}
-      {goalTarget > 0 && <DailyGoalRing done={progress.todayCount} target={goalTarget} />}
+      <View style={{ flexDirection: "row", gap: 12, flexWrap: "wrap" }}>
+        {goal.kind !== "mix" && <Button label={copy.mix} variant="ghost" fullWidth={false} onPress={() => router.push("/practice")} />}
+        <Button label={copy.allModes} variant="ghost" fullWidth={false} onPress={() => router.push("/(tabs)/train")} />
+      </View>
 
-      {/* Sensei's line, spoken: the mascot + a speech bubble (the memory layer, made personal). */}
-      {!!greetingText && <SenseiBubble belt={bp.belt} mood={greetingMood} text={greetingText} />}
+      {room.available && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={copy.dojo}
+          onPress={() => router.push("/dojo")}
+          style={({ pressed }) => ({ gap: 8, opacity: pressed ? 0.8 : 1 })}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Txt variant="cardTitle" style={{ flex: 1 }}>{copy.dojo}</Txt>
+            <Icon name="chevron" size={20} color={t.c.ink2} />
+          </View>
+          <DojoScene equipped={room.equipped} compact />
+          {room.practiceDays !== null && <Txt variant="secondary" color={t.c.ink2}>
+            {room.nextMilestone && room.practiceDays !== null
+              ? copy.dojoMilestone(room.nextMilestone.progress, room.nextMilestone.days)
+              : copy.dojoReady}
+          </Txt>}
+        </Pressable>
+      )}
 
       {/* Weekly quest scroll: the Planner's focus as three visible goals (store/quest.ts). */}
       {quests.length > 0 && (
@@ -304,15 +302,6 @@ export default function HomeScreen() {
         );
       })()}
 
-      {/* Today's goal as a ring + the shakiest-topic coach card — restored designer Home hooks. */}
-      {weakTopic && (
-        <CoachCard
-          topicLabel={weakLabel}
-          accPct={weakAccPct}
-          onPress={() => router.push({ pathname: "/practice", params: { topic: weakTopic } })}
-        />
-      )}
-
       {/* Belt journey = the course track: tap a unit to READ ITS RULE first (Presentation, PPP),
           then drill from the card's CTA; the belt-test node opens the exam. Locked units (past the
           mastery gate) stay non-tappable. */}
@@ -366,6 +355,6 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { padding: 18, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 16 },
+  hero: { padding: 18, borderWidth: 1, gap: 18 },
   examBtn: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, minHeight: 64 },
 });

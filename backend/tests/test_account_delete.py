@@ -65,7 +65,7 @@ class _FakeDB:
         self.statements.append(stmt)
         if _selected_entity(stmt) is ProcessedPayment:
             return _FakeResult(self._payments)
-        return _FakeResult(self._events)
+        return _FakeResult(self._events if _selected_entity(stmt) is Event else [])
 
 
 def _user(**over):

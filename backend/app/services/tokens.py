@@ -64,8 +64,14 @@ def unseal(token: str) -> dict[str, Any]:
     """Decrypt a token back into its dict. Raises TokenError on any failure."""
     try:
         ttl = settings.EXERCISE_TOKEN_TTL_S or None  # 0 → no expiry
+        # Authenticate before selecting the purpose-specific lifetime. Ordinary exercise tokens
+        # retain the configured TTL; only our owner-bound review tokens cover the SRS 21-day gap.
+        raw = _fernet.decrypt(token.encode())
+        peek = json.loads(raw)
+        if isinstance(peek, dict) and peek.get("_dojo_review_v") == 1 and peek.get("_dojo_review_owner"):
+            ttl = 35 * 86400
         raw = _fernet.decrypt(token.encode(), ttl=ttl)
-    except (InvalidToken, ValueError, TypeError) as exc:
+    except (InvalidToken, ValueError, TypeError, json.JSONDecodeError) as exc:
         raise TokenError("This exercise has expired. Fetch a new one.") from exc
     try:
         data = json.loads(raw)

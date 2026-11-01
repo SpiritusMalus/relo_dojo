@@ -56,3 +56,5 @@ No customer testimonials or commercial results are supplied.
 3. Recovery is part of the task: network/audio failures must offer a clear next step.
 4. The dojo supports concentration; game progression rewards the learning loop.
 5. Verify the full native journey, not only unit tests or a visual mockup.
+6. Use short, natural copy. Show reward requirements at the point of choice; keep routine
+   screens free of boilerplate footnotes, canned praise and explanations of internal rules.

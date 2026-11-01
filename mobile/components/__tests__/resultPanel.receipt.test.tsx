@@ -1,0 +1,31 @@
+import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
+import ResultPanel from "../ResultPanel";
+import { ThemeProvider } from "../../theme/theme";
+import type { Exercise } from "../../services/api";
+import type { Result } from "../../store/useExerciseCheck";
+
+jest.mock("../../store/i18n", () => ({ useI18n: () => ({ lang: "en", t: (key: string, args?: Record<string, unknown>) => key === "result.xp" ? `+${args?.n} XP` : key }) }));
+jest.mock("../../store/progress", () => ({ useProgress: () => ({ progress: { currentCorrectRun: 5 } }) }));
+jest.mock("../ui/Sensei", () => () => null);
+const exercise = { token: "signed" } as Exercise;
+function render(result: Result) {
+  let screen!: ReactTestRenderer;
+  act(() => { screen = TestRenderer.create(<ThemeProvider><ResultPanel result={result} exercise={exercise} levelUp={null} explained={null} explainLoading={false} onExplain={() => {}} /></ThemeProvider>); });
+  const text = JSON.stringify(screen.toJSON());
+  act(() => screen.unmount());
+  return text;
+}
+
+test("the panel displays the committed combo/boost total, not a reconstructed base reward", () => {
+  const text = render({ correct: true, correct_answer: "a", xpEarned: 60 });
+  expect(text).toContain("+60 XP");
+  expect(text).not.toContain("+10 XP");
+});
+test("a hinted success remains visibly assisted", () => {
+  expect(render({ correct: true, correct_answer: "a", xpEarned: 10, hintUsed: true })).toContain("With a hint");
+});
+test("a missing receipt does not fabricate XP or an Almost message for a correct answer", () => {
+  const text = render({ correct: true, correct_answer: "a", score: 1, detail: "full credit" });
+  expect(text).not.toContain(" XP");
+  expect(text).not.toContain("result.almost");
+});

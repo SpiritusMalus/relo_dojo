@@ -25,6 +25,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.models import User
+from ..core.config import settings
 
 # Seasonal windows (northern-hemisphere months) — a scarcity/urgency mechanic: a seasonal cosmetic
 # can only be bought while its season is active, giving a recurring reason to return and spend.
@@ -57,6 +58,14 @@ CATALOG: dict[str, dict[str, Any]] = {
     "knot_gold": {"slot": "knot", "gate": "buy", "price": 150},
     "knot_jade": {"slot": "knot", "gate": "buy", "price": 180},
     "knot_tassel": {"slot": "knot", "gate": "buy", "price": 220},
+    "dojo_light_paper": {"slot": "dojo_light", "gate": "starter", "price": 0},
+    "dojo_display_blank": {"slot": "dojo_display", "gate": "starter", "price": 0},
+    "dojo_plant_seedling": {"slot": "dojo_plant", "gate": "starter", "price": 0},
+    "dojo_display_first_scroll": {"slot": "dojo_display", "gate": "achievement", "price": 0, "practice_days": 1},
+    "dojo_plant_bamboo": {"slot": "dojo_plant", "gate": "achievement", "price": 0, "practice_days": 3},
+    "dojo_light_lantern": {"slot": "dojo_light", "gate": "achievement", "price": 0, "practice_days": 7},
+    "dojo_light_sunset": {"slot": "dojo_light", "gate": "buy", "price": 120},
+    "dojo_display_wave": {"slot": "dojo_display", "gate": "buy", "price": 180},
 }
 
 _UNKNOWN = "Unknown cosmetic."
@@ -130,10 +139,17 @@ async def buy(user: User, db: AsyncSession, cosmetic_id: str) -> User:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_UNKNOWN)
     if item["gate"] != "buy":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_NOT_FOR_SALE)
+    if item["slot"].startswith("dojo_") and not settings.DOJO_ENABLED:
+        raise HTTPException(404, detail="My Dojo is unavailable.")
     # Lock the row for the read-modify-write below (ownership re-check + debit + array append).
     await db.refresh(user, with_for_update=True)
     if cosmetic_id in owned_ids(user):
-        await db.rollback()  # idempotent: already owned → release the lock, charge nothing
+        if getattr(user, "dojo_target", None) == cosmetic_id:
+            user.dojo_target = None
+            await db.commit()  # compatibility repair; ownership/coins do not change
+        else:
+            await db.rollback()  # idempotent: already owned → release the lock, charge nothing
+        await db.refresh(user)  # rollback expires async ORM attributes used by the response
         return user
     if not is_season_active(item.get("season")):
         await db.rollback()
@@ -144,6 +160,8 @@ async def buy(user: User, db: AsyncSession, cosmetic_id: str) -> User:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_NOT_ENOUGH)
     user.coins -= price
     user.cosmetics = list(user.cosmetics or []) + [cosmetic_id]
+    if getattr(user, "dojo_target", None) == cosmetic_id:
+        user.dojo_target = None
     await db.commit()
     await db.refresh(user)
     return user
@@ -154,6 +172,9 @@ async def equip(user: User, db: AsyncSession, cosmetic_id: str) -> User:
     item = CATALOG.get(cosmetic_id)
     if item is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_UNKNOWN)
+    if item["slot"].startswith("dojo_") and not settings.DOJO_ENABLED:
+        raise HTTPException(404, detail="My Dojo is unavailable.")
+    await db.refresh(user, with_for_update=True)
     if cosmetic_id not in owned_ids(user):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_NOT_OWNED)
     equipped = dict(user.equipped or {})

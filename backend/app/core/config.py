@@ -141,6 +141,8 @@ class Settings(BaseSettings):
     # Daily exercise cap for VERIFIED free accounts (premium = unlimited). The squeeze point of the
     # free tier: hitting it at peak motivation is what sells extra packs and Black Belt.
     FREE_DAILY_LIMIT: int = 20
+    # Additive My Dojo capability; enable only after the compatible migration is deployed.
+    DOJO_ENABLED: bool = False
 
     # --- Economy (koku wallet) ---
     # Koku awarded per correct /check answer for authenticated users (server-authoritative;

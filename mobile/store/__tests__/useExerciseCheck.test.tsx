@@ -149,6 +149,33 @@ it("records rule assistance and the difficulty actually served, independent of t
   act(() => renderer.unmount());
 });
 
+it.each([
+  { run: 0, boosted: false, expected: 10 },
+  { run: 4, boosted: false, expected: 30 },
+  { run: 4, boosted: true, expected: 60 },
+])("reports the actual committed answer XP: $expected", async ({ run, boosted, expected }) => {
+  mockProgress = { ...mockProgress, xp: 300, currentCorrectRun: run,
+    boostUntil: boosted ? new Date(Date.now() + 60_000).toISOString() : "" };
+  jest.mocked(checkInteractive).mockResolvedValueOnce(correct);
+  const renderer = mount();
+  let result: Result | null = null;
+  await act(async () => { result = await hook.check(exercise, "a"); });
+  expect((result as Result | null)?.xpEarned).toBe(expected);
+  expect((result as Result | null)?.hintUsed).toBe(false);
+  act(() => renderer.unmount());
+});
+
+it("marks a correct hinted answer without claiming unaided evidence or changing XP rules", async () => {
+  jest.mocked(checkInteractive).mockResolvedValueOnce(correct);
+  const renderer = mount();
+  act(() => { hook.beginAttempt(exercise); hook.markHintUsed(); });
+  let result: Result | null = null;
+  await act(async () => { result = await hook.check(exercise, "a"); });
+  expect(result).toMatchObject({ correct: true, hintUsed: true, xpEarned: 10 });
+  expect(mockProgress.course.history.articles[0].c).toBe(false);
+  act(() => renderer.unmount());
+});
+
 it("explains the full four-option task with the same safe context on stream failure", async () => {
   const card = { ...exercise, type: "odd-one-out" as const, topic: "word order",
     text: "Tap the one that doesn't belong", instruction: "Choose the sentence without inversion.",

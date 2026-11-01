@@ -71,6 +71,27 @@ it("serializes concurrent mutations so two misses cannot overwrite each other", 
   expect((await loadMistakes()).map((item) => item.exercise.text)).toEqual(["Second ___ item.", "First ___ item."]);
 });
 
+it("keeps the separately sealed review token through the 21-day deck instead of the expiring lesson token", async () => {
+  setAuthToken(token("a"));
+  const now = new Date("2026-11-01T09:00:00.000Z");
+  jest.useFakeTimers().setSystemTime(now);
+  try {
+    await captureMistake({ ...exercise("I saw ___ owl."), token: "expires-in-24-hours", review_token: "owner-bound-review-token" });
+    let list = await loadMistakes();
+    expect(list[0].exercise.token).toBe("owner-bound-review-token");
+    expect(list[0].exercise.review_token).toBeUndefined();
+    for (const gap of [1, 3, 7, 21]) {
+      await promoteMistakeStored(list[0].id);
+      now.setDate(now.getDate() + gap);
+      jest.setSystemTime(now);
+      list = await loadMistakes();
+      expect(dueMistakes(list, now.toISOString())[0].exercise.token).toBe("owner-bound-review-token");
+    }
+    setAuthToken(token("b"));
+    expect(await loadMistakes()).toEqual([]);
+  } finally { jest.useRealTimers(); }
+});
+
 it("drops a late A read and refuses old A hints immediately after switching to B", async () => {
   setAuthToken(token("a"));
   await captureMistake(exercise("A private ___ example."));

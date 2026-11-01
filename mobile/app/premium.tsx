@@ -19,10 +19,7 @@ import Icon from "../components/ui/Icon";
 import Sensei from "../components/ui/Sensei";
 import Txt from "../components/ui/Txt";
 
-// "Чёрный пояс" — the Black Belt subscription screen (branch 5). Reached from the squeeze points:
-// the daily-limit sheet, the shop, and the session summary. The CTA is a "coming soon" placeholder
-// until a payment provider lands (Phase 7/8); the server-side is_premium flag already gates
-// everything, so flipping it is the only integration left.
+// Membership has its own name; a purchased entitlement never represents an earned belt.
 export default function PremiumScreen() {
   const t = useTheme();
   const { t: tr, lang } = useI18n();
