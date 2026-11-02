@@ -143,3 +143,16 @@ it("renews an expired preparation token without skipping the ungraded step", asy
   expect(JSON.stringify(renderer!.toJSON())).toContain("Preparation · 2 of 3");
   expect(mockAcceptSnapshot).not.toHaveBeenCalled();
 });
+
+it("opens the confirmed keepsake in Dojo as an account-scoped preview without equipping it", async () => {
+  run = { ...makeRun(), completed: true, receipt_id: "receipt-a", feedback: approved };
+  await mount();
+  const scope = captureAccountScope();
+  await act(async () => { button("Open my dojo").props.onPress(); });
+  expect(mockPush).toHaveBeenCalledWith({ pathname: "/dojo", params: { reward: "dojo_display_introduction", epoch: String(scope.epoch) } });
+  const oldOpen = button("Open my dojo").props.onPress;
+  await act(async () => { mockToken = member("b"); setAuthToken(mockToken); });
+  mockPush.mockClear();
+  await act(async () => { oldOpen(); });
+  expect(mockPush).not.toHaveBeenCalled();
+});

@@ -19,7 +19,6 @@ import { ensureOffer } from "../../store/offers";
 import RegisterWall from "../../components/ui/RegisterWall";
 import { dismiss as dismissWall, loadWall, saveWall, shouldShowWall, DEFAULT_WALL, type WallState } from "../../store/registerWall";
 import Button from "../../components/ui/Button";
-import DojoScene from "../../components/ui/DojoScene";
 import { useDojoRoom } from "../../store/dojoRoom";
 import { loadMistakes, type Mistake } from "../../store/mistakes";
 import { nextLearningGoal, learningGoalRoute } from "../../store/nextLearningGoal";
@@ -47,7 +46,7 @@ import ChaptersButton from "../../components/ui/ChaptersButton";
 import { dojoDays, dojoItemName } from "../../store/dojoRoomCopy";
 import Txt from "../../components/ui/Txt";
 
-// Lead with the next learning action; the shared room follows as the learner’s living progress.
+// Lead with the next learning action; a compact collection entry follows.
 export default function HomeScreen() {
   const scope = useAccountScope();
   const router = useRouter();
@@ -168,23 +167,18 @@ export default function HomeScreen() {
           accessibilityRole="button"
           accessibilityLabel={copy.dojo}
           onPress={() => router.push("/dojo")}
-          style={({ pressed }) => ({ gap: 8, opacity: pressed ? 0.85 : 1 })}
+          style={({ pressed }) => [styles.roomLabel, { borderColor: t.c.line, opacity: pressed ? 0.65 : 1 }]}
         >
-          <View style={{ marginHorizontal: -t.spacing.pad }}>
-            <DojoScene equipped={room.equipped} belt={bp.belt} compact />
-          </View>
-          <View style={styles.roomLabel}>
-            {room.nextMilestone && <DojoItemArtwork itemId={room.nextMilestone.itemId} size={52} />}
+            <DojoItemArtwork itemId={room.nextMilestone?.itemId ?? room.equipped.dojo_display ?? "dojo_display_blank"} size={68} />
             <View style={{ flex: 1, gap: 3 }}>
               <Txt variant="cardTitle">{copy.dojo}</Txt>
-              {room.practiceDays !== null && <Txt variant="secondary" color={t.c.ink2}>
+              <Txt variant="secondary" color={t.c.ink2}>
                 {room.nextMilestone
                   ? `${dojoItemName(room.nextMilestone.itemId, lang)} · ${room.nextMilestone.progress} / ${dojoDays(room.nextMilestone.days, lang)}`
-                  : copy.dojoReady}
-              </Txt>}
+                  : dojoItemName(room.equipped.dojo_display ?? "dojo_display_blank", lang)}
+              </Txt>
             </View>
             <Icon name="chevron" size={20} color={t.c.ink2} />
-          </View>
         </Pressable>
       )}
 
@@ -364,7 +358,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   hero: { paddingTop: 12, paddingBottom: 6, gap: 20 },
-  roomLabel: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 2 },
+  roomLabel: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, minHeight: 92, borderTopWidth: 1, borderBottomWidth: 1 },
   secondaryActions: { flexDirection: "row", flexWrap: "wrap", columnGap: 24, marginBottom: 6 },
   textAction: { minHeight: 48, maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: 4 },
   examBtn: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, minHeight: 64 },

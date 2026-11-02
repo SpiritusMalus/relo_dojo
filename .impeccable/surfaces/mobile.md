@@ -13,11 +13,11 @@ study 1 as the working art basis and liked loose ink study 3 too. Concept A supp
 and layout; its glossy generated art is rejected.
 STORY: know where practice stands → train → understand feedback → save → return.
 FIRST VIEWPORT: native top bar, learning heading and one filled next-learning action, then the
-compact painted room. The scene contains the mentor. A quiet Chapters row and the native
+compact My Dojo row with collectible artwork and a matching status. A quiet Chapters row and the native
 Daily Mix/all-mode text actions follow; longer paths, goals and rewards stay below. Train offers selectable modes before its
 long topic catalogue. Progress labels estimates and leaves unstarted stats empty.
 FORM: retain the native three-tab arrangement and real text/controls. The room is a composed
-painting with independent object and portrait layers; do not replace the app with a flattened mockup.
+painting with independent object layers; do not replace the app with a flattened mockup.
 FINISH: current native review and functional acceptance must identify the final build and
 captures. Earlier screenshot verdicts do not accept this art change. Shipping raster provenance
 must retain exact generation prompts, reference roles and atlas mappings.
@@ -26,13 +26,15 @@ must retain exact generation prompts, reference roles and atlas mappings.
 
 Home places the current learning goal directly on the warm native page: heading, description
 and one filled bamboo action, without an outlined hero card. Alternate modes remain secondary.
-The edge-to-edge compact room follows the action and opens My Dojo. Its native caption shows
-confirmed progress toward the next item, with the actual item artwork when a milestone exists.
+A compact native row follows the action and opens My Dojo. Its 68-unit artwork matches
+the next milestone and confirmed progress; without a milestone it shows the equipped scroll
+and its name. The row grows with localized text and font scale.
 
-My Dojo uses the same room in full framing. The opaque ivory room base remains identical in
+My Dojo holds the full room, with the scroll centered and larger than the lamp and plant.
+The mentor stays out of the desk scene so earned objects lead the composition. The opaque ivory room base remains identical in
 light and dark mode, deliberately like a painting; surrounding labels, controls, rows and status
 use the active native theme. `DojoScene` scales a 360 × 270 composition. Full framing is 4:3;
-compact framing is 1.8:1 with a 28-unit top crop. Both use the same equipment and earned belt.
+compact framing is 1.8:1 with a 28-unit top crop. Both use the same independently equipped objects; belts remain in their existing native controls.
 
 There are three fixed places and eleven catalog items. Equipment replaces an object,
 not the room layout. `DojoItemArtwork` selects these equal-cell atlas positions:
@@ -66,7 +68,8 @@ requirements and koku balances. Existing rewards, prices and account-scoped stat
 
 Home keeps the existing review/course action first. A quiet Chapters row follows the room;
 Train and My Dojo also open the chapter list. Three separated, illustrated rows explain
-the situations and show server-returned not-started, in-progress or completed status. All
+the situations and show server-returned not-started, in-progress or completed status.
+Each keepsake name has an explicit localized Reward label. All
 three situations are selectable. The artwork is the actual collectible, not a generic badge.
 
 Inside a chapter, three authored preparation cards reuse the native exercise and feedback
@@ -74,7 +77,9 @@ components. The final task has a plain multiline English editor, themed paper, n
 scaling, keyboard avoidance and explicit checking/recovery actions. Missing meaning gets
 specific feedback and an example; minor grammar slips do not impose an exam. A completed
 screen uses the confirmed keepsake and its real collection name. It opens My Dojo for placing
-the item. No XP, belt, currency or achievement is inferred from a local completion event.
+the item with a matching owned chapter reward preselected. Place/Placed sits directly
+below the main scene; a preview never equips automatically. Unknown/unowned IDs and stale
+account epochs cannot create a selected reward. No XP, belt, currency or achievement is inferred from a local completion event.
 
 An account-scoped local draft is distinct from server progress. An uncertain final request
 checks saved server state before retrying the same identity/body. Switching account, chapter
@@ -88,7 +93,9 @@ practice calendar; the meaning and the ownership of the older 1/3/7 items stay i
 
 ## Mentor and lesson feedback
 
-`Sensei` is the single appearance entry point for room, feedback and Wardrobe previews.
+`Sensei` is the single appearance entry point for meaningful feedback and Wardrobe previews.
+Standard Build/Transform instruction headers use text only, avoiding a repeated portrait
+when the result appears.
 `WatercolorSensei` uses Classic, Sage and Ronin columns of the original 4 × 4 transparent
 portrait atlas, with happy, cheer, think and sad rows. Sakura now uses the separate flowerless
 2 × 2 spring atlas (happy/cheer, think/sad): ordinary hair and a light linen overshirt. The old

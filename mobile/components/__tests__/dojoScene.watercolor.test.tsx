@@ -3,15 +3,12 @@ import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import { Animated, Image, StyleSheet } from "react-native";
 import DojoScene from "../ui/DojoScene";
 import DojoItemArtwork from "../ui/DojoItemArtwork";
-import Sensei from "../ui/Sensei";
-import { belts } from "../../theme/theme";
 
 let mockReduceMotion = false;
 jest.mock("../../theme/theme", () => ({
   ...jest.requireActual("../../theme/theme"),
   useTheme: () => ({ reduceMotion: mockReduceMotion }),
 }));
-jest.mock("../ui/Sensei", () => ({ __esModule: true, default: jest.fn(() => null) }));
 
 const LIGHTS = ["dojo_light_paper", "dojo_light_lantern", "dojo_light_sunset"];
 const DISPLAYS = ["dojo_display_blank", "dojo_display_first_scroll", "dojo_display_wave"];
@@ -35,23 +32,22 @@ const imageStyle = (node: { props: { [key: string]: any } }) => StyleSheet.flatt
 beforeEach(() => { mockReduceMotion = false; });
 afterEach(() => jest.restoreAllMocks());
 
-test("room waits for layout and scales the painted room, mentor and objects together", () => {
-  const screen = render(<DojoScene belt={belts[4]} />);
+test("room waits for layout and scales the painted room and collection together", () => {
+  const screen = render(<DojoScene />);
   expect(screen.root.findAll(node => node.type === Image)).toHaveLength(0);
   layout(screen, 720);
   const images = screen.root.findAll(node => node.type === Image);
   expect(images).toHaveLength(4);
   expect(imageStyle(images[0])).toMatchObject({ width: 720, height: 540, top: -0 });
-  expect(artwork(screen).map(node => node.props.size)).toEqual([216, 216, 216]);
-  expect(screen.root.findAll(node => node.type === Sensei)[0].props).toMatchObject({ size: 316, mood: "happy", belt: belts[4] });
-  act(() => screen.update(<DojoScene compact belt={belts[4]} />));
+  expect(artwork(screen).map(node => node.props.size)).toEqual([248, 292, 216]);
+  act(() => screen.update(<DojoScene compact />));
   expect(imageStyle(screen.root.findAll(node => node.type === Image)[0]).top).toBe(-56);
   const scene = screen.root.findAll(node => node.props.testID === "dojo-scene")[0];
   expect(imageStyle(scene).aspectRatio).toBe(1.8);
   act(() => screen.unmount());
 });
 
-test("all 18 known room combinations preserve all three correct native crops and the mentor", () => {
+test("all 18 known room combinations preserve all three correct native crops", () => {
   let combinations = 0;
   for (const [lightColumn, light] of LIGHTS.entries()) {
     for (const [displayColumn, display] of DISPLAYS.entries()) {
@@ -62,9 +58,9 @@ test("all 18 known room combinations preserve all three correct native crops and
         const columns = [lightColumn, displayColumn, plantColumn];
         for (const [row, item] of artwork(screen).entries()) {
           const image = item.findAll(node => node.type === Image)[0];
-          expect(imageStyle(image)).toMatchObject({ width: 324, height: 324, left: -columns[row] * 108, top: -row * 108 });
+          const size = item.props.size;
+          expect(imageStyle(image)).toMatchObject({ width: size * 3, height: size * 3, left: -columns[row] * size, top: -row * size });
         }
-        expect(screen.root.findAll(node => node.type === Sensei)).toHaveLength(1);
         combinations += 1;
         act(() => screen.unmount());
       }

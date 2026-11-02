@@ -61,6 +61,7 @@ export function chapterCopy(lang: string) {
     finalTask: ru ? "Твой ответ" : "Your reply",
     path: ru ? "3 коротких задания и твой ответ" : "3 short exercises, then your reply",
     reward: ru ? "Предмет для додзё" : "A piece for your dojo",
+    rewardLabel: (name: string) => ru ? `Награда: ${name}` : `Reward: ${name}`,
     loading: ru ? "Открываем главу…" : "Opening your chapter…",
     checking: ru ? "Проверяем ответ…" : "Checking your reply…",
     check: ru ? "Проверить" : "Check",
