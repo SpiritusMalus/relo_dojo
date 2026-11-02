@@ -2,7 +2,7 @@
   "expo": {
     "name": "Relo Dojo",
     "slug": "relo-dojo",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "scheme": "relodojo",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,7 +20,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 7
+      "versionCode": 8
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -28,7 +28,8 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-notifications"
+      "expo-notifications",
+      "./plugins/withFontScaleConfig"
     ],
     "extra": {
       "router": {},

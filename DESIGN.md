@@ -165,9 +165,8 @@ Light ink on paper measures 11.96:1, secondary ink 5.93:1 and muted ink 4.72:1.
 White on the light primary is 6.91:1. Dark on-primary ink measures 7.50:1. These are
 recorded token-pair checks, not acceptance of the current composed native screens.
 
-Belts retain their existing white/yellow/orange/green/blue/black swatches. The
-portrait's native cloth ribbon uses the real earned belt's cloth, edge, knot and
-ink values. Belt names and progress remain native text. The launcher retains the
+Belts retain their existing white/yellow/orange/green/blue/black swatches. The mentor portrait carries no student belt indicator. Earned belt names, knots and
+progress remain separate native controls. The launcher retains the
 existing torii vector with a flat bamboo ground and gold step.
 
 **The Painting Rule.** The room keeps its ivory paper in light and dark mode;
@@ -179,7 +178,14 @@ Zen Maru Gothic carries the rounded display voice. Hanken Grotesk carries body a
 controls; JetBrains Mono is reserved for English examples/code or measured values.
 Font weights are encoded in the loaded font family; do not add `fontWeight` to a
 custom family. Native text retains React Native font scaling and OS glyph fallbacks,
-including Cyrillic fallback where the selected face has no glyph.
+including Cyrillic fallback where the selected face has no glyph. Android keeps the current
+activity during font-scale changes and refreshes native Fabric text layout. For the pinned
+RN0.81.5 build, the app delegates to the exact Stable feature provider and enables only the
+native font-scale layout-update flag before runtime startup, with strict version/source guards.
+The configuration callback synchronously measures the existing root at its actual viewport before
+notifying JS. Android display-only Text leaves then refresh by the real font scale to enter the normal
+React layout path; RN0.81.5 can otherwise leave the root clean after dirtying text descendants.
+Inputs, providers and navigation remain mounted; native font scaling and caps are retained.
 
 The frontmatter maps native `hero` to display, `screenTitle` to headline and
 `cardTitle` to title. Body strong uses the semibold face; shared Button labels use
@@ -284,9 +290,8 @@ React Native components remain the authority for shipped interaction states.
   happy/cheer then think/sad. This spring portrait has ordinary hair and a light
   linen overshirt, with no flower or substitute hair ornament. The historical
   fourth column is unused. Equipped cosmetics and explicit Wardrobe previews
-  use the same `SenseiVisual` contract. A small native cloth ribbon is 21% of the
-  portrait's width and sits at its lower right, clear of the painted face. It shows
-  the passed earned belt; it is not a painted headband or a cosmetic promotion.
+  use the same `SenseiVisual` contract. The portrait carries no student belt ribbon. The learner's earned belt remains
+  in the separate native belt controls; changing mentor cosmetics cannot claim a rank.
 - **Answer feedback:** standard Build/Transform instructions contain native text only,
   leaving the mentor for meaningful feedback. The shared ResultPanel uses a 72-unit mentor, cheer for a
   correct answer and think for an incorrect answer. The native heading, correct

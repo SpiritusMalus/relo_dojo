@@ -6,7 +6,8 @@
 // a provider's own failure is exactly when it renders, so it uses the static `light` palette + fonts
 // directly and bilingual literal copy (no t()). Keep it dependency-light and never let it throw.
 import { useEffect } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import FontScaleText from "./ui/FontScaleText";
 import type { ErrorBoundaryProps } from "expo-router";
 import * as analytics from "../services/analytics";
 import { fonts, light } from "../theme/theme";
@@ -32,18 +33,18 @@ export function RootErrorBoundary({ error, retry }: ErrorBoundaryProps): React.J
   return (
     <View style={styles.root}>
       <View style={styles.card}>
-        <Text style={styles.emoji} accessibilityElementsHidden>
+        <FontScaleText style={styles.emoji} accessibilityElementsHidden>
           🥋
-        </Text>
-        <Text style={styles.title}>Что-то пошло не так</Text>
-        <Text style={styles.body}>
+        </FontScaleText>
+        <FontScaleText style={styles.title}>Что-то пошло не так</FontScaleText>
+        <FontScaleText style={styles.body}>
           Приложение наткнулось на ошибку. Попробуй ещё раз — твой прогресс сохранён.
-        </Text>
-        <Text style={styles.bodyEn}>Something went wrong. Please try again — your progress is safe.</Text>
+        </FontScaleText>
+        <FontScaleText style={styles.bodyEn}>Something went wrong. Please try again — your progress is safe.</FontScaleText>
 
         {__DEV__ ? (
           <ScrollView style={styles.devBox} contentContainerStyle={styles.devBoxInner}>
-            <Text style={styles.devText}>{String(error?.stack ?? error?.message ?? error)}</Text>
+            <FontScaleText style={styles.devText}>{String(error?.stack ?? error?.message ?? error)}</FontScaleText>
           </ScrollView>
         ) : null}
 
@@ -53,7 +54,7 @@ export function RootErrorBoundary({ error, retry }: ErrorBoundaryProps): React.J
           accessibilityLabel="Попробовать снова"
           style={({ pressed }) => [styles.btn, pressed && styles.btnPressed]}
         >
-          <Text style={styles.btnText}>Попробовать снова</Text>
+          <FontScaleText style={styles.btnText}>Попробовать снова</FontScaleText>
         </Pressable>
       </View>
     </View>
