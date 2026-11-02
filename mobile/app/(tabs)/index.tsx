@@ -42,13 +42,11 @@ import { RU_TOPIC_LABELS, beltName } from "../../i18n/strings";
 import { isoDay } from "../../store/adaptive";
 import { requestPlan } from "../../services/api";
 import RuleSheet from "../../components/ui/RuleSheet";
-import Sensei from "../../components/ui/Sensei";
+import DojoItemArtwork from "../../components/ui/DojoItemArtwork";
+import { dojoDays, dojoItemName } from "../../store/dojoRoomCopy";
 import Txt from "../../components/ui/Txt";
 
-// Home = "твой пояс → твой путь → one thing to do": the belt hero, the belt JourneyPath, and a
-// single primary action (Daily Mix) — wrapped in contextual retention cards (offers, streak repair,
-// quests, register wall, coach). Every special mode (Story, Challenge, Review, Review-my-text, Shop)
-// lives in the Train tab below the topic picker; the journey map shows here, not on Progress anymore.
+// Lead with the next learning action; the shared room follows as the learner’s living progress.
 export default function HomeScreen() {
   const scope = useAccountScope();
   const router = useRouter();
@@ -149,13 +147,10 @@ export default function HomeScreen() {
 
       <ActivationBanner />
 
-      <View style={[styles.hero, { backgroundColor: t.c.surface, borderRadius: t.spacing.radiusLg, borderColor: t.c.line }]}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-          <View style={{ flex: 1, gap: 8 }}>
-            <Txt variant="screenTitle">{goalReady ? goalCopy.title : copy.loadingGoal}</Txt>
-            {goalReady && <Txt variant="body" color={t.c.ink2}>{goalCopy.description}</Txt>}
-          </View>
-          <Sensei belt={bp.belt} size={62} mood="happy" />
+      <View style={styles.hero}>
+        <View style={{ gap: 8 }}>
+          <Txt variant="hero">{goalReady ? goalCopy.title : copy.loadingGoal}</Txt>
+          {goalReady && <Txt variant="body" color={t.c.ink2}>{goalCopy.description}</Txt>}
         </View>
         <Button label={goalCopy.action} disabled={!goalReady} onPress={() => {
           track("learning_goal_open", { kind: goal.kind, source: "home" });
@@ -167,30 +162,40 @@ export default function HomeScreen() {
           {tr("home.leftToday", { n: leftToday })}
         </Txt>
       )}
-      <View style={{ flexDirection: "row", gap: 12, flexWrap: "wrap" }}>
-        {goal.kind !== "mix" && <Button label={copy.mix} variant="ghost" fullWidth={false} onPress={() => router.push("/practice")} />}
-        <Button label={copy.allModes} variant="ghost" fullWidth={false} onPress={() => router.push("/(tabs)/train")} />
-      </View>
-
       {room.available && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={copy.dojo}
           onPress={() => router.push("/dojo")}
-          style={({ pressed }) => ({ gap: 8, opacity: pressed ? 0.8 : 1 })}
+          style={({ pressed }) => ({ gap: 8, opacity: pressed ? 0.85 : 1 })}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <Txt variant="cardTitle" style={{ flex: 1 }}>{copy.dojo}</Txt>
+          <View style={{ marginHorizontal: -t.spacing.pad }}>
+            <DojoScene equipped={room.equipped} belt={bp.belt} compact />
+          </View>
+          <View style={styles.roomLabel}>
+            {room.nextMilestone && <DojoItemArtwork itemId={room.nextMilestone.itemId} size={52} />}
+            <View style={{ flex: 1, gap: 3 }}>
+              <Txt variant="cardTitle">{copy.dojo}</Txt>
+              {room.practiceDays !== null && <Txt variant="secondary" color={t.c.ink2}>
+                {room.nextMilestone
+                  ? `${dojoItemName(room.nextMilestone.itemId, lang)} · ${room.nextMilestone.progress} / ${dojoDays(room.nextMilestone.days, lang)}`
+                  : copy.dojoReady}
+              </Txt>}
+            </View>
             <Icon name="chevron" size={20} color={t.c.ink2} />
           </View>
-          <DojoScene equipped={room.equipped} compact />
-          {room.practiceDays !== null && <Txt variant="secondary" color={t.c.ink2}>
-            {room.nextMilestone && room.practiceDays !== null
-              ? copy.dojoMilestone(room.nextMilestone.progress, room.nextMilestone.days)
-              : copy.dojoReady}
-          </Txt>}
         </Pressable>
       )}
+
+      <View style={styles.secondaryActions}>
+        {goal.kind !== "mix" && <Pressable accessibilityRole="button" onPress={() => router.push("/practice")} style={({ pressed }) => [styles.textAction, { opacity: pressed ? 0.6 : 1 }]}>
+          <Txt variant="bodyStrong" color={t.c.accent} style={{ flexShrink: 1 }}>{copy.mix}</Txt>
+        </Pressable>}
+        <Pressable accessibilityRole="button" onPress={() => router.push("/(tabs)/train")} style={({ pressed }) => [styles.textAction, { opacity: pressed ? 0.6 : 1 }]}>
+          <Txt variant="bodyStrong" color={t.c.accent} style={{ flexShrink: 1 }}>{copy.allModes}</Txt>
+          <Icon name="chevron" size={18} color={t.c.accent} />
+        </Pressable>
+      </View>
 
       {/* Weekly quest scroll: the Planner's focus as three visible goals (store/quest.ts). */}
       {quests.length > 0 && (
@@ -355,6 +360,9 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { padding: 18, borderWidth: 1, gap: 18 },
+  hero: { paddingTop: 12, paddingBottom: 6, gap: 20 },
+  roomLabel: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 2 },
+  secondaryActions: { flexDirection: "row", flexWrap: "wrap", columnGap: 24, marginBottom: 6 },
+  textAction: { minHeight: 48, maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: 4 },
   examBtn: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16, minHeight: 64 },
 });

@@ -1,0 +1,16 @@
+Use case: stylized-concept
+Asset type: one production sprite atlas PNG, transparent background, 3 columns by 3 rows of EQUAL SQUARE CELLS, each precisely one independently composited desk object for a mobile room.
+Input image: graphite + transparent watercolor reference. Match its irregular graphite line, sparse watercolor, warm paper objects and slightly front/above desk viewing angle.
+Primary request: draw the following eight separate objects on TRUE TRANSPARENT ALPHA (not a painted white page), clear gap in each cell. Atlas square. No grid, labels, numbers, floor plane, cast shadows extending out of cells, people, text or UI.
+Strict arrangement left to right:
+ROW1 COL1: small cream ribbed Japanese paper TABLE LAMP, warm ivory globe on small black feet, graphite edges.
+ROW1 COL2: warm ochre-orange Japanese practice TABLE LANTERN, ribbed oval with dark cap/base, subtly lit.
+ROW1 COL3: squat terracotta sunset TABLE LAMP, amber shade with muted coral wash, visibly different silhouette.
+ROW2 COL1: small vertical standing blank parchment SCROLL on a wooden tabletop support, ivory page rolled on top and bottom, NO writing.
+ROW2 COL2: same standing parchment scroll with a small olive handdrawn open circle and one tiny celebratory ochre stroke (no letters).
+ROW2 COL3: same standing scroll with simple muted blue-grey handdrawn ocean WAVE and little ochre sun.
+ROW3 COL1: tiny SEEDLING with two olive leaves in a small worn cream ceramic pot.
+ROW3 COL2: taller BAMBOO with two thin stalks and several olive leaves in same small cream ceramic pot, visibly earned growth.
+ROW3 COL3: completely empty transparent cell.
+Composition contract: all objects fit fully INSIDE their own equal cell with 10% transparent padding on all four sides. Ground/base at 88% cell height in every occupied cell. Horizontal center exactly at cell center. Lamps roughly 75% cell height; scrolls 78%; bamboo78%; seedling50%. Keep objects thin and delicate, no enclosing frame. Simple silhouettes readable at 40–100px. Every object complete and separate with clean transparency.
+Style: handmade uneven pencil, occasional searching lines, light watercolor bleeding and unfinished edges, sparse grey-green ochre terracotta blue-grey. Grown-up calm human illustration, not Pixar, no glossy 3D, no vector icon geometry, no kawaii. No text/signature/watermark.

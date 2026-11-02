@@ -11,10 +11,13 @@ import type { Exercise, ExplainResult } from "../../services/api";
 import type { Result } from "../../store/useExerciseCheck";
 
 jest.mock("../../store/i18n", () => ({ useI18n: () => ({ t: (k: string) => k }) }));
-jest.mock("../../store/progress", () => ({
-  useProgress: () => ({ progress: { currentCorrectRun: 0 } }),
-  XP_PER_CORRECT: 10,
-}));
+jest.mock("../../store/progress", () => {
+  const actual = jest.requireActual("../../store/progress");
+  return {
+    ...actual,
+    useProgress: () => ({ progress: { ...actual.DEFAULT_PROGRESS, currentCorrectRun: 0 } }),
+  };
+});
 
 function ex(over: Partial<Exercise> = {}): Exercise {
   return {

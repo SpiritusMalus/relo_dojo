@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-01T07:46:28.123994+00:00",
+  "generatedAt": "2026-11-02T09:08:40.532660+00:00",
   "title": "Design System: Relo Dojo",
   "extensions": {
     "colorMeta": {
@@ -136,43 +136,58 @@
     {
       "name": "Daily Mix",
       "kind": "button",
-      "description": "Panel translation of the existing filled daily action: drawn bolt, two-line label, drawn chevron and press border.",
+      "description": "Panel translation of the filled Train action: drawn bolt, two-line label, drawn chevron and press border. Home uses its current learning goal as the primary action and secondary native text actions for other modes.",
       "html": "<button class=\"ds-mix\"><i><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M13 3L5 13h6l-1 8 8-11h-6z\"/></svg></i><span><strong>Daily mix</strong><small>A quick set across your topics</small></span><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M9 6l6 6-6 6\"/></svg></button>",
       "css": ".ds-mix{display:flex;align-items:center;gap:14px;min-height:64px;width:100%;padding:16px;background:#376347;color:#FFFFFF;border:0;border-bottom:2px solid #284B34;border-radius:16px;text-align:left;cursor:pointer}.ds-mix i{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;flex-shrink:0}.ds-mix span{display:grid;flex:1}.ds-mix strong{font-family:\"Zen Maru Gothic\",sans-serif;font-size:17px;line-height:21px;font-weight:700}.ds-mix small{font-family:\"Hanken Grotesk\",system-ui,sans-serif;font-size:14px;line-height:20px;font-weight:500;opacity:0.9}.ds-mix:hover{background:#376347}.ds-mix:active{transform:translateY(1px);border-bottom-width:1px}.ds-mix:focus-visible{outline:2px solid #376347;outline-offset:3px}"
     }
   ],
   "narrative": {
     "northStar": "A calm dojo with game progression",
-    "overview": "The owner selected this direction on 2026-10-31. It refines the existing torii,\nSensei, belt and scroll identity. Warm paper and readable ink support a short,\nfocused training ritual. The filled bamboo action leads to practice; earned belts\nand a small reward reveal give progress a physical, recognisable form.",
+    "overview": "Warm paper and readable ink support a short, focused learning ritual. The owner\nselected graphite and light watercolor study 1 as the working art direction on\n2026-11-02, with loose ink study 3 as a secondary reference. The warmth and layout\nof concept A remain useful; its glossy generated imagery was rejected.\n\nThe room, adult mentor and collectible desk objects use uneven graphite contours,\nsparse watercolor washes and open paper. They sit beside real native text and\ncontrols. The filled bamboo action leads to practice; earned belts and confirmed\nitems give progress a recognisable physical form. This document records the\nimplemented source contract; current native finish acceptance is tracked separately\nin `.impeccable/surfaces/mobile.md`.",
     "keyCharacteristics": [
-      "Warm neutral surfaces, restrained bamboo action colour and legible secondary ink.",
-      "Existing belt colours remain meaningful progression markers.",
+      "Airy graphite and watercolor art, with an ordinary adult mentor and restrained expressions.",
+      "Warm native surfaces, legible ink and bamboo actions surrounding the painting.",
+      "Earned belts and separately placed objects reflect actual progression.",
       "Standard native navigation, spacious controls and clear recovery states.",
       "Rewards acknowledge practice without competing with the lesson."
     ],
     "rules": [
       {
+        "name": "The Painting Rule",
+        "body": "The room keeps its ivory paper in light and dark mode; readable app chrome follows the active theme.",
+        "section": "colors"
+      },
+      {
         "name": "The Encoded Weight Rule",
-        "body": "Native custom-font families already encode weight. The frontmatter records the portable family and weight; native components select the corresponding named face from `fonts` instead of adding `fontWeight`. ",
+        "body": "Native custom-font families already encode weight. The frontmatter records the portable family and weight; native components select the corresponding named face from `fonts` instead of adding `fontWeight`.",
         "section": "typography"
       },
       {
         "name": "The Quiet Surface Rule",
-        "body": "Ordinary cards and mode rows separate content with tone and an outline. Do not spread the overlay shadow across those rows. ",
+        "body": "Ordinary cards and mode rows separate content with tone and an outline. Do not spread the overlay shadow across those rows.",
         "section": "elevation"
+      },
+      {
+        "name": "The State Stays Native Rule",
+        "body": "Paint the setting and objects, never ownership, prices, player identity, progress numbers or reward claims. Native state selects individual artwork layers and native text explains the current result.",
+        "section": "components"
       }
     ],
     "dos": [
-      "**Do** keep the next useful learning action findable in the first viewport.",
-      "**Do** use existing belt and scroll mechanics without inventing mastery or reward claims.",
+      "**Do** keep the next useful learning action findable before the room.",
+      "**Do** preserve the airy graphite and watercolor treatment, transparent cutout edges and adult mentor proportions.",
+      "**Do** use existing belt, equipment and scroll state without inventing mastery or reward claims.",
       "**Do** verify light, dark and enlarged type in a native emulator or device.",
-      "**Do** preserve native Back, safe areas, keyboard access and clear loading/error states."
+      "**Do** preserve native Back, safe areas, keyboard access and clear loading/error states.",
+      "**Do** retain exact generation provenance and atlas mappings alongside shipping art."
     ],
     "donts": [
+      "**Don't** return to the rejected glossy, smooth 3D or geometric mascot treatment.",
+      "**Don't** bake UI text, earned objects, belt progression or account state into a room painting.",
       "**Don't** put promotions, reward pressure or a long catalogue ahead of the daily practice action.",
-      "**Don't** replace the quiet training-mode surfaces with saturated fills, gradients or repeated shadows.",
+      "**Don't** replace quiet training-mode surfaces with saturated fills, gradients or repeated shadows.",
       "**Don't** present estimated skill or unstarted topics as earned proficiency.",
-      "**Don't** replace the established dojo with a new brand or generic emoji icon vocabulary."
+      "**Don't** replace the established dojo with generic emoji icons or a handwriting reading face."
     ]
   }
 }

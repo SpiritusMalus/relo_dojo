@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -37,10 +37,10 @@ import ProgressBar from "../components/ui/ProgressBar";
 import Card from "../components/ui/Card";
 import Confetti from "../components/ui/Confetti";
 import Scroll from "../components/ui/Scroll";
-import { boostActive } from "../store/progress";
 import { ensureOffer } from "../store/offers";
 import { useDojoRoom } from "../store/dojoRoom";
 import { dojoItemName } from "../store/dojoRoomCopy";
+import DojoItemArtwork from "../components/ui/DojoItemArtwork";
 import { learningGoalRoute, nextLearningGoal, type LearningGoal } from "../store/nextLearningGoal";
 import { learningLoopCopy } from "../i18n/learningLoopCopy";
 import { useAuth } from "../store/auth";
@@ -395,60 +395,50 @@ export default function PracticeScreen() {
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
       <StatusBar style={t.name === "dark" ? "light" : "dark"} />
 
-      {/* Header: close, session progress, streak */}
+      {/* Close, session progress and completed exercise count. */}
       <View style={styles.header}>
-        <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn} accessibilityLabel="Close">
+        <Pressable onPress={onClose} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel={lang === "ru" ? "Закрыть тренировку" : "Close practice"}>
           <Icon name="x" size={24} color={t.c.ink2} />
         </Pressable>
         <View style={{ flex: 1, marginHorizontal: 14 }}>
           <ProgressBar pct={(Math.min(solved, SESSION_LEN) / SESSION_LEN) * 100} height={10} />
         </View>
-        <View accessible accessibilityLabel={`${progress.dailyStreak} ${tr("prog.dayStreak")}`} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-          {boostActive(progress) && <>
-            <Icon name="bolt" size={16} color={t.c.fire} />
-            <Txt variant="caption" color={t.c.fire}>x2</Txt>
-          </>}
-          <Icon name="flame" size={16} color={t.c.fire} />
-          <Txt variant="caption" color={t.c.fire}>{progress.dailyStreak}</Txt>
-        </View>
+        <Txt variant="bodyStrong" color={t.c.ink2} accessibilityLabel={lang === "ru" ? `Выполнено ${solved} из ${SESSION_LEN}` : `${solved} of ${SESSION_LEN} complete`}>
+          {`${Math.min(solved, SESSION_LEN)} / ${SESSION_LEN}`}
+        </Txt>
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 2 }}>
-          <Txt variant="label" style={{ flex: 1 }}>
-            {topicLabel}
-            {exercise ? `  ·  ${exercise.level || levelToCefr(effectiveSkill(progress, exercise.topic))}` : ""}
-          </Txt>
-          {/* 📖 the unit's rule card, one tap away mid-drill (the Presentation step stays reachable) */}
-          {exercise && !showScroll && RULE_CARDS[exercise.topic] && (
-            <Pressable
-              onPress={() => { markHintUsed(); setRuleOpen(true); }}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={tr("course.rule")}
-              style={({ pressed }) => [
-                styles.swerveBtn,
-                { borderColor: t.c.line, backgroundColor: t.c.surface2, opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Txt variant="caption" color={t.c.ink2}>{`📖 ${tr("course.rule")}`}</Txt>
-            </Pressable>
-          )}
-          {exercise && !showScroll && (
-            <Pressable
-              onPress={() => setSwerveOpen(true)}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={tr("swerve.open")}
-              style={({ pressed }) => [
-                styles.swerveBtn,
-                { borderColor: t.c.line, backgroundColor: t.c.surface2, opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Txt variant="caption" color={t.c.ink2}>{`↪ ${tr("swerve.open")}`}</Txt>
-            </Pressable>
-          )}
-        </View>
+        {!showScroll && <View style={{ gap: 8, marginTop: 6, marginBottom: 8 }}>
+          <Txt variant="screenTitle">{topicLabel}</Txt>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {exercise && <Txt variant="secondary" color={t.c.ink2}>
+              {exercise.level || levelToCefr(effectiveSkill(progress, exercise.topic))}
+            </Txt>}
+            {exercise && RULE_CARDS[exercise.topic] && (
+              <Pressable
+                onPress={() => { markHintUsed(); setRuleOpen(true); }}
+                accessibilityRole="button"
+                accessibilityLabel={tr("course.rule")}
+                style={({ pressed }) => [styles.swerveBtn, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Icon name="scroll" size={18} color={t.c.ink2} />
+                <Txt variant="secondary" color={t.c.ink2} style={{ flexShrink: 1 }}>{tr("course.rule")}</Txt>
+              </Pressable>
+            )}
+            {exercise && (
+              <Pressable
+                onPress={() => setSwerveOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={tr("swerve.open")}
+                style={({ pressed }) => [styles.swerveBtn, { opacity: pressed ? 0.6 : 1 }]}
+              >
+                <Icon name="gear" size={18} color={t.c.ink2} />
+                <Txt variant="secondary" color={t.c.ink2} style={{ flexShrink: 1 }}>{tr("swerve.open")}</Txt>
+              </Pressable>
+            )}
+          </View>
+        </View>}
 
         {loading && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
@@ -493,20 +483,20 @@ export default function PracticeScreen() {
         )}
 
         {showScroll && (
-          <View style={{ marginTop: 20, gap: 14 }}>
-            <Card>
-              <View style={{ alignItems: "center", gap: 6, paddingVertical: 4 }}>
-                <Txt variant="bodyStrong">{tr("summary.title")}</Txt>
-                <Txt variant="body" color={t.c.ink2}>
-                  {tr("summary.stats", { correct: sessionCorrect, total: solved })}
-                </Txt>
+          <View style={{ marginTop: 16, gap: 20 }}>
+            <View style={{ gap: 10 }}>
+              <Txt variant="screenTitle">{tr("summary.title")}</Txt>
+              <Txt variant="body" color={t.c.ink2}>
+                {tr("summary.stats", { correct: sessionCorrect, total: solved })}
+              </Txt>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
                 <Txt variant="bodyStrong" color={t.c.gold}>
                   {tr("summary.xp", { n: sessionXp })}
                 </Txt>
-                {sessionUnaided !== sessionCorrect && <Txt variant="secondary" color={t.c.ink2}>{copy.unassisted(sessionUnaided, solved)}</Txt>}
                 {sessionKoku !== null && sessionKoku > 0 && <Txt variant="bodyStrong" color={t.c.gold}>{copy.koku(sessionKoku)}</Txt>}
               </View>
-            </Card>
+              {sessionUnaided !== sessionCorrect && <Txt variant="secondary" color={t.c.ink2}>{copy.unassisted(sessionUnaided, solved)}</Txt>}
+            </View>
             {dojoSave && (
               <View style={{ gap: 8 }}>
                 <Txt variant="secondary" color={t.c.ink2}>
@@ -516,14 +506,8 @@ export default function PracticeScreen() {
               </View>
             )}
             {newPiece && (
-              <View style={{ gap: 10 }}>
-                <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-                  <Icon name="star" size={32} color={t.c.gold} />
-                  <View style={{ flex: 1 }}>
-                    <Txt variant="secondary" color={t.c.ink2}>{copy.newPiece}</Txt>
-                    <Txt variant="cardTitle">{dojoItemName(newPiece.item_id, lang)}</Txt>
-                  </View>
-                </View>
+              <View style={{ gap: 16 }}>
+                <EarnedDojoPiece key={newPiece.id} itemId={newPiece.item_id} lang={lang} />
                 <Button label={copy.openDojo} onPress={() => leaveCompletedLesson(true)} />
               </View>
             )}
@@ -539,13 +523,7 @@ export default function PracticeScreen() {
                 </View>
               );
             })()}
-            {token ? <Scroll onDone={() => router.back()} /> : (
-              <Card style={{ gap: 12 }}>
-                <Txt variant="cardTitle">{tr("scroll.guestTitle")}</Txt>
-                <Txt variant="body" color={t.c.ink2}>{tr("scroll.guestBody")}</Txt>
-                <Button label={tr("action.finish")} onPress={() => router.back()} />
-              </Card>
-            )}
+            {token && <Scroll onDone={() => router.back()} />}
           </View>
         )}
 
@@ -571,7 +549,10 @@ export default function PracticeScreen() {
           return (
             <Card>
               <View style={{ alignItems: "center", gap: 6, paddingVertical: 6 }}>
-                <Txt variant="bodyStrong" color={t.c.gold}>{`⭐ ${tr("course.ready")}`}</Txt>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Icon name="check" color={t.c.accent} size={20} />
+                  <Txt variant="bodyStrong" color={t.c.accent}>{tr("course.ready")}</Txt>
+                </View>
                 <Txt variant="secondary" color={t.c.ink2} style={{ textAlign: "center" }}>
                   {tr("course.readySub")}
                 </Txt>
@@ -635,8 +616,30 @@ export default function PracticeScreen() {
 
 const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10 },
-  closeBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  closeBtn: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   content: { paddingHorizontal: 20, paddingTop: 8, gap: 14 },
   footer: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1 },
-  swerveBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1 },
+  swerveBtn: { minHeight: 48, maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 8, paddingHorizontal: 4 },
 });
+
+// The reveal is purely visual; only a confirmed completion receipt supplies this item.
+function EarnedDojoPiece({ itemId, lang }: { itemId: string; lang: "ru" | "en" }) {
+  const t = useTheme();
+  const settle = useRef(new Animated.Value(t.reduceMotion ? 0 : 6)).current;
+  useEffect(() => {
+    if (t.reduceMotion) {
+      settle.setValue(0);
+      return;
+    }
+    const animation = Animated.timing(settle, {
+      toValue: 0, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [settle, t.reduceMotion]);
+  return <Animated.View style={{ alignItems: "center", gap: 8, transform: [{ translateY: settle }] }} accessibilityLiveRegion="polite">
+    <DojoItemArtwork itemId={itemId} size={152} />
+    <Txt variant="cardTitle" style={{ textAlign: "center" }}>{dojoItemName(itemId, lang)}</Txt>
+    <Txt variant="secondary" color={t.c.ink2}>{learningLoopCopy(lang).newPiece}</Txt>
+  </Animated.View>;
+}

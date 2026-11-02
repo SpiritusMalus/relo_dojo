@@ -1,0 +1,47 @@
+{
+  "asset": "sensei-atlas.png",
+  "medium": "Graphite and transparent watercolor",
+  "generation": {
+    "tool": "Built-in image_gen",
+    "mode": "reference-guided generation",
+    "transparent_background": true,
+    "prompt": "Use case: illustration-story.\nAsset type: production transparent sprite atlas for a mobile English-learning app's adult mentor portrait, replacing a geometric cartoon mascot.\nPrimary request: create ONE square transparent PNG atlas with exactly 16 isolated hand-drawn graphite-and-watercolor bust portraits in a mechanically regular 4 columns x 4 rows grid. Request 2048 x 2048 px, each cell exactly 512 x 512 px, equal framing and equal scale throughout. No text, UI, panel lines, separators, cards, backgrounds, logos or watermark.\nInput image 1 is STYLE AND CHARACTER REFERENCE ONLY: keep the natural ordinary adult man in his late thirties / early forties with wavy slightly messy medium-dark hair, natural face with small smile and short beard; use the same lightly unfinished pencil marks and restrained translucent watercolor washes. Extract no room, furniture or paper backdrop from the reference.\nStyle/medium: genuine warm graphite observational sketch with varied fine pencil contours and subtle warm umber, pale skin, and olive watercolor wash, visible individual sketch marks; adult human anatomy and proportions, approachable calm teacher. Flat transparent cutout around portrait. No glossy rendering, no vector shapes, no geometric cartoon, no huge eyes, no toddler head, no heroic ninja or wizard.\nComposition/framing: head and upper shoulders facing front with a slight natural three-quarter turn to viewer's left. Each cell is a square. In EVERY cell the head is centered at x=256 and y=230 relative to the cell; hair top near y=40; upper shoulders extend from y=345 to y=490. Portrait must fill about 80% of cell height. All outer empty space truly transparent, including between portraits. Each silhouette is fully inside its own cell with at least 20 px empty padding. Keep all 16 heads the same scale and positions so runtime cropping can choose any cell without clipping. Skin is not surrounded by a circle. No headbands or ribbons: the app adds a progress ribbon below.\nCOLUMNS left to right are the SAME mentor with four cosmetic variants, preserved consistently across all rows:\n1 CLASSIC: reference man, dark warm brown tousled hair, ordinary short dark beard, light warm natural skin, muted olive overshirt and cream tee.\n2 SAGE: same man with silver-white hair and visibly fuller silver-white beard (not just moustache), slightly older, same warm natural skin, muted olive overshirt and cream tee. No hat or accessories.\n3 RONIN: same man with near-black hair, warmer slightly more sun-browned skin, small healed diagonal scar beside the OUTER eye on viewer's right that reads at small scale, same olive overshirt and cream tee. No weapon, no aggressive expression.\n4 SAKURA: same man with very dark brown hair and one small hand-painted pale pink five-petal cherry blossom tucked at viewer's left temple; same short beard and skin as classic, same olive overshirt and cream tee. Blossom stays visible in every row.\nROWS top to bottom are four subtle expressions, consistent left to right:\n1 HAPPY: welcoming soft closed-mouth smile, attentive eyes, neutral head tilt.\n2 CHEER: warmer broader smile, eyes softly narrowed with pleased encouragement; understated adult joy, mouth only slightly open.\n3 THINK: small pensive smile, one eyebrow slightly raised, gaze slightly upward, head tilted just a little. No hand or prop.\n4 SAD: quiet reflective sympathetic expression, softened brows and relaxed closed mouth, no tears, no disapproval or shame.\nConstraints: strict equal 4x4 cell layout and row/column ordering. No duplicate or missing cell. Maintain natural face identity, garment, scale, pencil treatment, and transparent cutout across all cells. Rich enough face detail at 180 px but clear silhouette when cropped to 44 px. The 16 portraits are the entire image, nothing else."
+  },
+  "reference": {
+    "role": "Owner-approved watercolor direction and adult mentor identity",
+    "name": "sketch-1-watercolor.png"
+  },
+  "atlas": {
+    "width": 1254,
+    "height": 1254,
+    "columns": [
+      "classic",
+      "sage",
+      "ronin",
+      "sakura"
+    ],
+    "rows": [
+      "happy",
+      "cheer",
+      "think",
+      "sad"
+    ],
+    "cropping": "Equal normalized cells; native Image at 4 × display size, overflow hidden. Fractional source cell boundaries are intentional."
+  },
+  "progressMarker": "Native SVG cloth ribbon uses current Belt.color, edge, knot and ink; avoids covering the painted portrait with a synthetic headband.",
+  "paletteContract": "The shipped catalog variants have painted palettes. The existing visual.accessory selects the catalog appearance for both equipped skins and explicit Wardrobe previews.",
+  "alphaVerification": {
+    "mode": "RGBA",
+    "alphaRange": [
+      0,
+      255
+    ],
+    "fullyTransparentPixels": 382341,
+    "totalPixels": 1572516,
+    "visibleBoundsThreshold": 32,
+    "visibleBoundsPerCell": "All 16 portraits fit equal cells; about 16 px side and 8 px top padding.",
+    "edgeNote": "Generated RGB specks below alpha 8 may appear vivid in viewers that ignore alpha. None are opaque; asset preserved without pixel editing."
+  },
+  "sha256": "3000ddd80e384576ad24143cd1fb39219306a185735d73e0aa761b8bf5c0fdbc",
+  "promptMetadata": "UTF-8 iTXt impeccable:prompt; pixel data unchanged"
+}

@@ -126,15 +126,23 @@ components:
 
 **Creative North Star: "A calm dojo with game progression"**
 
-The owner selected this direction on 2026-10-31. It refines the existing torii,
-Sensei, belt and scroll identity. Warm paper and readable ink support a short,
-focused training ritual. The filled bamboo action leads to practice; earned belts
-and a small reward reveal give progress a physical, recognisable form.
+Warm paper and readable ink support a short, focused learning ritual. The owner
+selected graphite and light watercolor study 1 as the working art direction on
+2026-11-02, with loose ink study 3 as a secondary reference. The warmth and layout
+of concept A remain useful; its glossy generated imagery was rejected.
+
+The room, adult mentor and collectible desk objects use uneven graphite contours,
+sparse watercolor washes and open paper. They sit beside real native text and
+controls. The filled bamboo action leads to practice; earned belts and confirmed
+items give progress a recognisable physical form. This document records the
+implemented source contract; current native finish acceptance is tracked separately
+in `.impeccable/surfaces/mobile.md`.
 
 **Key Characteristics:**
 
-- Warm neutral surfaces, restrained bamboo action colour and legible secondary ink.
-- Existing belt colours remain meaningful progression markers.
+- Airy graphite and watercolor art, with an ordinary adult mentor and restrained expressions.
+- Warm native surfaces, legible ink and bamboo actions surrounding the painting.
+- Earned belts and separately placed objects reflect actual progression.
 - Standard native navigation, spacious controls and clear recovery states.
 - Rewards acknowledge practice without competing with the lesson.
 
@@ -147,27 +155,38 @@ scheme. Dark mode uses warm charcoal with lighter bamboo and dark on-primary ink
 it is a separately resolved palette. The frontmatter records reused primitives;
 the complete theme also owns soft status fills and the remaining surface steps.
 
+The room is deliberately an opaque ivory-paper painting in both themes. Its paper
+and painted light do not become a dark scene. Surrounding native text, navigation,
+rows, controls and feedback use the selected theme. Transparent item and mentor
+edges allow the surrounding scene or native surface to show through; do not add
+white rectangles behind these cutouts.
+
 Light ink on paper measures 11.96:1, secondary ink 5.93:1 and muted ink 4.72:1.
 White on the light primary is 6.91:1. Dark on-primary ink measures 7.50:1. These are
-token-pair checks; verify each composed native screen too.
+recorded token-pair checks, not acceptance of the current composed native screens.
 
-Belts retain their existing white/yellow/orange/green/blue/black swatches. Use them
-on knots, racks and small course markers, rather than as large reading surfaces.
-The launcher reuses the existing torii vector with a flat bamboo ground and gold
-step; the gold mark is an accent rather than text.
+Belts retain their existing white/yellow/orange/green/blue/black swatches. The
+portrait's native cloth ribbon uses the real earned belt's cloth, edge, knot and
+ink values. Belt names and progress remain native text. The launcher retains the
+existing torii vector with a flat bamboo ground and gold step.
+
+**The Painting Rule.** The room keeps its ivory paper in light and dark mode;
+readable app chrome follows the active theme.
 
 ## Typography
 
-Zen Maru Gothic carries the existing rounded display voice. Hanken Grotesk carries
-body and controls; JetBrains Mono is reserved for English examples/code or measured
-values. Font weights are encoded in the loaded font family; do not add `fontWeight`
-to a custom family. Native text retains React Native font scaling and OS glyph
-fallbacks, including Cyrillic fallback where the selected face has no glyph.
+Zen Maru Gothic carries the rounded display voice. Hanken Grotesk carries body and
+controls; JetBrains Mono is reserved for English examples/code or measured values.
+Font weights are encoded in the loaded font family; do not add `fontWeight` to a
+custom family. Native text retains React Native font scaling and OS glyph fallbacks,
+including Cyrillic fallback where the selected face has no glyph.
 
 The frontmatter maps native `hero` to display, `screenTitle` to headline and
 `cardTitle` to title. Body strong uses the semibold face; shared Button labels use
 the bold UI face. Button labels default to normal case, with uppercase an explicit
-caller option. Avoid adding display fonts to data/control labels.
+caller option. Exercise text, answer feedback, item names, prices and progress are
+real native text, never lettering baked into an illustration. Do not substitute a
+handwriting face for instructional reading.
 
 **The Encoded Weight Rule.** Native custom-font families already encode weight.
 The frontmatter records the portable family and weight; native components select
@@ -181,18 +200,25 @@ Preserve safe-area and keyboard insets. Scroll content must leave space below th
 last action; the consent route includes its bottom safe area explicitly. Frontmatter
 pixel strings represent the source's logical native units, not physical pixels.
 
+Home places the learning heading, description and one filled next action directly
+on the page, without an outlined hero card. The compact painted room follows the
+action and extends to the screen edges. Its native caption names My Dojo and shows
+confirmed progress. My Dojo uses the same composition in a full view, followed by
+the next item, practice action and collection. Keep these screen-specific details
+in `.impeccable/surfaces/mobile.md`; they do not require every screen to use a room.
+
 The three-tab bar height is `ceil(48 + 16 × fontScale) + bottomInset`. Its active
 highlight surrounds the icon (52 × 32), while the label remains below it. Preserve
 the scaling formula and safe-area padding rather than fixing a screenshot height.
-Route-specific hierarchy and acceptance evidence live in
-`.impeccable/surfaces/mobile.md`.
 
 ## Elevation & Depth
 
 Ordinary cards and mode rows use one quiet outline and tonal surface, with no
 shadow. The shared Button and Daily Mix retain a two-unit lower border that becomes
 one unit during a one-unit downward press. The translation popover uses the theme's
-large overlay shadow; light and dark resolve it separately.
+large overlay shadow; light and dark resolve it separately. Graphite overlaps and
+light watercolor supply depth inside the artwork; do not put raised cards or heavy
+frames around each painted object.
 
 **The Quiet Surface Rule.** Ordinary cards and mode rows separate content with tone
 and an outline. Do not spread the overlay shadow across those rows.
@@ -200,13 +226,15 @@ and an outline. Do not spread the overlay shadow across those rows.
 ## Shapes
 
 Controls use 12-unit corners, cards 16 and the belt summary 20. Pills identify small
-chips or badges. Belt knots, the torii and the drawn scroll are established domain
-shapes. Icons use the shared two-unit rounded line system.
+chips or badges. The torii and scroll remain established domain shapes. Native icons
+use the shared two-unit rounded line system. These precise control shapes coexist
+with irregular painted contours; the room and mentor are raster artwork, not an
+SVG scene or a new geometric mascot.
 
 ## Components
 
-The sidecar's self-contained HTML/CSS samples translate native components for the
-design panel. Browser hover and focus-visible rules belong to that preview;
+The sidecar's existing self-contained HTML/CSS samples translate native primitives
+for the design panel. Browser hover and focus-visible rules belong to that preview;
 React Native components remain the authority for shipped interaction states.
 
 - **Primary Button:** filled bamboo, contrasting on-primary text, minimum target 48,
@@ -214,8 +242,9 @@ React Native components remain the authority for shipped interaction states.
   its caller. Disabled colours use the surface track, strong outline and muted ink.
 - **Ghost Button:** parchment with a strong outline; pressed state uses the
   secondary paper surface. It shares the primary control's bold label and target.
-- **Daily Mix:** full-width filled bamboo action, drawn bolt, title/subtitle and
-  drawn chevron. It uses the card radius and 16-unit padding.
+- **Daily Mix:** filled bamboo action in Train, drawn bolt, title/subtitle and drawn
+  chevron. It uses the card radius and 16-unit padding. Home presents its current
+  learning goal as the filled action and offers other modes as secondary text actions.
 - **Mode row:** quiet outlined native row, one consistent icon, readable title and
   subtitle, chevron. It is secondary to Daily Mix.
 - **Card:** parchment, one outline, 20 padding and 16 corners.
@@ -233,24 +262,61 @@ React Native components remain the authority for shipped interaction states.
   claim measured CEFR mastery.
 - **Topic rows:** unstarted topics show a dash and explanatory text, without invented
   accuracy. Display skill estimates as estimates.
+- **Painted room:** `DojoScene` composes `mobile/assets/sketch/room.png`, one Sensei
+  portrait and three independently equipped item layers. It scales a 360 × 270
+  composition; full framing is 4:3 and compact framing is 1.8:1 with a 28-unit top
+  crop. The light, display and plant slots keep their existing eight catalog IDs.
+  Selection previews do not alter confirmed equipment. Unknown IDs fall back to
+  that slot's starter item. `DojoItemArtwork` crops equal cells of the transparent
+  3 × 3 `items-atlas.png`; the final cell is unused.
+- **Sensei:** `WatercolorSensei` crops equal cells of the transparent 4 × 4
+  `sensei-atlas.png`. Columns are Classic, Sage, Ronin and Sakura; rows are happy,
+  cheer, think and sad. Equipped cosmetic selection and explicit Wardrobe previews
+  use the same `SenseiVisual` contract. A small native cloth ribbon is 21% of the
+  portrait's width and sits at its lower right, clear of the painted face. It shows
+  the passed earned belt; it is not a painted headband or a cosmetic promotion.
+- **Answer feedback:** the shared ResultPanel uses a 72-unit mentor, cheer for a
+  correct answer and think for an incorrect answer. The native heading, correct
+  answer, XP and explanation carry the meaning. The portrait never replaces them.
+- **Earned item:** completion shows the exact item ID from a confirmed save receipt
+  through `DojoItemArtwork`, its localized name and a direct My Dojo action. Saving,
+  pending and expired states remain distinct; a preview is not an award.
 - **Scroll:** server-authoritative result, 220ms reveal; reduced motion reveals
   immediately. Distinguish the exact daily-cap code from network uncertainty. Never
   automatically retry a possibly credited reward.
-- **Motion:** tab mascots rest. Keep existing progress feedback; the completion
-  reward is the authored celebration, with reduced motion honoured.
+- **Motion:** item changes use a 240ms fade and four-unit settle; completion artwork
+  uses a 240ms settle. Reduced motion shows both immediately. Sensei rests by
+  default; explicit bobbing remains optional and stops with reduced motion.
+
+The shipping art lives in `mobile/assets/sketch/`: room, item atlas and mentor
+atlas, with adjacent JSON manifests. The room and item atlas have exact companion
+`.prompt.txt` files and an embedded `impeccable:prompt` PNG entry. The mentor
+manifest records its exact generation prompt, reference role, cell mapping and
+alpha verification. These are generated assets made with OpenAI's built-in image
+generation; the graphite and watercolor descriptions specify their visual medium.
+Preserve this provenance when replacing or copying artwork, and verify the actual
+file and atlas map rather than the requested output size alone.
+
+**The State Stays Native Rule.** Paint the setting and objects, never ownership,
+prices, player identity, progress numbers or reward claims. Native state selects
+individual artwork layers and native text explains the current result.
 
 ## Do's and Don'ts
 
 ### Do
 
-- **Do** keep the next useful learning action findable in the first viewport.
-- **Do** use existing belt and scroll mechanics without inventing mastery or reward claims.
+- **Do** keep the next useful learning action findable before the room.
+- **Do** preserve the airy graphite and watercolor treatment, transparent cutout edges and adult mentor proportions.
+- **Do** use existing belt, equipment and scroll state without inventing mastery or reward claims.
 - **Do** verify light, dark and enlarged type in a native emulator or device.
 - **Do** preserve native Back, safe areas, keyboard access and clear loading/error states.
+- **Do** retain exact generation provenance and atlas mappings alongside shipping art.
 
 ### Don't
 
+- **Don't** return to the rejected glossy, smooth 3D or geometric mascot treatment.
+- **Don't** bake UI text, earned objects, belt progression or account state into a room painting.
 - **Don't** put promotions, reward pressure or a long catalogue ahead of the daily practice action.
-- **Don't** replace the quiet training-mode surfaces with saturated fills, gradients or repeated shadows.
+- **Don't** replace quiet training-mode surfaces with saturated fills, gradients or repeated shadows.
 - **Don't** present estimated skill or unstarted topics as earned proficiency.
-- **Don't** replace the established dojo with a new brand or generic emoji icon vocabulary.
+- **Don't** replace the established dojo with generic emoji icons or a handwriting reading face.

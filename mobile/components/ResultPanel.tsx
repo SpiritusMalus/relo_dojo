@@ -4,6 +4,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import type { Exercise, ExplainResult } from "../services/api";
 import { useProgress } from "../store/progress";
+import { beltProgress } from "../store/dojo";
 import { learningLoopCopy } from "../i18n/learningLoopCopy";
 import { useI18n } from "../store/i18n";
 import type { Result } from "../store/useExerciseCheck";
@@ -32,14 +33,12 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
       style={[
         styles.panel,
         {
-          backgroundColor: result.correct ? t.c.accentSoft : t.c.badSoft,
-          borderColor: result.correct ? t.c.accent : t.c.bad,
-          borderRadius: t.spacing.radius,
+          borderColor: t.c.line,
         },
       ]}
     >
       <View style={styles.panelHead}>
-        <Sensei size={44} mood={result.correct ? "cheer" : "think"} />
+        <Sensei size={72} belt={beltProgress(progress).belt} mood={result.correct ? "cheer" : "think"} />
         <View style={{ flex: 1 }}>
           <Txt variant="cardTitle" color={result.correct ? t.c.accent : t.c.bad}>
             {result.correct ? tr("result.correct") : tr("result.wrong")}
@@ -69,7 +68,7 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
       {!!result.tip && <Txt variant="secondary" color={t.c.ink2}>{result.tip}</Txt>}
 
       {canExplain && (
-        <Pressable onPress={onExplain} disabled={explainLoading} accessibilityRole="button" accessibilityLabel={tr("result.explain")} accessibilityState={{ disabled: explainLoading, busy: explainLoading }} style={{ paddingVertical: 6 }}>
+        <Pressable onPress={onExplain} disabled={explainLoading} accessibilityRole="button" accessibilityLabel={tr("result.explain")} accessibilityState={{ disabled: explainLoading, busy: explainLoading }} style={{ paddingVertical: 12, minHeight: 48, justifyContent: "center" }}>
           {explainLoading ? (
             <ActivityIndicator color={t.c.accent} />
           ) : (
@@ -90,13 +89,13 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
 // The correct-answer reveal. Multi-line answers (one element per line — match-pairs sends
 // "left → right" rows) render as a list; when the server's per-element marks line up, each row
 // gets its ✓/✗ so the learner sees WHICH rows went wrong, not just "2/4". Single-line answers
-// keep the compact mono style.
+// keep the answer in the same readable body face as the exercise.
 function CorrectAnswer({ result }: { result: Result }) {
   const t = useTheme();
   const lines = result.correct_answer.split("\n").filter((l) => l.trim());
   if (lines.length < 2) {
     return (
-      <Txt variant="mono" color={t.c.ink} style={{ marginTop: 4 }}>
+      <Txt variant="bodyStrong" color={t.c.ink} style={{ marginTop: 4, fontSize: 18, lineHeight: 26 }}>
         {result.correct_answer}
       </Txt>
     );
@@ -121,7 +120,7 @@ function CorrectAnswer({ result }: { result: Result }) {
 }
 
 const styles = StyleSheet.create({
-  panel: { borderWidth: 2, padding: 16, gap: 8 },
+  panel: { borderTopWidth: 1, paddingTop: 18, paddingBottom: 12, gap: 12 },
   panelHead: { flexDirection: "row", alignItems: "center", gap: 12 },
   answerList: { marginTop: 4, gap: 6 },
   answerRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
