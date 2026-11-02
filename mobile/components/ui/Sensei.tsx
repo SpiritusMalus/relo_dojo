@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing } from "react-native";
-import { belts, useTheme, type Belt } from "../../theme/theme";
+import { useTheme, type Belt } from "../../theme/theme";
 import { useEquippedSenseiVisual } from "../../store/cosmeticsStore";
 import type { SenseiVisual } from "../../store/cosmetics";
 import WatercolorSensei, { type Mood } from "./WatercolorSensei";
@@ -9,12 +9,12 @@ export type { Mood } from "./WatercolorSensei";
 
 // Keep one appearance contract for feedback, the room, and Wardrobe try-on previews.
 export default function Sensei({
-  belt = belts[0],
   size = 88,
   mood = "happy",
   bob = false,
   visual,
 }: {
+  /** @deprecated Kept for existing callers; the learner's belt is shown separately. */
   belt?: Belt;
   size?: number;
   mood?: Mood;
@@ -45,7 +45,7 @@ export default function Sensei({
 
   return (
     <Animated.View style={{ width: size, height: size, transform: [{ translateY: y }] }}>
-      <WatercolorSensei belt={belt} size={size} mood={mood} visual={visual ?? equipped} />
+      <WatercolorSensei size={size} mood={mood} visual={visual ?? equipped} />
     </Animated.View>
   );
 }

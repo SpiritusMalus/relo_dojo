@@ -1,7 +1,7 @@
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import type { ReactElement } from "react";
 import { Animated, Image, StyleSheet, View } from "react-native";
-import { Path } from "react-native-svg";
+import Svg from "react-native-svg";
 import Sensei, { type Mood } from "../ui/Sensei";
 import { belts } from "../../theme/theme";
 import { CATALOG, type SenseiVisual } from "../../store/cosmetics";
@@ -56,10 +56,10 @@ test("every catalog skin and feedback mood selects its own complete, equally siz
   expect(selected.size).toBe(16);
 });
 
-test("a portrait without an earned-belt override stays neutral white", () => {
+test("the mentor portrait has no learner progress overlay", () => {
   const screen = render();
-  const ribbon = screen.root.findAll(node => node.type === Path);
-  expect(ribbon[0].props.fill).toBe(belts[0].color);
+  expect(screen.root.findAll(node => node.type === Svg)).toHaveLength(0);
+  expect(portrait(screen).props.source).toEqual({ uri: "sensei-atlas" });
   act(() => screen.unmount());
 });
 
@@ -88,13 +88,12 @@ test("a Classic preview clears the equipped spring sheet and closing it restores
   act(() => screen.unmount());
 });
 
-test("belt progression remains visible on every portrait through its cloth, edge and fold", () => {
+test("legacy learner belt props leave the mentor appearance unchanged", () => {
   const screen = render({ size: 180, visual: CATALOG.sensei_sakura.visual });
   for (const belt of belts) {
     act(() => screen.update(<Sensei size={180} belt={belt} visual={CATALOG.sensei_sakura.visual} />));
-    const ribbon = screen.root.findAll(node => node.type === Path);
-    expect(ribbon[0].props).toMatchObject({ fill: belt.color, stroke: belt.edge });
-    expect(ribbon[1].props.fill).toBe(belt.knot);
+    expect(screen.root.findAll(node => node.type === Svg)).toHaveLength(0);
+    expect(portrait(screen).props.source).toEqual({ uri: "spring-sensei-atlas" });
     expect(cropStyle(screen)).toMatchObject({ width: 360, height: 360, left: -0, top: -0 });
   }
   act(() => screen.unmount());

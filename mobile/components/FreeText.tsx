@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { StyleSheet, TextInput, View } from "react-native";
 import type { ExerciseProps } from "./types";
 import DataGuard from "./ui/DataGuard";
+import FontScaleText from "./ui/FontScaleText";
 
 // The one typing exercise (rare/advanced). LLM-graded via the parent.
 export default function FreeText({ exercise, locked, onChange }: ExerciseProps) {
@@ -15,7 +16,7 @@ export default function FreeText({ exercise, locked, onChange }: ExerciseProps) 
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.sentence}>{exercise.text ?? ""}</Text>
+      <FontScaleText style={styles.sentence}>{exercise.text ?? ""}</FontScaleText>
       <TextInput
         style={styles.input}
         placeholder="Your answer"

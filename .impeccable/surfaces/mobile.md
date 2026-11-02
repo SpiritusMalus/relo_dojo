@@ -46,9 +46,9 @@ not the room layout. `DojoItemArtwork` selects these equal-cell atlas positions:
 | Plant, row 3 | `dojo_plant_seedling`, `dojo_plant_bamboo`, empty |
 
 The separate 3 × 1 `chapters-atlas.png` supplies three more display variants, left to right:
-`dojo_display_introduction` (open doorway), `dojo_display_experience` (winding path), and
+`dojo_display_introduction` (open window), `dojo_display_experience` (winding path), and
 `dojo_display_clarification` (two cups). Each uses the existing display placement. The native
-item names are Open door, The path and Conversation, localized into Russian.
+item names are Open window, The path and Conversation, localized into Russian.
 
 Below the room, show one next item with its requirement and a practice action before the
 collection. Slot tabs and quiet native rows distinguish selected preview, placed, owned and
@@ -103,11 +103,10 @@ fourth column is unused. `SenseiVisual.accessory` remains the catalog variant di
 an explicit Wardrobe visual override follows
 the same mapping as equipped cosmetics.
 
-A native cloth ribbon at the portrait's lower right uses the passed earned belt's cloth, edge,
-knot and ink values. Its width is 21% of the portrait; it stays away from the painted face.
-The painting contains no synthetic headband. Belt state remains separate from skin and expression.
-Warm-up completion still presents a preliminary estimate with a white-belt mentor; it does not
-award the estimated belt, and worn progression remains subject to the earned-belt cap.
+The mentor portrait has no student belt ribbon. Belt state lives in separate native knots,
+names and progress controls, independent of mentor skin and expression. Warm-up completion
+shows a preliminary estimate without awarding the estimated belt; worn progression remains
+subject to the earned-belt cap.
 
 ResultPanel shows a 72-unit mentor beside native feedback: cheer for correct, think for incorrect.
 The correct answer, explanation, XP and recovery actions remain readable native content. Keep
@@ -220,3 +219,20 @@ acceptance, physical-device audio/performance, iOS and tablet acceptance are not
 established by the screenshot review.
 
 No reward rates, prices, paid features or earned-progression rules are defined here.
+
+
+## Live Android font changes — 2026-11-02
+
+The Android config plugin handles fontScale without recreating MainActivity. The callback refreshes
+native metrics and synchronously measures the existing root at its actual current viewport before
+DeviceInfo notifies JS. RN0.81.5's intended font-layout flag supplies the real surface multiplier.
+Android display-only Text leaves refresh by that real scale, entering the normal React layout path;
+the engine can otherwise leave its root clean after dirtying measurable descendants. Inputs,
+providers, screen state and navigation stay mounted. Text selection in a replaced display label
+may reset; editable TextInput selection/focus is preserved and is checked natively.
+
+The pinned initializer preserves SoLoader, native libraries, private architecture flags, Stable
+provider values and edge-to-edge order. Version/source guards reject silent SDK drift. No artificial
+cache salt, manual font multiplication, disabled scaling or root/provider/navigation remount is used.
+Native acceptance covers foreground scale changes in both directions, Settings/background return,
+input draft/caret/focus, Back behavior and cold startup before release.

@@ -1,5 +1,6 @@
 import { Text, type StyleProp, type TextStyle } from "react-native";
 import { useTheme, type TypeVariant } from "../../theme/theme";
+import FontScaleText from "./FontScaleText";
 import { useTranslator } from "./TranslationPopover";
 
 // Inline English text whose every word is long-pressable → its translation pops up (see
@@ -25,7 +26,7 @@ export default function TranslatableText({
   const parts = text.split(/(\s+)/);
 
   return (
-    <Text style={[t.type[variant], { color: color ?? defaultColor }, style]}>
+    <FontScaleText style={[t.type[variant], { color: color ?? defaultColor }, style]}>
       {parts.map((part, i) =>
         /\S/.test(part) ? (
           <Text
@@ -41,6 +42,6 @@ export default function TranslatableText({
           part
         )
       )}
-    </Text>
+    </FontScaleText>
   );
 }
