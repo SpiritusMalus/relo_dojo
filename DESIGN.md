@@ -201,10 +201,10 @@ last action; the consent route includes its bottom safe area explicitly. Frontma
 pixel strings represent the source's logical native units, not physical pixels.
 
 Home places the learning heading, description and one filled next action directly
-on the page, without an outlined hero card. The compact painted room follows the
-action and extends to the screen edges. Its native caption names My Dojo and shows
-confirmed progress. My Dojo uses the same composition in a full view, followed by
-the next item, practice action and collection. Keep these screen-specific details
+on the page, without an outlined hero card. A compact native My Dojo row follows the action, with a 68-unit collectible thumbnail
+and its matching next-goal progress or equipped-item name. The full painting belongs in
+My Dojo, followed by the next item, practice action and collection. Chapter completion
+opens the earned item selected, with Place/Placed directly beneath the main painting. Keep these screen-specific details
 in `.impeccable/surfaces/mobile.md`; they do not require every screen to use a room.
 
 The three-tab bar height is `ceil(48 + 16 × fontScale) + bottomInset`. Its active
@@ -268,8 +268,9 @@ React Native components remain the authority for shipped interaction states.
   claim measured CEFR mastery.
 - **Topic rows:** unstarted topics show a dash and explanatory text, without invented
   accuracy. Display skill estimates as estimates.
-- **Painted room:** `DojoScene` composes `mobile/assets/sketch/room.png`, one Sensei
-  portrait and three independently equipped item layers. It scales a 360 × 270
+- **Painted room:** `DojoScene` composes `mobile/assets/sketch/room.png` and three independently
+  equipped item layers. The central enlarged scroll leads the collection; no mentor
+  portrait is placed on the desk. It scales a 360 × 270
   composition; full framing is 4:3 and compact framing is 1.8:1 with a 28-unit top
   crop. The light, display and plant slots retain their eight original catalog IDs
   and add three chapter-earned display variants in the same display position.
@@ -286,7 +287,8 @@ React Native components remain the authority for shipped interaction states.
   use the same `SenseiVisual` contract. A small native cloth ribbon is 21% of the
   portrait's width and sits at its lower right, clear of the painted face. It shows
   the passed earned belt; it is not a painted headband or a cosmetic promotion.
-- **Answer feedback:** the shared ResultPanel uses a 72-unit mentor, cheer for a
+- **Answer feedback:** standard Build/Transform instructions contain native text only,
+  leaving the mentor for meaningful feedback. The shared ResultPanel uses a 72-unit mentor, cheer for a
   correct answer and think for an incorrect answer. The native heading, correct
   answer, XP and explanation carry the meaning. The portrait never replaces them.
 - **Earned item:** completion shows the exact item ID from a confirmed save receipt

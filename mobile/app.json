@@ -2,7 +2,7 @@
   "expo": {
     "name": "Relo Dojo",
     "slug": "relo-dojo",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "scheme": "relodojo",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,7 +20,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 6
+      "versionCode": 7
     },
     "web": {
       "favicon": "./assets/favicon.png"

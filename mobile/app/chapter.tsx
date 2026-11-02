@@ -183,7 +183,9 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
           </View>
           <Txt variant="cardTitle">{dojoItemName(itemId, lang)}</Txt>
           <Txt variant="body" color={t.c.ink2}>{copy.saved}</Txt>
-          <Button label={copy.openDojo} onPress={() => router.push("/dojo")} />
+          <Button label={copy.openDojo} onPress={() => {
+            if (current()) router.push({ pathname: "/dojo", params: { reward: itemId, epoch: String(scope.epoch) } });
+          }} />
           <Button label={copy.otherChapters} variant="ghost" onPress={() => router.replace("/chapters")} />
         </View> : <>
           {run?.exercise && <>

@@ -66,8 +66,9 @@ export default function ChaptersScreen() {
         const summary = visible.catalog?.chapters.find((item) => item.id === id);
         const available = guest || !!summary;
         const itemId = summary?.keepsake_id ?? `dojo_display_${id}`;
+        const rewardLabel = copy.rewardLabel(dojoItemName(itemId, lang));
         return <Pressable key={id} disabled={!available} accessibilityRole="button"
-          accessibilityLabel={`${chapter.title}. ${summary ? copy.progress(summary) : copy.path}`}
+          accessibilityLabel={`${chapter.title}. ${chapter.goal} ${summary ? copy.progress(summary) : copy.path}. ${rewardLabel}`}
           onPress={() => { if (isCurrentAccountScope(scope)) router.push({ pathname: "/chapter", params: { id } }); }}
           style={({ pressed }) => [styles.row, { borderColor: t.c.line, backgroundColor: pressed ? t.c.surface2 : "transparent", opacity: available ? 1 : 0.5 }]}>
           <View style={styles.art}><DojoItemArtwork itemId={itemId} size={74} /></View>
@@ -77,7 +78,7 @@ export default function ChaptersScreen() {
             <Txt variant="caption" color={summary?.completed ? t.c.accent : t.c.ink3}>
               {summary ? copy.progress(summary) : copy.path}
             </Txt>
-            <Txt variant="caption" color={t.c.ink3}>{dojoItemName(itemId, lang)}</Txt>
+            <Txt variant="caption" color={t.c.ink3}>{rewardLabel}</Txt>
           </View>
           <Icon name={summary?.completed ? "check" : "chevron"} size={20} color={summary?.completed ? t.c.accent : t.c.ink3} />
         </Pressable>;

@@ -3,12 +3,11 @@ import { Animated, Pressable, StyleSheet, View, type GestureResponderEvent } fro
 import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
-import Sensei from "./ui/Sensei";
 import Txt from "./ui/Txt";
 import TranslatableText from "./ui/TranslatableText";
 import { useTranslator } from "./ui/TranslationPopover";
 
-// Build-the-sentence (RU → EN). Prompt card (mascot + RU) → dashed answer track → word bank.
+// Build-the-sentence (RU → EN). Source prompt → dashed answer track → word bank.
 // Tap a bank tile to place it; tap a placed tile to remove. Submittable once enough tiles for the
 // full answer are placed — the bank may hold distractor traps that are meant to stay unused.
 // Reused for transform-the-sentence: same tile interaction + answer shape, only the prompt header
@@ -66,7 +65,6 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
     <View style={{ gap: t.spacing.gap }}>
       {/* Prompt card */}
       <View style={[styles.prompt, { backgroundColor: t.c.surface2, borderColor: t.c.line, borderRadius: t.spacing.radius }]}>
-        <Sensei size={48} mood="think" />
         <View style={{ flex: 1 }}>
           <Txt variant="label">{exercise.instruction || tr(isTransform ? "ex.rewrite" : "ex.translate")}</Txt>
           {isTransform ? (

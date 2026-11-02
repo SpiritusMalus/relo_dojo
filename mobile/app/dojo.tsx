@@ -1,15 +1,13 @@
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import { useAuth } from "../store/auth";
 import { useWallet } from "../store/wallet";
-import { useProgress } from "../store/progress";
-import { beltProgress } from "../store/dojo";
-import { captureAccountScope, subscribeAccountScope, type AccountScope } from "../store/accountScope";
+import { captureAccountScope, isCurrentAccountScope, subscribeAccountScope, type AccountScope } from "../store/accountScope";
 import { useDojoRoom } from "../store/dojoRoom";
 import { dojoCopy, dojoDays, dojoItemName, dojoItemChapter, dojoChapterReward } from "../store/dojoRoomCopy";
 import type { DojoCatalogItem, DojoSlot } from "../services/dojo";
@@ -28,15 +26,21 @@ export default function DojoScreen() {
   const copy = dojoCopy(lang);
   const { token } = useAuth();
   const wallet = useWallet();
-  const { progress } = useProgress();
-  const belt = beltProgress(progress).belt;
   const room = useDojoRoom();
   const router = useRouter();
+  const params = useLocalSearchParams<{ reward?: string; epoch?: string }>();
   const insets = useSafeAreaInsets();
   const scope = useSyncExternalStore(subscribeAccountScope, captureAccountScope, captureAccountScope);
   const [selection, setSelection] = useState<{ scope: AccountScope; slot: DojoSlot; id: string | null } | null>(null);
-  const slot = selection?.scope === scope ? selection.slot : "dojo_display";
-  const previewId = selection?.scope === scope ? selection.id : null;
+  // A completion link is a preview request, never an ownership or equip command.
+  // Its epoch fences navigation that was opened before the account changed.
+  const requestedReward = typeof params.reward === "string" && params.epoch === String(scope.epoch)
+    ? room.catalog.find((item) => item.id === params.reward && !!dojoItemChapter(item.id) && room.owned.includes(item.id))
+    : undefined;
+  const localSelection = selection?.scope === scope ? selection : null;
+  const rewardEntry = !!requestedReward && !localSelection;
+  const slot = localSelection?.slot ?? requestedReward?.slot ?? "dojo_display";
+  const previewId = localSelection ? localSelection.id : requestedReward?.id ?? null;
   const preview = room.catalog.find((item) => item.id === previewId);
   const shown = preview ? { ...room.equipped, [preview.slot]: preview.id } : room.equipped;
   const targetId = room.snapshot?.selected_target ?? room.nextMilestone?.itemId;
@@ -44,13 +48,13 @@ export default function DojoScreen() {
   const targetName = target ? dojoItemName(target.id, lang) : "";
   const chooseSlot = (next: DojoSlot) => setSelection({ scope, slot: next, id: null });
   const selectedItem = preview ?? room.catalog.find((item) => item.id === room.equipped[slot]);
-  const guest = !token || scope.owner === "guest";
+  const guest = !token || !scope.owner || scope.owner === "guest";
   const enabled = room.ready && !room.busy && !room.loading;
 
   useFocusEffect(useCallback(() => { void room.refresh(); }, [room.refresh]));
 
   async function commit(item: DojoCatalogItem) {
-    if (!enabled) return;
+    if (!enabled || !isCurrentAccountScope(scope)) return;
     const chapter = dojoItemChapter(item.id);
     if (chapter && !room.owned.includes(item.id)) {
       router.push({ pathname: "/chapter", params: { id: chapter.id } });
@@ -64,6 +68,24 @@ export default function DojoScreen() {
         await room.equip(item.id);
       } else await room.selectTarget(item.id);
     } catch { /* The provider reconciles uncertain writes and supplies a localized recovery state. */ }
+  }
+
+  function itemAction(item: DojoCatalogItem, showPreview: boolean) {
+    const owned = item.gate === "starter" || room.owned.includes(item.id);
+    const placed = room.equipped[item.slot] === item.id;
+    const insufficient = item.gate === "buy" && !owned && wallet.ready && wallet.coins < item.price;
+    const selectedTarget = room.snapshot?.selected_target === item.id;
+    const chapter = dojoItemChapter(item.id);
+    const label = room.busy ? copy.busy : placed ? copy.equipped : owned ? copy.equip
+      : chapter ? copy.openChapter : item.gate === "buy" ? `${copy.buy} ${item.price} ${copy.koku}` : selectedTarget ? copy.selected : copy.choose;
+    return <View style={{ gap: 10 }}>
+      {showPreview && preview && !placed && <DojoScene equipped={shown} compact accessibilityLabel={`${copy.selectedPreview}: ${dojoItemName(item.id, lang)}`} />}
+      <Button variant="ghost" label={label} onPress={() => void commit(item)}
+        disabled={!enabled || placed || insufficient || (!owned && item.gate === "buy" && !wallet.ready) || (!owned && item.gate === "achievement" && selectedTarget && !chapter)} />
+      {insufficient && <Txt variant="secondary">{copy.insufficient}</Txt>}
+      {!owned && item.gate === "buy" && !wallet.ready && <Txt variant="secondary">{copy.walletUnknown}</Txt>}
+      {room.error === "save" && <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert">{copy.error}</Txt>}
+    </View>;
   }
 
   return (
@@ -82,9 +104,10 @@ export default function DojoScreen() {
       <ScrollView contentContainerStyle={{ padding: t.spacing.pad, paddingTop: 12, paddingBottom: insets.bottom + 28, gap: 20 }} showsVerticalScrollIndicator={false}>
         <View style={{ gap: 8 }}>
           <View style={{ marginHorizontal: -t.spacing.pad }}>
-            <DojoScene equipped={shown} belt={belt} accessibilityLabel={copy.title} />
+            <DojoScene equipped={shown} accessibilityLabel={copy.title} />
           </View>
           {preview && <Txt variant="secondary" color={t.c.ink2}>{`${copy.selectedPreview}: ${dojoItemName(preview.id, lang)}`}</Txt>}
+          {rewardEntry && selectedItem && itemAction(selectedItem, false)}
         </View>
 
         {room.loading && !room.snapshot ? <ActivityIndicator color={t.c.accent} accessibilityLabel={copy.uncertain} /> : null}
@@ -154,25 +177,9 @@ export default function DojoScreen() {
               </Pressable>;
             })}
           </View>
-          {selectedItem && (() => {
-            const item = selectedItem;
-            const owned = item.gate === "starter" || room.owned.includes(item.id);
-            const placed = room.equipped[slot] === item.id;
-            const insufficient = item.gate === "buy" && !owned && wallet.ready && wallet.coins < item.price;
-            const selectedTarget = room.snapshot?.selected_target === item.id;
-            const chapter = dojoItemChapter(item.id);
-            const label = room.busy ? copy.busy : placed ? copy.equipped : owned ? copy.equip
-              : chapter ? copy.openChapter : item.gate === "buy" ? `${copy.buy} ${item.price} ${copy.koku}` : selectedTarget ? copy.selected : copy.choose;
-            return <View style={{ gap: 10 }}>
-              {preview && !placed && <DojoScene equipped={shown} belt={belt} compact accessibilityLabel={`${copy.selectedPreview}: ${dojoItemName(item.id, lang)}`} />}
-              <Button variant="ghost" label={label} onPress={() => void commit(item)}
-                disabled={!enabled || placed || insufficient || (!owned && item.gate === "buy" && !wallet.ready) || (!owned && item.gate === "achievement" && selectedTarget && !chapter)} />
-              {insufficient && <Txt variant="secondary">{copy.insufficient}</Txt>}
-              {!owned && item.gate === "buy" && !wallet.ready && <Txt variant="secondary">{copy.walletUnknown}</Txt>}
-            </View>;
-          })()}
+          {!rewardEntry && selectedItem && itemAction(selectedItem, true)}
         </View>}
-        {room.error === "save" && <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert">{copy.error}</Txt>}
+        {room.error === "save" && !selectedItem && <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert">{copy.error}</Txt>}
         {room.snapshot?.receipts.map((receipt) => <View key={receipt.id} style={{ gap: 8, paddingVertical: 12, borderTopWidth: 1, borderColor: t.c.line }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <DojoItemArtwork itemId={receipt.item_id} size={76} />

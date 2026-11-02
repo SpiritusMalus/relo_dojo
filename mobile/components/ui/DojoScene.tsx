@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, View } from "react-native";
-import { belts, useTheme, type Belt } from "../../theme/theme";
+import { useTheme } from "../../theme/theme";
 import DojoItemArtwork from "./DojoItemArtwork";
-import Sensei from "./Sensei";
 
 const ROOM = require("../../assets/sketch/room.png");
 const STARTERS = {
@@ -17,9 +16,9 @@ const SLOT_ITEMS = {
 };
 // Authored against a 360 × 270 room: all bases sit on the same desktop.
 const PLACES = [
-  { slot: "dojo_light", x: -1, y: 119, size: 108 },
-  { slot: "dojo_display", x: 209, y: 123, size: 108 },
-  { slot: "dojo_plant", x: 271, y: 123, size: 108 },
+  { slot: "dojo_light", x: 0, y: 107, size: 124 },
+  { slot: "dojo_display", x: 104, y: 83, size: 146 },
+  { slot: "dojo_plant", x: 250, y: 121, size: 108 },
 ] as const;
 
 function PlacedItem({ itemId, size }: { itemId: string; size: number }) {
@@ -44,9 +43,9 @@ function PlacedItem({ itemId, size }: { itemId: string; size: number }) {
   </Animated.View>;
 }
 
-/** The same painted room on Home and My Dojo; every equipped object remains its own layer. */
-export default function DojoScene({ equipped = {}, compact = false, accessibilityLabel, belt = belts[0] }: {
-  equipped?: Record<string, string>; compact?: boolean; accessibilityLabel?: string; belt?: Belt;
+/** The learner's collection: every equipped object remains its own layer. */
+export default function DojoScene({ equipped = {}, compact = false, accessibilityLabel }: {
+  equipped?: Record<string, string>; compact?: boolean; accessibilityLabel?: string;
 }) {
   const [width, setWidth] = useState(0);
   const scale = width / 360;
@@ -60,7 +59,6 @@ export default function DojoScene({ equipped = {}, compact = false, accessibilit
       {width > 0 && <View pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants">
         <Image source={ROOM} accessible={false} fadeDuration={0} resizeMode="stretch"
           style={{ position: "absolute", width, height: width * 0.75, top: -cropTop * scale }} />
-        <View style={place(69, 70)}><Sensei size={158 * scale} mood="happy" belt={belt} /></View>
         {PLACES.map(({ slot, x, y, size }) => {
           const candidate = equipped[slot];
           const itemId = SLOT_ITEMS[slot].includes(candidate) ? candidate : STARTERS[slot];
