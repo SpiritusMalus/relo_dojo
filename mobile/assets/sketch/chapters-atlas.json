@@ -1,0 +1,10 @@
+{
+  "asset": "chapters-atlas.png",
+  "generatedWith": "OpenAI built-in imagegen",
+  "medium": "graphite and transparent watercolor",
+  "use": "Production chapter keepsakes",
+  "reference": "items-atlas.png; owner-selected watercolor world",
+  "sha256": "1f29dcb752e0fa109d32d71c30c8bc77d2b7d22f064387b1abba5266ec637edc",
+  "layout": "3 by 1 equal square cells: introduction, experience, clarification",
+  "promptMetadata": "UTF-8 iTXt impeccable:prompt; pixel data unchanged"
+}

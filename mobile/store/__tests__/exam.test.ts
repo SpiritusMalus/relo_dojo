@@ -42,6 +42,13 @@ describe("examOffer", () => {
     expect(examOffer(withPractice(3.5, { beltEarned: 1 }))).toEqual({ target: 2, confirm: false });
   });
 
+  it("offers blue as the highest assessed belt and never promises a C2 exam", () => {
+    expect(examOffer(withPractice(5, { beltEarned: 3 }))).toEqual({ target: 4, confirm: false });
+    expect(examOffer(withPractice(5))).toEqual({ target: 4, confirm: true });
+    expect(examOffer(withPractice(5, { beltEarned: 4 }))).toBeNull();
+    expect(examOffer(withPractice(5, { beltEarned: 5 }))).toBeNull();
+  });
+
   it("never advertises a fresh placement estimate as earned exam readiness", () => {
     expect(examOffer(withSkill(1.5))).toBeNull(); // baseline: 0 XP, 0 answers, seeded A2
     expect(examOffer(withSkill(4.5, {
@@ -100,6 +107,18 @@ describe("beltProgress with the exam cap", () => {
     expect(bp.belt.idx).toBe(2);
     expect(bp.pctToNext).toBe(20);
     expect(bp.started).toBe(true);
+  });
+
+  it("ends the offered ladder at blue and preserves a previously earned black belt", () => {
+    const blue = beltProgress(withPractice(4.5, { beltEarned: 4 }));
+    expect(blue.belt.id).toBe("blue");
+    expect(blue.atMax).toBe(true);
+    expect(blue.nextBelt.id).toBe("blue");
+
+    const legacyBlack = beltProgress(withPractice(2.2, { beltEarned: 5 }));
+    expect(legacyBlack.belt.id).toBe("black");
+    expect(legacyBlack.atMax).toBe(true);
+    expect(legacyBlack.nextBelt.id).toBe("black");
   });
 });
 

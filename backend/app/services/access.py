@@ -85,5 +85,5 @@ def require(feature: str, user: User | None) -> None:
 _DEFAULT_MSG = "This feature needs an account."
 _MESSAGES: dict[str, str] = {
     "sync": "Create a free account to save and sync your progress across devices.",
-    "premium_unlimited": "Black Belt unlocks unlimited practice.",
+    "premium_unlimited": "Dojo Plus unlocks unlimited practice.",
 }

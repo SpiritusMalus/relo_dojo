@@ -17,6 +17,8 @@ import { DEFAULT_TONE, TONES } from "../store/onboarding";
 const REMIND_HOURS = [8, 12, 16, 19, 21];
 import { RU_TONE_LABELS } from "../i18n/strings";
 import { analyzePain, deleteAccount, exportMyData } from "../services/api";
+import { purgeChapterDrafts } from "../services/chapters";
+import { chapterCopy } from "../i18n/chapterCopy";
 import { PRIVACY_URL, TERMS_URL } from "../store/consent";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -98,16 +100,37 @@ export default function SettingsScreen() {
           setDeleting(true);
           try {
             await deleteAccount(scope);
-            if (!current()) return;
-            const pendingLogout = logout();
-            const guestScope = captureAccountScope();
-            await pendingLogout;
-            if (guestScope.owner === "guest" && isCurrentAccountScope(guestScope)) router.replace("/");
           } catch {
-            if (current()) Alert.alert(tr("settings.deleteAccount"), tr("settings.deleteFail"));
-          } finally {
-            if (current()) setDeleting(false);
+            if (current()) {
+              Alert.alert(tr("settings.deleteAccount"), tr("settings.deleteFail"));
+              setDeleting(false);
+            }
+            return;
           }
+          const privacy = chapterCopy(lang);
+          const retryErasure = async () => {
+            try {
+              await purgeChapterDrafts(scope);
+              Alert.alert(privacy.draftsErased);
+            } catch { showErasurePending(); }
+          };
+          const showErasurePending = () => Alert.alert(privacy.accountDeleted, privacy.erasePending, [
+            { text: privacy.retryErasure, onPress: () => { void retryErasure(); } },
+            { text: privacy.close, style: "cancel" },
+          ]);
+          let erasureFailed = false;
+          try { await purgeChapterDrafts(scope); }
+          catch { erasureFailed = true; }
+          finally {
+            // Server deletion is complete. Local I/O failure must not keep a deleted account signed in.
+            if (current()) {
+              const pendingLogout = logout();
+              const guestScope = captureAccountScope();
+              await pendingLogout.catch(() => {});
+              if (guestScope.owner === "guest" && isCurrentAccountScope(guestScope)) router.replace("/");
+            }
+          }
+          if (erasureFailed) showErasurePending();
         },
       },
     ]);

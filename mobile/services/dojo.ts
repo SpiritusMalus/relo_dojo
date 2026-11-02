@@ -7,6 +7,7 @@ export type DojoCatalogItem = {
   gate: "starter" | "achievement" | "buy";
   price: number;
   practice_days?: number | null;
+  chapter_id?: string | null;
 };
 export type DojoReceipt = {
   id: string;
@@ -49,7 +50,8 @@ export function isDojoSnapshot(value: unknown): value is DojoSnapshot {
       item && typeof item.id === "string" && slots.includes(item.slot)
       && ["starter", "achievement", "buy"].includes(item.gate)
       && Number.isFinite(item.price) && item.price >= 0
-      && (item.practice_days == null || (Number.isInteger(item.practice_days) && item.practice_days > 0)))
+      && (item.practice_days == null || (Number.isInteger(item.practice_days) && item.practice_days > 0))
+      && (item.chapter_id == null || (typeof item.chapter_id === "string" && item.chapter_id.length <= 40)))
     && Array.isArray(s.owned) && s.owned.length <= 256 && s.owned.every((id) => typeof id === "string")
     && !!s.equipped && typeof s.equipped === "object" && !Array.isArray(s.equipped)
     && Object.values(s.equipped).every((id) => typeof id === "string")

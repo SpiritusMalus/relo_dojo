@@ -331,6 +331,7 @@ class DojoCatalogItem(BaseModel):
     gate: Literal["starter", "buy", "achievement"]
     price: int
     practice_days: Optional[int] = None
+    chapter_id: Optional[str] = None
 
 
 class DojoReceipt(BaseModel):
@@ -374,6 +375,65 @@ class LearningSessionOut(BaseModel):
 class LearningCompletionOut(BaseModel):
     session: LearningSessionOut
     dojo: DojoState
+
+
+class ChapterCriterion(BaseModel):
+    id: str
+    met: bool
+
+
+class ChapterFeedback(BaseModel):
+    completed: bool
+    requirements: list[ChapterCriterion]
+    explanation: str
+    example: str
+    tip: str
+
+
+class ChapterStartIn(BaseModel):
+    client_id: UUID
+    lang: Optional[str] = Field(default=None, max_length=8)
+
+
+class ChapterRunOut(BaseModel):
+    id: str
+    chapter_id: str
+    manifest_version: int
+    preparation_count: int = 3
+    graded_count: int
+    completed: bool
+    exercise: Optional[ExerciseOut] = None
+    final_prompt: str
+    requirements: list[str]
+    feedback: Optional[ChapterFeedback] = None
+    receipt_id: Optional[str] = None
+    pending_submission_id: Optional[str] = None
+    feedback_submission_id: Optional[str] = None
+
+
+class ChapterCatalogItem(BaseModel):
+    id: str
+    version: int
+    keepsake_id: str
+    preparation_count: int = 3
+    completed: bool
+    run_id: Optional[str] = None
+
+
+class ChaptersOut(BaseModel):
+    version: int = 1
+    chapters: list[ChapterCatalogItem]
+
+
+class ChapterFinalIn(BaseModel):
+    submission_id: UUID
+    text: str = Field(min_length=1, max_length=MAX_ANSWER)
+
+
+class ChapterFinalOut(BaseModel):
+    run: ChapterRunOut
+    feedback: ChapterFeedback
+    dojo: Optional[DojoState] = None
 
 
 # --- daily contracts (engagement v2, Phase 2) ---

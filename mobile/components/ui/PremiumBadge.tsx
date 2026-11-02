@@ -1,25 +1,26 @@
 import { Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { beltByIndex, useTheme } from "../../theme/theme";
+import { useTheme } from "../../theme/theme";
 import { useWallet } from "../../store/wallet";
-import BeltKnot from "./BeltKnot";
+import { useI18n } from "../../store/i18n";
+import Icon from "./Icon";
 
-// Black Belt indicator for the TopBar — renders only while premium is active, so the perk is FELT,
-// not just mechanically enforced (BACKLOG: premium indicator). Tap opens /premium (active state).
+// Subscription access has its own mark; belts remain earned learning achievements.
 export default function PremiumBadge() {
   const t = useTheme();
   const router = useRouter();
   const { isPremium } = useWallet();
+  const { t: tr } = useI18n();
   if (!isPremium) return null;
   return (
     <Pressable
       onPress={() => router.push("/premium")}
       style={[styles.badge, { backgroundColor: t.c.surface2 }]}
       accessibilityRole="button"
-      accessibilityLabel="Black Belt active. See your perks"
+      accessibilityLabel={tr("premium.active")}
       hitSlop={6}
     >
-      <BeltKnot belt={beltByIndex(5)} size={22} />
+      <Icon name="plus" size={22} color={t.c.ink} />
     </Pressable>
   );
 }

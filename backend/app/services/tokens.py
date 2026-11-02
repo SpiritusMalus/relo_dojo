@@ -68,7 +68,10 @@ def unseal(token: str) -> dict[str, Any]:
         # retain the configured TTL; only our owner-bound review tokens cover the SRS 21-day gap.
         raw = _fernet.decrypt(token.encode())
         peek = json.loads(raw)
-        if isinstance(peek, dict) and peek.get("_dojo_review_v") == 1 and peek.get("_dojo_review_owner"):
+        if isinstance(peek, dict) and (
+            (peek.get("_dojo_review_v") == 1 and peek.get("_dojo_review_owner")) or
+            (peek.get("_chapter_review_v") == 1 and peek.get("_chapter_review_owner"))
+        ):
             ttl = 35 * 86400
         raw = _fernet.decrypt(token.encode(), ttl=ttl)
     except (InvalidToken, ValueError, TypeError, json.JSONDecodeError) as exc:

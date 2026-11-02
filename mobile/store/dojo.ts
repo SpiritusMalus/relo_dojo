@@ -7,6 +7,10 @@ import { totalAttempts, type Progress } from "./progress";
 import { practiceEligibilityFraction } from "./promotion";
 import { beltByCefr, beltByIndex, type Belt, type Cefr } from "../theme/theme";
 
+// The current adaptive and assessment pipeline covers A1–C1. Preserve saved C2 belts, but do not
+// offer a new promotion beyond the range the app can assess.
+export const MAX_ASSESSED_BELT_IDX = 4;
+
 /** Has the account produced real evidence of achievement? The seeded skill estimate (START_LEVEL ≈ A2)
  *  is fine for picking difficulty but is NOT achievement — only answered items or a passed belt exam
  *  count. Used to keep the *display* honest (never lie): no earned belt / accuracy / % before evidence. */
@@ -122,10 +126,11 @@ export function beltProgress(p: Progress): BeltProgress {
   // Reaching the skill threshold is only half of readiness: the same real 10-answer/8-correct
   // evidence required by examOffer also bounds the meter. Two answers cannot display 100%.
   pctToNext = Math.round(Math.min(pctToNext, practiceEligibilityFraction(p) * 100));
-  const nextBelt = beltByIndex(belt.idx + 1);
+  const atMax = belt.idx >= MAX_ASSESSED_BELT_IDX;
+  const nextBelt = atMax ? belt : beltByIndex(belt.idx + 1);
   // Return the CLAMPED skill (same min(4.999, mean) that cefr/belt/pct are derived from) so every field
   // in this object is consistent — the raw uncapped mean could read as C1 (5.0) while cefr caps at 4.999.
-  return { overallSkill, cefr, belt, nextBelt, pctToNext, atMax: belt.idx >= 5, started };
+  return { overallSkill, cefr, belt, nextBelt, pctToNext, atMax, started };
 }
 
 // "review" = a passed unit whose RECENT answers dipped (unitDecayed) — mastery stays (one-way),

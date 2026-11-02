@@ -222,7 +222,18 @@ async def complete_session(user: User, db: AsyncSession, session_id: uuid.UUID) 
         _expired()
     if set(row.grades or {}) != {str(i) for i in range(SESSION_ITEMS)}:
         _bad("Finish all ten practice items before completing this session.")
-    day = now.date().isoformat()  # Explicit UTC reward day; independent from local streak calendar.
+    day = await grant_learning_day(user, db, now)
+    row.completed_at, row.reward_day = now, day
+    await db.commit()  # completion + day + grant + existing inventory are one transaction
+    return row
+
+
+async def grant_learning_day(user: User, db: AsyncSession, now: datetime) -> str:
+    """Caller holds the User row lock and commits this with verified learning completion.
+
+    Practice and practical chapters share this calendar and achievement authority.
+    """
+    day = now.date().isoformat()  # UTC reward day, independent from local streak calendar.
     if await db.get(DojoPracticeDay, (user.id, day)) is None:
         db.add(DojoPracticeDay(user_id=user.id, day=day))
         await db.flush()
@@ -240,9 +251,7 @@ async def complete_session(user: User, db: AsyncSession, session_id: uuid.UUID) 
             user.cosmetics = list(dict.fromkeys([*(user.cosmetics or []), item_id]))
             if user.dojo_target == item_id:
                 user.dojo_target = None
-    row.completed_at, row.reward_day = now, day
-    await db.commit()  # completion + day + grant + existing inventory are one transaction
-    return row
+    return day
 
 
 async def select_target(user: User, db: AsyncSession, item_id: str | None) -> DojoState:
@@ -291,7 +300,9 @@ async def export_data(user: User, db: AsyncSession) -> dict:
     issued = (await db.execute(select(LearningIssuedItem).where(LearningIssuedItem.session_id.in_(ids)))).scalars().all() if ids else []
     days = (await db.execute(select(DojoPracticeDay.day).where(DojoPracticeDay.user_id == user.id))).scalars().all()
     grants = (await db.execute(select(DojoGrant).where(DojoGrant.user_id == user.id))).scalars().all()
-    return {"version": 1, "selected_target": getattr(user, "dojo_target", None), "practice_days": sorted(days),
+    from . import chapters
+    return {"version": 2, "selected_target": getattr(user, "dojo_target", None), "practice_days": sorted(days),
+        "chapters": await chapters.export_data(user, db),
         "sessions": [{**session_out(s).model_dump(), "client_id": str(s.client_id), "created_at": _aware(s.created_at).isoformat(),
                       "grades": s.grades} for s in sessions],
         "issued_items": [{"id": str(i.id), "session_id": str(i.session_id), "ordinal": i.ordinal,

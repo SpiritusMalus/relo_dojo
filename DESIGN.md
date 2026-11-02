@@ -211,6 +211,12 @@ The three-tab bar height is `ceil(48 + 16 × fontScale) + bottomInset`. Its acti
 highlight surrounds the icon (52 × 32), while the label remains below it. Preserve
 the scaling formula and safe-area padding rather than fixing a screenshot height.
 
+Practical chapters extend the same native world: collectible art beside separated list rows,
+ordinary preparation cards and a plain multiline English editor for the final reply. Keep
+the learner's answer and feedback in native text. The three chapter scrolls reuse the existing
+display position and collection; their art adds no fourth room slot. Paid access uses a neutral
+Plus sign, distinct from the earned belt ribbon.
+
 ## Elevation & Depth
 
 Ordinary cards and mode rows use one quiet outline and tonal surface, with no
@@ -265,10 +271,12 @@ React Native components remain the authority for shipped interaction states.
 - **Painted room:** `DojoScene` composes `mobile/assets/sketch/room.png`, one Sensei
   portrait and three independently equipped item layers. It scales a 360 × 270
   composition; full framing is 4:3 and compact framing is 1.8:1 with a 28-unit top
-  crop. The light, display and plant slots keep their existing eight catalog IDs.
+  crop. The light, display and plant slots retain their eight original catalog IDs
+  and add three chapter-earned display variants in the same display position.
   Selection previews do not alter confirmed equipment. Unknown IDs fall back to
   that slot's starter item. `DojoItemArtwork` crops equal cells of the transparent
-  3 × 3 `items-atlas.png`; the final cell is unused.
+  3 × 3 `items-atlas.png`; the final cell is unused. The three chapter scrolls use
+  equal cells of the separate 3 × 1 `chapters-atlas.png`.
 - **Sensei:** `WatercolorSensei` uses the first three columns of the transparent
   4 × 4 `sensei-atlas.png` for Classic, Sage and Ronin; rows are happy, cheer, think
   and sad. Sakura uses the separate 2 × 2 `spring-sensei-atlas.png`, ordered
@@ -291,9 +299,10 @@ React Native components remain the authority for shipped interaction states.
   uses a 240ms settle. Reduced motion shows both immediately. Sensei rests by
   default; explicit bobbing remains optional and stops with reduced motion.
 
-The shipping art lives in `mobile/assets/sketch/`: room, item atlas, mentor
-atlas and flowerless spring mentor atlas, with adjacent JSON manifests. The room and item atlas have exact companion
-`.prompt.txt` files and an embedded `impeccable:prompt` PNG entry. The mentor
+The shipping art lives in `mobile/assets/sketch/`: room, item atlas, chapter
+scroll atlas, mentor atlas and flowerless spring mentor atlas, with adjacent JSON manifests.
+The room, item, chapter and spring atlases have exact companion `.prompt.txt` files;
+all five PNGs retain an embedded `impeccable:prompt` entry. The mentor
 manifest records its exact generation prompt, reference role, cell mapping and
 alpha verification. These are generated assets made with OpenAI's built-in image
 generation; the graphite and watercolor descriptions specify their visual medium.

@@ -11,7 +11,7 @@ import { useProgress } from "../store/progress";
 import { beltProgress } from "../store/dojo";
 import { captureAccountScope, subscribeAccountScope, type AccountScope } from "../store/accountScope";
 import { useDojoRoom } from "../store/dojoRoom";
-import { dojoCopy, dojoDays, dojoItemName } from "../store/dojoRoomCopy";
+import { dojoCopy, dojoDays, dojoItemName, dojoItemChapter, dojoChapterReward } from "../store/dojoRoomCopy";
 import type { DojoCatalogItem, DojoSlot } from "../services/dojo";
 import Button from "../components/ui/Button";
 import Icon from "../components/ui/Icon";
@@ -51,6 +51,11 @@ export default function DojoScreen() {
 
   async function commit(item: DojoCatalogItem) {
     if (!enabled) return;
+    const chapter = dojoItemChapter(item.id);
+    if (chapter && !room.owned.includes(item.id)) {
+      router.push({ pathname: "/chapter", params: { id: chapter.id } });
+      return;
+    }
     try {
       if (room.owned.includes(item.id) || item.gate === "starter") await room.equip(item.id);
       else if (item.gate === "buy") {
@@ -100,7 +105,7 @@ export default function DojoScreen() {
             <View style={{ flex: 1, gap: 5 }}>
               <Txt variant="cardTitle">{targetName}</Txt>
               <Txt variant="secondary" color={t.c.ink2}>
-                {target.practice_days ? `${room.practiceDays ?? "—"} / ${dojoDays(target.practice_days, lang)}` : `${target.price} ${copy.koku}`}
+                {dojoChapterReward(target.id, lang) ?? (target.practice_days ? `${room.practiceDays ?? "—"} / ${dojoDays(target.practice_days, lang)}` : `${target.price} ${copy.koku}`)}
               </Txt>
               {target.practice_days && room.practiceDays !== null
                 ? <ProgressBar pct={room.practiceDays / target.practice_days * 100} height={5} />
@@ -115,6 +120,7 @@ export default function DojoScreen() {
         ) : null}
 
         <Button label={copy.practice} onPress={() => router.push("/practice")} left={<Icon name="practice" color={t.c.accentInk} />} />
+        <Button variant="ghost" label={copy.chapters} onPress={() => router.push("/chapters")} left={<Icon name="scroll" color={t.c.accent} />} />
         {guest && <Button variant="ghost" label={copy.login} onPress={() => router.push("/login")} />}
 
         {room.catalog.length > 0 && <View style={{ gap: 14 }}>
@@ -141,8 +147,8 @@ export default function DojoScreen() {
                 <DojoItemArtwork itemId={item.id} size={70} />
                 <View style={{ flex: 1, gap: 3 }}>
                   <Txt variant="bodyStrong">{dojoItemName(item.id, lang)}</Txt>
-                  <Txt variant="secondary">{placed ? copy.equipped : owned ? item.gate === "starter" ? copy.starter : item.gate === "achievement" ? copy.earned : copy.owned
-                    : item.practice_days ? dojoDays(item.practice_days, lang) : `${item.price} ${copy.koku}`}</Txt>
+                  <Txt variant="secondary">{placed ? copy.equipped : dojoChapterReward(item.id, lang) ?? (owned ? item.gate === "starter" ? copy.starter : item.gate === "achievement" ? copy.earned : copy.owned
+                    : item.practice_days ? dojoDays(item.practice_days, lang) : `${item.price} ${copy.koku}`)}</Txt>
                 </View>
                 {placed ? <Icon name="check" color={t.c.accent} /> : !owned ? <Icon name="lock" size={18} color={t.c.ink3} /> : null}
               </Pressable>;
@@ -154,12 +160,13 @@ export default function DojoScreen() {
             const placed = room.equipped[slot] === item.id;
             const insufficient = item.gate === "buy" && !owned && wallet.ready && wallet.coins < item.price;
             const selectedTarget = room.snapshot?.selected_target === item.id;
+            const chapter = dojoItemChapter(item.id);
             const label = room.busy ? copy.busy : placed ? copy.equipped : owned ? copy.equip
-              : item.gate === "buy" ? `${copy.buy} ${item.price} ${copy.koku}` : selectedTarget ? copy.selected : copy.choose;
+              : chapter ? copy.openChapter : item.gate === "buy" ? `${copy.buy} ${item.price} ${copy.koku}` : selectedTarget ? copy.selected : copy.choose;
             return <View style={{ gap: 10 }}>
               {preview && !placed && <DojoScene equipped={shown} belt={belt} compact accessibilityLabel={`${copy.selectedPreview}: ${dojoItemName(item.id, lang)}`} />}
               <Button variant="ghost" label={label} onPress={() => void commit(item)}
-                disabled={!enabled || placed || insufficient || (!owned && item.gate === "buy" && !wallet.ready) || (!owned && item.gate === "achievement" && selectedTarget)} />
+                disabled={!enabled || placed || insufficient || (!owned && item.gate === "buy" && !wallet.ready) || (!owned && item.gate === "achievement" && selectedTarget && !chapter)} />
               {insufficient && <Txt variant="secondary">{copy.insufficient}</Txt>}
               {!owned && item.gate === "buy" && !wallet.ready && <Txt variant="secondary">{copy.walletUnknown}</Txt>}
             </View>;

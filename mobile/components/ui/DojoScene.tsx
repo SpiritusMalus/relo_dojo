@@ -12,7 +12,7 @@ const STARTERS = {
 };
 const SLOT_ITEMS = {
   dojo_light: ["dojo_light_paper", "dojo_light_lantern", "dojo_light_sunset"],
-  dojo_display: ["dojo_display_blank", "dojo_display_first_scroll", "dojo_display_wave"],
+  dojo_display: ["dojo_display_blank", "dojo_display_first_scroll", "dojo_display_wave", "dojo_display_introduction", "dojo_display_experience", "dojo_display_clarification"],
   dojo_plant: ["dojo_plant_seedling", "dojo_plant_bamboo"],
 };
 // Authored against a 360 × 270 room: all bases sit on the same desktop.

@@ -332,7 +332,7 @@ async def test_real_asgi_contract_issue_grade_complete_and_capability_fallback(s
     try:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://dojo.test") as client:
             state = await client.get("/dojo")
-            assert state.status_code == 200 and len(state.json()["catalog"]) == 8
+            assert state.status_code == 200 and len(state.json()["catalog"]) == 11
             key = str(uuid.uuid4())
             session = (await client.post("/dojo/sessions", json={"client_id": key})).json()
             assert (await client.post("/dojo/sessions", json={"client_id": key})).json()["id"] == session["id"]

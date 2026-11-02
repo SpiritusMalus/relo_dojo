@@ -38,6 +38,7 @@ from .deps import check_rate_limit, get_current_user, get_current_user_optional,
 from .routers import agents as agents_router
 from .routers import auth as auth_router
 from .routers import billing as billing_router
+from .routers import chapters as chapters_router
 from .routers import contracts as contracts_router
 from .routers import cosmetics as cosmetics_router
 from .routers import dojo as dojo_router
@@ -73,7 +74,7 @@ from .schemas import (
     StoryIn,
     StoryOut,
 )
-from .services import ads, analytics, content, dojo, gating, grammar, http_client, learner_profile, miss_log, rewards, stories, tokens
+from .services import ads, analytics, chapters, content, dojo, gating, grammar, http_client, learner_profile, miss_log, rewards, stories, tokens
 from .services import wallet as wallet_service
 from .services.llm import LLMError as OllamaError  # one exception across providers
 from .services.llm import generate_stream as llm_generate_stream
@@ -157,6 +158,7 @@ app.add_middleware(
 app.include_router(agents_router.router)
 app.include_router(auth_router.router)
 app.include_router(billing_router.router)
+app.include_router(chapters_router.router)
 app.include_router(contracts_router.router)
 app.include_router(cosmetics_router.router)
 app.include_router(dojo_router.router)
@@ -326,6 +328,10 @@ async def check(
         sealed = tokens.unseal(payload.token)
     except tokens.TokenError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if "_chapter_review_owner" in sealed:
+        return chapters.check_review(user, sealed, payload.response)
+    if "_chapter" in sealed:
+        return await chapters.check(user, db, sealed, payload.token, payload.response)
     evidence = await dojo.validate_grade(user, db, sealed, payload.token)
     if sealed.get("t") == "listen-and-retell":
         raise HTTPException(400, detail="Use the retelling check for this exercise.")

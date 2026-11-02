@@ -180,6 +180,8 @@ function RootNav() {
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="practice" options={{ headerShown: false }} />
       <Stack.Screen name="story" options={{ headerShown: false }} />
+      <Stack.Screen name="chapters" options={{ headerShown: false }} />
+      <Stack.Screen name="chapter" options={{ headerShown: false }} />
       <Stack.Screen name="challenge" options={{ headerShown: false }} />
       <Stack.Screen name="review" options={{ headerShown: false }} />
       <Stack.Screen name="shop" options={{ headerShown: false }} />
