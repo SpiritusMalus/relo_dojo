@@ -8,7 +8,7 @@ const ITEM_NAMES: Record<string, Record<Language, string>> = {
   dojo_light_lantern: { en: "Practice lantern", ru: "Фонарь практики" },
   dojo_light_sunset: { en: "Sunset light", ru: "Свет заката" },
   dojo_display_wave: { en: "The wave", ru: "Волна" },
-  dojo_display_introduction: { en: "Open door", ru: "Открытая дверь" },
+  dojo_display_introduction: { en: "Open window", ru: "Открытое окно" },
   dojo_display_experience: { en: "The path", ru: "Пройденный путь" },
   dojo_display_clarification: { en: "Conversation", ru: "Разговор" },
 };

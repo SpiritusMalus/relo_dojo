@@ -28,7 +28,7 @@
     ],
     "cropping": "Equal normalized cells; native Image at 4 × display size, overflow hidden. Fractional source cell boundaries are intentional."
   },
-  "progressMarker": "Native SVG cloth ribbon uses current Belt.color, edge, knot and ink; avoids covering the painted portrait with a synthetic headband.",
+  "progressMarker": "No student belt indicator on the mentor portrait. Earned belt names, knots and progress stay in separate native learner controls; original generation prompt retained as historical provenance.",
   "paletteContract": "The shipped catalog variants have painted palettes. The existing visual.accessory selects the catalog appearance for both equipped skins and explicit Wardrobe previews.",
   "alphaVerification": {
     "mode": "RGBA",
