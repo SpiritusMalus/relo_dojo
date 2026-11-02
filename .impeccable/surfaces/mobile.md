@@ -60,9 +60,11 @@ requirements and koku balances. Existing rewards, prices and account-scoped stat
 ## Mentor and lesson feedback
 
 `Sensei` is the single appearance entry point for room, feedback and Wardrobe previews.
-`WatercolorSensei` crops the 4 × 4 transparent portrait atlas: Classic, Sage, Ronin and Sakura
-columns; happy, cheer, think and sad rows. `SenseiVisual.accessory` maps the catalog appearance,
-including painted hair, complexion and accessory; an explicit Wardrobe visual override follows
+`WatercolorSensei` uses Classic, Sage and Ronin columns of the original 4 × 4 transparent
+portrait atlas, with happy, cheer, think and sad rows. Sakura now uses the separate flowerless
+2 × 2 spring atlas (happy/cheer, think/sad): ordinary hair and a light linen overshirt. The old
+fourth column is unused. `SenseiVisual.accessory` remains the catalog variant dispatch key;
+an explicit Wardrobe visual override follows
 the same mapping as equipped cosmetics.
 
 A native cloth ribbon at the portrait's lower right uses the passed earned belt's cloth, edge,
@@ -85,12 +87,13 @@ The source uses three production PNGs, separate from the earlier concept studies
 | --- | --- | --- |
 | Room | `mobile/assets/sketch/room.png`, 1448 × 1086, opaque RGB | Shared 4:3 base; no removable objects or mentor baked in |
 | Items | `mobile/assets/sketch/items-atlas.png`, 1263 × 1245, RGBA | Equal normalized 3 × 3 crop; eight items and one unused cell |
-| Mentor | `mobile/assets/sketch/sensei-atlas.png`, 1254 × 1254, RGBA | Equal normalized 4 × 4 crop; all four skins and moods |
+| Mentor | `mobile/assets/sketch/sensei-atlas.png`, 1254 × 1254, RGBA | Equal normalized 4 × 4 crop; first three columns and all four moods |
+| Spring mentor | `mobile/assets/sketch/spring-sensei-atlas.png`, 1254 × 1254, RGBA | Flowerless 2 × 2 happy/cheer, think/sad; same catalog identity |
 
-Adjacent `room.json`, `items-atlas.json` and `sensei-atlas.json` record provenance and mapping.
-The room and item atlas also retain exact `.prompt.txt` companions. All three PNGs have
+Adjacent JSON manifests record provenance and mapping for all four assets.
+The room and item atlas also retain exact `.prompt.txt` companions. All four PNGs have
 embedded `impeccable:prompt` entries matching their exact generation prompts; the mentor
-prompt is additionally preserved in its JSON manifest. All three were produced with
+prompt is additionally preserved in its JSON manifest. All four were produced with
 OpenAI's built-in image generation.
 Do not describe these generated assets as manually drawn originals.
 
@@ -99,7 +102,21 @@ using the runtime map. Do not derive IDs from filenames or assume a requested 20
 was delivered. The room's opaque paper is intentional; object and mentor atlases have real alpha.
 Their irregular edges are part of the art, not UI borders or rectangular white backgrounds.
 
-## Current acceptance — 2026-11-02
+## Flowerless spring correction — 1.3.1
+
+The owner rejected the flower in the mentor's hair. Sakura now wears a pale linen overshirt
+and ordinary dark hair; its existing ID, price, season and ownership remain unchanged. Only
+this portrait set and its truthful localized description change. The original other three
+skins, belts, mood API and equipped/explicit preview behavior remain intact.
+
+Independent finish review returned **ship** for two native 1080 × 2400 captures, light/dark,
+showing all four spring expressions at 148 and 44 units plus Classic/Spring comparison.
+No clipping, hair ornament or material visual fix remained. The private proof route was
+removed before delivery. TypeScript and 616 tests in 73 suites pass. Final public-API APK
+and integrated commit are identified by the owner-held flowerless-release receipt; this
+portrait review does not extend device, iOS, store or gameplay acceptance.
+
+## Watercolor release acceptance — 1.3.0
 
 Independent finish review returned **ship**, with no material fixes remaining, for the
 supplied Android 1.3.0/code 4 capture set and sampled source. The packet contains 37 captures:

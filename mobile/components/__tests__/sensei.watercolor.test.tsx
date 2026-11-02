@@ -13,6 +13,8 @@ jest.mock("../../theme/theme", () => ({
   useTheme: () => ({ reduceMotion: mockReduceMotion }),
 }));
 jest.mock("../../store/cosmeticsStore", () => ({ useEquippedSenseiVisual: () => mockEquipped }));
+jest.mock("../../assets/sketch/sensei-atlas.png", () => ({ uri: "sensei-atlas" }));
+jest.mock("../../assets/sketch/spring-sensei-atlas.png", () => ({ uri: "spring-sensei-atlas" }));
 
 // The local lightweight renderer declaration omits update; keep the extra method scoped here.
 type UpdatingRenderer = ReactTestRenderer & { update(element: ReactElement): void };
@@ -21,7 +23,8 @@ function render(props: React.ComponentProps<typeof Sensei> = {}) {
   act(() => { screen = TestRenderer.create(<Sensei {...props} />) as UpdatingRenderer; });
   return screen;
 }
-const cropStyle = (screen: ReactTestRenderer) => StyleSheet.flatten(screen.root.findAll(node => node.type === Image)[0].props.style);
+const portrait = (screen: ReactTestRenderer) => screen.root.findAll(node => node.type === Image)[0];
+const cropStyle = (screen: ReactTestRenderer) => StyleSheet.flatten(portrait(screen).props.style);
 
 beforeEach(() => {
   mockReduceMotion = false;
@@ -37,10 +40,16 @@ test("every catalog skin and feedback mood selects its own complete, equally siz
     for (const [row, mood] of moods.entries()) {
       const screen = render({ visual: CATALOG[id].visual, mood, size: 44 });
       const crop = cropStyle(screen);
-      expect(crop).toMatchObject({ width: 176, height: 176, left: -column * 44, top: -row * 44 });
+      if (id === "sensei_sakura") {
+        expect(portrait(screen).props.source).toEqual({ uri: "spring-sensei-atlas" });
+        expect(crop).toMatchObject({ width: 88, height: 88, left: -(row % 2) * 44, top: -Math.floor(row / 2) * 44 });
+      } else {
+        expect(portrait(screen).props.source).toEqual({ uri: "sensei-atlas" });
+        expect(crop).toMatchObject({ width: 176, height: 176, left: -column * 44, top: -row * 44 });
+      }
       const viewport = screen.root.findAll(node => node.type === View).find(node => StyleSheet.flatten(node.props.style)?.overflow === "hidden");
       expect(StyleSheet.flatten(viewport?.props.style)).toMatchObject({ width: 44, height: 44 });
-      selected.add(`${crop.left}:${crop.top}`);
+      selected.add(`${portrait(screen).props.source.uri}:${crop.left}:${crop.top}`);
       act(() => screen.unmount());
     }
   }
@@ -65,6 +74,20 @@ test("an explicit Wardrobe preview overrides the equipped portrait, including Cl
   act(() => screen.unmount());
 });
 
+test("a Classic preview clears the equipped spring sheet and closing it restores the current mood", () => {
+  mockEquipped = CATALOG.sensei_sakura.visual;
+  const screen = render({ size: 132 });
+  expect(portrait(screen).props.source).toEqual({ uri: "spring-sensei-atlas" });
+  expect(cropStyle(screen)).toMatchObject({ width: 264, height: 264, left: -0, top: -0 });
+  act(() => screen.update(<Sensei size={132} visual={{}} mood="think" />));
+  expect(portrait(screen).props.source).toEqual({ uri: "sensei-atlas" });
+  expect(cropStyle(screen)).toMatchObject({ width: 528, height: 528, left: -0, top: -264 });
+  act(() => screen.update(<Sensei size={132} mood="sad" />));
+  expect(portrait(screen).props.source).toEqual({ uri: "spring-sensei-atlas" });
+  expect(cropStyle(screen)).toMatchObject({ width: 264, height: 264, left: -132, top: -132 });
+  act(() => screen.unmount());
+});
+
 test("belt progression remains visible on every portrait through its cloth, edge and fold", () => {
   const screen = render({ size: 180, visual: CATALOG.sensei_sakura.visual });
   for (const belt of belts) {
@@ -72,7 +95,7 @@ test("belt progression remains visible on every portrait through its cloth, edge
     const ribbon = screen.root.findAll(node => node.type === Path);
     expect(ribbon[0].props).toMatchObject({ fill: belt.color, stroke: belt.edge });
     expect(ribbon[1].props.fill).toBe(belt.knot);
-    expect(cropStyle(screen)).toMatchObject({ width: 720, height: 720, left: -540, top: -0 });
+    expect(cropStyle(screen)).toMatchObject({ width: 360, height: 360, left: -0, top: -0 });
   }
   act(() => screen.unmount());
 });

@@ -1,0 +1,28 @@
+{
+  "asset": "spring-sensei-atlas.png",
+  "generatedWith": "OpenAI built-in imagegen",
+  "reference": "sensei-atlas.png rightmost Sakura column; character and graphite-watercolor reference",
+  "change": "Hair flower removed; naturally distinct light stone linen overshirt",
+  "prompt": "Use case: precise-object-edit.\nAsset type: one production transparent 2 by 2 portrait sprite atlas, four equal square cells.\nInput: existing 4 by 4 mentor atlas. Use the same adult man from its RIGHTMOST COLUMN (Sakura), preserving his face identity, dark brown wavy hair, short beard, natural proportions and four expressions.\nPrimary change: REMOVE the flower from his hair completely. No blossom, petal, hair ornament, badge, headband or substitute accessory anywhere. Hair is ordinary loosely combed wavy dark brown hair.\nKeep this cosmetic naturally distinct with the same casual overshirt painted in a LIGHT WARM STONE LINEN wash over his cream tee, rather than the classic olive shirt. Keep graphite clothing folds and uneven pencil texture. It is just an ordinary man's light spring shirt.\nOutput ONLY four portraits in a strict 2 columns x 2 rows atlas:\ntop left welcoming small closed-mouth smile (happy);\ntop right quietly pleased broader smile (cheer);\nbottom left thoughtful glance slightly upward (think);\nbottom right quiet sympathetic reflective expression, no shame or tears (sad).\nFraming: isolated head and upper shoulders in each cell, identical scale/baseline, center each in its exact equal cell, transparent padding 8% at sides/top/bottom, no cropped hair/shoulders crossing cells. Same front three-quarter orientation as source.\nMedium invariants: loose visible graphite searching lines and sparse transparent watercolor, warm human observational sketch, small realistic eyes. Preserve the grain and unfinished pencil quality of the source, do not smooth it into digital painting. No glossy 3D, vector cartoon, photographic skin or polished commercial-avatar style.\nTrue alpha transparent background, no paper panel, grid, labels, text, signature or watermark. One square PNG. The four portraits are the entire image.",
+  "transparentBackground": true,
+  "dimensions": [
+    1254,
+    1254
+  ],
+  "grid": [
+    2,
+    2
+  ],
+  "moods": [
+    [
+      "happy",
+      "cheer"
+    ],
+    [
+      "think",
+      "sad"
+    ]
+  ],
+  "sha256": "0463dc0bbb0eaca6d146ed0bd2e11cf9038f2ad1ff7407498595d0403b25407c",
+  "promptMetadata": "UTF-8 iTXt impeccable:prompt"
+}

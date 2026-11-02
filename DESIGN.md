@@ -269,9 +269,12 @@ React Native components remain the authority for shipped interaction states.
   Selection previews do not alter confirmed equipment. Unknown IDs fall back to
   that slot's starter item. `DojoItemArtwork` crops equal cells of the transparent
   3 × 3 `items-atlas.png`; the final cell is unused.
-- **Sensei:** `WatercolorSensei` crops equal cells of the transparent 4 × 4
-  `sensei-atlas.png`. Columns are Classic, Sage, Ronin and Sakura; rows are happy,
-  cheer, think and sad. Equipped cosmetic selection and explicit Wardrobe previews
+- **Sensei:** `WatercolorSensei` uses the first three columns of the transparent
+  4 × 4 `sensei-atlas.png` for Classic, Sage and Ronin; rows are happy, cheer, think
+  and sad. Sakura uses the separate 2 × 2 `spring-sensei-atlas.png`, ordered
+  happy/cheer then think/sad. This spring portrait has ordinary hair and a light
+  linen overshirt, with no flower or substitute hair ornament. The historical
+  fourth column is unused. Equipped cosmetics and explicit Wardrobe previews
   use the same `SenseiVisual` contract. A small native cloth ribbon is 21% of the
   portrait's width and sits at its lower right, clear of the painted face. It shows
   the passed earned belt; it is not a painted headband or a cosmetic promotion.
@@ -288,8 +291,8 @@ React Native components remain the authority for shipped interaction states.
   uses a 240ms settle. Reduced motion shows both immediately. Sensei rests by
   default; explicit bobbing remains optional and stops with reduced motion.
 
-The shipping art lives in `mobile/assets/sketch/`: room, item atlas and mentor
-atlas, with adjacent JSON manifests. The room and item atlas have exact companion
+The shipping art lives in `mobile/assets/sketch/`: room, item atlas, mentor
+atlas and flowerless spring mentor atlas, with adjacent JSON manifests. The room and item atlas have exact companion
 `.prompt.txt` files and an embedded `impeccable:prompt` PNG entry. The mentor
 manifest records its exact generation prompt, reference role, cell mapping and
 alpha verification. These are generated assets made with OpenAI's built-in image
