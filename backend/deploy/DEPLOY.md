@@ -80,6 +80,12 @@ without creating chapter evidence or wallet rewards. Leave migrations 0019–002
 place; their downgrades deliberately refuse to erase learning evidence. Older code
 can ignore the additive tables with automatic migration disabled. Scoped review
 tokens last 35 days; their durable economic identities are retained for 60 days.
+Chapter preparation and review tokens use a separate `chapter-v1:` wire prefix
+bound to their authenticated purpose and a distinct HMAC-derived Fernet key domain.
+The preceding release rejects the chapter ciphertext even if its prefix is removed,
+so a code rollback cannot reinterpret it as an ordinary koku-paying exercise. The
+configured key derivation is stable across workers; ordinary token keys stay intact.
+New code also rejects a stripped prefix or an ordinary token with that prefix.
 
 Keep `Environment=HOME=/opt/relo_dojo/backend` in the service unit: under
 `ProtectHome=true`, asyncpg otherwise may fail probing the masked home directory,

@@ -121,12 +121,46 @@ def test_chapter_review_ttl_covers_spaced_repetition_without_extending_preparati
     monkeypatch.setattr(settings, "EXERCISE_TOKEN_TTL_S", 3600)
     old = int(time.time()) - 22 * 86400
     sealed = {"t": "multiple-choice", "answer": "hello", "_chapter_review_owner": str(uuid.uuid4()), "_chapter_review_v": 1}
-    review = tokens._fernet.encrypt_at_time(json.dumps(sealed).encode(), old).decode()
+    review = tokens.CHAPTER_TOKEN_PREFIX + tokens._chapter_fernet.encrypt_at_time(json.dumps(sealed).encode(), old).decode()
     assert tokens.unseal(review)["answer"] == "hello"
-    expired = tokens._fernet.encrypt_at_time(json.dumps(sealed).encode(), old - 20 * 86400).decode()
+    expired = tokens.CHAPTER_TOKEN_PREFIX + tokens._chapter_fernet.encrypt_at_time(json.dumps(sealed).encode(), old - 20 * 86400).decode()
     with pytest.raises(tokens.TokenError): tokens.unseal(expired)
     ordinary = tokens._fernet.encrypt_at_time(json.dumps({"t": "multiple-choice", "answer": "hello"}).encode(), old).decode()
     with pytest.raises(tokens.TokenError): tokens.unseal(ordinary)
+
+
+def test_chapter_wire_namespace_is_legacy_invalid_and_cannot_repurpose_ordinary_tokens():
+    from cryptography.fernet import InvalidToken
+    for purpose in [{"_chapter": {"v": 1}}, {"_chapter_review_owner": str(uuid.uuid4()), "_chapter_review_v": 1}]:
+        payload = {"t": "multiple-choice", "answer": "hello", **purpose}
+        issued = tokens.seal(payload)
+        assert issued.startswith(tokens.CHAPTER_TOKEN_PREFIX)
+        assert tokens.unseal(issued) == payload
+        with pytest.raises(InvalidToken): tokens._fernet.decrypt(issued.encode())  # preceding release parser
+        with pytest.raises(InvalidToken): tokens._fernet.decrypt(issued.removeprefix(tokens.CHAPTER_TOKEN_PREFIX).encode())
+        with pytest.raises(tokens.TokenError): tokens.unseal(issued.removeprefix(tokens.CHAPTER_TOKEN_PREFIX))
+        unprefixed = tokens._fernet.encrypt(json.dumps(payload).encode()).decode()
+        with pytest.raises(tokens.TokenError): tokens.unseal(unprefixed)
+    ordinary_payload = {"t": "multiple-choice", "answer": "hello"}
+    ordinary = tokens.seal(ordinary_payload)
+    assert not ordinary.startswith(tokens.CHAPTER_TOKEN_PREFIX)
+    assert tokens.unseal(ordinary) == ordinary_payload
+    with pytest.raises(tokens.TokenError): tokens.unseal(tokens.CHAPTER_TOKEN_PREFIX + ordinary)
+    authentic_wrong_purpose = tokens.CHAPTER_TOKEN_PREFIX + tokens._chapter_fernet.encrypt(json.dumps(ordinary_payload).encode()).decode()
+    with pytest.raises(tokens.TokenError): tokens.unseal(authentic_wrong_purpose)
+
+
+def test_chapter_key_domain_is_stable_for_configured_workers_and_independent_in_dev(monkeypatch):
+    from cryptography.fernet import InvalidToken
+    configured_a = tokens._build_chapter_fernet()
+    configured_b = tokens._build_chapter_fernet()
+    encoded = configured_a.encrypt(b"chapter proof")
+    assert configured_b.decrypt(encoded) == b"chapter proof"
+    with pytest.raises(InvalidToken): tokens._fernet.decrypt(encoded)
+    monkeypatch.setattr(tokens, "CHECK_SECRET", "")
+    ephemeral_a = tokens._build_chapter_fernet()
+    ephemeral_b = tokens._build_chapter_fernet()
+    with pytest.raises(InvalidToken): ephemeral_b.decrypt(ephemeral_a.encrypt(b"chapter proof"))
 
 
 async def test_final_cannot_skip_preparation_or_trust_client_progress(store, monkeypatch):

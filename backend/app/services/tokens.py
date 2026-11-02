@@ -14,6 +14,9 @@ in-flight tokens and `/check` returns a clean "expired" error.
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 from typing import Any
 
@@ -53,27 +56,50 @@ def _build_fernet() -> Fernet:
 
 
 _fernet = _build_fernet()
+CHAPTER_TOKEN_PREFIX = "chapter-v1:"
+
+
+def _build_chapter_fernet() -> Fernet:
+    """Separate key domain: removing the wire prefix cannot make a chapter token ordinary."""
+    if CHECK_SECRET:
+        key = hmac.new(CHECK_SECRET.encode(), b"relo-dojo/chapter/v1", hashlib.sha256).digest()
+        return Fernet(base64.urlsafe_b64encode(key))
+    return Fernet(Fernet.generate_key())  # independent ephemeral dev key, like ordinary tokens
+
+
+_chapter_fernet = _build_chapter_fernet()
 
 
 def seal(data: dict[str, Any]) -> str:
     """Encrypt a small dict into an opaque token string."""
-    return _fernet.encrypt(json.dumps(data).encode()).decode()
+    chapter_purpose = "_chapter" in data or "_chapter_review_owner" in data
+    cipher = _chapter_fernet if chapter_purpose else _fernet
+    encoded = cipher.encrypt(json.dumps(data).encode()).decode()
+    # The wire prefix selects the isolated key domain. Even a stripped chapter ciphertext is
+    # invalid for the preceding release's ordinary Fernet key.
+    return CHAPTER_TOKEN_PREFIX + encoded if chapter_purpose else encoded
 
 
 def unseal(token: str) -> dict[str, Any]:
     """Decrypt a token back into its dict. Raises TokenError on any failure."""
     try:
+        prefixed = token.startswith(CHAPTER_TOKEN_PREFIX)
+        encoded = token[len(CHAPTER_TOKEN_PREFIX):] if prefixed else token
+        cipher = _chapter_fernet if prefixed else _fernet
         ttl = settings.EXERCISE_TOKEN_TTL_S or None  # 0 → no expiry
         # Authenticate before selecting the purpose-specific lifetime. Ordinary exercise tokens
         # retain the configured TTL; only our owner-bound review tokens cover the SRS 21-day gap.
-        raw = _fernet.decrypt(token.encode())
+        raw = cipher.decrypt(encoded.encode())
         peek = json.loads(raw)
+        chapter_purpose = isinstance(peek, dict) and ("_chapter" in peek or "_chapter_review_owner" in peek)
+        if prefixed != chapter_purpose:
+            raise InvalidToken
         if isinstance(peek, dict) and (
             (peek.get("_dojo_review_v") == 1 and peek.get("_dojo_review_owner")) or
             (peek.get("_chapter_review_v") == 1 and peek.get("_chapter_review_owner"))
         ):
             ttl = 35 * 86400
-        raw = _fernet.decrypt(token.encode(), ttl=ttl)
+        raw = cipher.decrypt(encoded.encode(), ttl=ttl)
     except (InvalidToken, ValueError, TypeError, json.JSONDecodeError) as exc:
         raise TokenError("This exercise has expired. Fetch a new one.") from exc
     try:

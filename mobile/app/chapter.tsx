@@ -183,7 +183,6 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
           </View>
           <Txt variant="cardTitle">{dojoItemName(itemId, lang)}</Txt>
           <Txt variant="body" color={t.c.ink2}>{copy.saved}</Txt>
-          {!!feedback?.explanation && <Txt variant="body" color={t.c.ink2}>{feedback.explanation}</Txt>}
           <Button label={copy.openDojo} onPress={() => router.push("/dojo")} />
           <Button label={copy.otherChapters} variant="ghost" onPress={() => router.replace("/chapters")} />
         </View> : <>
@@ -209,7 +208,6 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
             </View>
             {!!feedback && !pending && <View style={[styles.feedback, { borderColor: t.c.line }]}>
               <Txt variant="body">{feedback.explanation}</Txt>
-              {!!feedback.tip && <Txt variant="body" color={t.c.ink2}>{feedback.tip}</Txt>}
               {!!feedback.example && <View style={{ gap: 6 }}>
                 <Txt variant="secondary" color={t.c.ink2}>{copy.example}</Txt>
                 <Txt variant="body">{feedback.example}</Txt>
