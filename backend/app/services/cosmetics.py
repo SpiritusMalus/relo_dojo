@@ -66,6 +66,9 @@ CATALOG: dict[str, dict[str, Any]] = {
     "dojo_light_lantern": {"slot": "dojo_light", "gate": "achievement", "price": 0, "practice_days": 7},
     "dojo_light_sunset": {"slot": "dojo_light", "gate": "buy", "price": 120},
     "dojo_display_wave": {"slot": "dojo_display", "gate": "buy", "price": 180},
+    "dojo_display_introduction": {"slot": "dojo_display", "gate": "achievement", "price": 0, "chapter_id": "introduction"},
+    "dojo_display_experience": {"slot": "dojo_display", "gate": "achievement", "price": 0, "chapter_id": "experience"},
+    "dojo_display_clarification": {"slot": "dojo_display", "gate": "achievement", "price": 0, "chapter_id": "clarification"},
 }
 
 _UNKNOWN = "Unknown cosmetic."

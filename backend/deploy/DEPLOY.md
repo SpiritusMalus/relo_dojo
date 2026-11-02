@@ -9,7 +9,7 @@ Historical server aliases are retired and must not be used.
 | Running application | `/opt/relo_dojo/backend`, service user `relo` |
 | Runtime unit | `relo-dojo.service`, loopback `127.0.0.1:8010` |
 | Protected environment | `/opt/relo_dojo/backend/.env`, mode 0600 |
-| Database | PostgreSQL `relo_dojo`, schema head `0019_dojo_practice` |
+| Database | PostgreSQL `relo_dojo`; this release requires schema head `0020_practical_chapters` |
 | Registered source replica | `/srv/projects/relo_dojo`, separate from runtime |
 
 A source pull or hub bridge does not deploy the running process. Do not copy live
@@ -27,13 +27,15 @@ outside this deployment.
 3. Fast-forward `/opt/relo_dojo` to the exact integrated SHA through the existing
    authenticated Git route or a verified Git bundle. Install dependencies only if
    their files changed; run the runtime virtualenv's `pip check`.
-4. Inspect Alembic head versus current. My Dojo adds `0019_dojo_practice` after
-   `0018_miss_log`: a nullable presentation preference and additive practice/receipt
-   tables. Back up first, then run the runtime virtualenv's Alembic upgrade as the
+4. Inspect Alembic head versus current. `0020_practical_chapters` follows
+   `0019_dojo_practice` and adds chapter runs, issued preparation items and final
+   attempt receipts. Final attempts retain a request hash and authored feedback,
+   never the learner's submitted text. Back up first, then run the runtime virtualenv's Alembic upgrade as the
    application user. Use `AUTO_MIGRATE=false` so service restarts cannot silently
    change the schema. Never recreate the database or drop existing progress.
 5. Set `RELO_RELEASE_SHA` to the integrated SHA. Enable `DOJO_ENABLED=true` only
-   after migration and compatible API/client checks. Preserve model configuration,
+   after migration and compatible API/client checks. The same capability gates
+   `/dojo`, `/chapters` and chapter-bound `/check` items. Preserve model configuration,
    credentials, persistent token keys, mail, billing, audio and unrelated settings.
 6. Restart only `relo-dojo.service`. Require active state, new PID/start time,
    localhost health and a successful read-only database/schema check.
@@ -70,11 +72,20 @@ configuration from the same-host backup; restart the Relo unit and repeat readin
 checks. Preserve the live database and user progress. Restoring an older database
 or removing a service/proxy route is not a normal application rollback.
 
-For My Dojo, disable `DOJO_ENABLED` first. Ordinary practice remains available,
-including an in-flight lesson. Leave migration 0019 and all earned inventory in
-place; its downgrade deliberately refuses to erase practice evidence. Older code
+For My Dojo and practical chapters, disable `DOJO_ENABLED` first. Ordinary practice
+remains available, including an in-flight ordinary lesson. Chapters and their
+bound preparation checks return 404 while disabled; account export still includes
+their saved evidence. Previously issued owner-bound review tokens remain usable
+without creating chapter evidence or wallet rewards. Leave migrations 0019–0020 and all earned inventory in
+place; their downgrades deliberately refuse to erase learning evidence. Older code
 can ignore the additive tables with automatic migration disabled. Scoped review
 tokens last 35 days; their durable economic identities are retained for 60 days.
+Chapter preparation and review tokens use a separate `chapter-v1:` wire prefix
+bound to their authenticated purpose and a distinct HMAC-derived Fernet key domain.
+The preceding release rejects the chapter ciphertext even if its prefix is removed,
+so a code rollback cannot reinterpret it as an ordinary koku-paying exercise. The
+configured key derivation is stable across workers; ordinary token keys stay intact.
+New code also rejects a stripped prefix or an ordinary token with that prefix.
 
 Keep `Environment=HOME=/opt/relo_dojo/backend` in the service unit: under
 `ProtectHome=true`, asyncpg otherwise may fail probing the masked home directory,
@@ -87,6 +98,14 @@ port. Synthetic accounts may receive explicitly recorded currency fixtures; thes
 are not earned rewards or production grants. SMTP, payments and microphone voice
 stay disabled in that sandbox. Its HTTP loopback APK is emulator-only. A delivered
 APK must use the public HTTPS URL with the QA network exception removed.
+
+For chapters, verify all three authored preparation steps through `/check`, an
+incomplete final response and its correction, account isolation, final retry after
+a lost response, and two concurrent submissions. Verify one chapter keepsake and
+one UTC learning day across practice/chapter completion on the same day. No model
+verdict grants koku, a belt or a CEFR level. Check actual PostgreSQL row locking;
+the offline suite does not prove concurrent database behavior. Bound any real
+model acceptance calls to synthetic text and the three released task rubrics.
 
 See [the environment template](.env.prod.example) and
 [the model evidence](../evals/MODEL_SELECTION.md). Never replace a populated runtime

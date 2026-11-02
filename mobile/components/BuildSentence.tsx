@@ -4,7 +4,6 @@ import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
 import Sensei from "./ui/Sensei";
-import Icon from "./ui/Icon";
 import Txt from "./ui/Txt";
 import TranslatableText from "./ui/TranslatableText";
 import { useTranslator } from "./ui/TranslationPopover";
@@ -69,7 +68,7 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
       <View style={[styles.prompt, { backgroundColor: t.c.surface2, borderColor: t.c.line, borderRadius: t.spacing.radius }]}>
         <Sensei size={48} mood="think" />
         <View style={{ flex: 1 }}>
-          <Txt variant="label">{isTransform ? exercise.instruction || tr("ex.rewrite") : tr("ex.translate")}</Txt>
+          <Txt variant="label">{exercise.instruction || tr(isTransform ? "ex.rewrite" : "ex.translate")}</Txt>
           {isTransform ? (
             // Transform shows the English source sentence → make each word long-press-translatable.
             <TranslatableText
@@ -84,7 +83,6 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
             </Txt>
           )}
         </View>
-        <Icon name="sound" size={22} color={t.c.ink3} />
       </View>
 
       {/* Answer track (dashed drop area) */}

@@ -13,8 +13,8 @@ study 1 as the working art basis and liked loose ink study 3 too. Concept A supp
 and layout; its glossy generated art is rejected.
 STORY: know where practice stands → train → understand feedback → save → return.
 FIRST VIEWPORT: native top bar, learning heading and one filled next-learning action, then the
-compact painted room. The scene contains the mentor. Native Daily Mix and all-mode text actions
-follow; longer paths, goals and rewards stay below. Train offers selectable modes before its
+compact painted room. The scene contains the mentor. A quiet Chapters row and the native
+Daily Mix/all-mode text actions follow; longer paths, goals and rewards stay below. Train offers selectable modes before its
 long topic catalogue. Progress labels estimates and leaves unstarted stats empty.
 FORM: retain the native three-tab arrangement and real text/controls. The room is a composed
 painting with independent object and portrait layers; do not replace the app with a flattened mockup.
@@ -34,7 +34,7 @@ light and dark mode, deliberately like a painting; surrounding labels, controls,
 use the active native theme. `DojoScene` scales a 360 × 270 composition. Full framing is 4:3;
 compact framing is 1.8:1 with a 28-unit top crop. Both use the same equipment and earned belt.
 
-There are three fixed places and eight existing catalog items. Equipment replaces an object,
+There are three fixed places and eleven catalog items. Equipment replaces an object,
 not the room layout. `DojoItemArtwork` selects these equal-cell atlas positions:
 
 | Slot | Atlas cells, left to right |
@@ -42,6 +42,11 @@ not the room layout. `DojoItemArtwork` selects these equal-cell atlas positions:
 | Light, row 1 | `dojo_light_paper`, `dojo_light_lantern`, `dojo_light_sunset` |
 | Display, row 2 | `dojo_display_blank`, `dojo_display_first_scroll`, `dojo_display_wave` |
 | Plant, row 3 | `dojo_plant_seedling`, `dojo_plant_bamboo`, empty |
+
+The separate 3 × 1 `chapters-atlas.png` supplies three more display variants, left to right:
+`dojo_display_introduction` (open doorway), `dojo_display_experience` (winding path), and
+`dojo_display_clarification` (two cups). Each uses the existing display placement. The native
+item names are Open door, The path and Conversation, localized into Russian.
 
 Below the room, show one next item with its requirement and a practice action before the
 collection. Slot tabs and quiet native rows distinguish selected preview, placed, owned and
@@ -56,6 +61,30 @@ name appear before the My Dojo action. Finishing for today and the next useful l
 remain available; the existing random scroll follows. Pending saves offer recovery without
 presenting an unconfirmed item as earned. Russian and English copy includes item names,
 requirements and koku balances. Existing rewards, prices and account-scoped state stay unchanged.
+
+## Practical chapters
+
+Home keeps the existing review/course action first. A quiet Chapters row follows the room;
+Train and My Dojo also open the chapter list. Three separated, illustrated rows explain
+the situations and show server-returned not-started, in-progress or completed status. All
+three situations are selectable. The artwork is the actual collectible, not a generic badge.
+
+Inside a chapter, three authored preparation cards reuse the native exercise and feedback
+components. The final task has a plain multiline English editor, themed paper, native font
+scaling, keyboard avoidance and explicit checking/recovery actions. Missing meaning gets
+specific feedback and an example; minor grammar slips do not impose an exam. A completed
+screen uses the confirmed keepsake and its real collection name. It opens My Dojo for placing
+the item. No XP, belt, currency or achievement is inferred from a local completion event.
+
+An account-scoped local draft is distinct from server progress. An uncertain final request
+checks saved server state before retrying the same identity/body. Switching account, chapter
+or interface language remounts the presentation. An offline draft remains readable without
+claiming unverified progress. Account deletion removes the new raw chapter drafts.
+
+Chapter keepsakes show their required chapter in the collection and open that chapter while
+locked. They never display a zero-koku purchase. After the day7 lantern, chapters supply the
+next purposeful scroll choices. Chapter completion shares the existing one-per-UTC-day
+practice calendar; the meaning and the ownership of the older 1/3/7 items stay intact.
 
 ## Mentor and lesson feedback
 
@@ -81,19 +110,20 @@ bobbing stops and returns to rest when reduced motion is enabled.
 
 ## Shipping artwork and provenance
 
-The source uses three production PNGs, separate from the earlier concept studies:
+The source uses five production PNGs, separate from the earlier concept studies:
 
 | Asset | Actual file | Runtime use |
 | --- | --- | --- |
 | Room | `mobile/assets/sketch/room.png`, 1448 × 1086, opaque RGB | Shared 4:3 base; no removable objects or mentor baked in |
 | Items | `mobile/assets/sketch/items-atlas.png`, 1263 × 1245, RGBA | Equal normalized 3 × 3 crop; eight items and one unused cell |
+| Chapter scrolls | `mobile/assets/sketch/chapters-atlas.png`, 2172 × 724, RGBA | Equal normalized 3 × 1 crop; introduction, experience and clarification |
 | Mentor | `mobile/assets/sketch/sensei-atlas.png`, 1254 × 1254, RGBA | Equal normalized 4 × 4 crop; first three columns and all four moods |
 | Spring mentor | `mobile/assets/sketch/spring-sensei-atlas.png`, 1254 × 1254, RGBA | Flowerless 2 × 2 happy/cheer, think/sad; same catalog identity |
 
-Adjacent JSON manifests record provenance and mapping for all four assets.
-The room and item atlas also retain exact `.prompt.txt` companions. All four PNGs have
+Adjacent JSON manifests record provenance and mapping for all five assets.
+The room, item, chapter and spring atlases also retain exact `.prompt.txt` companions. All five PNGs have
 embedded `impeccable:prompt` entries matching their exact generation prompts; the mentor
-prompt is additionally preserved in its JSON manifest. All four were produced with
+prompt is additionally preserved in its JSON manifest. All five were produced with
 OpenAI's built-in image generation.
 Do not describe these generated assets as manually drawn originals.
 

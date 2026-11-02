@@ -43,6 +43,7 @@ import { isoDay } from "../../store/adaptive";
 import { requestPlan } from "../../services/api";
 import RuleSheet from "../../components/ui/RuleSheet";
 import DojoItemArtwork from "../../components/ui/DojoItemArtwork";
+import ChaptersButton from "../../components/ui/ChaptersButton";
 import { dojoDays, dojoItemName } from "../../store/dojoRoomCopy";
 import Txt from "../../components/ui/Txt";
 
@@ -186,6 +187,8 @@ export default function HomeScreen() {
           </View>
         </Pressable>
       )}
+
+      <ChaptersButton onPress={() => router.push("/chapters")} />
 
       <View style={styles.secondaryActions}>
         {goal.kind !== "mix" && <Pressable accessibilityRole="button" onPress={() => router.push("/practice")} style={({ pressed }) => [styles.textAction, { opacity: pressed ? 0.6 : 1 }]}>

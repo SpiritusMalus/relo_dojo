@@ -8,7 +8,20 @@ const ITEM_NAMES: Record<string, Record<Language, string>> = {
   dojo_light_lantern: { en: "Practice lantern", ru: "Фонарь практики" },
   dojo_light_sunset: { en: "Sunset light", ru: "Свет заката" },
   dojo_display_wave: { en: "The wave", ru: "Волна" },
+  dojo_display_introduction: { en: "Open door", ru: "Открытая дверь" },
+  dojo_display_experience: { en: "The path", ru: "Пройденный путь" },
+  dojo_display_clarification: { en: "Conversation", ru: "Разговор" },
 };
+const CHAPTER_ITEMS: Record<string, { id: string; en: string; ru: string }> = {
+  dojo_display_introduction: { id: "introduction", en: "Introduce yourself", ru: "Познакомиться" },
+  dojo_display_experience: { id: "experience", en: "Share an experience", ru: "Рассказать об опыте" },
+  dojo_display_clarification: { id: "clarification", en: "Ask for clarity", ru: "Переспросить" },
+};
+export function dojoItemChapter(id: string) { return CHAPTER_ITEMS[id]; }
+export function dojoChapterReward(id: string, lang: string): string | null {
+  const chapter = CHAPTER_ITEMS[id];
+  return chapter ? (lang === "ru" ? `За главу «${chapter.ru}»` : `From “${chapter.en}”`) : null;
+}
 export function dojoItemName(id: string, lang: string): string {
   return ITEM_NAMES[id]?.[lang === "ru" ? "ru" : "en"] ?? (lang === "ru" ? "Предмет додзё" : "Dojo item");
 }
@@ -23,8 +36,8 @@ const COPY = {
     unavailable: "Your dojo could not load.", retry: "Try again", error: "Could not save. Try again.",
     uncertain: "Checking your dojo…", walletUnknown: "Connect to check your koku.",
     insufficient: "Keep practising to earn more koku.", day: "practice day", days: "practice days",
-    daysHint: "Finish a daily mix or topic practice: 10 exercises.",
-    allEarned: "All practice pieces are yours", allEarnedHint: "Keep training. Your next goal is a skill.",
+    daysHint: "Finish 10 practice exercises or a chapter.",
+    allEarned: "Your next scroll is in a chapter", allEarnedHint: "Use your English in a new situation.", chapters: "Open chapters", openChapter: "Open chapter",
     welcome: "New in your dojo", placeNew: "View collection", emptyBalance: "Koku —",
     progress: "Practice days", close: "Done", selectedPreview: "Preview", collectionHint: "Pick a piece to see it in your dojo.",
   },
@@ -38,8 +51,8 @@ const COPY = {
     unavailable: "Не удалось загрузить додзё.", retry: "Повторить", error: "Не удалось сохранить. Попробуй ещё раз.",
     uncertain: "Проверяем додзё…", walletUnknown: "Подключись, чтобы проверить коку.",
     insufficient: "Продолжай практику, чтобы накопить коку.", day: "день практики", days: "дней практики",
-    daysHint: "Заверши микс дня или тренировку по теме — 10 заданий.",
-    allEarned: "Все предметы за практику собраны", allEarnedHint: "Продолжай тренироваться и осваивать новые темы.",
+    daysHint: "Заверши 10 заданий практики или главу.",
+    allEarned: "Следующий свиток — в главах", allEarnedHint: "Попробуй английский в новой ситуации.", chapters: "Открыть главы", openChapter: "Открыть главу",
     welcome: "Новое в твоём додзё", placeNew: "Открыть коллекцию", emptyBalance: "Коку —",
     progress: "Дни практики", close: "Готово", selectedPreview: "Примерка", collectionHint: "Выбери предмет, чтобы примерить его в додзё.",
   },

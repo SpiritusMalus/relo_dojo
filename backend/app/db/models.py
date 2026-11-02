@@ -327,3 +327,46 @@ class DojoGrant(Base):
     granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     acknowledged_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     __table_args__ = (UniqueConstraint("user_id", "rule_id", "item_id", name="uq_dojo_grant_rule"),)
+
+
+class ChapterRun(Base):
+    """Versioned authored work; independent from client-reported course progress."""
+
+    __tablename__ = "chapter_runs"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    chapter_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    manifest_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    lang: Mapped[str] = mapped_column(String(8), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    grades: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    receipt_id: Mapped[Optional[uuid.UUID]] = mapped_column(Uuid, nullable=True)
+    feedback: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    __table_args__ = (UniqueConstraint("user_id", "chapter_id", "manifest_version", name="uq_chapter_run_manifest"),)
+
+
+class ChapterIssuedItem(Base):
+    """One current sealed card per authored preparation step. No learner answer text."""
+
+    __tablename__ = "chapter_issued_items"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("chapter_runs.id", ondelete="CASCADE"), nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    token: Mapped[str] = mapped_column(String(4000), nullable=False)
+    __table_args__ = (UniqueConstraint("run_id", "ordinal", name="uq_chapter_issued_step"),)
+
+
+class ChapterFinalAttempt(Base):
+    """Idempotent final verdicts. The submitted personal text is never persisted."""
+
+    __tablename__ = "chapter_final_attempts"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("chapter_runs.id", ondelete="CASCADE"), nullable=False)
+    submission_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    result: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+    __table_args__ = (UniqueConstraint("run_id", "submission_id", name="uq_chapter_final_submission"),
+                     Index("ix_chapter_final_run_started", "run_id", "started_at"))

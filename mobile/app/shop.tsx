@@ -114,13 +114,11 @@ export default function ShopScreen() {
           </Card>
         )}
 
-        {/* Black Belt upsell — the shop is browsed with intent, so the subscription belongs here.
-            Lead with the concrete, server-enforced perks (not a vague teaser) and a primary CTA, so
-            the value is visible at a glance rather than hidden behind a "learn more" ghost link. */}
+        {/* Subscription access stays separate from the learner's earned belt. */}
         {!isPremium && (
           <Card style={{ borderColor: t.c.gold, borderWidth: 1 }}>
             <View style={styles.row}>
-              <Txt style={{ fontSize: 36 }}>🖤</Txt>
+              <Icon name="plus" size={36} color={t.c.ink} />
               <View style={{ flex: 1 }}>
                 <Txt variant="bodyStrong">{tr("premium.title")}</Txt>
                 <Txt variant="secondary" color={t.c.ink2}>

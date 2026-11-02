@@ -16,6 +16,7 @@ import ActivationBanner from "../../components/ui/ActivationBanner";
 import LockGate from "../../components/ui/LockGate";
 import TopicsBody from "../../components/ui/TopicsBody";
 import StoryButton from "../../components/ui/StoryButton";
+import ChaptersButton from "../../components/ui/ChaptersButton";
 import ChallengeButton from "../../components/ui/ChallengeButton";
 import ReviewButton from "../../components/ui/ReviewButton";
 import TextReviewButton from "../../components/ui/TextReviewButton";
@@ -65,6 +66,7 @@ export default function TrainScreen() {
       {/* Special modes — outside the verified-only gate above, so anonymous/unverified learners keep
           the same access to modes they had on Home. Each entry preserves its own gate exactly. */}
       <Txt variant="screenTitle" style={{ marginTop: 4 }}>{tr("train.intro")}</Txt>
+      <ChaptersButton onPress={() => router.push("/chapters")} />
       <LockGate locked={!access.review_text}>
         <TextReviewButton onPress={() => router.push("/text-review")} />
       </LockGate>

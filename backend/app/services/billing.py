@@ -40,9 +40,9 @@ class Plan(NamedTuple):
 # (RU prices undercut Praktika). Ids are STABLE — they're embedded in the payment metadata and read
 # back at webhook time, so renaming one orphans in-flight pays.
 PLANS: dict[str, Plan] = {
-    "black_belt_1m": Plan("black_belt_1m", 30, 690, "Black Belt · 1 month", "Чёрный пояс · 1 месяц"),
-    "black_belt_3m": Plan("black_belt_3m", 90, 1790, "Black Belt · 3 months", "Чёрный пояс · 3 месяца"),
-    "black_belt_12m": Plan("black_belt_12m", 365, 4900, "Black Belt · 12 months", "Чёрный пояс · 12 месяцев"),
+    "black_belt_1m": Plan("black_belt_1m", 30, 690, "Dojo Plus · 1 month", "Dojo Plus · 1 месяц"),
+    "black_belt_3m": Plan("black_belt_3m", 90, 1790, "Dojo Plus · 3 months", "Dojo Plus · 3 месяца"),
+    "black_belt_12m": Plan("black_belt_12m", 365, 4900, "Dojo Plus · 12 months", "Dojo Plus · 12 месяцев"),
 }
 
 

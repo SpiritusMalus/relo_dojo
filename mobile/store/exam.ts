@@ -7,12 +7,12 @@
 // Legacy snapshots (beltEarned undefined) keep their skill belt and are offered a CONFIRMATION
 // exam of that same belt — no one gets downgraded by the feature.
 import type { Progress } from "./progress";
-import { skillBeltIdx } from "./dojo";
+import { MAX_ASSESSED_BELT_IDX, skillBeltIdx } from "./dojo";
 import { practiceEligibilityFraction, PROMOTION_MIN_ATTEMPTS, PROMOTION_MIN_CORRECT } from "./promotion";
 
 export const EXAM_ITEMS = PROMOTION_MIN_ATTEMPTS;
 export const EXAM_MAX_MISSES = PROMOTION_MIN_ATTEMPTS - PROMOTION_MIN_CORRECT;
-export const MAX_BELT_IDX = 5; // black
+export const MAX_BELT_IDX = MAX_ASSESSED_BELT_IDX;
 
 export type ExamOffer = {
   target: number; // belt idx the exam awards
@@ -29,7 +29,7 @@ export function hasExamPractice(p: Progress): boolean {
 /** The exam on offer, or null when the worn belt already matches the skill. */
 export function examOffer(p: Progress): ExamOffer | null {
   if (!p.onboarded || !hasExamPractice(p)) return null;
-  const raw = skillBeltIdx(p);
+  const raw = Math.min(skillBeltIdx(p), MAX_BELT_IDX);
   const earned = p.beltEarned === null ? 0 : p.beltEarned;
   if (earned === undefined) {
     // Legacy / fresh-feature account: confirm the belt the skill already shows (white needs none).
