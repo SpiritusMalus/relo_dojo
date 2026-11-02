@@ -41,5 +41,7 @@
     "visibleBoundsThreshold": 32,
     "visibleBoundsPerCell": "All 16 portraits fit equal cells; about 16 px side and 8 px top padding.",
     "edgeNote": "Generated RGB specks below alpha 8 may appear vivid in viewers that ignore alpha. None are opaque; asset preserved without pixel editing."
-  }
+  },
+  "sha256": "3000ddd80e384576ad24143cd1fb39219306a185735d73e0aa761b8bf5c0fdbc",
+  "promptMetadata": "UTF-8 iTXt impeccable:prompt; pixel data unchanged"
 }

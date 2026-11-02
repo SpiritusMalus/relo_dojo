@@ -4,6 +4,7 @@
   "medium": "graphite and transparent watercolor",
   "use": "Production layered room artwork",
   "reference": "owner-selected watercolor study 1",
-  "sha256": "c8734738c2e7ae57511236aabe2bad8e1444c55cb486fc1fe61c9d58d65267c7",
-  "layout": "3 by 3 equal cells; row1 lamps, row2 scrolls, row3 seedling and bamboo; last cell empty"
+  "sha256": "ac5f30d19479663883e92d40e0f70d52155ef122d4c70d6e4eabaced0b32b070",
+  "layout": "3 by 3 equal cells; row1 lamps, row2 scrolls, row3 seedling and bamboo; last cell empty",
+  "promptMetadata": "UTF-8 iTXt impeccable:prompt; pixel data unchanged"
 }

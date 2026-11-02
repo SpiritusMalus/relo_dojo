@@ -7,7 +7,7 @@ export type Mood = "happy" | "cheer" | "think" | "sad";
 
 const ATLAS = require("../../assets/sketch/sensei-atlas.png");
 const MOOD_ROW: Record<Mood, number> = { happy: 0, cheer: 1, think: 2, sad: 3 };
-// Every shipped catalog visual has its own painted hair, skin tone, and accessory.
+// Every shipped catalog skin has its own painted portrait, hair and skin palette.
 // The same selection handles equipped cosmetics and explicit Wardrobe previews.
 const SKIN_COLUMN = { beard: 1, scar: 2, sakura: 3 } as const;
 

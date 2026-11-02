@@ -99,18 +99,31 @@ using the runtime map. Do not derive IDs from filenames or assume a requested 20
 was delivered. The room's opaque paper is intentional; object and mentor atlases have real alpha.
 Their irregular edges are part of the art, not UI borders or rectangular white backgrounds.
 
-## Current acceptance — pending
+## Current acceptance — 2026-11-02
 
-This pass checked the component source, current theme, manifests and PNG metadata. Initial
-native Home and My Dojo previews (`preview-home.png` and `preview-dojo.png` in the sketch-release
-capture set) show an earlier, larger ribbon. They are useful composition evidence, but do not
-prove the final 21% ribbon, all catalog variants or current finish acceptance.
+Independent finish review returned **ship**, with no material fixes remaining, for the
+supplied Android 1.3.0/code 4 capture set and sampled source. The packet contains 37 captures:
+18 native full/compact room combinations, 16 mentor states at large/small sizes, all six
+belt colours, and real Home, practice, feedback, completion, collection and preview states.
+The six-belt proof alone used a temporary taller viewport; app-state acceptance used
+1080 × 2400 Android 14. The private proof route is excluded from shipping source.
 
-Final captures, independent finish verdict and real interaction acceptance remain pending.
-Repeat both room frames, light/dark, Russian/English, enlarged type, all 18 equipment combinations,
-preview versus equip, purchase and earned-item display, persistence/offline/account isolation,
-all four skins and moods, earned belt colours and reduced motion. Record results against the
-actual tested APK; unit checks and source inspection do not establish native acceptance.
+Russian light and English dark screens were checked; Home/Dojo at font scales 1.3 and 2.0,
+and practice at 2.0, retain readable text and reachable actions. Real isolated interaction
+acceptance completed ten graded cards, displayed the confirmed first-scroll reward, placed
+it, retained it after restart, bought/equipped the wave, and recovered the cached room offline.
+The initial QA balance was explicitly synthetic. Server receipts separately confirm actual
+grades, ownership, practice day, acknowledgement and balance; screenshots alone prove none
+of those writes. Existing account-isolation tests pass; the second fixture stayed unchanged.
+
+Reduced-motion handling has unit coverage and native immediate equipment rendering. Original
+AVD data and settings were restored after acceptance; task-owned QA services were stopped.
+All PNG prompts decode as exact Unicode iTXt metadata and their manifest hashes match.
+The metadata correction leaves compressed image pixels unchanged from the reviewed artwork.
+
+The owner-held `sketch-release` packet retains the finish verdict and functional receipts.
+Final public-API APK delivery and integrated revision are recorded in the release receipt.
+This review does not establish physical-device, iOS, tablet, audio or performance acceptance.
 
 ## Historical review evidence — 2026-10-31
 
