@@ -1,0 +1,13 @@
+Use case: precise-object-edit.
+Asset type: one production transparent 2 by 2 portrait sprite atlas, four equal square cells.
+Input: existing 4 by 4 mentor atlas. Use the same adult man from its RIGHTMOST COLUMN (Sakura), preserving his face identity, dark brown wavy hair, short beard, natural proportions and four expressions.
+Primary change: REMOVE the flower from his hair completely. No blossom, petal, hair ornament, badge, headband or substitute accessory anywhere. Hair is ordinary loosely combed wavy dark brown hair.
+Keep this cosmetic naturally distinct with the same casual overshirt painted in a LIGHT WARM STONE LINEN wash over his cream tee, rather than the classic olive shirt. Keep graphite clothing folds and uneven pencil texture. It is just an ordinary man's light spring shirt.
+Output ONLY four portraits in a strict 2 columns x 2 rows atlas:
+top left welcoming small closed-mouth smile (happy);
+top right quietly pleased broader smile (cheer);
+bottom left thoughtful glance slightly upward (think);
+bottom right quiet sympathetic reflective expression, no shame or tears (sad).
+Framing: isolated head and upper shoulders in each cell, identical scale/baseline, center each in its exact equal cell, transparent padding 8% at sides/top/bottom, no cropped hair/shoulders crossing cells. Same front three-quarter orientation as source.
+Medium invariants: loose visible graphite searching lines and sparse transparent watercolor, warm human observational sketch, small realistic eyes. Preserve the grain and unfinished pencil quality of the source, do not smooth it into digital painting. No glossy 3D, vector cartoon, photographic skin or polished commercial-avatar style.
+True alpha transparent background, no paper panel, grid, labels, text, signature or watermark. One square PNG. The four portraits are the entire image.

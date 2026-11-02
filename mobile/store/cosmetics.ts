@@ -72,7 +72,7 @@ export const CATALOG: Record<string, CosmeticDef> = {
     price: 300,
     season: "spring",
     name: { en: "Sakura", ru: "Сакура" },
-    blurb: { en: "Petals of the spring festival.", ru: "Лепестки весеннего фестиваля." },
+    blurb: { en: "A light linen overshirt for spring.", ru: "Светлая льняная рубашка для весны." },
     visual: { hair: "#3A2A30", accessory: "sakura" },
   },
   // Belt-knot styles.
