@@ -52,7 +52,7 @@ Health verifies TLS and routing. Also send one short synthetic text through the
 public `/review-text` endpoint and check the real model response, production
 authentication and request timing. Keep model requests bounded and exclude real
 user content and provider credentials from evidence. The Russian relay performs
-SNAT, so anonymous callers share its source-IP limits; do not trust client-supplied
+SNAT, so callers, including authenticated users, share its source-IP limits; do not trust client-supplied
 forwarding headers to bypass those limits. A DNS change can remain cached until
 the previous TTL expires.
 
