@@ -17,6 +17,49 @@ secrets/databases to source replicas, a laptop or another server. No Caddy chang
 needed for an update on the existing endpoint. Other applications on the host are
 outside this deployment.
 
+## Russian public ingress
+
+The client keeps `https://relo.family-pie.ru`. Its `relo` A record uses the same
+Russian entry as Driftora: `217.198.9.67` (`vpn2`, Timeweb Moscow). The existing
+persistent TCP80/443 DNAT/MASQUERADE forwards the connection to `89.124.113.106`,
+the second address on `project-hub`. Nginx selects the original SNI hostname,
+Caddy terminates its trusted TLS, and the existing Relo backend calls OpenRouter.
+
+```text
+App -> relo.family-pie.ru / 217.198.9.67 (RU TCP relay)
+    -> 89.124.113.106 (NL TLS + Relo backend) -> OpenRouter
+```
+
+TLS remains between the client and the NL frontend across the Russian TCP relay.
+API credentials and TLS keys stay on their existing backend host. Installed
+clients keep the same hostname and can use this route with their current build.
+
+For a routing cutover, save the current `relo` record, both authoritative answers,
+TTL and the unrelated zone records before editing. Change only that A record;
+retain the current TTL (3600 at cutover), nameservers, other records and existing
+relay/VPN rules. Verify the candidate first using `curl --resolve` with the original
+hostname and normal certificate validation. After saving, reload the registrar
+page and check both authoritative nameservers and public resolvers. An ordinary
+DNS probe from an independent Russian host must connect to the new address.
+
+```sh
+curl -fsS --resolve relo.family-pie.ru:443:217.198.9.67 https://relo.family-pie.ru/health
+dig @ns1.reg.ru relo.family-pie.ru A +noall +answer
+dig @ns2.reg.ru relo.family-pie.ru A +noall +answer
+```
+
+Health verifies TLS and routing. Also send one short synthetic text through the
+public `/review-text` endpoint and check the real model response, production
+authentication and request timing. Keep model requests bounded and exclude real
+user content and provider credentials from evidence. The Russian relay performs
+SNAT, so callers, including authenticated users, share its source-IP limits; do not trust client-supplied
+forwarding headers to bypass those limits. A DNS change can remain cached until
+the previous TTL expires.
+
+Routing rollback changes only `relo` A back to the saved previous value
+(`146.103.120.137` at this cutover), with the same TTL. Verify publication and the
+previous trusted-TLS path; do not replace databases, secrets or global VPN rules.
+
 ## Release procedure
 
 1. Follow the private project workflow: scoped review, green CI and a merged PR.
