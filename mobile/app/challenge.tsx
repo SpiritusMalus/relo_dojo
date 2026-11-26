@@ -57,7 +57,7 @@ export default function ChallengeScreen() {
   const { token } = useAuth();
   const ownerScope = useRef(captureAccountScope()).current;
   const { t: tr, lang } = useI18n();
-  const { result, checking, submissionLocked, error: checkError, check, reset, beginAttempt, markHintUsed } = useExerciseCheck();
+  const { result, checking, submissionLocked, error: checkError, checkErrorKey, check, reset, beginAttempt, markHintUsed } = useExerciseCheck();
 
   const progressRef = useRef(progress);
   progressRef.current = progress;
@@ -403,7 +403,7 @@ export default function ChallengeScreen() {
           </View>
         )}
         {checkError && !error && (
-          <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert" style={{ textAlign: "center" }}>{tr("err.check")}</Txt>
+          <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert" style={{ textAlign: "center" }}>{tr(checkErrorKey ?? "err.check")}</Txt>
         )}
 
         {exercise && !loading && (

@@ -42,7 +42,7 @@ export default function BeltExamScreen() {
   const insets = useSafeAreaInsets();
   const { progress, recordExamResult } = useProgress();
   const { t: tr, lang } = useI18n();
-  const { result, checking, submissionLocked, error: checkError, check, reset, beginAttempt } = useExerciseCheck();
+  const { result, checking, submissionLocked, error: checkError, checkErrorKey, check, reset, beginAttempt } = useExerciseCheck();
 
   // The offer is read once at mount: mid-exam skill changes must not move the goalposts.
   const offerRef = useRef(examOffer(progress));
@@ -272,7 +272,7 @@ export default function BeltExamScreen() {
         )}
         {!loading && loadFailure}
         {checkError && !error && (
-          <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert" style={{ textAlign: "center" }}>{tr("err.check")}</Txt>
+          <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert" style={{ textAlign: "center" }}>{tr(checkErrorKey ?? "err.check")}</Txt>
         )}
 
         {exercise && !loading && (

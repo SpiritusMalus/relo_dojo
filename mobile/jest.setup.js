@@ -9,6 +9,12 @@ jest.mock("@react-native-async-storage/async-storage", () =>
 // Tests that exercise streaming provide their own per-file behavior.
 jest.mock("expo/fetch", () => ({ fetch: jest.fn() }), { virtual: true });
 
+jest.mock("expo-network", () => ({
+  NetworkStateType: { NONE: "NONE", WIFI: "WIFI", UNKNOWN: "UNKNOWN" },
+  getNetworkStateAsync: jest.fn().mockResolvedValue({ type: "WIFI" }),
+  addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })),
+}));
+
 // expo-speech is a native TTS module (Level Test listening section). Stub it so a suite that imports
 // a screen using it doesn't hit native code under jest.
 jest.mock("expo-speech", () => ({ speak: jest.fn(), stop: jest.fn() }), { virtual: true });

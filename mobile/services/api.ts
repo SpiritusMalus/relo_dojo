@@ -11,6 +11,7 @@ import { fetch as expoFetch } from "expo/fetch";
 import type { Progress } from "../store/progress";
 import { bindAccountUser, captureAccountScope, isCurrentAccountScope, setAccountToken, type AccountScope } from "../store/accountScope";
 import { anonymousInstallId } from "./anonymousInstallId";
+import { withAnswerConnection } from "./answerConnection";
 
 const FALLBACK_HOST = "192.168.1.9";
 const PORT = 8000;
@@ -58,6 +59,7 @@ export function setApiLang(lang: string): void {
 }
 
 type Method = "GET" | "POST" | "PUT" | "DELETE";
+type ApiResponse = Pick<Response, "status" | "ok" | "json">;
 
 // Error that carries the HTTP status + an optional machine-readable code so callers can route UI
 // (e.g. 403 "starter_limit" → activation prompt; 403 "daily_limit" → limit sheet with the upsell).
@@ -83,6 +85,7 @@ export function gateKind(e: unknown): GateKind {
 
 // LLM calls (/explain) can be slow on a cold model, but never hang forever — fail clearly instead.
 const REQUEST_TIMEOUT_MS = 90000;
+const INTERACTIVE_CHECK_TIMEOUT_MS = 8000;
 // A mini-story generates 3 exercises in sequence (each may retry), so it needs more headroom.
 const STORY_TIMEOUT_MS = 180000;
 
@@ -92,7 +95,7 @@ export async function request<T>(
   method: Method = "POST",
   timeoutMs: number = REQUEST_TIMEOUT_MS,
   expectedAuthToken?: string | null,
-  options?: { signal?: AbortSignal; reviewIdentity?: boolean },
+  options?: { signal?: AbortSignal; reviewIdentity?: boolean; transport?: "expo" },
 ): Promise<T> {
   assertProgressSession(expectedAuthToken);
   const requestScope = captureAccountScope();
@@ -108,33 +111,45 @@ export async function request<T>(
   assertRequestScope();
 
   const controller = new AbortController();
-  const cancel = () => controller.abort();
-  if (options?.signal?.aborted) throw new ApiError("Request cancelled.", 409, "request_aborted");
-  options?.signal?.addEventListener("abort", cancel, { once: true });
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let res: Response;
-  try {
-    res = await fetch(`${BASE_URL}${path}`, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    });
-  } catch (e) {
+  const assertRequestActive = () => {
     assertRequestScope();
     if (options?.signal?.aborted) throw new ApiError("Request cancelled.", 409, "request_aborted");
-    if (e instanceof Error && e.name === "AbortError") {
-      throw new Error(apiLang === "ru" ? "Ответ задерживается. Попробуй ещё раз." : "The reply is taking longer. Try again.");
+  };
+  assertRequestActive();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const cancel = () => {
+    clearTimeout(timer);
+    controller.abort();
+  };
+  options?.signal?.addEventListener("abort", cancel, { once: true });
+  const fetchResponse = async (): Promise<ApiResponse> => {
+    try {
+      const fetcher = options?.transport === "expo" ? expoFetch : fetch;
+      return await fetcher(`${BASE_URL}${path}`, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } catch (e) {
+      assertRequestActive();
+      if (e instanceof Error && e.name === "AbortError") {
+        throw new Error(apiLang === "ru" ? "Ответ задерживается. Попробуй ещё раз." : "The reply is taking longer. Try again.");
+      }
+      throw new Error(apiLang === "ru" ? "Не удалось подключиться. Попробуй ещё раз." : "Couldn't connect. Try again.");
     }
-    throw new Error(apiLang === "ru" ? "Не удалось подключиться. Попробуй ещё раз." : "Couldn't connect. Try again.");
+  };
+  try {
+    const res = await fetchResponse();
+    assertRequestActive();
+    return await readApiResponse<T>(res, assertRequestActive);
   } finally {
     clearTimeout(timer);
     options?.signal?.removeEventListener("abort", cancel);
   }
+}
 
-  assertRequestScope();
-  if (options?.signal?.aborted) throw new ApiError("Request cancelled.", 409, "request_aborted");
-
+async function readApiResponse<T>(res: ApiResponse, assertRequestActive: () => void): Promise<T> {
   if (!res.ok) {
     // Errors carry {detail: "..."} (string), {detail: {code, message, ...}} (structured gating),
     // or, for 422 validation, {detail: [{msg, ...}]}.
@@ -155,7 +170,7 @@ export async function request<T>(
     } catch {
       // non-JSON error body — keep the generic message
     }
-    assertRequestScope();
+    assertRequestActive();
     throw new ApiError(detail, res.status, code);
   }
   // 204 No Content (e.g. DELETE /auth/account) has no body — don't try to parse JSON.
@@ -166,10 +181,10 @@ export async function request<T>(
   // other backend error, not "can't reach the backend".
   try {
     const data = (await res.json()) as T;
-    assertRequestScope();
+    assertRequestActive();
     return data;
   } catch {
-    assertRequestScope();
+    assertRequestActive();
     throw new ApiError("Malformed response from the backend.", res.status);
   }
 }
@@ -370,9 +385,25 @@ export async function syncLearnerProfile(patch: Partial<LearnerProfileData>): Pr
   }
 }
 
-// Deterministic, instant grade for interactive exercises (no LLM).
-export function checkInteractive(token: string, response: ResponseValue): Promise<CheckResult> {
-  return request<CheckResult>("/check", { token, response }, "POST", REQUEST_TIMEOUT_MS, undefined, { reviewIdentity: true });
+function requestAnswer<T>(path: string, body: unknown, timeoutMs: number, reviewIdentity?: boolean): Promise<T> {
+  const token = authToken;
+  const scope = captureAccountScope();
+  return withAnswerConnection((signal) => {
+    if (!isCurrentAccountScope(scope)) throw new ApiError("The signed-in account changed.", 409, "session_changed");
+    // Expo's native HTTP client is independent of React Native's general-purpose fetch pool.
+    return request<T>(path, body, "POST", REQUEST_TIMEOUT_MS, token, { signal, reviewIdentity, transport: "expo" });
+  }, timeoutMs, (reason) => new ApiError(
+    reason === "answer_offline"
+      ? (apiLang === "ru" ? "Нет подключения к интернету." : "No internet connection.")
+      : (apiLang === "ru" ? "Проверка не ответила вовремя." : "The answer check timed out."),
+    0,
+    reason,
+  ));
+}
+
+// Interactive grading is deterministic. Legacy bound free-text cards may still use a model.
+export function checkInteractive(token: string, response: ResponseValue, modelGraded = false): Promise<CheckResult> {
+  return requestAnswer("/check", { token, response }, modelGraded ? REQUEST_TIMEOUT_MS : INTERACTIVE_CHECK_TIMEOUT_MS, true);
 }
 
 export function renewReviewToken(token: string): Promise<{ review_token: string }> {
@@ -381,13 +412,13 @@ export function renewReviewToken(token: string): Promise<{ review_token: string 
 
 // LLM grade for free-text answers (includes an explanation, in the learner's language).
 export function checkFreeText(text: string, userAnswer: string): Promise<TextCheckResult> {
-  return request<TextCheckResult>("/check-answer", { text, user_answer: userAnswer, lang: apiLang });
+  return requestAnswer("/check-answer", { text, user_answer: userAnswer, lang: apiLang }, REQUEST_TIMEOUT_MS);
 }
 
 // listen-and-retell: LLM-graded content coverage of the typed retelling. The sealed token carries
 // the spoken passage; `correct_answer` comes back as that passage — the post-answer reveal.
 export function checkRetell(token: string, retell: string): Promise<TextCheckResult> {
-  return request<TextCheckResult>("/check-retell", { token, retell, lang: apiLang }, "POST", REQUEST_TIMEOUT_MS, undefined, { reviewIdentity: true });
+  return requestAnswer("/check-retell", { token, retell, lang: apiLang }, REQUEST_TIMEOUT_MS, true);
 }
 
 // On-demand teaching note for an interactive miss.

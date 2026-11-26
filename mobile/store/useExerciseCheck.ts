@@ -151,6 +151,8 @@ export function useExerciseCheck() {
         const res: Result =
           exercise.type === "listen-and-retell" && exercise.token
             ? await checkRetell(exercise.token, String(submission.response))
+            : exercise.type === "free-text" && exercise.token
+            ? await checkInteractive(exercise.token, submission.response, true)
             : exercise.token
             ? await checkInteractive(exercise.token, submission.response)
             : await checkFreeText(exercise.text, String(submission.response));
@@ -286,5 +288,7 @@ export function useExerciseCheck() {
   useEffect(() => { reset(); }, [scope, reset]);
 
   const submissionLocked = checking || !!result || (!!error && !!attemptRef.current.submission);
-  return { result, checking, submissionLocked, error, errorCode, levelUp, explained, explainLoading, explainError, check, doExplain, reset, setError, beginAttempt, markHintUsed };
+  const checkErrorKey: "err.check" | "err.checkOffline" | "err.checkTimeout" = errorCode === "answer_offline" ? "err.checkOffline"
+    : errorCode === "answer_timeout" ? "err.checkTimeout" : "err.check";
+  return { result, checking, submissionLocked, error, errorCode, checkErrorKey, levelUp, explained, explainLoading, explainError, check, doExplain, reset, setError, beginAttempt, markHintUsed };
 }
