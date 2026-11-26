@@ -13,7 +13,7 @@ import { beltProgress } from "../store/dojo";
 import ExerciseCard from "../components/ExerciseCard";
 import ResultPanel from "../components/ResultPanel";
 import { useProgress, mergeSteering, DEFAULT_STEERING, type Steering } from "../store/progress";
-import { effectiveSkill, levelToCefr, selectNext, applySteeringAction, type SwerveAction } from "../store/adaptive";
+import { effectiveSkill, levelToCefr, LISTENING_FORMATS, selectNext, applySteeringAction, type SwerveAction } from "../store/adaptive";
 import SwerveSheet, { type SwerveScope } from "../components/ui/SwerveSheet";
 import RuleSheet from "../components/ui/RuleSheet";
 import { masteryOf, RULE_CARDS } from "../store/curriculum";
@@ -83,7 +83,7 @@ export default function PracticeScreen() {
   // Stage 2 Progress Agent: every answer of this session, pushed once at the summary screen.
   const sessionAnswersRef = useRef<SessionAnswer[]>([]);
   const summarySentRef = useRef(false);
-  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
+  const { result, checking, submissionLocked, error: checkError, explainError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
   const params = useLocalSearchParams<{ topic?: string }>();
   const routeTopic = typeof params.topic === "string" ? params.topic : undefined;
@@ -114,8 +114,6 @@ export default function PracticeScreen() {
     };
   }, [scope]);
 
-  // Prefetch during feedback, after the current answer updates the learner model.
-  // One next card avoids spending on cards that a later answer would invalidate.
   // Recent misses (per device), refreshed on each load; fed back to the generator to target weak
   // points in a fresh sentence (personalized practice). Kept in a ref so selectParams stays sync.
   const mistakesRef = useRef<Mistake[]>([]);
@@ -132,11 +130,10 @@ export default function PracticeScreen() {
     queueRef.current = createExerciseQueue({
       size: 1,
       prefetchOnServe: false,
-      fetch: (params) => {
+      fetch: (params, signal) => {
         if (!isCurrentAccountScope(queueScope)) return Promise.reject(new Error("The signed-in account changed."));
-        return sessionTracker.fetch(params);
+        return sessionTracker.fetch(params, signal);
       },
-      revision: () => `${scope.epoch}:${Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0)}`,
       selectParams: () => {
         const steering = mergeSteering(progressRef.current.steering, sessionSteeringRef.current ?? DEFAULT_STEERING);
         const { topic, cefr, type } = selectNext(progressRef.current, forcedTopicRef.current, steering);
@@ -174,15 +171,21 @@ export default function PracticeScreen() {
   const [showScroll, setShowScroll] = useState(false); // end-of-session summary + reward scroll
   const [swerveOpen, setSwerveOpen] = useState(false); // learner's "steer the lesson" sheet
   const [ruleOpen, setRuleOpen] = useState(false); // 📖 rule card for the current card's topic
-  const error = loadError ?? checkError;
+  const submitting = useRef(false);
+  const advancedFrom = useRef(0);
+  const replacement = useRef(false);
 
   const shake = useRef(new Animated.Value(0)).current;
 
-  const loadingRef = useRef(false);
+  const loadingRef = useRef<{ queue: ExerciseQueue; topic: string | undefined } | null>(null);
   const loadExercise = useCallback(async (replace = false) => {
-    if (!isCurrentAccountScope(scope)) return;
-    if (loadingRef.current) return;
-    loadingRef.current = true;
+    const queue = queueRef.current!;
+    if (!isCurrentAccountScope(scope) || submitting.current) return;
+    if (loadingRef.current?.queue === queue && loadingRef.current.topic === routeTopic) return;
+    const request = { queue, topic: routeTopic };
+    loadingRef.current = request;
+    replacement.current = replace;
+    const current = () => loadingRef.current === request && isCurrentAccountScope(scope) && mountedTracker.current === sessionTracker;
     setLoading(true);
     setLoadError(null);
     setGated(false);
@@ -199,19 +202,17 @@ export default function PracticeScreen() {
     try {
       // Refresh the local miss list so freshly-refilled cards can target the latest weak points.
       const list = await loadMistakes(scope);
-      if (!isCurrentAccountScope(scope)) return;
+      if (!current()) return;
       mistakesRef.current = list;
-      // Pull from the buffer (instant if prefetched); the queue handles adaptive selection and
-      // refills itself in the background.
       const next = !replace && !token
-        ? await deliverGuestExercise(localDate(new Date()), () => queueRef.current!.next())
-        : await queueRef.current!.next();
-      if (!isCurrentAccountScope(scope)) return;
+        ? await deliverGuestExercise(localDate(new Date()), () => queue.next())
+        : await queue.next();
+      if (!current()) return;
       if (!next) { setGuestLimited(true); return; }
       setExercise(next);
       setRound((r) => r + 1);
     } catch (e) {
-      if (!isCurrentAccountScope(scope)) return;
+      if (!current()) return;
       // 403 routes by gate kind: "limit" → limit sheet with the upsell; "gated" → the activation
       // prompt. Never a raw error.
       const gate = gateKind(e);
@@ -222,19 +223,21 @@ export default function PracticeScreen() {
       } else if (gate === "gated") setGated(true);
       else setLoadError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
-      loadingRef.current = false;
-      if (isCurrentAccountScope(scope)) setLoading(false);
+      if (current()) setLoading(false);
+      if (loadingRef.current === request) loadingRef.current = null;
     }
-  }, [reset, token, scope]);
+  }, [reset, token, scope, routeTopic, sessionTracker]);
 
+  const openedRoute = useRef<{ queue: ExerciseQueue; topic: string | undefined } | null>(null);
   useEffect(() => {
-    // On mount, or when the ROUTE's drilled topic changes, drop any buffered cards (they may be
-    // off-topic) and load fresh. Keyed on routeTopic, not the merged forcedTopic: a swerve-driven
-    // change refetches inside applySwerve already — reacting here too would double-fetch and
-    // double-charge the guest slot. clear() on an empty queue is a no-op.
+    const queue = queueRef.current!;
+    const previous = openedRoute.current;
+    if (previous?.queue === queue && previous.topic === routeTopic) return;
+    openedRoute.current = { queue, topic: routeTopic };
+    // An explicit route change invalidates the old request. A render or progress hydration does not.
+    if (previous?.queue === queue) queue.clear();
     setSteeredTopic(undefined);
-    queueRef.current!.clear();
-    loadExercise();
+    void loadExercise();
   }, [routeTopic, loadExercise]);
 
   // Apply a swerve from the sheet. "remember" persists to the steering slice (adaptive.ts honors it
@@ -242,6 +245,7 @@ export default function PracticeScreen() {
   // learner hasn't answered the current card yet, swap it for one chosen under the new steering.
   const applySwerve = useCallback(
     (action: SwerveAction, scope: SwerveScope) => {
+      if (submitting.current || (submissionLocked && !result)) return;
       if (scope === "remember") {
         const next = applySteeringAction(progressRef.current.steering, action);
         // setSteering is async state — but the swap fetch below reads progressRef synchronously,
@@ -267,10 +271,11 @@ export default function PracticeScreen() {
       queueRef.current!.clear();
       if (!result) void loadExercise(true); // reuse the already-counted slot — no extra guest charge
     },
-    [setSteering, result, loadExercise]
+    [setSteering, result, submissionLocked, loadExercise]
   );
 
   function onChange(value: ResponseValue | null, display: string) {
+    if (submitting.current || submissionLocked || result) return;
     setResponse(value);
     setResponseDisplay(display);
   }
@@ -288,14 +293,13 @@ export default function PracticeScreen() {
   }
 
   async function onCheck() {
-    if (!exercise || response === null || checking) return;
-    const res = await check(exercise, response, runShake);
-    if (res) {
-      // Grade first, then select from the updated learner snapshot during feedback.
+    if (!exercise || response === null || checking || submitting.current || result) return;
+    submitting.current = true;
+    try {
+      const res = await check(exercise, response, runShake, responseDisplay);
+      if (!res || !isCurrentAccountScope(scope) || mountedTracker.current !== sessionTracker) return;
       if (res.progressAfter) progressRef.current = res.progressAfter;
       trackerRef.current?.tracker.recordGraded(exercise);
-      queueRef.current!.clear();
-      if (solved + 1 < SESSION_LEN) queueRef.current!.prefetch();
       setSolved((s) => s + 1);
       if (res.correct) setSessionCorrect((c) => c + 1);
       setSessionXp((n) => n + (res.xpEarned ?? 0));
@@ -303,7 +307,19 @@ export default function PracticeScreen() {
       if (typeof res.coins_earned === "number") setSessionKoku((n) => (n ?? 0) + res.coins_earned!);
       sessionAnswersRef.current.push({ topic: exercise.topic, correct: res.correct, level: exercise.level });
       trackExerciseAnswered({ topic: exercise.topic, correct: res.correct, level: exercise.level, mode: "practice" });
+    } finally {
+      submitting.current = false;
     }
+  }
+
+  function advance(replace = false) {
+    if (round <= advancedFrom.current || submitting.current || (replace && submissionLocked)) return;
+    advancedFrom.current = round;
+    void loadExercise(replace);
+  }
+
+  function retryLoad() {
+    void loadExercise(replacement.current);
   }
 
   async function saveDojoDay() {
@@ -369,7 +385,11 @@ export default function PracticeScreen() {
   // topic if any, else the mix title. Lang-aware, same labels the swerve sheet shows.
   const labelFor = (id: string) => (lang === "ru" ? RU_TOPIC_LABELS[id] : TOPIC_LABELS[id]) ?? TOPIC_LABELS[id] ?? id;
   const headerTopic = exercise?.topic ?? forcedTopic;
-  const topicLabel = headerTopic ? labelFor(headerTopic) : tr("btn.mix.title");
+  const evidence = exercise?.evidence_kind ?? (exercise?.type === "order-the-dialog" ? "dialogue"
+    : exercise && LISTENING_FORMATS.has(exercise.type) ? "listening" : "topic");
+  const topicLabel = evidence === "dialogue" ? tr("exercise.dialogue")
+    : evidence === "listening" ? tr("lt.skillListening")
+    : headerTopic ? labelFor(headerTopic) : tr("btn.mix.title");
 
   // X mid-session: confirm before discarding answered cards and the end-of-session scroll.
   // Free exit before the first answer and once the summary is showing (nothing left to lose).
@@ -408,16 +428,16 @@ export default function PracticeScreen() {
         </Txt>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
         {!showScroll && <View style={{ gap: 8, marginTop: 6, marginBottom: 8 }}>
           <Txt variant="screenTitle">{topicLabel}</Txt>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             {exercise && <Txt variant="secondary" color={t.c.ink2}>
               {exercise.level || levelToCefr(effectiveSkill(progress, exercise.topic))}
             </Txt>}
-            {exercise && RULE_CARDS[exercise.topic] && (
+            {exercise && evidence === "topic" && RULE_CARDS[exercise.topic] && (
               <Pressable
-                onPress={() => { markHintUsed(); setRuleOpen(true); }}
+                onPress={() => { if (!submitting.current) { markHintUsed(); setRuleOpen(true); } }}
                 accessibilityRole="button"
                 accessibilityLabel={tr("course.rule")}
                 style={({ pressed }) => [styles.swerveBtn, { opacity: pressed ? 0.6 : 1 }]}
@@ -428,7 +448,7 @@ export default function PracticeScreen() {
             )}
             {exercise && (
               <Pressable
-                onPress={() => setSwerveOpen(true)}
+                onPress={() => { if (!submitting.current && (!submissionLocked || result)) setSwerveOpen(true); }}
                 accessibilityRole="button"
                 accessibilityLabel={tr("swerve.open")}
                 style={({ pressed }) => [styles.swerveBtn, { opacity: pressed ? 0.6 : 1 }]}
@@ -449,7 +469,7 @@ export default function PracticeScreen() {
 
         {limited && !loading && (
           <View style={{ marginTop: 20 }}>
-            <LimitSheet belt={beltProgress(progress).belt} onUnlocked={() => loadExercise()} />
+            <LimitSheet belt={beltProgress(progress).belt} onUnlocked={retryLoad} />
           </View>
         )}
 
@@ -469,16 +489,16 @@ export default function PracticeScreen() {
             <Txt variant="secondary" color={t.c.ink3} style={{ textAlign: "center" }}>
               {tr("activate.lockedMsg")}
             </Txt>
-            <Button label={tr("action.tryAgain")} variant="ghost" onPress={() => loadExercise()} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={retryLoad} />
           </View>
         )}
 
-        {error && !gated && !loading && (
+        {loadError && !gated && !loading && (
           <View style={{ gap: 12, marginTop: 20 }}>
             <Txt variant="bodyStrong" accessibilityRole="alert" style={{ textAlign: "center" }}>
               {tr("err.exercise.title")}
             </Txt>
-            <Button label={tr("action.tryAgain")} variant="ghost" onPress={() => loadExercise()} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={retryLoad} />
           </View>
         )}
 
@@ -529,7 +549,8 @@ export default function PracticeScreen() {
 
         {exercise && !loading && !showScroll && (
           <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
-            <ExerciseCard onHint={markHintUsed} key={round} exercise={exercise} locked={!!result} onChange={onChange} />
+            <ExerciseCard onHint={markHintUsed} key={round} exercise={exercise} feedback={result ?? undefined}
+              locked={checking || submissionLocked || !!result} onChange={onChange} onSkip={() => advance(true)} />
           </Animated.View>
         )}
 
@@ -539,10 +560,26 @@ export default function PracticeScreen() {
           <PronunciationCard target={exercise.text} lang={lang} />
         )}
 
+        {checkError && !result && (
+          <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert">{tr("err.check")}</Txt>
+        )}
+
+        {result && exercise && !showScroll && (
+          <ResultPanel
+            result={result}
+            exercise={exercise}
+            levelUp={levelUp}
+            explained={explained}
+            explainLoading={explainLoading}
+            explainError={explainError}
+            onExplain={onExplain}
+          />
+        )}
+
         {/* Mastery-gate moment: the evidence meter for this unit is full — the checkpoint (зачёт)
             is open. Persistent nudge on every result until the quiz is passed. */}
         {(() => {
-          if (!exercise || !result || showScroll) return null;
+          if (!exercise || !result || showScroll || evidence !== "topic") return null;
           const mastered = (progress.course?.mastered ?? []).includes(exercise.topic);
           if (mastered || !RULE_CARDS[exercise.topic]) return null;
           if (!masteryOf(progress.course?.history[exercise.topic]).met) return null;
@@ -558,6 +595,7 @@ export default function PracticeScreen() {
                 </Txt>
                 <Button
                   label={tr("course.takeCheckpoint")}
+                  variant="ghost"
                   onPress={() => router.navigate({ pathname: "/checkpoint", params: { topic: exercise.topic } })}
                 />
               </View>
@@ -565,16 +603,6 @@ export default function PracticeScreen() {
           );
         })()}
 
-        {result && exercise && !showScroll && (
-          <ResultPanel
-            result={result}
-            exercise={exercise}
-            levelUp={levelUp}
-            explained={explained}
-            explainLoading={explainLoading}
-            onExplain={onExplain}
-          />
-        )}
       </ScrollView>
 
       {exercise && (
@@ -603,10 +631,10 @@ export default function PracticeScreen() {
                 onPress={finishSession}
               />
             ) : (
-              <Button label={tr("action.next")} onPress={() => loadExercise()} />
+              <Button label={tr("action.next")} onPress={() => advance()} />
             )
           ) : (
-            <Button label={checking ? tr("action.checking") : tr("action.check")} onPress={onCheck} disabled={!canSubmit} />
+            <Button label={tr(checking ? "action.checking" : checkError ? "action.tryAgain" : "action.check")} onPress={onCheck} disabled={!canSubmit} />
           )}
         </View>
       )}

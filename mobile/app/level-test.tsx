@@ -3,7 +3,7 @@
 // estimate stops once it settles; the result re-seeds the skill estimate and raises the worn belt,
 // and — unlike the onboarding warm-up (capped at B2) — it can place at C1.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,6 +27,7 @@ import {
 import { isoDay, levelToCefr } from "../store/adaptive";
 import { beltProgress, weakTopics } from "../store/dojo";
 import { seedSkillFromLevel } from "../store/onboarding";
+import { captureAccountScope, isCurrentAccountScope } from "../store/accountScope";
 import { useProgress, type LevelSnapshot } from "../store/progress";
 import { useI18n } from "../store/i18n";
 import { RU_TOPIC_LABELS } from "../i18n/strings";
@@ -43,6 +44,8 @@ import Txt from "../components/ui/Txt";
 
 type Phase = "intro" | "solving" | "feedback" | "writing" | "scoring" | "done";
 type AudioState = "idle" | "playing" | "ready" | "unavailable";
+const WRITING_MIN = 15;
+const WRITING_MAX = 2000;
 
 function stopSpeech() {
   try { void Promise.resolve(Speech.stop()).catch(() => {}); } catch { /* missing native module */ }
@@ -64,6 +67,24 @@ export default function LevelTestScreen() {
   const insets = useSafeAreaInsets();
   const { progress, applyLevelTest } = useProgress();
   const { t: tr, lang } = useI18n();
+  const scope = useRef(captureAccountScope()).current;
+  const active = useRef(true);
+  const started = useRef(false);
+  const saved = useRef(false);
+  const advancedItem = useRef<string | null>(null);
+  const writingRequest = useRef<AbortController | null>(null);
+  const writingFinished = useRef(false);
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; writingRequest.current?.abort(); };
+  }, []);
+  const current = useCallback(() => active.current && isCurrentAccountScope(scope), [scope]);
+  const close = useCallback(() => {
+    if (!active.current) return;
+    active.current = false;
+    writingRequest.current?.abort();
+    router.back();
+  }, [router]);
 
   // Seed from the learner's current overall skill so a returning user converges fast (the adaptive
   // selection corrects from anywhere — this just starts nearer).
@@ -81,6 +102,8 @@ export default function LevelTestScreen() {
   const writingScoreRef = useRef<number | null>(null); // LLM writing score — joins the skill diagnosis
   const [writingPrompt, setWritingPrompt] = useState("");
   const [writingText, setWritingText] = useState("");
+  const [writingError, setWritingError] = useState(false);
+  const [writingNote, setWritingNote] = useState("");
   const [audioState, setAudioState] = useState<AudioState>("idle");
   const audioStateRef = useRef<AudioState>("idle");
   const speechGeneration = useRef(0);
@@ -139,6 +162,7 @@ export default function LevelTestScreen() {
     receptiveRef.current = stRef.current.theta;
     setWritingPrompt(pickWritingPrompt(stRef.current.theta).prompt);
     setWritingText("");
+    setWritingError(false);
     setPhase("writing");
   }, []);
 
@@ -157,11 +181,13 @@ export default function LevelTestScreen() {
   }, [toWriting]);
 
   const start = useCallback(() => {
+    if (!current() || started.current) return;
+    started.current = true;
     stRef.current = startLevelTest(seed);
     writingScoreRef.current = null;
     setCount(0);
     loadNext();
-  }, [seed, loadNext]);
+  }, [current, seed, loadNext]);
 
   const skipListening = useCallback(() => {
     speechGeneration.current++;
@@ -174,38 +200,53 @@ export default function LevelTestScreen() {
   }, [loadNext]);
 
   const onCheck = useCallback(() => {
-    if (!item || response === null || phase !== "solving") return;
+    if (!current() || !item || response === null || phase !== "solving" || stRef.current.used.has(item.id)) return;
     if (item.skill === "listening" && audioStateRef.current !== "ready") return;
     const correct = response === item.answer;
     stRef.current = recordAnswer(stRef.current, item, correct);
     setCount(stRef.current.answered);
     setResult({ correct, answer: item.answer });
     setPhase("feedback");
-  }, [item, response, phase]);
+  }, [current, item, response, phase]);
 
   const onNext = useCallback(() => {
+    if (!current() || !item || phase !== "feedback" || advancedItem.current === item.id) return;
+    advancedItem.current = item.id;
     if (isDone(stRef.current)) toWriting();
     else loadNext();
-  }, [loadNext, toWriting]);
+  }, [current, item, phase, loadNext, toWriting]);
 
-  // Submit the writing task → CEFR-score it server-side → blend into the level. On any failure
-  // (offline / LLM down) or skip, fall back gracefully to the receptive-only placement.
   const finishWithReceptiveOnly = useCallback(() => {
+    if (!current() || writingRequest.current || writingFinished.current || phase !== "writing") return;
+    writingFinished.current = true;
     setDone({ ...levelTestResult(stRef.current), partial: true });
     setPhase("done");
-  }, []);
+  }, [current, phase]);
 
   const onSubmitWriting = useCallback(async () => {
+    const submitted = writingText.trim();
+    if (!current() || writingRequest.current || writingFinished.current || phase !== "writing" || submitted.length < WRITING_MIN) return;
+    const controller = new AbortController();
+    writingRequest.current = controller;
+    setWritingError(false);
     setPhase("scoring");
     try {
-      const w = await assessWriting(writingText.trim(), writingPrompt);
-      writingScoreRef.current = w.score;
-      setDone({ ...combineLevels(receptiveRef.current, w.score), partial: !!stRef.current.excludedSkills?.length });
+      const evaluation = await assessWriting(submitted, writingPrompt, controller.signal);
+      if (!current() || controller.signal.aborted) return;
+      writingFinished.current = true;
+      writingScoreRef.current = evaluation.score;
+      setWritingNote(evaluation.note);
+      setDone({ ...combineLevels(receptiveRef.current, evaluation.score), partial: !!stRef.current.excludedSkills?.length });
       setPhase("done");
     } catch {
-      finishWithReceptiveOnly();
+      if (current() && !controller.signal.aborted) {
+        setWritingError(true);
+        setPhase("writing");
+      }
+    } finally {
+      if (writingRequest.current === controller) writingRequest.current = null;
     }
-  }, [writingText, writingPrompt, finishWithReceptiveOnly]);
+  }, [current, phase, writingText, writingPrompt]);
 
   // The per-skill diagnosis behind the result: the MCQ answer log per skill + the LLM writing score.
   // Recomputed only when the run completes (`done` flips) — stRef is final by then.
@@ -230,16 +271,17 @@ export default function LevelTestScreen() {
   }, [progress.levelHistory]);
 
   const onSave = useCallback(() => {
-    if (!done) return;
+    if (!done || !current() || saved.current) return;
+    saved.current = true;
     const skill = seedSkillFromLevel(done.level, progress.profile?.focusTopics ?? []);
     const date = isoDay(new Date());
     applyLevelTest(skill, done.beltIdx, date, { date, level: done.level, cefr: done.cefr, skills: report, partial: done.partial });
-    router.back();
-  }, [done, progress.profile, applyLevelTest, router, report]);
+    close();
+  }, [done, current, progress.profile, applyLevelTest, close, report]);
 
   if (phase === "intro") {
     return (
-      <Centered insets={insets} onClose={() => router.back()}>
+      <Centered insets={insets} onClose={close}>
         <Sensei size={96} mood="think" bob />
         <Txt variant="hero" style={{ textAlign: "center" }}>{tr("lt.title")}</Txt>
         <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("lt.intro")}</Txt>
@@ -250,7 +292,7 @@ export default function LevelTestScreen() {
 
   if (phase === "scoring") {
     return (
-      <Centered insets={insets}>
+      <Centered insets={insets} onClose={close}>
         <Sensei size={96} mood="think" bob />
         <ActivityIndicator color={t.c.accent} />
         <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("lt.scoring")}</Txt>
@@ -260,7 +302,7 @@ export default function LevelTestScreen() {
 
   if (phase === "writing") {
     return (
-      <Centered insets={insets} onClose={() => router.back()}>
+      <Centered insets={insets} onClose={close}>
         <Sensei size={80} mood="think" />
         <Txt variant="hero" style={{ textAlign: "center" }}>{tr("lt.writingTitle")}</Txt>
         <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("lt.writingIntro")}</Txt>
@@ -269,14 +311,19 @@ export default function LevelTestScreen() {
         </Card>
         <TextInput
           value={writingText}
-          onChangeText={setWritingText}
+          onChangeText={(text) => { if (!writingRequest.current && !writingFinished.current) setWritingText(text); }}
+          accessibilityLabel={tr("lt.writingTitle")}
+          maxLength={WRITING_MAX}
           placeholder={tr("lt.writingPlaceholder")}
           placeholderTextColor={t.c.ink3}
           multiline
           textAlignVertical="top"
           style={[styles.input, { color: t.c.ink, backgroundColor: t.c.surface, borderColor: t.c.line2 }]}
         />
-        <Button label={tr("lt.writingSubmit")} onPress={onSubmitWriting} disabled={writingText.trim().length < 15} style={{ alignSelf: "stretch" }} />
+        <Txt variant="caption" color={t.c.ink2}>{tr("lt.writingLength", { min: WRITING_MIN, max: WRITING_MAX })}</Txt>
+        {writingError && <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert">{tr("lt.writingError")}</Txt>}
+        <Button label={tr(writingError ? "action.tryAgain" : "lt.writingSubmit")} onPress={onSubmitWriting}
+          disabled={writingText.trim().length < WRITING_MIN} />
         <Button label={tr("lt.writingSkip")} variant="ghost" onPress={finishWithReceptiveOnly} />
       </Centered>
     );
@@ -317,6 +364,13 @@ export default function LevelTestScreen() {
           })}
         </Card>
 
+        {!!writingNote && (
+          <Card style={{ alignSelf: "stretch", gap: 8 }}>
+            <Txt variant="label">{tr("lt.writingFeedback")}</Txt>
+            <Txt variant="body">{writingNote}</Txt>
+          </Card>
+        )}
+
         {/* Weak practice topics (accuracy-based, store/dojo.ts) — the "темы в просадке" list; the
             adaptive mix already over-serves them, this just makes that visible. */}
         {weak.length > 0 && (
@@ -346,7 +400,7 @@ export default function LevelTestScreen() {
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
       <StatusBar style={t.name === "dark" ? "light" : "dark"} />
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.closeBtn} accessibilityLabel="Close">
+        <Pressable onPress={close} hitSlop={10} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel={tr("common.close")}>
           <Icon name="x" size={24} color={t.c.ink2} />
         </Pressable>
         <Txt variant="bodyStrong">{tr("lt.question", { n: count + (phase === "feedback" ? 0 : 1) })}</Txt>
@@ -377,14 +431,11 @@ export default function LevelTestScreen() {
         )}
 
         {phase === "feedback" && result && (
-          <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, borderColor: verdictColor, borderWidth: 2 }}>
-            <Sensei size={40} mood={result.correct ? "cheer" : "think"} />
-            <View style={{ flex: 1 }}>
-              <Txt variant="cardTitle" color={verdictColor}>
-                {result.correct ? tr("ob.correct") : tr("ob.notQuite")}
-              </Txt>
-              {!result.correct && <Txt variant="mono" color={t.c.ink2}>{result.answer}</Txt>}
-            </View>
+          <Card style={{ gap: 4, borderColor: verdictColor, borderWidth: 2 }}>
+            <Txt variant="cardTitle" color={verdictColor} accessibilityRole="alert">
+              {result.correct ? tr("ob.correct") : tr("ob.notQuite")}
+            </Txt>
+            {!result.correct && <Txt variant="mono" color={t.c.ink2}>{result.answer}</Txt>}
           </Card>
         )}
       </ScrollView>
@@ -410,20 +461,21 @@ function Centered({
   onClose?: () => void;
 }) {
   const t = useTheme();
+  const { t: tr } = useI18n();
   return (
-    <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
       <StatusBar style={t.name === "dark" ? "light" : "dark"} />
       <View style={styles.header}>
         {onClose && (
-          <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn} accessibilityLabel="Close">
+          <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel={tr("common.close")}>
             <Icon name="x" size={24} color={t.c.ink2} />
           </Pressable>
         )}
       </View>
-      <ScrollView contentContainerStyle={[styles.content, { alignItems: "center", gap: 16, paddingBottom: insets.bottom + 40, paddingTop: 24 }]}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { alignItems: "center", gap: 16, paddingBottom: insets.bottom + 40, paddingTop: 24 }]}>
         {children}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

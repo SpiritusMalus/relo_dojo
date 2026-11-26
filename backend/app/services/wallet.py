@@ -44,13 +44,14 @@ def combo_bonus_for(run: int) -> int:
     return max(settings.COMBO_BONUS_BASE - (tier - 1) * settings.COMBO_BONUS_STEP, settings.COMBO_BONUS_MIN)
 
 
-async def reset_correct_run(user: User | None, db: AsyncSession) -> None:
-    """Reset the consecutive-correct run after a wrong answer (no-op if already 0 / anonymous)."""
+async def reset_correct_run(user: User | None, db: AsyncSession, *, commit: bool = True) -> None:
+    """Reset the consecutive-correct run, optionally inside a caller's locked transaction."""
     if user is None or user.correct_run == 0:
         return
     await db.execute(update(User).where(User.id == user.id).values(correct_run=0))
     user.correct_run = 0
-    await db.commit()
+    if commit:
+        await db.commit()
 
 
 async def award_correct_check(

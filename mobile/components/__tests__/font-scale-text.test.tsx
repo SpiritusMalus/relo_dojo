@@ -14,6 +14,7 @@ const mockTranslateAt = jest.fn();
 jest.mock("react-native/Libraries/Utilities/useWindowDimensions", () => ({ __esModule: true, default: () => mockDimensions }));
 jest.mock("../ui/TranslationPopover", () => ({ useTranslator: () => ({ translateAt: mockTranslateAt }) }));
 jest.mock("../ui/DataGuard", () => () => null);
+jest.mock("../../store/i18n", () => ({ useI18n: () => ({ lang: "en" }) }));
 type Renderer = ReactTestRenderer & { update(element: ReactElement): void };
 let screen: Renderer | undefined;
 const originalOS = Platform.OS;
@@ -92,7 +93,7 @@ it("keeps inline translation usable after replacing its outer paragraph", () => 
 
 it("retains FreeText answers without remounting or resubmitting its editor", () => {
   const change = jest.fn(); const exercise = { text: "Tell us about your day." } as Exercise;
-  const node = () => <FreeText exercise={exercise} locked={false} onChange={change} />;
+  const node = () => <ThemeProvider><FreeText exercise={exercise} locked={false} onChange={change} /></ThemeProvider>;
   mount(node()); const editor = input(); act(() => editor.props.onChangeText("  I worked in the garden.  "));
   for (const fontScale of [1.3, 1]) { update(node(), { fontScale }); expect(input()).toBe(editor); expect(editor.props.value).toBe("  I worked in the garden.  "); }
   expect(change).toHaveBeenCalledTimes(1); expect(change).toHaveBeenCalledWith("I worked in the garden.", "I worked in the garden.");

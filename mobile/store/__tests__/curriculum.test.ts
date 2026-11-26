@@ -5,7 +5,6 @@ import {
   checkpointFailedNow,
   checkpointPassed,
   CURRICULUM,
-  GUESSABLE_FORMATS,
   masteryOf,
   MASTERY_MIN_CORRECT,
   MASTERY_MIN_HARD,
@@ -48,8 +47,7 @@ describe("masteryOf — the gate criterion", () => {
   });
 
   it("odd-one-out counts as guessable; constructive formats count as hard", () => {
-    expect(GUESSABLE_FORMATS.has("odd-one-out")).toBe(true);
-    expect(GUESSABLE_FORMATS.has("transform-the-sentence")).toBe(false);
+    expect(masteryOf([{ c: true, f: "transform-the-sentence" }]).hard).toBe(1);
     const withOdd = [...Array(8).fill(mc(true)), { c: true, f: "odd-one-out" }, { c: true, f: "odd-one-out" }];
     expect(masteryOf(withOdd).met).toBe(false);
   });
@@ -83,7 +81,7 @@ describe("checkpoint (зачёт) verdicts", () => {
 
   it("serves only constructive formats (a checkpoint must not be guessable)", () => {
     expect(CHECKPOINT_FORMATS.length).toBeGreaterThan(0);
-    for (const f of CHECKPOINT_FORMATS) expect(GUESSABLE_FORMATS.has(f)).toBe(false);
+    for (const f of CHECKPOINT_FORMATS) expect(masteryOf([{ c: true, f }]).hard).toBe(1);
   });
 });
 
@@ -152,8 +150,15 @@ describe("recertification (переаттестация) — decay detection + t
     expect(recertFailedNow(RECERT_MAX_MISSES + 1)).toBe(true);
   });
 
-  it("listening formats never count as hard mastery evidence (comprehension ≠ production)", () => {
-    expect(GUESSABLE_FORMATS.has("listen-and-answer")).toBe(true);
-    expect(GUESSABLE_FORMATS.has("listen-and-retell")).toBe(true);
+});
+
+it("does not count historical dialogue or listening cards toward grammar mastery or decay", () => {
+  const other: AnswerMark[] = [
+    { c: true, f: "order-the-dialog" }, { c: true, f: "order-the-dialog" }, { c: true, f: "listen-and-answer" },
+  ];
+  expect(masteryOf([...Array(6).fill(mc(true)), ...other])).toEqual({
+    correct: 6, hard: 0, met: false, pct: 75,
   });
+  expect(unitDecayed([...Array(6).fill(build(true)), ...other.map((mark) => ({ ...mark, c: false }))])).toBe(false);
+  expect(masteryOf([...Array(6).fill(mc(true)), { c: true, f: "" }, { c: true, f: "legacy-unknown" }]).hard).toBe(0);
 });

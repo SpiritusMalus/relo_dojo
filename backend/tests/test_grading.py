@@ -117,3 +117,43 @@ def test_match_pairs_identical_text_tiles_are_interchangeable():
 
 def test_unknown_kind_is_safe():
     assert grammar.grade({"t": "forged"}, "whatever")["correct"] is False
+
+
+
+def test_dialog_scores_only_turns_the_learner_places():
+    turns = ["Do you always check the logs?", "Yes, I always check them.",
+             "Good, the system is working now.", "That is true."]
+    key = {"t": "order-the-dialog", "order": turns, "anchor": turns[0], "topic": "word order"}
+    rotated = [turns[0], turns[2], turns[3], turns[1]]
+    result = grammar.grade(key, rotated)
+    assert result["score"] == 0 and result["detail"] == "0/3"
+    assert result["per_item"] == [False, False, False]
+    assert result["answer_items"] == turns[1:]
+    correct = grammar.grade(key, turns)
+    assert correct["correct"] and correct["score"] == 1
+    assert correct["detail"] == "3/3"
+    # Already-issued anchored tokens used topic as their only extra metadata.
+    key.pop("anchor")
+    assert grammar.grade(key, rotated) == result
+    # Truly old unanchored cards still count every learner-placed turn.
+    key.pop("topic")
+    assert grammar.grade(key, rotated)["score"] == 0.25
+
+
+def test_surplus_build_tiles_reduce_the_partial_score():
+    for kind in ("build-the-sentence", "transform-the-sentence"):
+        key = {"t": kind, "sentence": "She checks the logs"}
+        result = grammar.grade(key, "She checks the logs often")
+        assert result["correct"] is False
+        assert result["detail"] == "4/5" and result["score"] == 0.8
+
+
+def test_blanks_return_a_solution_row_for_each_mark():
+    result = grammar.grade({"t": "multiple-blanks", "answers": ["in", "on"]}, ["in", "at"])
+    assert result["answer_items"] == ["in", "on"]
+    assert result["per_item"] == [True, False]
+
+
+def test_odd_one_out_uses_the_issued_reason_when_available():
+    key = {"t": "odd-one-out", "answer": "Monday", "reason": "The other options are months."}
+    assert grammar.grade(key, "Monday")["explanation"] == key["reason"]

@@ -39,7 +39,7 @@ export default function RuleSheet({
   const mastered = (progress.course?.mastered ?? []).includes(topic);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType={t.reduceMotion ? "none" : "slide"} onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={tr("course.close")} />
       <View
         style={[

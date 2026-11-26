@@ -51,26 +51,135 @@ BANK: tuple[Item, ...] = (
     Item("punctuation", "B2", "Choose standard written punctuation for two clauses joined by however: ___", "It was raining; however, we went out.", ("It was raining, however we went out.", "It was raining however, we went out.", "It was raining; however we went out.")),
 )
 
+# Independent prompts in the same topic and band keep repeated fallback reads useful.
+_PRACTICE_VARIANTS = (
+    Item("articles", "A1", "I saw ___ elephant at the zoo.", "an", ("a", "each", "many")),
+    Item("articles", "B2", "Complete the fixed expression: What she said was beside ___ point.", "the", ("a", "an", "every")),
+    Item("prepositions", "A1", "Meet me ___ noon.", "at", ("on", "into", "of")),
+    Item("prepositions", "B2", "Complete the standard verb pattern: They insisted ___ paying the full amount.", "on", ("at", "in", "with")),
+    Item("conditionals", "A2", "Use the first conditional: If we miss the bus, we ___ the train.", "will take", ("would took", "taking", "has taken")),
+    Item("conditionals", "B2", "Use an unreal past result: If I had packed earlier, I ___ my keys.", "would not have forgotten", ("will not forget", "did not forgot", "have not forgot")),
+    Item("verb sequence (tense agreement)", "A2", "Use the past simple: We ___ for the bus yesterday.", "waited", ("wait", "have waited", "are waiting")),
+    Item("verb sequence (tense agreement)", "B1", "Use backshift to report 'I have finished': She said she ___ the task.", "had finished", ("has finished", "will finish", "finishing")),
+    Item("vocabulary", "A1", "A ___ is a piece of furniture you sleep on.", "bed", ("coat", "cup", "pen")),
+    Item("vocabulary", "B2", "The report was ___ (short and clear, with no unnecessary words).", "concise", ("hesitant", "incomplete", "imprecise")),
+    Item("modal verbs", "A2", "I ___ (I am able to) swim across the pool.", "can", ("must not", "should not", "have to")),
+    Item("modal verbs", "B2", "They ___ have used the lift (it was definitely broken all day).", "cannot", ("should", "might", "must")),
+    Item("phrasal verbs", "A2", "Please ___ your shoes (remove them) before coming in.", "take off", ("look after", "turn on", "look up")),
+    Item("phrasal verbs", "B1", "The plane will ___ (leave the ground) at noon.", "take off", ("hand in", "turn down", "carry out")),
+    Item("gerunds & infinitives", "A2", "Use the standard pattern: He decided ___ home.", "to walk", ("walking", "walks", "walk")),
+    Item("gerunds & infinitives", "B2", "Use the standard verb pattern: She denied ___ the files.", "copying", ("to copy", "copy", "copied")),
+    Item("comparatives & superlatives", "A2", "The car costs $10,000 and the bike costs $800. The bike is ___ than the car.", "cheaper", ("cheapest", "cheap", "the cheaper")),
+    Item("comparatives & superlatives", "B2", "The longer you wait, ___ it becomes.", "the more expensive", ("more expensiver", "the most expensive", "most expensive")),
+    Item("word order", "A1", "Choose the usual statement order: ___", "Tom reads books.", ("Reads Tom books.", "Tom books reads.", "Books reads Tom.")),
+    Item("word order", "A2", "Choose the usual question order: ___", "When does the bus leave?", ("When the bus does leave?", "When does leave the bus?", "When the bus leave does?")),
+    Item("word order", "B1", "Complete the indirect question: Do you know ___?", "what time the shop closes", ("what time does the shop close", "what time closes the shop", "what the shop time closes")),
+    Item("punctuation", "A2", "Add the usual punctuation to a direct question: ___", "Where is the station?", ("Where is the station.", "Where is the station,", "Where is the station:")),
+    Item("punctuation", "B2", "Use a semicolon to join independent clauses: ___", "The train was late; we waited.", ("The train was late, we waited.", "The train; was late we waited.", "The train was; late we waited.")),
+)
+
+_ASSESSMENT_BUILDS = {
+    ("word order", "A1"): (
+        ("Я читаю книги дома.", "I read books at home."),
+        ("Ты живёшь здесь?", "Do you live here?"),
+    ),
+    ("word order", "A2"): (
+        ("Ты всегда проверяешь журналы?", "Do you always check the logs?"),
+        ("Напишите нейтральный вопрос. Когда уходит поезд?", "When does the train leave?"),
+    ),
+    ("word order", "B1"): (
+        ("Вы можете сказать мне, где станция?", "Can you tell me where the station is?"),
+        ("Вы знаете, когда закрывается магазин?", "Do you know when the shop closes?"),
+    ),
+    ("word order", "B2"): (
+        ("Начните с Rarely. Я редко видел настолько шумный офис.", "Rarely have I seen such a noisy office."),
+        ("Начните с Seldom. Мы редко получаем настолько ясные инструкции.", "Seldom do we receive such clear instructions."),
+    ),
+    ("word order", "C1"): (
+        ("Начните с Only after. Мы поняли, насколько ненадёжны оценки, лишь когда изучили данные.",
+         "Only after examining the data did we realize how unreliable the estimates were."),
+        ("Начните с Not until. Мы поняли последствия только после завершения переговоров.",
+         "Not until the negotiations ended did we understand the consequences."),
+    ),
+}
+
+# In all three types, the visible words give enough context for one well-defined decision.
+_ASSESSMENT_BLANKS = {
+    ("word order", "A1"): ("___ every day. ___ near the station.", ("She reads", "We live"), ("Reads she", "Live we")),
+    ("word order", "A2"): ("___ at noon? ___ before lunch?", ("Does it start", "Do they leave"), ("Does start it", "Do leave they")),
+    ("word order", "B1"): ("Can you tell me ___? Do you know ___?", ("where the station is", "when it closes"),
+                             ("where is the station", "when does it close")),
+    ("punctuation", "A1"): ("Where is the station___ I can see it___", ("?", "."), (".", ",")),
+    ("punctuation", "A2"): ("Is the station open___ The next train leaves at noon___", ("?", "."), (".", ",")),
+}
+_ASSESSMENT_ERRORS = {
+    ("punctuation", "A1"): ("Hello. everyone.", 0, "Hello,"),
+    ("punctuation", "A2"): ("After it stopped raining. we went home.", 3, "raining,"),
+}
+
 _BANDS = ("A1", "A2", "B1", "B2", "C1")
 
 
-def build_fallback(topic: str, level: str | None, practice_index: int | None = None) -> dict[str, Any] | None:
-    candidates = [item for item in BANK if item.topic == topic]
-    if not candidates:
-        return None
-    requested = _BANDS.index(level) if level in _BANDS else 1
-    accessible = [item for item in candidates if _BANDS.index(item.level) <= requested]
-    # A manually selected advanced topic can have a minimum level above the requested band;
-    # keep that real level visible instead of relabelling the task as A1.
-    pool = accessible or candidates
-    target = max(_BANDS.index(item.level) for item in pool) if accessible else min(_BANDS.index(item.level) for item in pool)
-    pool = [item for item in pool if _BANDS.index(item.level) == target]
-    item = pool[max(0, practice_index or 0) % len(pool)]
+def _card(kind: str, topic: str, level: str, key: dict[str, Any], **display: Any) -> dict[str, Any]:
+    return {
+        "type": kind, "topic": topic, "level": level, "source": "curated",
+        **display, "token": tokens.seal({"t": kind, "topic": topic, **key}),
+    }
+
+
+def _assessment_card(topic: str, level: str, kind: str, index: int) -> dict[str, Any] | None:
+    if kind == "build-the-sentence":
+        variants = _ASSESSMENT_BUILDS.get((topic, level))
+        if variants:
+            prompt, answer = variants[index % len(variants)]
+            words = answer.split()
+            tiles = words[:]
+            SystemRandom().shuffle(tiles)
+            if tiles == words:
+                tiles.reverse()
+            return _card(kind, topic, level, {"sentence": answer}, text="Translate into English:",
+                         prompt=prompt, tiles=tiles)
+    elif kind == "multiple-blanks":
+        item = _ASSESSMENT_BLANKS.get((topic, level))
+        if item:
+            text, answers, other = item
+            options = [[answer, alternative] for answer, alternative in zip(answers, other)]
+            for choices in options:
+                SystemRandom().shuffle(choices)
+            return _card(kind, topic, level, {"answers": list(answers), "text": text},
+                         text=text, blankOptions=options)
+    elif kind == "tap-the-error":
+        item = _ASSESSMENT_ERRORS.get((topic, level))
+        if item:
+            sentence, position, correction = item
+            words = sentence.split()
+            key = {"index": position, "answer": f"'{words[position]}' → '{correction}'", "text": sentence}
+            return _card(kind, topic, level, key, text="Tap the word that is wrong.", tokens=words)
+    return None
+
+
+def build_fallback(
+    topic: str, level: str | None, practice_index: int | None = None, *, exact_type: str | None = None,
+) -> dict[str, Any] | None:
+    index = max(0, practice_index or 0)
+    if exact_type and exact_type != "multiple-choice":
+        return _assessment_card(topic, level, exact_type, index) if level in _BANDS else None
+
+    candidates = [item for item in (*BANK, *_PRACTICE_VARIANTS) if item.topic == topic]
+    if exact_type:
+        pool = [item for item in candidates if item.level == level]
+        if not pool:
+            return None
+    else:
+        if not candidates:
+            return None
+        requested = _BANDS.index(level) if level in _BANDS else 1
+        accessible = [item for item in candidates if _BANDS.index(item.level) <= requested]
+        # Keep the item's authored band visible if the exact band is unavailable.
+        band = (max if accessible else min)(_BANDS.index(item.level) for item in (accessible or candidates))
+        pool = [item for item in (accessible or candidates) if _BANDS.index(item.level) == band]
+    item = pool[index % len(pool)]
     options = [item.answer, *item.distractors]
     SystemRandom().shuffle(options)
-    return {
-        "type": "multiple-choice", "topic": topic, "level": item.level,
-        "text": item.text, "options": options, "source": "curated",
-        "token": tokens.seal({"t": "multiple-choice", "answer": item.answer,
-                              "topic": topic, "text": item.text}),
-    }
+    return _card("multiple-choice", topic, item.level, {"answer": item.answer, "text": item.text},
+                 text=item.text, options=options)

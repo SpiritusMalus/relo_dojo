@@ -16,6 +16,7 @@ import ActivationBanner from "../components/ui/ActivationBanner";
 import LimitSheet from "../components/ui/LimitSheet";
 import RegisterWall from "../components/ui/RegisterWall";
 import ExerciseCard from "../components/ExerciseCard";
+import ResultPanel from "../components/ResultPanel";
 import { beltProgress } from "../store/dojo";
 import { ensureOffer } from "../store/offers";
 import { useProgress } from "../store/progress";
@@ -56,7 +57,7 @@ export default function ChallengeScreen() {
   const { token } = useAuth();
   const ownerScope = useRef(captureAccountScope()).current;
   const { t: tr, lang } = useI18n();
-  const { result, checking, error: checkError, check, reset, beginAttempt, markHintUsed } = useExerciseCheck();
+  const { result, checking, submissionLocked, error: checkError, check, reset, beginAttempt, markHintUsed } = useExerciseCheck();
 
   const progressRef = useRef(progress);
   progressRef.current = progress;
@@ -66,7 +67,6 @@ export default function ChallengeScreen() {
     queueRef.current = createExerciseQueue({
       size: 1,
       prefetchOnServe: false,
-      revision: () => Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0),
       selectParams: () => {
         const { topic, cefr, type } = selectNext(progressRef.current);
         return { topic, level: cefr, type, context: buildContext(progressRef.current.profile), practice_index: progressRef.current.topics[topic]?.attempts ?? 0 };
@@ -93,35 +93,36 @@ export default function ChallengeScreen() {
   const [answered, setAnswered] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [best, setBest] = useState(0);
+  const [earned, setEarned] = useState(0);
   const [isRecord, setIsRecord] = useState(false);
 
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flash = useRef(new Animated.Value(0)).current;
-  // Kept in sync with `timeLeft` so the post-feedback setTimeout below reads the CURRENT clock, not
-  // the value captured at check-time (which would be stale by FEEDBACK_MS and could load a card after
-  // the run finished).
-  const timeLeftRef = useRef(timeLeft);
-  timeLeftRef.current = timeLeft;
-  // Synchronous in-flight guard: `checking` only flips inside the async check(), one render late, so
-  // a fast double-tap could submit twice before it takes effect. This ref bails immediately.
+  const timeLeftRef = useRef(CHALLENGE_SECONDS);
+  const active = useRef(true);
+  const runRef = useRef<{ ended: boolean } | null>(null);
   const submittingRef = useRef(false);
+  const replacement = useRef(false);
+  const currentRun = useCallback((run: typeof runRef.current) =>
+    active.current && !!run && runRef.current === run && !run.ended && isCurrentAccountScope(ownerScope), [ownerScope]);
 
   useEffect(() => {
-    let active = true;
-    const scope = ownerScope;
-    loadBestScore(scope).then((value) => {
-      if (active && isCurrentAccountScope(scope)) setBest(value);
+    active.current = true;
+    loadBestScore(ownerScope).then((value) => {
+      if (active.current && isCurrentAccountScope(ownerScope)) setBest(value);
     });
     return () => {
-      active = false;
+      active.current = false;
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
     };
   }, [ownerScope]);
 
   const loadingRef = useRef(false);
-  const loadExercise = useCallback(async () => {
-    if (loadingRef.current) return;
+  const loadExercise = useCallback(async (replace = false) => {
+    const run = runRef.current;
+    if (loadingRef.current || !currentRun(run)) return;
     loadingRef.current = true;
+    replacement.current = replace;
     setLoading(true);
     setError(null);
     setLimited(false);
@@ -134,14 +135,16 @@ export default function ChallengeScreen() {
     // the same LLM-backed queue, so it must consume the SHARED cap too — otherwise it's a free,
     // unmetered way for anon users to burn model calls. On exhaustion: pause the run, show the wall.
     try {
-      const next = !token
+      const next = !replace && !token
         ? await deliverGuestExercise(localDate(new Date()), () => queueRef.current!.next())
         : await queueRef.current!.next();
+      if (!currentRun(run)) return;
       if (!next) { setGuestLimited(true); return; }
       setExercise(next);
       setRound((r) => r + 1);
       setPhase("solving");
     } catch (e) {
+      if (!currentRun(run)) return;
       // Same routing as Practice: the daily cap and the activation gate are product states, not
       // errors — show the sheet/prompt (and pause the clock) instead of a raw failure.
       const gate = gateKind(e);
@@ -152,50 +155,72 @@ export default function ChallengeScreen() {
       else setError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
       loadingRef.current = false;
-      setLoading(false);
+      if (currentRun(run)) setLoading(false);
     }
-  }, [reset, token]);
+  }, [reset, token, currentRun]);
 
-  // Countdown: only ticks while the learner is actively solving / reading feedback, so a slow fetch
-  // (cold model), an error, or a gate sheet doesn't eat the clock. Hitting zero ends the run.
+  // Only learner time is counted. Waiting to load or check a card pauses the clock.
   useEffect(() => {
-    if (phase !== "solving" && phase !== "feedback") return;
-    if (loading || error || limited || gated || guestLimited) return;
-    if (timeLeft <= 0) return;
-    const id = setTimeout(() => setTimeLeft((s) => s - 1), 1000);
+    const run = runRef.current;
+    if (!currentRun(run) || (phase !== "solving" && phase !== "feedback")) return;
+    if (loading || checking || (submissionLocked && !result) || error || limited || gated || guestLimited || timeLeft <= 0) return;
+    const id = setTimeout(() => {
+      if (!currentRun(run) || submittingRef.current || loadingRef.current) return;
+      const seconds = Math.max(0, timeLeftRef.current - 1);
+      timeLeftRef.current = seconds;
+      setTimeLeft(seconds);
+    }, 1000);
     return () => clearTimeout(id);
-  }, [phase, timeLeft, loading, error, limited, gated, guestLimited]);
+  }, [phase, timeLeft, loading, checking, submissionLocked, result, error, limited, gated, guestLimited, currentRun]);
 
   const finish = useCallback(async () => {
-    const scope = ownerScope;
-    if (!isCurrentAccountScope(scope)) return;
+    const run = runRef.current;
+    if (!run || !currentRun(run)) return;
+    run.ended = true;
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
     setPhase("done");
-    const { best: newBest, isRecord: rec } = await recordBestScore(score, scope);
-    if (!isCurrentAccountScope(scope)) return;
+    const { best: newBest, isRecord: rec } = await recordBestScore(score, ownerScope);
+    if (!active.current || runRef.current !== run || !isCurrentAccountScope(ownerScope)) return;
     setBest(newBest);
     setIsRecord(rec);
-  }, [score, ownerScope]);
+  }, [score, ownerScope, currentRun]);
 
   useEffect(() => {
-    if (timeLeft <= 0 && (phase === "solving" || phase === "feedback")) finish();
+    if (timeLeft <= 0 && (phase === "solving" || phase === "feedback")) void finish();
   }, [timeLeft, phase, finish]);
 
   function start() {
+    if (!active.current || currentRun(runRef.current) || loadingRef.current) return;
+    runRef.current = { ended: false };
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
     setPhase("solving");
+    timeLeftRef.current = CHALLENGE_SECONDS;
     setTimeLeft(CHALLENGE_SECONDS);
     setScore(0);
+    setEarned(0);
     setCombo(0);
     setBestCombo(0);
     setAnswered(0);
     setCorrect(0);
     setIsRecord(false);
     queueRef.current!.clear();
-    loadExercise();
+    void loadExercise();
+  }
+
+  function close() {
+    if (!active.current) return;
+    active.current = false;
+    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/train");
+  }
+
+  function retryLoad() {
+    void loadExercise(replacement.current);
   }
 
   function onChange(value: ResponseValue | null) {
-    setResponse(value);
+    if (!submittingRef.current && !submissionLocked && !result) setResponse(value);
   }
 
   function runFlash() {
@@ -205,19 +230,19 @@ export default function ChallengeScreen() {
   }
 
   async function onCheck() {
-    if (!exercise || response === null || checking || phase !== "solving" || submittingRef.current) return;
+    const run = runRef.current;
+    if (!currentRun(run) || timeLeftRef.current <= 0 || !exercise || response === null || checking || phase !== "solving" || submittingRef.current || result) return;
     submittingRef.current = true;
     try {
       const res = await check(exercise, response);
-      if (!res) return; // network error — surfaced via checkError
+      if (!res || !currentRun(run)) return;
       if (res.progressAfter) progressRef.current = res.progressAfter;
-      queueRef.current!.clear();
-      if (timeLeftRef.current > FEEDBACK_MS / 1000) queueRef.current!.prefetch();
       // Funnel + daily contracts: a Challenge answer is an answered exercise too (mode tags it), so it
       // counts toward the "answer N / N correct" contracts exactly like Practice (same event).
       trackExerciseAnswered({ topic: exercise.topic, correct: res.correct, level: exercise.level, mode: "challenge" });
       const step = scoreAnswer(combo, res.correct, res.score ?? (res.correct ? 1 : 0));
       setScore((s) => s + step.points);
+      setEarned(step.points);
       setCombo(step.combo);
       setBestCombo((b) => Math.max(b, step.combo));
       setAnswered((n) => n + 1);
@@ -227,7 +252,7 @@ export default function ChallengeScreen() {
       advanceTimer.current = setTimeout(() => {
         // Read the live clock from the ref: only load another card if time actually remains, so no
         // exercise loads after the run has finished (finish() runs at timeLeft <= 0).
-        if (timeLeftRef.current > 0) loadExercise();
+        if (currentRun(run) && timeLeftRef.current > 0) void loadExercise();
       }, FEEDBACK_MS);
     } finally {
       submittingRef.current = false;
@@ -243,11 +268,11 @@ export default function ChallengeScreen() {
       <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
         <StatusBar style={t.name === "dark" ? "light" : "dark"} />
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.closeBtn} accessibilityLabel="Close">
+          <Pressable onPress={close} hitSlop={10} style={styles.closeBtn} accessibilityLabel={tr("common.close")} accessibilityRole="button">
             <Icon name="x" size={24} color={t.c.ink2} />
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={[styles.content, { alignItems: "center", paddingBottom: insets.bottom + 120 }]}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { alignItems: "center", paddingBottom: insets.bottom + 120 }]}>
           <Sensei size={108} mood="cheer" bob />
           <Txt variant="hero" style={{ marginTop: 8 }}>{tr("ch.title")}</Txt>
           <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
@@ -270,7 +295,7 @@ export default function ChallengeScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
         <StatusBar style={t.name === "dark" ? "light" : "dark"} />
-        <ScrollView contentContainerStyle={[styles.content, { alignItems: "center", paddingBottom: insets.bottom + 120 }]}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { alignItems: "center", paddingBottom: insets.bottom + 120 }]}>
           <Sensei size={112} mood={isRecord ? "cheer" : "happy"} bob />
           <Txt variant="hero" style={{ marginTop: 8 }}>{tr("ch.time")}</Txt>
           {isRecord && <Txt variant="bodyStrong" color={t.c.gold}>{tr("ch.newBest")}</Txt>}
@@ -284,7 +309,7 @@ export default function ChallengeScreen() {
         {isRecord && <Confetti />}
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
           <Button label={tr("ch.playAgain")} onPress={start} />
-          <Pressable onPress={() => router.back()} style={{ paddingVertical: 10, alignItems: "center" }}>
+          <Pressable onPress={close} style={{ paddingVertical: 10, alignItems: "center" }}>
             <Txt variant="bodyStrong" color={t.c.ink2}>{tr("ch.backHome")}</Txt>
           </Pressable>
         </View>
@@ -304,6 +329,9 @@ export default function ChallengeScreen() {
 
       {/* Header: timer bar + score */}
       <View style={styles.header}>
+        <Pressable onPress={close} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel={tr("common.close")}>
+          <Icon name="x" size={24} color={t.c.ink2} />
+        </Pressable>
         <Txt variant="bodyStrong" color={timeLeft <= 10 ? t.c.bad : t.c.ink}>{`⏱ ${timeLeft}s`}</Txt>
         <View style={{ flex: 1, marginHorizontal: 14 }}>
           <ProgressBar pct={(timeLeft / CHALLENGE_SECONDS) * 100} height={10} color={timeLeft <= 10 ? t.c.bad : t.c.accent} />
@@ -319,7 +347,7 @@ export default function ChallengeScreen() {
         <Txt variant="caption" color={mult > 1 ? t.c.fire : t.c.ink3}>{tr("ch.points", { n: mult })}</Txt>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
         {loading && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
@@ -331,8 +359,8 @@ export default function ChallengeScreen() {
             score earned so far. */}
         {limited && !loading && (
           <View style={{ gap: 12, marginTop: 20 }}>
-            <LimitSheet belt={beltProgress(progress).belt} onUnlocked={loadExercise} />
-            <Button label={tr("ch.backHome")} variant="ghost" onPress={() => router.back()} />
+            <LimitSheet belt={beltProgress(progress).belt} onUnlocked={retryLoad} />
+            <Button label={tr("ch.backHome")} variant="ghost" onPress={close} />
           </View>
         )}
 
@@ -343,7 +371,7 @@ export default function ChallengeScreen() {
               onCreate={() => router.push("/login")}
               onDismiss={() => router.back()}
             />
-            <Button label={tr("ch.backHome")} variant="ghost" onPress={() => router.back()} />
+            <Button label={tr("ch.backHome")} variant="ghost" onPress={close} />
           </View>
         )}
 
@@ -353,8 +381,8 @@ export default function ChallengeScreen() {
             <Txt variant="secondary" color={t.c.ink3} style={{ textAlign: "center" }}>
               {tr("activate.lockedMsg")}
             </Txt>
-            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadExercise} />
-            <Button label={tr("ch.backHome")} variant="ghost" onPress={() => router.back()} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={retryLoad} />
+            <Button label={tr("ch.backHome")} variant="ghost" onPress={close} />
           </View>
         )}
 
@@ -371,32 +399,31 @@ export default function ChallengeScreen() {
             <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center" }}>
               {error}
             </Txt>
-            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadExercise} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={retryLoad} />
           </View>
         )}
         {checkError && !error && (
-          <Txt variant="secondary" color={t.c.bad} style={{ textAlign: "center" }}>{checkError}</Txt>
+          <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert" style={{ textAlign: "center" }}>{tr("err.check")}</Txt>
         )}
 
         {exercise && !loading && (
-          <ExerciseCard onHint={markHintUsed} key={round} exercise={exercise} locked={phase === "feedback"} onChange={onChange} />
+          <ExerciseCard onHint={markHintUsed} key={round} exercise={exercise} feedback={result ?? undefined}
+            locked={checking || submissionLocked || phase === "feedback"} onChange={onChange} onSkip={() => {
+              if (!submittingRef.current && !submissionLocked && phase === "solving") void loadExercise(true);
+            }} />
         )}
 
-        {phase === "feedback" && result && (
-          <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, borderColor: flashColor, borderWidth: 2 }}>
-            <Sensei size={40} mood={result.correct ? "cheer" : "think"} />
-            <View style={{ flex: 1 }}>
-              <Txt variant="cardTitle" color={flashColor}>{result.correct ? tr("ch.strike") : tr("ch.miss")}</Txt>
-              {!result.correct && <Txt variant="mono" color={t.c.ink2}>{result.correct_answer}</Txt>}
-            </View>
-            {result.correct && <Txt variant="bodyStrong" color={t.c.gold}>{`+${scoreAnswer(Math.max(0, combo - 1), true).points}`}</Txt>}
-          </Card>
+        {phase === "feedback" && result && exercise && (
+          <View>
+            <ResultPanel result={result} exercise={exercise} levelUp={null} explained={null} explainLoading={false} />
+            {earned > 0 && <Txt variant="bodyStrong" color={t.c.gold}>{tr("challenge.pointsEarned", { n: earned })}</Txt>}
+          </View>
         )}
       </ScrollView>
 
       {phase === "solving" && exercise && !loading && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
-          <Button label={checking ? tr("action.checking") : tr("action.check")} onPress={onCheck} disabled={!canSubmit} />
+          <Button label={tr(checking ? "action.checking" : checkError ? "action.tryAgain" : "action.check")} onPress={onCheck} disabled={!canSubmit} />
         </View>
       )}
     </View>

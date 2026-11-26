@@ -57,6 +57,19 @@ const base = {
 };
 
 describe("ResultPanel", () => {
+  it("shows structured blank rows even when one valid label contains a comma", () => {
+    const result: Result = {
+      correct: false,
+      correct_answer: "First, second, final",
+      answer_items: ["First, second", "final"],
+      per_item: [true, false],
+    };
+    const r = render(<ResultPanel {...base} exercise={ex({ type: "multiple-blanks" })} result={result} />);
+    expect(r.root.findAll((n) => n.props.accessibilityLabel === "Blank 1. Correct. First, second").length).toBeGreaterThan(0);
+    expect(r.root.findAll((n) => n.props.accessibilityLabel === "Blank 2. Correct answer. final").length).toBeGreaterThan(0);
+    expect(explainButtons(r)).toHaveLength(0);
+  });
+
   it("on a miss shows the correct answer and offers Explain (fires onExplain)", () => {
     const onExplain = jest.fn();
     const result: Result = { correct: false, correct_answer: "I go home" };

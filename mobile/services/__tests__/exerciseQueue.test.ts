@@ -41,6 +41,26 @@ function deferredFetcher() {
 const flush = () => new Promise<void>((r) => setTimeout(() => r(), 0));
 
 describe("createExerciseQueue", () => {
+  it("shares concurrent requests for a single visible card and aborts on disposal", async () => {
+    const fetch = jest.fn((_params: FetchParams, _signal?: AbortSignal) => new Promise<Exercise>(() => {}));
+    const q = createExerciseQueue({ selectParams: () => PARAMS, fetch, prefetchOnServe: false });
+    const first = q.next();
+    expect(q.next()).toBe(first);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    q.dispose();
+    expect(fetch.mock.calls[0][1]?.aborted).toBe(true);
+    await expect(first).rejects.toMatchObject({ code: "queue_disposed" });
+  });
+
+  it("refuses a weaker substitution even with an older assessment server", async () => {
+    const q = createExerciseQueue({
+      selectParams: () => ({ ...PARAMS, type: "build-the-sentence", assessment: true }),
+      fetch: async () => fakeExercise(0),
+      prefetchOnServe: false,
+    });
+    await expect(q.next()).rejects.toMatchObject({ code: "assessment_unavailable" });
+  });
+
   it("prefetches up to `size` cards in the background", async () => {
     const d = deferredFetcher();
     const q = createExerciseQueue({ selectParams: () => PARAMS, fetch: d.fetch, size: 2 });

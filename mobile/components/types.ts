@@ -1,4 +1,4 @@
-import type { Exercise, ResponseValue } from "../services/api";
+import type { CheckResult, Exercise, ResponseValue } from "../services/api";
 
 // Every exercise component reports the user's current answer up to the parent:
 //  - `value` is the type-appropriate response (null while incomplete / not submittable)
@@ -7,6 +7,8 @@ export type AnswerHandler = (value: ResponseValue | null, display: string) => vo
 
 export type ExerciseProps = {
   exercise: Exercise;
-  locked: boolean; // true once an answer has been submitted
+  locked: boolean;
+  feedback?: CheckResult;
+  onSkip?: () => void;
   onChange: AnswerHandler;
 };

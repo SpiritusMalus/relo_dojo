@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 from ..db.models import DojoGrant, DojoPracticeDay, LearningIssuedItem, LearningSession, User
 from ..schemas import DojoCatalogItem, DojoReceipt, DojoState, LearningSessionOut
-from . import cosmetics, tokens
+from . import cosmetics, miss_log, tokens, wallet
 
 SLOTS = ["dojo_light", "dojo_display", "dojo_plant"]
 SESSION_ITEMS = 10
@@ -173,21 +173,75 @@ async def validate_grade(user: User | None, db: AsyncSession, sealed: dict, toke
     return (row.id, ordinal, str(item.id)) if settings.DOJO_ENABLED else None
 
 
-async def record_grade(user: User | None, db: AsyncSession, evidence: tuple[uuid.UUID, int, str] | None,
-                       correct: bool) -> None:
+def _grade_receipt(row: LearningSession, ordinal: int, item_id: str) -> dict[str, Any] | None:
+    receipt = (row.grades or {}).get(str(ordinal))
+    if receipt is not None and receipt.get("item") != item_id:
+        _bad("A different exercise already settled this practice item.")
+    return receipt
+
+
+async def get_recorded_grade(
+    user: User | None, db: AsyncSession, evidence: tuple[uuid.UUID, int, str] | None
+) -> dict[str, Any] | None:
+    """Return the first stored grade before expensive grading, if this is an exact retry."""
     if evidence is None or not settings.DOJO_ENABLED:
-        return
+        return None
     session_id, ordinal, item_id = evidence
+    row = await get_session(user, db, session_id)
+    receipt = _grade_receipt(row, ordinal, item_id)
+    return receipt.get("result") if receipt else None
+
+
+async def record_grade(
+    user: User | None,
+    db: AsyncSession,
+    evidence: tuple[uuid.UUID, int, str] | None,
+    grade: dict[str, Any],
+    *,
+    persist_feedback: bool = True,
+    reset_combo: bool = False,
+    miss: tuple[str | None, str | None] | None = None,
+) -> tuple[dict[str, Any], bool]:
+    """Return the first result for an issued item and whether this call settled it."""
+    if evidence is None or not settings.DOJO_ENABLED:
+        return grade, True
+    session_id, ordinal, item_id = evidence
+    if user is not None and not grade.get("correct") and (reset_combo or miss is not None):
+        # Match wallet awards and session completion: account row before session/item rows.
+        await db.refresh(user, with_for_update=True)
     row = await get_session(user, db, session_id, lock=True)
     if _aware(row.expires_at) <= now_utc():
         _expired()
-    # The first valid graded item fixes evidence, including wrong answers. Later correction and
-    # regrading remain useful but cannot rewrite first-attempt evidence or add another ordinal.
+    receipt = _grade_receipt(row, ordinal, item_id)
+    if receipt and receipt.get("result") is not None:
+        await db.commit()
+        return receipt["result"], False
+    if receipt is None and row.completed_at is not None:
+        _bad("This practice session is complete.")
+    correct = bool(receipt["correct"] if receipt else grade.get("correct"))
+    if correct != grade.get("correct"):
+        # Legacy rows stored only the first verdict. A changed resubmission cannot supply
+        # partial marks or personalized feedback for that earlier answer.
+        grade = {"correct": correct, "correct_answer": grade.get("correct_answer", ""),
+                 "score": float(correct), "explanation": "", "tip": ""}
+    stored = grade if persist_feedback else {
+        "correct": correct, "correct_answer": "", "score": float(correct), "explanation": "", "tip": "",
+    }
     grades = dict(row.grades or {})
-    if str(ordinal) not in grades and row.completed_at is None:
-        grades[str(ordinal)] = {"item": item_id, "correct": bool(correct), "graded_at": now_utc().isoformat()}
-        row.grades = grades
+    grades[str(ordinal)] = {
+        "item": item_id,
+        "correct": correct,
+        "graded_at": receipt["graded_at"] if receipt else now_utc().isoformat(),
+        "result": stored,
+    }
+    row.grades = grades
+    if receipt is None and not correct:
+        if reset_combo:
+            await wallet.reset_correct_run(user, db, commit=False)
+        if miss is not None:
+            await miss_log.stage_miss(db, user, *miss)
     await db.commit()
+    return grade, receipt is None
 
 
 async def state(user: User, db: AsyncSession) -> DojoState:
@@ -304,7 +358,8 @@ async def export_data(user: User, db: AsyncSession) -> dict:
     return {"version": 2, "selected_target": getattr(user, "dojo_target", None), "practice_days": sorted(days),
         "chapters": await chapters.export_data(user, db),
         "sessions": [{**session_out(s).model_dump(), "client_id": str(s.client_id), "created_at": _aware(s.created_at).isoformat(),
-                      "grades": s.grades} for s in sessions],
+                      "grades": {ordinal: {key: grade[key] for key in ("item", "correct", "graded_at")}
+                                 for ordinal, grade in (s.grades or {}).items()}} for s in sessions],
         "issued_items": [{"id": str(i.id), "session_id": str(i.session_id), "ordinal": i.ordinal,
                           "exercise_type": i.exercise_type} for i in issued],
         "grants": [{"id": str(g.id), "item_id": g.item_id, "rule_id": g.rule_id, "practice_days": g.practice_days,

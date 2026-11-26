@@ -1,8 +1,6 @@
 // Render tests for the audio-first listening cards (Listen.tsx): the answer variant reuses the
 // multiple-choice interaction under an audio card; the retell variant reports typed text (or a
-// transcribed voice take behind the double voice gate); and the degrade path (expo-speech throwing
-// on an un-rebuilt client) reveals the transcript instead of leaving a dead card. Same harness as
-// exercises2.test.tsx.
+// transcribed voice take behind the double voice gate); failed playback permits retry or skip.
 import { createElement, type ReactElement } from "react";
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import * as Speech from "expo-speech";
@@ -71,6 +69,16 @@ function render(node: ReactElement): ReactTestRenderer {
   return r;
 }
 
+async function speakOptions() {
+  await act(async () => {});
+  return (Speech.speak as jest.Mock).mock.calls.at(-1)?.[1];
+}
+
+async function completePlayback() {
+  const options = await speakOptions();
+  act(() => options.onDone());
+}
+
 const press = (r: ReactTestRenderer, label: string) => {
   const target = r.root.findAll(
     (n) => n.props.accessibilityLabel === label && typeof n.props.onPress === "function"
@@ -106,44 +114,53 @@ afterEach(() => {
 });
 
 describe("Listen — listen-and-answer", () => {
-  it("auto-plays the hidden passage and reports the tapped option", () => {
+  it("autoplays the hidden passage and enables answers after playback completes", async () => {
     const onChange = jest.fn();
     const r = render(createElement(ExerciseCard, { exercise: ex({}), locked: false, onChange }));
+    const options = await speakOptions();
     // The passage went to TTS, not to the screen.
     expect(Speech.speak).toHaveBeenCalledWith(PASSAGE, expect.objectContaining({ language: "en-US" }));
     expect(texts(r)).not.toContain(PASSAGE);
-    // The question + options are a plain multiple-choice interaction.
+    press(r, "Green");
+    expect(onChange).not.toHaveBeenCalled();
+    act(() => options.onDone());
     press(r, "Green");
     expect(onChange).toHaveBeenCalledWith("Green", "Green");
+    act(() => r.unmount());
   });
 
-  it("degrades to a visible transcript when TTS is unavailable (un-rebuilt client)", () => {
-    (Speech.speak as jest.Mock).mockImplementation(() => {
-      throw new Error("native module missing");
-    });
-    const r = render(createElement(ExerciseCard, { exercise: ex({}), locked: false, onChange: jest.fn() }));
-    // The card must stay solvable: the passage is revealed as text.
-    expect(texts(r)).toContain(PASSAGE);
+  it("offers skip after an asynchronous playback failure without exposing the answer passage", async () => {
+    const onSkip = jest.fn();
+    const r = render(createElement(ExerciseCard, { exercise: ex({}), locked: false, onChange: jest.fn(), onSkip }));
+    const options = await speakOptions();
+    act(() => options.onError(new Error("TTS unavailable")));
+    expect(texts(r)).not.toContain(PASSAGE);
+    pressByText(r, "Skip exercise");
+    expect(onSkip).toHaveBeenCalledTimes(1);
+    act(() => r.unmount());
   });
 });
 
 describe("Listen — listen-and-retell", () => {
   const retellEx = () => ex({ type: "listen-and-retell", text: "", options: [] });
 
-  it("reports the typed retelling and nulls out an emptied one", () => {
+  it("reports the typed retelling and nulls out an emptied one", async () => {
     const onChange = jest.fn();
     const r = render(createElement(ExerciseCard, { exercise: retellEx(), locked: false, onChange }));
+    await completePlayback();
     const input = r.root.findAll((n) => typeof n.props.onChangeText === "function")[0];
     act(() => input.props.onChangeText("she painted the door green"));
     expect(onChange).toHaveBeenLastCalledWith("she painted the door green", "she painted the door green");
     act(() => input.props.onChangeText("   "));
     expect(onChange).toHaveBeenLastCalledWith(null, "");
+    act(() => r.unmount());
   });
 
   it("locks the input once the answer is checked", () => {
     const r = render(createElement(ExerciseCard, { exercise: retellEx(), locked: true, onChange: jest.fn() }));
     const input = r.root.findAll((n) => n.props.editable !== undefined)[0];
     expect(input.props.editable).toBe(false);
+    act(() => r.unmount());
   });
 });
 
@@ -160,16 +177,19 @@ describe("Listen — voice retell (double-gated mic)", () => {
   it("keeps the mic dormant while the build flag is off", () => {
     const r = render(createElement(ExerciseCard, { exercise: retellEx(), locked: false, onChange: jest.fn() }));
     expect(texts(r)).not.toContain("ex.retellSpeak");
+    act(() => r.unmount());
   });
 
   it("asks for the specific voice consent on the first mic tap", async () => {
     (voiceFeatureEnabled as jest.Mock).mockReturnValue(true);
     const r = render(createElement(ExerciseCard, { exercise: retellEx(), locked: false, onChange: jest.fn() }));
+    await completePlayback();
     await pressAsync(r, "ex.retellSpeak");
     // No capture happened — the consent sheet is up instead.
     expect(texts(r)).toContain("voice.consentTitle");
     pressByText(r, "voice.consentAccept");
     expect(mockConsent.accept).toHaveBeenCalled();
+    act(() => r.unmount());
   });
 
   it("records, transcribes, and lands the take in the editable retell", async () => {
@@ -177,6 +197,7 @@ describe("Listen — voice retell (double-gated mic)", () => {
     mockConsent.granted = true;
     const onChange = jest.fn();
     const r = render(createElement(ExerciseCard, { exercise: retellEx(), locked: false, onChange }));
+    await completePlayback();
     await pressAsync(r, "ex.retellSpeak"); // start recording
     expect(texts(r)).toContain("voice.recording");
     await pressAsync(r, "voice.recording"); // stop → STT → input
@@ -185,5 +206,6 @@ describe("Listen — voice retell (double-gated mic)", () => {
     // The transcript is editable text — the learner can still fix a word before checking.
     const input = r.root.findAll((n) => typeof n.props.onChangeText === "function")[0];
     expect(input.props.value).toBe("she painted it green");
+    act(() => r.unmount());
   });
 });

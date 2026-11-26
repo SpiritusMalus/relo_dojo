@@ -182,7 +182,7 @@ export default function HomeScreen() {
         </Pressable>
       )}
 
-      <ChaptersButton onPress={() => router.push("/chapters")} />
+      <ChaptersButton onPress={() => router.navigate("/chapters")} />
 
       <View style={styles.secondaryActions}>
         {goal.kind !== "mix" && <Pressable accessibilityRole="button" onPress={() => router.navigate("/practice")} style={({ pressed }) => [styles.textAction, { opacity: pressed ? 0.6 : 1 }]}>
@@ -241,7 +241,7 @@ export default function HomeScreen() {
         const allowed = canAttemptToday(progress, isoDay(new Date()));
         return (
           <Pressable
-            onPress={() => router.push("/belt-exam")}
+            onPress={() => router.navigate("/belt-exam")}
             accessibilityRole="button"
             accessibilityLabel={tr("home.beltTest")}
             style={({ pressed }) => [
@@ -277,7 +277,7 @@ export default function HomeScreen() {
         if (!due) return null;
         return (
           <Pressable
-            onPress={() => router.push("/level-test")}
+            onPress={() => router.navigate("/level-test")}
             accessibilityRole="button"
             accessibilityLabel={tr("lt.entry")}
             style={({ pressed }) => [
@@ -309,7 +309,7 @@ export default function HomeScreen() {
           mastery gate) stay non-tappable. */}
       <JourneyPath
         onSelect={(node: PathNode) => {
-          if (node.state === "test") router.push("/belt-exam");
+          if (node.state === "test") router.navigate("/belt-exam");
           else if ((node.state === "ready" || node.state === "review") && node.topic)
             router.navigate({ pathname: "/checkpoint", params: { topic: node.topic.id } });
           else if (node.topic) setRuleTopic(node.topic.id);

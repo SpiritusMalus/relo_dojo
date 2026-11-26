@@ -4,11 +4,11 @@
 import { ApiError, getExercise, type Exercise } from "./api";
 import { captureAccountScope, isCurrentAccountScope, subscribeAccountScope } from "../store/accountScope";
 
-export type FetchParams = { topic: string; level: string; type: string; context: string; mistakes?: string[]; practice_index?: number };
+export type FetchParams = { topic: string; level: string; type: string; context: string; mistakes?: string[]; practice_index?: number; assessment?: boolean };
 
 export type QueueDeps = {
   selectParams: () => FetchParams;
-  fetch?: (params: FetchParams) => Promise<Exercise>;
+  fetch?: (params: FetchParams, signal?: AbortSignal) => Promise<Exercise>;
   size?: number;
   retryDelayMs?: number;
   /** Learner-model revision (e.g. total recorded answers). An older card must never cross it. */
@@ -39,6 +39,8 @@ export function createExerciseQueue(deps: QueueDeps): ExerciseQueue {
   let revision = deps.revision?.();
   const retryTimers = new Set<ReturnType<typeof setTimeout>>();
   const waiters = new Set<() => void>();
+  const controllers = new Set<AbortController>();
+  let pendingNext: Promise<Exercise> | null = null;
   let terminalError: ApiError | null = null;
   let endLifetime!: () => void;
   const lifetimeEnded = new Promise<void>((resolve) => { endLifetime = resolve; });
@@ -52,6 +54,8 @@ export function createExerciseQueue(deps: QueueDeps): ExerciseQueue {
   function dropWork(): void {
     gen++;
     ready = [];
+    for (const controller of controllers) controller.abort();
+    controllers.clear();
     // Old fetch finalizers must not consume the new generation's slots.
     inFlight = 0;
     for (const timer of retryTimers) clearTimeout(timer);
@@ -84,12 +88,26 @@ export function createExerciseQueue(deps: QueueDeps): ExerciseQueue {
     revision = deps.revision?.();
   }
 
-  function fetchOwned(params: FetchParams): Promise<Exercise> {
+  async function fetchOwned(params: FetchParams): Promise<Exercise> {
     assertScope();
-    return Promise.race([
-      fetchFn(params),
-      lifetimeEnded.then(() => { throw terminalError; }),
-    ]).then((exercise) => { assertScope(); return exercise; });
+    const controller = new AbortController();
+    controllers.add(controller);
+    try {
+      const exercise = await Promise.race([
+        fetchFn(params, controller.signal),
+        lifetimeEnded.then(() => { throw terminalError; }),
+      ]);
+      assertScope();
+      if (params.assessment && (
+        exercise.type !== params.type || exercise.level !== params.level || exercise.topic !== params.topic
+        || (exercise.evidence_kind && exercise.evidence_kind !== "topic")
+      )) {
+        throw new ApiError("Assessment item doesn't match the requested format, topic and level.", 503, "assessment_unavailable");
+      }
+      return exercise;
+    } finally {
+      controllers.delete(controller);
+    }
   }
 
   function reconcileRevision(): void {
@@ -136,7 +154,7 @@ export function createExerciseQueue(deps: QueueDeps): ExerciseQueue {
     while (ownsScope() && ready.length + inFlight < size) prefetchOne();
   }
 
-  async function next(): Promise<Exercise> {
+  async function takeNext(): Promise<Exercise> {
     for (;;) {
       assertScope();
       reconcileRevision();
@@ -166,6 +184,11 @@ export function createExerciseQueue(deps: QueueDeps): ExerciseQueue {
         throw error;
       }
     }
+  }
+
+  function next(): Promise<Exercise> {
+    pendingNext ??= takeNext().finally(() => { pendingNext = null; });
+    return pendingNext;
   }
 
   unsubscribe = subscribeAccountScope(() => { ownsScope(); });

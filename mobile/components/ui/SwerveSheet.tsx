@@ -71,7 +71,7 @@ export default function SwerveSheet({
   const otherTopics = Object.keys(TOPIC_PRIORS).filter((id) => id !== topic);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType={t.reduceMotion ? "none" : "slide"} onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel={tr("consent.close")}>
         <Pressable
           accessibilityViewIsModal

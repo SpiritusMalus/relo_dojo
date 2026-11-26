@@ -38,17 +38,16 @@ async def test_accepts_four_lines(monkeypatch):
     assert len(out["tiles"]) == 3
 
 
-async def test_anchored_order_grades_full_sequence(monkeypatch):
-    # The client submits [anchor, ...its picks]; grading compares that against the sealed full order.
+async def test_anchored_order_counts_only_reorderable_lines(monkeypatch):
     lines = ["Hi there.", "How are you?", "I'm good, thanks.", "Glad to hear it."]
     monkeypatch.setattr(gen, "generate_json", _fake_json({"lines": lines}))
     out = await gen._gen_order_the_dialog("word order", level="A2")
     sealed = tokens.unseal(out["token"])
-    submitted = [out["anchor"], *out["tiles"]]  # learner leaves the shuffled tiles as-is
+    assert sealed["anchor"] == out["anchor"] == lines[0]
+    submitted = [out["anchor"], *reversed(lines[1:])]
     graded = grammar.grade(sealed, submitted)
-    # anchor is correct at position 0, so at least one line always lands right.
-    assert graded["per_item"][0] is True
-    # A fully correct submission (anchor + tiles already in order) scores 1.0.
+    assert graded["per_item"] == [False, True, False]
+    assert graded["detail"] == "1/3"
     perfect = grammar.grade(sealed, lines)
     assert perfect["correct"] is True and perfect["score"] == 1.0
 

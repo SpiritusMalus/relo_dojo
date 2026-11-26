@@ -3,6 +3,7 @@ import { Animated, Pressable, StyleSheet, View, type GestureResponderEvent } fro
 import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
+import { exerciseCopy } from "../i18n/exerciseCopy";
 import Txt from "./ui/Txt";
 import TranslatableText from "./ui/TranslatableText";
 import { useTranslator } from "./ui/TranslationPopover";
@@ -14,7 +15,8 @@ import { useTranslator } from "./ui/TranslationPopover";
 // differs (a grammar instruction + the English source instead of the RU translation prompt).
 export default function BuildSentence({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
+  const copy = exerciseCopy(lang);
   const tiles = exercise.tiles ?? [];
   const answerLen = tiles.length;
   // Bank = answer tiles + server-sent traps (the word a transform removed, a broken verb form).
@@ -34,21 +36,20 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
   const [order, setOrder] = useState<number[]>([]);
   const { translateAt } = useTranslator();
   const isTransform = exercise.type === "transform-the-sentence";
-  // The tiles (in answer order) form the English sentence — used only as sense context when a single
-  // tile is translated (never shown to the learner, so it doesn't reveal the answer).
-  const tileContext = tiles.join(" ");
+  // The bank is shuffled. Only a coherent English source sentence gives a useful context.
+  const tileContext = isTransform ? exercise.prompt || exercise.text : undefined;
   const translateTile = (word: string) => (e: GestureResponderEvent) =>
     translateAt(word, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }, tileContext);
 
   function report(next: number[]) {
     // Enough words for the full answer = submittable; leftover bank tiles are (ideally) the traps.
     // Placing a trap instead of a real word is exactly the mistake being tested — still submittable.
-    const complete = next.length >= answerLen;
+    const complete = next.length === answerLen;
     const sentence = next.map((i) => bank[i]).join(" ");
     onChange(complete ? sentence : null, sentence);
   }
   function place(i: number) {
-    if (locked || order.includes(i)) return;
+    if (locked || order.length >= answerLen || order.includes(i)) return;
     const next = [...order, i];
     setOrder(next);
     report(next);
@@ -83,6 +84,9 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
         </View>
       </View>
 
+      {!locked && bank.length > answerLen && (
+        <Txt variant="caption" color={t.c.ink2}>{copy.placed(order.length, answerLen)}</Txt>
+      )}
       {/* Answer track (dashed drop area) */}
       <View
         style={[
@@ -116,7 +120,7 @@ export default function BuildSentence({ exercise, locked, onChange }: ExercisePr
             label={bank[i]}
             onPress={() => place(i)}
             onLongPress={translateTile(bank[i])}
-            disabled={locked}
+            disabled={locked || order.length >= answerLen}
           />
         ))}
       </View>
@@ -138,6 +142,8 @@ function Tile({
   placed?: boolean;
 }) {
   const t = useTheme();
+  const { lang } = useI18n();
+  const copy = exerciseCopy(lang);
   const scale = useRef(new Animated.Value(t.reduceMotion || !placed ? 1 : 0.6)).current;
   useEffect(() => {
     if (!placed || t.reduceMotion) return;
@@ -152,7 +158,7 @@ function Tile({
         disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={label}
-        accessibilityHint={placed ? "Tap to remove this word from your answer" : "Tap to add this word to your answer"}
+        accessibilityHint={placed ? copy.removeWord : copy.addWord}
         accessibilityState={{ disabled: !!disabled }}
         style={{
           backgroundColor: placed ? t.c.accentSoft : t.c.surface,

@@ -14,6 +14,7 @@ import {
   gateKind,
   getStory,
   getStoryCatalog,
+  retryStoryBeat,
   type ResponseValue,
   type StoryArc,
   type StorySet,
@@ -44,38 +45,51 @@ export default function StoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress } = useProgress();
+  const latestProgress = useRef(progress);
+  latestProgress.current = progress;
   const { t: tr, lang } = useI18n();
   const copy = learningLoopCopy(lang);
   const ownerScope = useRef(captureAccountScope()).current;
   const activeRef = useRef(true);
+  const storyRequest = useRef<AbortController | null>(null);
   useEffect(() => {
     activeRef.current = true;
-    return () => { activeRef.current = false; };
+    return () => { activeRef.current = false; storyRequest.current?.abort(); storyRequest.current = null; };
   }, []);
   const current = useCallback(() => activeRef.current && isCurrentAccountScope(ownerScope), [ownerScope]);
-  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
+  const { result, checking, submissionLocked, error: checkError, explainError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
 
   const { coins, refresh: refreshWallet } = useWallet();
   const [story, setStory] = useState<StorySet | null>(null);
   const [arcs, setArcs] = useState<StoryArc[] | null>(null); // chooser list (null until fetched)
   const [buying, setBuying] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [gated, setGated] = useState(false); // 403: account gate → activation prompt, not an error
   const [beatIndex, setBeatIndex] = useState(0);
+  const [retryingBeat, setRetryingBeat] = useState(false);
+  const [beatError, setBeatError] = useState(false);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [responseDisplay, setResponseDisplay] = useState("");
   const [correctCount, setCorrectCount] = useState(0);
   const [sessionXp, setSessionXp] = useState(0);
   const [unaidedCount, setUnaidedCount] = useState(0);
   const [finished, setFinished] = useState(false);
-  const error = loadError ?? checkError;
+  const [skipped, setSkipped] = useState(0);
+  const submitting = useRef(false);
+  const buyingRef = useRef(false);
+  const catalogRequest = useRef(false);
+  const lastStory = useRef<{ id?: string } | null>(null);
+  const advancedBeat = useRef(-1);
 
   const shake = useRef(new Animated.Value(0)).current;
 
   const loadStory = useCallback(async (id?: string) => {
-    if (!current()) return;
+    if (!current() || storyRequest.current) return;
+    const controller = new AbortController();
+    storyRequest.current = controller;
+    lastStory.current = { id };
     setLoading(true);
     setLoadError(null);
     setGated(false);
@@ -83,6 +97,9 @@ export default function StoryScreen() {
     setResponse(null);
     setResponseDisplay("");
     setBeatIndex(0);
+    setBeatError(false);
+    advancedBeat.current = -1;
+    setSkipped(0);
     setCorrectCount(0);
     setSessionXp(0);
     setUnaidedCount(0);
@@ -91,9 +108,9 @@ export default function StoryScreen() {
     try {
       // Lock the whole set to the learner's current overall CEFR; flavor exercises to their field
       // (universal story frame, field-specific examples). Empty context falls back to the scenario.
-      const level = beltProgress(progress).cefr;
-      const context = buildContext(progress.profile);
-      const set = await getStory({ level, context, id });
+      const level = beltProgress(latestProgress.current).cefr;
+      const context = buildContext(latestProgress.current.profile);
+      const set = await getStory({ level, context, id }, controller.signal);
       if (!current()) return;
       // A story with no beats has nothing to play — the Check button would be permanently dead. Treat
       // an empty/malformed set as a load failure so the retry/error state shows instead of a stuck screen.
@@ -105,25 +122,36 @@ export default function StoryScreen() {
       if (gateKind(e)) setGated(true);
       else setLoadError(e instanceof Error ? e.message : "Failed to load the story");
     } finally {
-      if (current()) setLoading(false);
+      if (storyRequest.current === controller) {
+        storyRequest.current = null;
+        if (current()) setLoading(false);
+      }
     }
-    // progress is intentionally read once at load; restarting a story re-reads it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reset, current]);
 
   // Show the arc chooser first ("today's different" + unlockable premium arcs). Falls back to a
   // straight random story if the catalog can't be fetched (offline / old backend).
   const loadCatalog = useCallback(async () => {
-    if (!current()) return;
+    if (!current() || catalogRequest.current) return;
+    catalogRequest.current = true;
+    setLoading(true);
     setLoadError(null);
     setGated(false);
     try {
       const catalog = await getStoryCatalog();
       if (current()) setArcs(catalog.arcs);
     } catch {
-      if (current()) void loadStory(); // no catalog → just start a story for this account
+      if (current()) await loadStory(); // Older servers still support the ordinary story.
+    } finally {
+      catalogRequest.current = false;
+      if (current()) setLoading(false);
     }
   }, [loadStory, current]);
+
+  function retryLoad() {
+    if (lastStory.current) void loadStory(lastStory.current.id);
+    else void loadCatalog();
+  }
 
   useEffect(() => {
     loadCatalog();
@@ -131,7 +159,8 @@ export default function StoryScreen() {
 
   // Unlock a premium arc with koku, then start it.
   async function unlockAndPlay(arc: StoryArc) {
-    if (buying || !current()) return;
+    if (buyingRef.current || !current()) return;
+    buyingRef.current = true;
     setBuying(arc.id);
     try {
       await buyContent(arc.id);
@@ -143,11 +172,13 @@ export default function StoryScreen() {
       if (!current()) return;
       setLoadError(e instanceof Error ? e.message : "Unlock failed");
     } finally {
+      buyingRef.current = false;
       if (current()) setBuying(null);
     }
   }
 
   function onChange(value: ResponseValue | null, display: string) {
+    if (submitting.current || submissionLocked || result) return;
     setResponse(value);
     setResponseDisplay(display);
   }
@@ -169,22 +200,53 @@ export default function StoryScreen() {
   const isLast = !!story && beatIndex >= story.beats.length - 1;
 
   async function onCheck() {
-    if (!beat || response === null || checking) return;
-    const res = await check(beat.exercise, response, runShake);
-    if (!current()) return;
-    if (res) {
+    if (!current() || !beat?.exercise || response === null || checking || result || submitting.current) return;
+    submitting.current = true;
+    try {
+      const res = await check(beat.exercise, response, runShake, responseDisplay);
+      if (!res || !current()) return;
       setSessionXp((n) => n + (res.xpEarned ?? 0));
       if (res.correct) setCorrectCount((c) => c + 1);
       if (res.correct && !res.hintUsed) setUnaidedCount((c) => c + 1);
+    } finally {
+      submitting.current = false;
     }
   }
 
   function onExplain() {
-    if (current() && beat) doExplain(beat.exercise, responseDisplay);
+    if (current() && beat?.exercise) void doExplain(beat.exercise, responseDisplay);
   }
 
-  function onAdvance() {
-    if (!current()) return;
+  async function retryBeat() {
+    const resumeToken = story?.resume_token;
+    if (!current() || !resumeToken || !beat || beat.exercise || storyRequest.current) return;
+    const controller = new AbortController();
+    const index = beatIndex;
+    storyRequest.current = controller;
+    setRetryingBeat(true);
+    setBeatError(false);
+    try {
+      const exercise = await retryStoryBeat(resumeToken, index, controller.signal);
+      if (!current() || storyRequest.current !== controller) return;
+      setStory((previous) => previous?.resume_token === resumeToken ? {
+        ...previous,
+        beats: previous.beats.map((item, i) => i === index ? { ...item, exercise } : item),
+      } : previous);
+    } catch {
+      if (current() && !controller.signal.aborted) setBeatError(true);
+    } finally {
+      if (storyRequest.current === controller) {
+        storyRequest.current = null;
+        if (current()) setRetryingBeat(false);
+      }
+    }
+  }
+
+  function onAdvance(skip = false) {
+    if (!current() || !beat || storyRequest.current || submitting.current || advancedBeat.current >= beatIndex || (skip && submissionLocked)) return;
+    advancedBeat.current = beatIndex;
+    if (skip) setSkipped((n) => n + 1);
+    setBeatError(false);
     reset();
     setResponse(null);
     setResponseDisplay("");
@@ -195,17 +257,25 @@ export default function StoryScreen() {
     }
   }
 
+  function leave() {
+    if (!current()) return;
+    activeRef.current = false;
+    storyRequest.current?.abort();
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)/train");
+  }
+
   // X mid-story: confirm once at least one beat is answered (otherwise nothing is lost).
   function onClose() {
     if (!current()) return;
     const started = !!story && !finished && (beatIndex > 0 || !!result);
     if (!started) {
-      router.back();
+      leave();
       return;
     }
     Alert.alert(tr("exit.title"), tr("exit.msgStory"), [
       { text: tr("exit.stay"), style: "cancel" },
-      { text: tr("exit.leave"), style: "destructive", onPress: () => { if (current()) router.back(); } },
+      { text: tr("exit.leave"), style: "destructive", onPress: leave },
     ]);
   }
 
@@ -220,7 +290,7 @@ export default function StoryScreen() {
 
       {/* Header: close, set progress, streak */}
       <View style={styles.header}>
-        <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn} accessibilityLabel="Close">
+        <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn} accessibilityLabel={tr("common.close")} accessibilityRole="button">
           <Icon name="x" size={24} color={t.c.ink2} />
         </Pressable>
         <View style={{ flex: 1, marginHorizontal: 14 }}>
@@ -232,7 +302,7 @@ export default function StoryScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
         {loading && (
           <View style={{ alignItems: "center", gap: 12, marginTop: 40 }}>
             <Sensei size={88} mood="think" bob />
@@ -247,29 +317,21 @@ export default function StoryScreen() {
             <Txt variant="secondary" color={t.c.ink3} style={{ textAlign: "center" }}>
               {tr("activate.lockedMsg")}
             </Txt>
-            <Button label={tr("action.tryAgain")} variant="ghost" onPress={() => loadCatalog()} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={retryLoad} />
           </View>
         )}
 
-        {error && !loading && (
+        {loadError && !loading && (
           <View style={{ gap: 12, marginTop: 20 }}>
-            {/* Human words first; the raw cause below, small and dim (it's the only clue in a
-                bug-report screenshot). */}
-            <Txt variant="bodyStrong" style={{ textAlign: "center" }}>
-              {tr("err.exercise.title")}
+            <Txt variant="bodyStrong" accessibilityRole="alert" style={{ textAlign: "center" }}>
+              {tr("story.loadError")}
             </Txt>
-            <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
-              {tr("err.exercise.hint")}
-            </Txt>
-            <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center" }}>
-              {error}
-            </Txt>
-            <Button label={tr("action.tryAgain")} variant="ghost" onPress={() => loadCatalog()} />
+            <Button label={tr("action.tryAgain")} variant="ghost" onPress={retryLoad} />
           </View>
         )}
 
         {/* Arc chooser — "today's different" featured pick + free/premium arcs. */}
-        {arcs && !story && !loading && !gated && !error && (
+        {arcs && !story && !loading && !gated && !loadError && (
           <View style={{ gap: 10, marginTop: 8 }}>
             <Txt variant="cardTitle">{tr("story.chooseTitle")}</Txt>
             {[...arcs].sort((a, b) => Number(b.featured) - Number(a.featured)).map((arc) => (
@@ -277,6 +339,8 @@ export default function StoryScreen() {
                 key={arc.id}
                 onPress={() => (arc.owned ? loadStory(arc.id) : unlockAndPlay(arc))}
                 disabled={buying !== null || (!arc.owned && coins < arc.price)}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: buying !== null || (!arc.owned && coins < arc.price), busy: buying === arc.id }}
               >
                 <Card>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -304,9 +368,10 @@ export default function StoryScreen() {
           <View style={{ alignItems: "center", gap: 14, marginTop: 24 }}>
             <Sensei size={104} mood="cheer" bob />
             <Txt variant="cardTitle" color={t.c.accent}>{tr("story.done", { title: story.title })}</Txt>
-            <Txt variant="bodyStrong">{tr("story.correctOfTotal", { c: correctCount, t: total })}</Txt>
+            <Txt variant="bodyStrong">{tr("story.correctOfTotal", { c: correctCount, t: total - skipped })}</Txt>
             <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.xp", { n: sessionXp })}</Txt>
-            <Txt variant="secondary" color={t.c.ink2}>{copy.unassisted(unaidedCount, total)}</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{copy.unassisted(unaidedCount, total - skipped)}</Txt>
+            {skipped > 0 && <Txt variant="secondary" color={t.c.ink2}>{tr("exercise.skipped", { n: skipped })}</Txt>}
           </View>
         )}
 
@@ -327,19 +392,29 @@ export default function StoryScreen() {
               </Card>
             )}
 
-            <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
-              <ExerciseCard onHint={markHintUsed} key={beatIndex} exercise={beat.exercise} locked={!!result} onChange={onChange} />
-            </Animated.View>
-
-            {result && (
-              <ResultPanel
-                result={result}
-                exercise={beat.exercise}
-                levelUp={levelUp}
-                explained={explained}
-                explainLoading={explainLoading}
-                onExplain={onExplain}
-              />
+            {beat.exercise ? (
+              <>
+                <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
+                  <ExerciseCard onHint={markHintUsed} key={beatIndex} exercise={beat.exercise} feedback={result ?? undefined}
+                    locked={checking || submissionLocked || !!result} onChange={onChange} onSkip={() => onAdvance(true)} />
+                </Animated.View>
+                {checkError && !result && (
+                  <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert">{tr("err.check")}</Txt>
+                )}
+                {result && (
+                  <ResultPanel result={result} exercise={beat.exercise} levelUp={levelUp}
+                    explained={explained} explainLoading={explainLoading} explainError={explainError} onExplain={onExplain} />
+                )}
+              </>
+            ) : (
+              <Card style={{ gap: 8 }}>
+                <Txt variant="bodyStrong" accessibilityLiveRegion="polite">
+                  {tr(retryingBeat ? "story.preparingBeat" : beatError ? "story.retryBeatError" : "story.beatUnavailable")}
+                </Txt>
+                {!!story.resume_token && !retryingBeat && (
+                  <Button label={tr("story.skipBeat")} variant="ghost" onPress={() => onAdvance(true)} />
+                )}
+              </Card>
             )}
           </>
         )}
@@ -351,11 +426,16 @@ export default function StoryScreen() {
       {story && !loading && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
           {finished ? (
-            <Button label={tr("story.backHome")} onPress={() => router.back()} />
+            <Button label={tr("story.backHome")} onPress={leave} />
+          ) : beat && !beat.exercise ? (
+            story.resume_token ? (
+              <Button label={tr(retryingBeat ? "story.preparingBeat" : "action.tryAgain")} onPress={retryBeat}
+                disabled={retryingBeat} left={retryingBeat ? <ActivityIndicator color={t.c.ink3} size="small" /> : undefined} />
+            ) : <Button label={tr("story.skipBeat")} onPress={() => onAdvance(true)} />
           ) : result ? (
-            <Button label={isLast ? tr("action.finish") : tr("action.continue")} onPress={onAdvance} />
+            <Button label={isLast ? tr("action.finish") : tr("action.continue")} onPress={() => onAdvance()} />
           ) : (
-            <Button label={checking ? tr("action.checking") : tr("action.check")} onPress={onCheck} disabled={!canSubmit} />
+            <Button label={tr(checking ? "action.checking" : checkError ? "action.tryAgain" : "action.check")} onPress={onCheck} disabled={!canSubmit} />
           )}
         </View>
       )}

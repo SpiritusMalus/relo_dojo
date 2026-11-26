@@ -4,15 +4,17 @@ import ReviewScreen from "../review";
 import Button from "../../components/ui/Button";
 import { ThemeProvider } from "../../theme/theme";
 import { captureMistake, loadMistakes } from "../../store/mistakes";
-import { setAuthToken, type Exercise } from "../../services/api";
+import { ApiError, renewReviewToken, setAuthToken, type Exercise } from "../../services/api";
 import type { Result } from "../../store/useExerciseCheck";
 
 let mockGrade: Result;
 let mockExerciseProps: any;
+const mockCheck = jest.fn();
 const mockReplace = jest.fn();
 const mockBegin = jest.fn();
 jest.mock("expo-router", () => ({ useRouter: () => ({ back: jest.fn(), replace: mockReplace }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
+jest.mock("../../services/api", () => ({ ...jest.requireActual("../../services/api"), renewReviewToken: jest.fn() }));
 jest.mock("../../store/i18n", () => ({ useI18n: () => ({ lang: "en", t: (key: string, args?: Record<string, unknown>) => args ? `${key}:${JSON.stringify(args)}` : key }) }));
 jest.mock("../../store/progress", () => {
   const actual = jest.requireActual("../../store/progress");
@@ -21,8 +23,14 @@ jest.mock("../../store/progress", () => {
 jest.mock("../../store/useExerciseCheck", () => ({ useExerciseCheck: () => {
   const React = require("react");
   const [result, setResult] = React.useState(null);
+  const [expired, setExpired] = React.useState(false);
   return { result, checking: false, beginAttempt: mockBegin, markHintUsed: jest.fn(), doExplain: jest.fn(),
-    reset: () => setResult(null), check: async () => { setResult(mockGrade); return mockGrade; } };
+    error: expired ? "This exercise expired." : null, errorCode: expired ? "exercise_expired" : null,
+    reset: () => setResult(null), check: async (...args: unknown[]) => {
+      if (await mockCheck(...args) === "expired") { setExpired(true); return null; }
+      setExpired(false); setResult(mockGrade); return mockGrade;
+    },
+  };
 } }));
 jest.mock("../../components/ExerciseCard", () => (props: any) => { mockExerciseProps = props; return null; });
 jest.mock("../../components/ResultPanel", () => () => null);
@@ -74,4 +82,33 @@ test("a hinted correct answer stays due and is not counted as a fixed recall", a
   expect(text).toContain('Ready to review: 1');
   expect(text).toContain('\\"c\\":0');
   expect(progressPercent()).toBe(100);
+});
+
+test("an expired review card is renewed once, retaining the same display and submitted answer", async () => {
+  mockCheck.mockResolvedValueOnce("expired");
+  jest.mocked(renewReviewToken).mockResolvedValueOnce({ review_token: "renewed-review-token" });
+  act(() => mockExerciseProps.onChange("an", "an"));
+  await act(async () => { await action("action.check").props.onPress(); });
+  expect(JSON.stringify(screen.toJSON())).toContain("review.expired");
+  const reload = action("review.renew").props.onPress;
+  await act(async () => { await Promise.all([reload(), reload()]); });
+  expect(renewReviewToken).toHaveBeenCalledTimes(1);
+  expect(renewReviewToken).toHaveBeenCalledWith("review-token");
+  expect(mockCheck).toHaveBeenLastCalledWith(expect.objectContaining({ token: "renewed-review-token" }), "an", expect.any(Function), "an");
+  const saved = (await loadMistakes())[0];
+  expect(saved.exercise.token).toBe("renewed-review-token");
+  expect(saved.box).toBe(1);
+});
+
+test("a rollback without a renewal route leaves the expired card stored and allows advancing", async () => {
+  mockCheck.mockResolvedValueOnce("expired");
+  jest.mocked(renewReviewToken).mockRejectedValueOnce(new ApiError("Not Found", 404));
+  act(() => mockExerciseProps.onChange("an", "an"));
+  await act(async () => { await action("action.check").props.onPress(); });
+  await act(async () => { await action("review.renew").props.onPress(); });
+  expect(JSON.stringify(screen.toJSON())).toContain("review.unrecoverable");
+  expect(action("review.practiceTopic")).toBeDefined();
+  await act(async () => { action("action.continue").props.onPress(); });
+  expect((await loadMistakes())[0].exercise.token).toBe("review-token");
+  expect(mockCheck).toHaveBeenCalledTimes(1);
 });

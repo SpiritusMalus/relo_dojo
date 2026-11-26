@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import {
+  ApiError,
   checkFreeText,
   checkInteractive,
   checkRetell,
@@ -31,6 +32,7 @@ export type Result = {
   score?: number;
   detail?: string;
   per_item?: boolean[]; // per-element marks in display order (match rows, blanks, dialog lines)
+  answer_items?: string[]; // aligned solution rows; the fixed dialogue opener is omitted
   explanation?: string;
   tip?: string;
   coins_earned?: number; // koku earned (authenticated + correct only)
@@ -42,7 +44,28 @@ export type Result = {
   /** Actual local XP committed for this answer, including combo and boost. */
   xpEarned?: number;
   hintUsed?: boolean;
+  /** Exact visible response captured when this grade was requested. */
+  submittedResponse?: string;
 };
+
+type AnswerSubmission = { response: ResponseValue; display?: string };
+
+type ActiveAttempt = {
+  key: string | null;
+  clock: AttemptClock | null;
+  inFlight: boolean;
+  complete: boolean;
+  scope: AccountScope;
+  submission?: AnswerSubmission;
+  uncertainGrade?: boolean;
+};
+
+function snapshotSubmission(response: ResponseValue, display?: string): AnswerSubmission {
+  // Multiple-choice strings and tapped indices are immutable; copy the card's mutable collections.
+  if (Array.isArray(response)) return { response: [...response], display };
+  if (typeof response === "object") return { response: { ...response }, display };
+  return { response, display };
+}
 
 export function useExerciseCheck() {
   const scope = useAccountScope();
@@ -55,13 +78,15 @@ export function useExerciseCheck() {
   const [result, setResult] = useState<Result | null>(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [levelUp, setLevelUp] = useState<string | null>(null);
   const [explained, setExplained] = useState<ExplainResult | null>(null);
   const [explainLoading, setExplainLoading] = useState(false);
+  const [explainError, setExplainError] = useState<string | null>(null);
   // In-flight explanation stream, so a new card (reset) can cancel a half-streamed note.
   const explainAbort = useRef<AbortController | null>(null);
   const foreground = useRef(AppState.currentState !== "background" && AppState.currentState !== "inactive");
-  const attemptRef = useRef<{ key: string | null; clock: AttemptClock | null; inFlight: boolean; complete: boolean; scope: AccountScope }>({ key: null, clock: null, inFlight: false, complete: false, scope });
+  const attemptRef = useRef<ActiveAttempt>({ key: null, clock: null, inFlight: false, complete: false, scope });
 
   // Call when the card becomes visible, rather than when a slow fetch begins.
   const beginAttempt = useCallback((exercise: Exercise) => {
@@ -93,7 +118,12 @@ export function useExerciseCheck() {
   // Grade `response` for `exercise`, record the answer, and return the result (or null on error).
   // `onWrong` lets the caller trigger UI feedback (e.g. a shake) without re-deriving correctness.
   const check = useCallback(
-    async (exercise: Exercise, response: ResponseValue, onWrong?: () => void): Promise<Result | null> => {
+    async (
+      exercise: Exercise,
+      response: ResponseValue,
+      onWrong?: () => void,
+      responseDisplay?: string,
+    ): Promise<Result | null> => {
       if (!isMounted.current || !isCurrentAccountScope(scope) || scope.owner === null) return null;
       const key = exerciseAttemptKey(exercise);
       if (attemptRef.current.key !== key) {
@@ -105,6 +135,7 @@ export function useExerciseCheck() {
       // and a completed card cannot award XP or affect ability a second time.
       if (attempt.inFlight || attempt.complete || !isCurrentAccountScope(attempt.scope)) return null;
       attempt.inFlight = true;
+      const submission = (attempt.submission ??= snapshotSubmission(response, responseDisplay));
       attempt.clock?.pause();
       const effort = attempt.clock ? {
         elapsedMs: attempt.clock.elapsedMs(),
@@ -113,15 +144,16 @@ export function useExerciseCheck() {
       } : {};
       setChecking(true);
       setError(null);
+      setErrorCode(null);
       try {
         // Retell rides its own LLM endpoint (content-coverage rubric + the sealed passage);
         // every other tokened type grades deterministically; tokenless free-text goes to the LLM.
         const res: Result =
           exercise.type === "listen-and-retell" && exercise.token
-            ? await checkRetell(exercise.token, String(response))
+            ? await checkRetell(exercise.token, String(submission.response))
             : exercise.token
-            ? await checkInteractive(exercise.token, response)
-            : await checkFreeText(exercise.text, String(response));
+            ? await checkInteractive(exercise.token, submission.response)
+            : await checkFreeText(exercise.text, String(submission.response));
         if (!isMounted.current || attemptRef.current !== attempt || !isCurrentAccountScope(scope)) return null;
         // Koku earned server-side on a correct answer — patch the cached wallet balance.
         applyCheckReward(res.coins, scope);
@@ -139,10 +171,22 @@ export function useExerciseCheck() {
         // `format` feeds the course mastery evidence: constructive formats weigh more than
         // guessable ones (store/curriculum.ts).
         const xpBefore = progressRef.current.xp;
-        const progressAfter = recordAnswer(exercise.topic, res.correct, { score: res.score, difficulty: servedDifficulty, format: exercise.type, ...effort });
+        const progressAfter = recordAnswer(exercise.topic, res.correct, {
+          score: res.score,
+          difficulty: servedDifficulty,
+          format: exercise.type,
+          evidenceKind: exercise.evidence_kind,
+          ...effort,
+        });
         progressRef.current = progressAfter;
         attempt.complete = true;
-        const committed = { ...res, progressAfter, xpEarned: progressAfter.xp - xpBefore, hintUsed: effort.hintUsed === true };
+        const committed = {
+          ...res,
+          progressAfter,
+          xpEarned: progressAfter.xp - xpBefore,
+          hintUsed: effort.hintUsed === true,
+          submittedResponse: submission.display,
+        };
         setResult(committed);
         const after = effectiveSkill(progressAfter, exercise.topic);
         if (after > before && levelToCefr(after) !== levelToCefr(before)) {
@@ -151,7 +195,18 @@ export function useExerciseCheck() {
         return committed;
       } catch (e) {
         if (isMounted.current && attemptRef.current === attempt && isCurrentAccountScope(scope)) {
+          // A lost reply may conceal a committed first grade. Keep the original submission
+          // until a retry recovers it. A definite client error, such as an expired token or
+          // validation failure, leaves no new grade and permits recovery or editing.
+          const definite = e instanceof ApiError && e.status >= 400 && e.status < 500 && e.status !== 408;
+          const expired = e instanceof ApiError && (e.code === "exercise_expired" || e.status === 410);
+          if (!definite) attempt.uncertainGrade = true;
+          else if (!attempt.uncertainGrade || expired) {
+            attempt.submission = undefined;
+            attempt.uncertainGrade = false;
+          }
           setError(e instanceof Error ? e.message : "Failed to check answer");
+          setErrorCode(e instanceof ApiError ? e.code ?? null : null);
           // Network wait did not measure the learner. A retry may include more thinking time.
           if (foreground.current) attempt.clock?.resume();
         }
@@ -170,7 +225,9 @@ export function useExerciseCheck() {
   const doExplain = useCallback(async (exercise: Exercise, responseDisplay: string) => {
     if (!isMounted.current || !isCurrentAccountScope(scope) || !result || explainLoading || explainAbort.current) return;
     setExplainLoading(true);
+    setExplainError(null);
     const correct = result.correct_answer;
+    const checkedResponse = result.submittedResponse ?? responseDisplay;
     const context = explanationContext(exercise);
     const controller = new AbortController();
     explainAbort.current = controller;
@@ -180,7 +237,7 @@ export function useExerciseCheck() {
       const finalText = await explainStream(
         context,
         correct,
-        responseDisplay,
+        checkedResponse,
         (full) => {
           if (!current()) return;
           // First token in: drop the spinner and start showing the growing note.
@@ -196,10 +253,13 @@ export function useExerciseCheck() {
     } catch (e) {
       if (!current()) return;
       try {
-        const note = await explain(context, correct, responseDisplay);
+        const note = await explain(context, correct, checkedResponse);
         if (current()) setExplained(note);
       } catch (e2) {
-        if (current()) setError(e2 instanceof Error ? e2.message : "Failed to explain");
+        if (current()) {
+          setExplained(null);
+          setExplainError(e2 instanceof Error ? e2.message : "Failed to explain");
+        }
       }
     } finally {
       if (current()) setExplainLoading(false);
@@ -215,6 +275,8 @@ export function useExerciseCheck() {
     explainAbort.current = null;
     setResult(null);
     setError(null);
+    setErrorCode(null);
+    setExplainError(null);
     setLevelUp(null);
     setExplained(null);
     setChecking(false);
@@ -223,5 +285,6 @@ export function useExerciseCheck() {
 
   useEffect(() => { reset(); }, [scope, reset]);
 
-  return { result, checking, error, levelUp, explained, explainLoading, check, doExplain, reset, setError, beginAttempt, markHintUsed };
+  const submissionLocked = checking || !!result || (!!error && !!attemptRef.current.submission);
+  return { result, checking, submissionLocked, error, errorCode, levelUp, explained, explainLoading, explainError, check, doExplain, reset, setError, beginAttempt, markHintUsed };
 }

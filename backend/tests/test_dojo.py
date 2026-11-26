@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.base import Base
-from app.db.models import AwardedToken, DojoGrant, DojoPracticeDay, LearningIssuedItem, LearningSession, User
+from app.db.models import AwardedToken, DojoGrant, DojoPracticeDay, LearningIssuedItem, LearningSession, MissLog, User
 from app.schemas import CheckIn, CheckRetellIn, ExerciseIn
 from app.services import analytics, cosmetics, dojo, tokens, wallet
 
@@ -74,7 +74,7 @@ def exercise():
 async def answer(user, db, session, ordinal, correct=False):
     data = await dojo.bind_exercise(user, db, session.id, ordinal, exercise(), "en")
     evidence = await dojo.validate_grade(user, db, tokens.unseal(data["token"]), data["token"])
-    await dojo.record_grade(user, db, evidence, correct)
+    await dojo.record_grade(user, db, evidence, {"correct": correct, "correct_answer": "an"})
     return data
 
 
@@ -142,11 +142,101 @@ async def test_replacements_replay_and_correction_keep_first_graded_item(store):
     abandoned = await dojo.bind_exercise(user, db, session.id, 0, exercise(), "en")
     actual = await answer(user, db, session, 0, False)
     before = dict(session.grades)
-    for token in [actual["token"], abandoned["token"]]:
-        evidence = await dojo.validate_grade(user, db, tokens.unseal(token), token)
-        await dojo.record_grade(user, db, evidence, True)
+    same = await dojo.validate_grade(user, db, tokens.unseal(actual["token"]), actual["token"])
+    assert await dojo.get_recorded_grade(user, db, same) == {"correct": False, "correct_answer": "an"}
+    replay, first = await dojo.record_grade(user, db, same, {"correct": True, "correct_answer": "an"})
+    assert replay == {"correct": False, "correct_answer": "an"} and not first
+    replaced = await dojo.validate_grade(user, db, tokens.unseal(abandoned["token"]), abandoned["token"])
+    with pytest.raises(HTTPException) as exc:
+        await dojo.get_recorded_grade(user, db, replaced)
+    assert exc.value.status_code == 409
     assert session.grades == before and len(session.grades) == 1
-    assert session.grades["0"]["correct"] is False
+
+
+
+
+async def test_wrong_grade_combo_and_miss_commit_together_and_retry_at_most_once(store):
+    user, db = store
+    user.correct_run = 4
+    await db.commit()
+    session = await dojo.start_session(user, db, uuid.uuid4())
+    bound = await dojo.bind_exercise(user, db, session.id, 0, exercise(), "en")
+    token = bound["token"]
+    evidence = await dojo.validate_grade(user, db, tokens.unseal(token), token)
+    wrong = {"correct": False, "correct_answer": "an"}
+    miss = ("articles", "She is ___ engineer.")
+
+    db.fail_commit = True
+    with pytest.raises(RuntimeError, match="lost database commit"):
+        await dojo.record_grade(user, db, evidence, wrong, reset_combo=True, miss=miss)
+    db.fail_commit = False
+    assert session.grades == {} and user.correct_run == 4
+    assert (await db.execute(select(MissLog))).scalars().all() == []
+
+    assert await dojo.record_grade(user, db, evidence, wrong, reset_combo=True, miss=miss) == (wrong, True)
+    assert user.correct_run == 0
+    logged = (await db.execute(select(MissLog))).scalars().one()
+    assert logged.misses == 1 and logged.text == miss[1]
+
+    # A later valid activity already started a fresh run when the earlier response is retried.
+    user.correct_run = 2
+    await db.commit()
+    assert await dojo.record_grade(user, db, evidence, wrong, reset_combo=True, miss=miss) == (wrong, False)
+    assert user.correct_run == 2 and logged.misses == 1
+
+
+
+async def test_check_replays_the_wrong_bound_verdict_without_breaking_a_later_run(store):
+    from app.main import check
+
+    user, db = store
+    user.correct_run = 4
+    await db.commit()
+    session = await dojo.start_session(user, db, uuid.uuid4())
+    item = exercise()
+    item["token"] = tokens.seal({
+        "t": "multiple-choice", "answer": "an", "topic": "articles", "text": item["text"],
+    })
+    bound = await dojo.bind_exercise(user, db, session.id, 0, item, "en")
+    first = await check(CheckIn(token=bound["token"], response="a"), user=user, db=db)
+    assert first.correct is False and user.correct_run == 0
+
+    user.correct_run = 2
+    await db.commit()
+    retry = await check(CheckIn(token=bound["token"], response="an"), user=user, db=db)
+    assert retry == first and user.correct_run == 2
+    assert (await db.execute(select(MissLog))).scalars().one().misses == 1
+
+
+async def test_legacy_dojo_verdict_survives_a_changed_retry(store):
+    user, db = store
+    session = await dojo.start_session(user, db, uuid.uuid4())
+    bound = await answer(user, db, session, 0, False)
+    old = {k: v for k, v in session.grades["0"].items() if k != "result"}
+    session.grades = {"0": old}
+    await db.commit()
+    token = bound["token"]
+    evidence = await dojo.validate_grade(user, db, tokens.unseal(token), token)
+    assert await dojo.get_recorded_grade(user, db, evidence) is None
+    verdict, first = await dojo.record_grade(user, db, evidence, {
+        "correct": True, "correct_answer": "an", "score": 1.0, "per_item": [True],
+    })
+    assert not first and verdict["correct"] is False and verdict["score"] == 0.0
+    assert "per_item" not in verdict and session.grades["0"]["graded_at"] == old["graded_at"]
+    assert await dojo.get_recorded_grade(user, db, evidence) == verdict
+
+
+async def test_dojo_replay_retains_llm_verdict_without_storing_personalized_prose(store):
+    user, db = store
+    session = await dojo.start_session(user, db, uuid.uuid4())
+    bound = await dojo.bind_exercise(user, db, session.id, 0, exercise(), "en")
+    token = bound["token"]
+    evidence = await dojo.validate_grade(user, db, tokens.unseal(token), token)
+    feedback = {"correct": False, "correct_answer": "Example", "explanation": "Private answer", "tip": "Tip"}
+    first, settled = await dojo.record_grade(user, db, evidence, feedback, persist_feedback=False)
+    assert settled and first == feedback
+    retry = await dojo.get_recorded_grade(user, db, evidence)
+    assert retry["correct"] is False and "Private answer" not in str(session.grades)
 
 
 async def test_expired_bound_token_rejected_but_owner_review_not_session_evidence(store, monkeypatch):

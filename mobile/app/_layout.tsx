@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { AppState } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { AuthProvider, useAuth } from "../store/auth";
@@ -17,18 +16,13 @@ import { cancelPersonalNotifications, ensurePermission, rescheduleAll } from "..
 import { useAccountScope } from "../store/useAccountScope";
 import { isCurrentAccountScope } from "../store/accountScope";
 import { getContracts, postEvents } from "../services/api";
+import { anonymousInstallId } from "../services/anonymousInstallId";
 import * as analytics from "../services/analytics";
 import { ThemeProvider, fontMap } from "../theme/theme";
 
 // Global crash screen: expo-router renders this whenever a render throws anywhere in the tree
 // below the root layout, instead of leaving a blank white screen with no recovery.
 export { RootErrorBoundary as ErrorBoundary } from "../components/RootErrorBoundary";
-
-// Stable anonymous id for pre-login retention attribution (persisted across launches).
-const ANON_KEY = "gd.analytics.anon";
-function newAnonId(): string {
-  return `a-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 // Foreground flush cadence. Server-counted features — daily contracts count progress from the
 // events table — must reflect a just-finished session without waiting for the app to background.
@@ -143,14 +137,7 @@ function RootNav() {
     }
 
     void (async () => {
-      let id = await AsyncStorage.getItem(ANON_KEY).catch(() => null);
-      if (!id) {
-        id = newAnonId();
-        // Await the write (best-effort) so the persisted id is settled before configure(): otherwise
-        // a crash/relaunch between generating and persisting could split one user across two anon
-        // cohorts. configure() already uses this generated id even while the write is in flight.
-        await AsyncStorage.setItem(ANON_KEY, id).catch(() => {});
-      }
+      const id = await anonymousInstallId();
       analytics.configure({
         sender: (batch, capturedScope) => postEvents(batch.anon_id, batch.events, capturedScope).then(() => {}),
         anonId: id,

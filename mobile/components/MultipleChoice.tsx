@@ -8,7 +8,7 @@ import TranslatableText from "./ui/TranslatableText";
 import { useTranslator } from "./ui/TranslationPopover";
 
 // Sentence with a blank + tap one option (also used for odd-one-out).
-export default function MultipleChoice({ exercise, locked, onChange }: ExerciseProps) {
+export default function MultipleChoice({ exercise, locked, onChange, feedback }: ExerciseProps) {
   const t = useTheme();
   const { t: tr } = useI18n();
   const { translateAt } = useTranslator();
@@ -18,7 +18,7 @@ export default function MultipleChoice({ exercise, locked, onChange }: ExerciseP
   // For odd-one-out the backend `text` is a fixed English instruction and the options carry the
   // content; show a localized instruction instead. For multiple-choice `text` is the content sentence.
   const isOddOneOut = exercise.type === "odd-one-out";
-  const prompt = isOddOneOut ? tr("ex.oddOneOut") : exercise.text;
+  const prompt = isOddOneOut ? exercise.instruction || tr("ex.oddOneOut") : exercise.text;
 
   function pick(i: number, opt: string) {
     if (locked) return;
@@ -41,6 +41,8 @@ export default function MultipleChoice({ exercise, locked, onChange }: ExerciseP
       <View style={{ gap: 10 }}>
         {options.map((opt, i) => {
           const on = selected === i;
+          const incorrect = on && feedback?.correct === false;
+          const emphasis = incorrect ? t.c.bad : t.c.accent;
           return (
             <Pressable
               key={`${i}-${opt}`}
@@ -54,15 +56,15 @@ export default function MultipleChoice({ exercise, locked, onChange }: ExerciseP
               accessibilityState={{ selected: on, disabled: locked }}
               style={{
                 borderWidth: on ? 2 : 1,
-                borderColor: on ? t.c.accent : t.c.line2,
-                backgroundColor: on ? t.c.accentSoft : t.c.surface,
+                borderColor: on ? emphasis : t.c.line2,
+                backgroundColor: incorrect ? t.c.badSoft : on ? t.c.accentSoft : t.c.surface,
                 borderRadius: t.spacing.radiusSm,
                 padding: 14,
                 minHeight: 48,
                 justifyContent: "center",
               }}
             >
-              <Txt variant="bodyStrong" color={on ? t.c.accent : t.c.ink}>
+              <Txt variant="bodyStrong" color={on ? emphasis : t.c.ink}>
                 {opt}
               </Txt>
             </Pressable>

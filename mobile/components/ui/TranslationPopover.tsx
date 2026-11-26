@@ -122,7 +122,7 @@ export function TranslationProvider({ children, enabled = true, onReveal }: {
   return (
     <TranslationContext.Provider value={{ translateAt }}>
       {children}
-      <Modal visible={open !== null} transparent animationType="fade" onRequestClose={dismiss}>
+      <Modal visible={open !== null} transparent animationType={t.reduceMotion ? "none" : "fade"} onRequestClose={dismiss}>
         <Pressable style={styles.backdrop} onPress={dismiss} accessibilityRole="button">
           <View
             onLayout={onBubbleLayout}

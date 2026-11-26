@@ -10,7 +10,12 @@ from ._grammar_prompts import _norm
 
 
 def _result(
-    correct: bool, answer: str, got: int = 0, total: int = 0, per_item: list[bool] | None = None
+    correct: bool,
+    answer: str,
+    got: int = 0,
+    total: int = 0,
+    per_item: list[bool] | None = None,
+    answer_items: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build a grade result with a partial `score` (0..1), a `detail` string and per-element marks.
 
@@ -20,6 +25,8 @@ def _result(
     `per_item` (element order = the order shown to the learner) lets the client point at the exact
     rows that were wrong — "2/4" alone sends the learner hunting."""
     out: dict[str, Any] = {"correct": correct, "correct_answer": answer, "per_item": per_item or []}
+    if answer_items is not None:
+        out["answer_items"] = answer_items
     if total > 0:
         out.update(score=got / total, detail=f"{got}/{total}")
     else:
@@ -36,7 +43,10 @@ def grade(sealed: dict[str, Any], response: Any) -> dict[str, Any]:
     # client-side (TTS); what reaches us is the tapped option vs the sealed answer.
     if kind in ("multiple-choice", "odd-one-out", "listen-and-answer"):
         answer = str(sealed.get("answer") or "")
-        return _result(_norm(response) == _norm(answer), answer)
+        result = _result(_norm(response) == _norm(answer), answer)
+        if kind == "odd-one-out" and isinstance(sealed.get("reason"), str):
+            result["explanation"] = sealed["reason"]
+        return result
 
     if kind == "multiple-blanks":
         answers = [str(a) for a in (sealed.get("answers") or [])]
@@ -44,16 +54,25 @@ def grade(sealed: dict[str, Any], response: Any) -> dict[str, Any]:
         per = [i < len(picks) and _norm(picks[i]) == _norm(answers[i]) for i in range(len(answers))]
         got = sum(per)
         correct = len(picks) == len(answers) and got == len(answers)
-        return _result(correct, ", ".join(answers), got, len(answers), per_item=per)
+        return _result(correct, ", ".join(answers), got, max(len(answers), len(picks)), per, answers)
 
     if kind == "order-the-dialog":
         order = [str(line) for line in (sealed.get("order") or [])]
         picks = response if isinstance(response, list) else []
-        # Partial credit = lines placed in their correct position.
-        per = [i < len(picks) and _norm(str(picks[i])) == _norm(order[i]) for i in range(len(order))]
+        # Recent generated tokens without an explicit anchor still carried the topic. Older
+        # unanchored keys without this metadata retain their original scoring.
+        anchor = sealed.get("anchor", order[0] if order and sealed.get("topic") else None)
+        answer_items = order
+        anchor_matches = True
+        if anchor:
+            anchor_matches = bool(picks) and _norm(picks[0]) == _norm(anchor)
+            answer_items = order[1:]
+            picks = picks[1:]
+        per = [anchor_matches and i < len(picks) and _norm(picks[i]) == _norm(line)
+               for i, line in enumerate(answer_items)]
         got = sum(per)
-        correct = len(picks) == len(order) and got == len(order)
-        return _result(correct, " → ".join(order), got, len(order), per_item=per)
+        correct = bool(answer_items) and len(picks) == len(answer_items) and all(per)
+        return _result(correct, " → ".join(order), got, max(len(answer_items), len(picks)), per, answer_items)
 
     if kind in ("build-the-sentence", "transform-the-sentence"):
         # transform-the-sentence builds a single target sentence from tiles, graded identically:
@@ -63,8 +82,9 @@ def grade(sealed: dict[str, Any], response: Any) -> dict[str, Any]:
         got_words = str(response).split() if not isinstance(response, (list, dict)) else []
         # Partial credit = words in the correct position.
         got = sum(1 for a, b in zip(got_words, target_words) if _norm(a) == _norm(b))
-        correct = _norm(response) == _norm(sentence)
-        return _result(correct, sentence, got, len(target_words))
+        correct = bool(target_words) and _norm(response) == _norm(sentence)
+        # Extra tiles are mistakes too. A wrong answer must not report a perfect adaptive score.
+        return _result(correct, sentence, got, max(len(got_words), len(target_words)))
 
     if kind == "tap-the-error":
         try:
@@ -95,7 +115,10 @@ def grade(sealed: dict[str, Any], response: Any) -> dict[str, Any]:
             per = [_ok(str(i)) for i in key]
             got = sum(per)
             correct = len(mapping) == len(key) and got == len(key)
-            return _result(correct, str(sealed.get("answer") or ""), got, len(key), per_item=per)
+            answer = str(sealed.get("answer") or "")
+            answer_items = answer.splitlines()
+            return _result(correct, answer, got, max(len(mapping), len(key)), per,
+                           answer_items if len(answer_items) == len(per) else None)
         # Legacy tokens (pre opaque-ids): right items carried their correct left's id, so correct
         # iff every left id is mapped to itself.
         ids = sealed.get("ids") or []

@@ -1,9 +1,7 @@
 // Listening cards (аудирование в ежедневке): listen-and-answer (hear a passage → tap the fact) and
 // listen-and-retell (hear a passage → retell it in your own words; LLM-graded on content coverage).
-// The passage lives in `exercise.speak` and is READ ALOUD via on-device TTS, never shown — except
-// as a graceful degrade: on a client built before expo-speech was added the native call throws, and
-// a listening card with no audio is unsolvable, so we reveal the transcript (it becomes a reading
-// card rather than a dead one).
+// The passage lives in `exercise.speak`. A listening answer can be submitted only after
+// playback completed. If speech is unavailable the learner can retry or skip.
 //
 // The retell can also be SPOKEN: a mic button records the learner, /voice/transcribe turns it into
 // text, and the transcript lands in the same editable input → the same /check-retell grader. The mic
@@ -20,6 +18,7 @@ import { canUseVoice, voiceFeatureEnabled } from "../services/voice";
 import type { RecordingHandle } from "../services/voiceCapture";
 import { useVoiceConsent } from "../store/voiceConsent";
 import { useI18n } from "../store/i18n";
+import { exerciseCopy } from "../i18n/exerciseCopy";
 import { useTheme } from "../theme/theme";
 import Button from "./ui/Button";
 import Card from "./ui/Card";
@@ -38,62 +37,110 @@ function loadCapture(): typeof import("../services/voiceCapture") {
 }
 
 type VoicePhase = "idle" | "recording" | "transcribing" | "error";
+type AudioPhase = "playing" | "ready" | "unavailable";
+const RETELL_MAX = 2000;
 
-export default function Listen({ exercise, locked, onChange }: ExerciseProps) {
+function stopSpeech() {
+  void Promise.resolve().then(() => Speech.stop()).catch(() => {});
+}
+
+export default function Listen({ exercise, locked, onChange, onSkip, feedback }: ExerciseProps) {
   const t = useTheme();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
+  const copy = exerciseCopy(lang);
   const { granted, accept } = useVoiceConsent();
-  const [revealed, setRevealed] = useState(false); // TTS unavailable → transcript shown instead
+  const [audio, setAudio] = useState<AudioPhase>("playing");
+  const [heard, setHeard] = useState(false);
+  const speechGeneration = useRef(0);
+  const speechTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [retell, setRetell] = useState("");
   const [voicePhase, setVoicePhase] = useState<VoicePhase>("idle");
   const [askConsent, setAskConsent] = useState(false);
   const [showGuard, setShowGuard] = useState(false);
   const recRef = useRef<RecordingHandle | null>(null);
+  const mounted = useRef(false);
+  const startingRecording = useRef(false);
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
   const voiceFlag = voiceFeatureEnabled();
 
   const play = useCallback(() => {
-    if (!exercise.speak) return;
-    try {
-      Speech.stop();
-      Speech.speak(exercise.speak, { language: "en-US", rate: 0.95 });
-    } catch {
-      setRevealed(true); // un-rebuilt client: no audio module — degrade to a visible transcript
+    const passage = exercise.speak?.trim();
+    const generation = ++speechGeneration.current;
+    if (speechTimer.current) clearTimeout(speechTimer.current);
+    if (!passage) {
+      setAudio("unavailable");
+      return;
     }
+    let settled = false;
+    const settle = (state: AudioPhase) => {
+      if (settled || generation !== speechGeneration.current) return;
+      settled = true;
+      if (speechTimer.current) clearTimeout(speechTimer.current);
+      speechTimer.current = null;
+      if (state === "ready") setHeard(true);
+      setAudio(state);
+    };
+    setAudio("playing");
+    speechTimer.current = setTimeout(() => {
+      settle("unavailable");
+      stopSpeech();
+    }, Math.min(60_000, 15_000 + passage.split(/\s+/).length * 700));
+    void (async () => {
+      try {
+        await Speech.stop();
+        if (settled || generation !== speechGeneration.current) return;
+        Speech.speak(passage, {
+          language: "en-US",
+          rate: 0.95,
+          onDone: () => settle("ready"),
+          onError: () => settle("unavailable"),
+          onStopped: () => settle("unavailable"),
+        });
+      } catch {
+        settle("unavailable");
+      }
+    })();
   }, [exercise.speak]);
 
   // Auto-play once when the card lands (replayable via the button); stop any in-flight speech when
   // the card unmounts so audio can't bleed into the next exercise.
   useEffect(() => {
+    setHeard(false);
     play();
     return () => {
-      try {
-        Speech.stop();
-      } catch {
-        // noop — nothing to stop on clients without the module
-      }
+      speechGeneration.current++;
+      if (speechTimer.current) clearTimeout(speechTimer.current);
+      stopSpeech();
     };
   }, [play]);
 
   // Release the mic if the card unmounts mid-recording (the next card must be able to record).
   useEffect(
-    () => () => {
-      const rec = recRef.current;
-      recRef.current = null;
-      if (rec) void loadCapture().stopRecording(rec).catch(() => {});
+    () => {
+      mounted.current = true;
+      return () => {
+        mounted.current = false;
+        const rec = recRef.current;
+        recRef.current = null;
+        if (rec) void loadCapture().stopRecording(rec).catch(() => {});
+      };
     },
     []
   );
 
   function changeRetell(text: string) {
-    setRetell(text);
-    const trimmed = text.trim();
+    if (lockedRef.current || !heard) return;
+    const capped = text.slice(0, RETELL_MAX);
+    setRetell(capped);
+    const trimmed = capped.trim();
     onChange(trimmed ? trimmed : null, trimmed);
   }
 
   // Mic tap #1: pass the gate (flag + consent; missing consent → the specific voice consent sheet),
   // then start capturing. expo-av enters the module graph only here — the dormant path never loads it.
   async function beginRecord() {
-    if (!voiceFlag) return;
+    if (!voiceFlag || locked || !heard || audio === "playing" || startingRecording.current || recRef.current) return;
     if (!granted) {
       setAskConsent(true);
       return;
@@ -102,13 +149,21 @@ export default function Listen({ exercise, locked, onChange }: ExerciseProps) {
       retellGuardShownThisSession = true;
       setShowGuard(true);
     }
+    startingRecording.current = true;
     try {
       const cap = loadCapture();
-      if (!(await cap.requestMicPermission())) return;
-      recRef.current = await cap.startRecording();
+      if (!(await cap.requestMicPermission()) || !mounted.current || lockedRef.current) return;
+      const rec = await cap.startRecording();
+      if (!mounted.current || lockedRef.current) {
+        await cap.stopRecording(rec);
+        return;
+      }
+      recRef.current = rec;
       setVoicePhase("recording");
     } catch {
-      setVoicePhase("error");
+      if (mounted.current) setVoicePhase("error");
+    } finally {
+      startingRecording.current = false;
     }
   }
 
@@ -125,12 +180,13 @@ export default function Listen({ exercise, locked, onChange }: ExerciseProps) {
       const audio = await cap.uriToBase64(uri);
       // The retelling is spoken in English (same contract as the typed path) — hint STT accordingly.
       const { transcript } = await transcribeAudio(audio, "audio/m4a", "en");
+      if (!mounted.current) return;
       const said = transcript.trim();
       const base = retell.trim();
       if (said) changeRetell(base ? `${base} ${said}` : said);
       setVoicePhase("idle");
     } catch {
-      setVoicePhase("error");
+      if (mounted.current) setVoicePhase("error");
     }
   }
 
@@ -138,13 +194,19 @@ export default function Listen({ exercise, locked, onChange }: ExerciseProps) {
     <View style={styles.wrap}>
       <Card style={{ backgroundColor: t.c.surface2, alignItems: "center", gap: 8 }}>
         <Txt variant="secondary" color={t.c.ink3}>{tr("lt.listenHint")}</Txt>
-        <Button label={tr("lt.playAudio")} variant="ghost" onPress={play} />
-        {revealed && !!exercise.speak && (
-          <View style={{ gap: 4, alignSelf: "stretch" }}>
-            <Txt variant="caption" color={t.c.ink3}>{tr("ex.transcriptShown")}</Txt>
-            <Txt variant="body" color={t.c.ink}>{exercise.speak}</Txt>
+        <Button
+          label={audio === "playing" ? copy.listening : audio === "unavailable" ? tr("action.tryAgain") : copy.audioAgain}
+          variant="ghost"
+          onPress={play}
+          disabled={audio === "playing" || voicePhase === "recording" || voicePhase === "transcribing"}
+          left={audio === "playing" ? <ActivityIndicator color={t.c.accent} /> : undefined}
+        />
+        {audio === "unavailable" ? (
+          <View style={{ gap: 8, alignSelf: "stretch" }}>
+            <Txt variant="secondary" color={t.c.ink2}>{copy.audioFailed}</Txt>
+            {!locked && !heard && onSkip && <Button label={copy.skipAudio} variant="ghost" onPress={onSkip} />}
           </View>
-        )}
+        ) : !heard && <Txt variant="secondary" color={t.c.ink2}>{copy.listenFirst}</Txt>}
       </Card>
 
       {exercise.type === "listen-and-retell" ? (
@@ -157,14 +219,15 @@ export default function Listen({ exercise, locked, onChange }: ExerciseProps) {
             onChangeText={changeRetell}
             placeholder={tr("ex.retellPlaceholder")}
             placeholderTextColor={t.c.ink3}
-            editable={!locked}
+            editable={!locked && heard}
+            maxLength={RETELL_MAX}
             multiline
             textAlignVertical="top"
             accessibilityLabel={tr("ex.retellPrompt")}
             style={[styles.input, { color: t.c.ink, backgroundColor: t.c.surface, borderColor: t.c.line2 }]}
           />
           {/* Voice retell: dormant unless the build flag is on; consent is asked on first tap. */}
-          {canUseVoice(voiceFlag, true) && !locked && (
+          {canUseVoice(voiceFlag, true) && !locked && heard && (
             <View style={{ gap: 6 }}>
               {showGuard && (
                 <Txt variant="caption" color={t.c.ink3}>{tr("voice.guard")}</Txt>
@@ -198,7 +261,7 @@ export default function Listen({ exercise, locked, onChange }: ExerciseProps) {
         </View>
       ) : (
         // listen-and-answer: the question + options are a plain multiple-choice interaction.
-        <MultipleChoice exercise={exercise} locked={locked} onChange={onChange} />
+        <MultipleChoice exercise={exercise} locked={locked || !heard} onChange={onChange} feedback={feedback} />
       )}
     </View>
   );

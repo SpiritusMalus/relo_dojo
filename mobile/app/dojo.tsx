@@ -57,7 +57,7 @@ export default function DojoScreen() {
     if (!enabled || !isCurrentAccountScope(scope)) return;
     const chapter = dojoItemChapter(item.id);
     if (chapter && !room.owned.includes(item.id)) {
-      router.push({ pathname: "/chapter", params: { id: chapter.id } });
+      router.navigate({ pathname: "/chapter", params: { id: chapter.id } });
       return;
     }
     try {
@@ -143,7 +143,7 @@ export default function DojoScreen() {
         ) : null}
 
         <Button label={copy.practice} onPress={() => router.navigate("/practice")} left={<Icon name="practice" color={t.c.accentInk} />} />
-        <Button variant="ghost" label={copy.chapters} onPress={() => router.push("/chapters")} left={<Icon name="scroll" color={t.c.accent} />} />
+        <Button variant="ghost" label={copy.chapters} onPress={() => router.navigate("/chapters")} left={<Icon name="scroll" color={t.c.accent} />} />
         {guest && <Button variant="ghost" label={copy.login} onPress={() => router.push("/login")} />}
 
         {room.catalog.length > 0 && <View style={{ gap: 14 }}>

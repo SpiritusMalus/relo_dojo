@@ -31,6 +31,7 @@ class ExerciseIn(BaseModel):
     mistakes: list[str] = Field(default_factory=list, max_length=5)
     lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language for LLM-generated task instructions (transform-the-sentence)
     practice_index: Optional[int] = Field(default=None, ge=0, le=1_000_000_000)
+    assessment: bool = False  # Require the declared topic, format and level without history hints.
     learning_session_id: Optional[UUID] = None
     learning_item: Optional[int] = Field(default=None, ge=0, le=9)
 
@@ -62,6 +63,7 @@ class ExerciseOut(BaseModel):
     type: str
     topic: str
     level: str = ""  # effective CEFR served (A1..C1); lets the client score difficulty-aware
+    evidence_kind: Literal["topic", "dialogue", "listening"] | None = None
     source: Literal["generated", "curated"] = "generated"  # diagnostics; never a claim that a safety-net item was AI-written
     text: str = ""
     prompt: str = ""  # source line for translation exercises (e.g. the Russian sentence)
@@ -83,24 +85,26 @@ class ExerciseOut(BaseModel):
     token: Optional[str] = None
     # Owner-bound regrading token without session evidence; preserves the existing SRS TTL policy.
     review_token: Optional[str] = None
+    learning_bound: bool | None = None  # A validated Dojo session can claim this item.
 
 
 # --- themed sets / mini-stories (Batch 2) ---
 class StoryIn(BaseModel):
     """Optional steering for a mini-story. `level` locks CEFR across the whole set; `context`
-    overrides the scenario's flavor. Both optional — anything omitted falls back to defaults."""
+    adds learner background to the scenario. Both optional — anything omitted falls back to defaults."""
 
     level: Optional[str] = Field(default=None, max_length=4)  # CEFR: A1..C1
     context: Optional[str] = Field(default=None, max_length=300)
     id: Optional[str] = Field(default=None, max_length=40)  # specific arc; omitted → random/featured
     lang: Optional[str] = Field(default=None, max_length=8)  # learner UI language for LLM-generated task instructions (transform beats)
+    allow_partial: bool = False
 
 
 class StoryBeat(BaseModel):
     """One step of a mini-story: a line of narration plus its exercise (graded via /check)."""
 
     narration: str = ""
-    exercise: ExerciseOut
+    exercise: ExerciseOut | None
 
 
 class StoryOut(BaseModel):
@@ -111,6 +115,12 @@ class StoryOut(BaseModel):
     intro: str = ""
     level: str = ""  # effective CEFR served across the set
     beats: list[StoryBeat] = []
+    resume_token: str | None = None
+
+
+class StoryBeatIn(BaseModel):
+    resume_token: str = Field(min_length=1, max_length=MAX_TOKEN)
+    index: int = Field(ge=0, le=2)
 
 
 # --- story arcs / content unlocks (engagement v2 Phase 3) ---
@@ -148,6 +158,14 @@ class CheckIn(BaseModel):
     response: Union[str, int, dict[str, int], list[str]]
 
 
+class ReviewExerciseTokenIn(BaseModel):
+    token: str = Field(min_length=1, max_length=MAX_TOKEN)
+
+
+class ReviewExerciseTokenOut(BaseModel):
+    review_token: str
+
+
 class CheckOut(BaseModel):
     correct: bool
     correct_answer: str
@@ -156,6 +174,7 @@ class CheckOut(BaseModel):
     # Per-element marks in display order (match rows, blanks, dialog lines) so the client can point
     # at the exact rows that were wrong — "2/4" alone sends the learner hunting. [] = single-answer.
     per_item: list[bool] = []
+    answer_items: list[str] = Field(default_factory=list)  # Correct values aligned with per_item.
     # Koku earned for this answer (authenticated + correct only) and the new balance.
     # 0 / None for anonymous callers — fully backward compatible.
     coins_earned: int = 0

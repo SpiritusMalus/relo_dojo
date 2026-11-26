@@ -88,7 +88,7 @@ export default function ProgressScreen() {
         </View>
         <View style={{ gap: 10, marginTop: 16 }}>
           <Button label={tr("ward.dress")} variant="ghost" onPress={() => router.push("/wardrobe")} />
-          <Button label={tr("lt.entry")} variant="ghost" onPress={() => router.push("/level-test")} />
+          <Button label={tr("lt.entry")} variant="ghost" onPress={() => router.navigate("/level-test")} />
         </View>
       </Card>
 
