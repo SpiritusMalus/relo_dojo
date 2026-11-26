@@ -93,44 +93,41 @@ practice calendar; the meaning and the ownership of the older 1/3/7 items stay i
 
 ## Mentor and lesson feedback
 
-`Sensei` is the single appearance entry point for meaningful feedback and Wardrobe previews.
-Standard Build/Transform instruction headers use text only, avoiding a repeated portrait
-when the result appears.
-`WatercolorSensei` uses Classic, Sage and Ronin columns of the original 4 × 4 transparent
-portrait atlas, with happy, cheer, think and sad rows. Sakura now uses the separate flowerless
-2 × 2 spring atlas (happy/cheer, think/sad): ordinary hair and a light linen overshirt. The old
-fourth column is unused. `SenseiVisual.accessory` remains the catalog variant dispatch key;
-an explicit Wardrobe visual override follows
-the same mapping as equipped cosmetics.
+`Sensei` is the shared appearance entry point for checkpoint illustrations and
+Wardrobe previews. Classic reads as an experienced teacher, with silver temples,
+a short salt-and-pepper beard and gentle expressions. Classic and Sakura each use
+a transparent 2 × 2 atlas (happy/cheer, think/sad). Sage and Ronin use the two
+middle columns of the original 4 × 4 atlas. An explicit Wardrobe visual override
+follows the same catalog mapping as equipped cosmetics.
 
 The mentor portrait has no student belt ribbon. Belt state lives in separate native knots,
 names and progress controls, independent of mentor skin and expression. Warm-up completion
 shows a preliminary estimate without awarding the estimated belt; worn progression remains
 subject to the earned-belt cap.
 
-ResultPanel shows a 72-unit mentor beside native feedback: cheer for correct, think for incorrect.
-The correct answer, explanation, XP and recovery actions remain readable native content. Keep
-exercise reading space plain. Item changes fade and settle for 240ms; newly earned artwork has
+Routine answer feedback starts with the native outcome and XP where applicable,
+with the answer and explanation below. Checkpoint introduction and completion
+give the mentor its own space. Item changes fade and settle for 240ms; newly earned artwork has
 a 240ms settle. Reduced motion displays these immediately. Sensei rests by default; optional
 bobbing stops and returns to rest when reduced motion is enabled.
 
 ## Shipping artwork and provenance
 
-The source uses five production PNGs, separate from the earlier concept studies:
+The source uses six production PNGs, separate from the earlier concept studies:
 
 | Asset | Actual file | Runtime use |
 | --- | --- | --- |
 | Room | `mobile/assets/sketch/room.png`, 1448 × 1086, opaque RGB | Shared 4:3 base; no removable objects or mentor baked in |
 | Items | `mobile/assets/sketch/items-atlas.png`, 1263 × 1245, RGBA | Equal normalized 3 × 3 crop; eight items and one unused cell |
 | Chapter scrolls | `mobile/assets/sketch/chapters-atlas.png`, 2172 × 724, RGBA | Equal normalized 3 × 1 crop; introduction, experience and clarification |
-| Mentor | `mobile/assets/sketch/sensei-atlas.png`, 1254 × 1254, RGBA | Equal normalized 4 × 4 crop; first three columns and all four moods |
+| Sage and Ronin | `mobile/assets/sketch/sensei-atlas.png`, 1254 × 1254, RGBA | Equal normalized 4 × 4 crop; middle two columns and all four moods |
+| Classic mentor | `mobile/assets/sketch/classic-sensei-atlas.png`, 1254 × 1254, RGBA | Mature Classic 2 × 2 happy/cheer, think/sad |
 | Spring mentor | `mobile/assets/sketch/spring-sensei-atlas.png`, 1254 × 1254, RGBA | Flowerless 2 × 2 happy/cheer, think/sad; same catalog identity |
 
-Adjacent JSON manifests record provenance and mapping for all five assets.
-The room, item, chapter and spring atlases also retain exact `.prompt.txt` companions. All five PNGs have
-embedded `impeccable:prompt` entries matching their exact generation prompts; the mentor
-prompt is additionally preserved in its JSON manifest. All five were produced with
-OpenAI's built-in image generation.
+Adjacent JSON manifests record provenance and mapping for the six assets. All
+PNGs have embedded `impeccable:prompt` entries matching their exact generation
+prompts. The original atlas keeps the prompt in its manifest and the other
+assets use `.prompt.txt` companions. OpenAI's built-in image generation made all six.
 Do not describe these generated assets as manually drawn originals.
 
 The source dimensions differ from requested generation sizes: crop by equal normalized cells,

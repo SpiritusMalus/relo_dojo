@@ -4,13 +4,11 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import type { Exercise, ExplainResult } from "../services/api";
 import { useProgress } from "../store/progress";
-import { beltProgress } from "../store/dojo";
 import { learningLoopCopy } from "../i18n/learningLoopCopy";
 import { useI18n } from "../store/i18n";
 import type { Result } from "../store/useExerciseCheck";
 import { useTheme } from "../theme/theme";
 import Txt from "./ui/Txt";
-import Sensei from "./ui/Sensei";
 
 type Props = {
   result: Result;
@@ -38,19 +36,17 @@ export default function ResultPanel({ result, exercise, levelUp, explained, expl
       ]}
     >
       <View style={styles.panelHead}>
-        <Sensei size={72} belt={beltProgress(progress).belt} mood={result.correct ? "cheer" : "think"} />
-        <View style={{ flex: 1 }}>
-          <Txt variant="cardTitle" color={result.correct ? t.c.accent : t.c.bad}>
-            {result.correct ? tr("result.correct") : tr("result.wrong")}
-          </Txt>
-          {result.correct && typeof result.xpEarned === "number" ? (
-            <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.xp", { n: result.xpEarned })}</Txt>
-          ) : !result.correct && (result.score ?? 0) > 0 && !!result.detail ? (
-            <Txt variant="bodyStrong" color={t.c.fire}>{tr("result.almost", { detail: result.detail })}</Txt>
-          ) : null}
-        </View>
+        <Txt variant="cardTitle" color={result.correct ? t.c.accent : t.c.bad}>
+          {result.correct ? tr("result.correct") : tr("result.wrong")}
+        </Txt>
+        {result.correct && typeof result.xpEarned === "number" && (
+          <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.xp", { n: result.xpEarned })}</Txt>
+        )}
       </View>
 
+      {!result.correct && (result.score ?? 0) > 0 && !!result.detail && (
+        <Txt variant="bodyStrong" color={t.c.fire}>{tr("result.almost", { detail: result.detail })}</Txt>
+      )}
       {!result.correct && <CorrectAnswer result={result} />}
       {result.correct && result.hintUsed && <Txt variant="secondary" color={t.c.ink2}>{copy.withHint}</Txt>}
       {result.correct && progress.currentCorrectRun >= 3 && (
@@ -121,7 +117,7 @@ function CorrectAnswer({ result }: { result: Result }) {
 
 const styles = StyleSheet.create({
   panel: { borderTopWidth: 1, paddingTop: 18, paddingBottom: 12, gap: 12 },
-  panelHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  panelHead: { flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", columnGap: 12, rowGap: 4 },
   answerList: { marginTop: 4, gap: 6 },
   answerRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
 });

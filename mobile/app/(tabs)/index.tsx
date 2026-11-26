@@ -154,7 +154,7 @@ export default function HomeScreen() {
         </View>
         <Button label={goalCopy.action} disabled={!goalReady} onPress={() => {
           track("learning_goal_open", { kind: goal.kind, source: "home" });
-          router.push(learningGoalRoute(goal));
+          router.navigate(learningGoalRoute(goal));
         }} />
       </View>
       {leftToday !== null && (
@@ -185,7 +185,7 @@ export default function HomeScreen() {
       <ChaptersButton onPress={() => router.push("/chapters")} />
 
       <View style={styles.secondaryActions}>
-        {goal.kind !== "mix" && <Pressable accessibilityRole="button" onPress={() => router.push("/practice")} style={({ pressed }) => [styles.textAction, { opacity: pressed ? 0.6 : 1 }]}>
+        {goal.kind !== "mix" && <Pressable accessibilityRole="button" onPress={() => router.navigate("/practice")} style={({ pressed }) => [styles.textAction, { opacity: pressed ? 0.6 : 1 }]}>
           <Txt variant="bodyStrong" color={t.c.accent} style={{ flexShrink: 1 }}>{copy.mix}</Txt>
         </Pressable>}
         <Pressable accessibilityRole="button" onPress={() => router.push("/(tabs)/train")} style={({ pressed }) => [styles.textAction, { opacity: pressed ? 0.6 : 1 }]}>
@@ -310,10 +310,8 @@ export default function HomeScreen() {
       <JourneyPath
         onSelect={(node: PathNode) => {
           if (node.state === "test") router.push("/belt-exam");
-          else if (node.state === "ready" && node.topic)
-            router.push({ pathname: "/checkpoint", params: { topic: node.topic.id } }); // зачёт awaits
-          else if (node.state === "review" && node.topic)
-            router.push({ pathname: "/checkpoint", params: { topic: node.topic.id } }); // переаттестация (the screen self-detects recert mode)
+          else if ((node.state === "ready" || node.state === "review") && node.topic)
+            router.navigate({ pathname: "/checkpoint", params: { topic: node.topic.id } });
           else if (node.topic) setRuleTopic(node.topic.id);
         }}
       />
@@ -324,7 +322,7 @@ export default function HomeScreen() {
           onTrain={() => {
             const topic = ruleTopic;
             setRuleTopic(null);
-            router.push({ pathname: "/practice", params: { topic } });
+            router.navigate({ pathname: "/practice", params: { topic } });
           }}
           onClose={() => setRuleTopic(null)}
         />

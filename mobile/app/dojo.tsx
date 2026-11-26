@@ -142,7 +142,7 @@ export default function DojoScreen() {
           </View>
         ) : null}
 
-        <Button label={copy.practice} onPress={() => router.push("/practice")} left={<Icon name="practice" color={t.c.accentInk} />} />
+        <Button label={copy.practice} onPress={() => router.navigate("/practice")} left={<Icon name="practice" color={t.c.accentInk} />} />
         <Button variant="ghost" label={copy.chapters} onPress={() => router.push("/chapters")} left={<Icon name="scroll" color={t.c.accent} />} />
         {guest && <Button variant="ghost" label={copy.login} onPress={() => router.push("/login")} />}
 

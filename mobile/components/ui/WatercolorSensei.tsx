@@ -4,6 +4,7 @@ import type { SenseiVisual } from "../../store/cosmetics";
 export type Mood = "happy" | "cheer" | "think" | "sad";
 
 const ATLAS = require("../../assets/sketch/sensei-atlas.png");
+const CLASSIC_ATLAS = require("../../assets/sketch/classic-sensei-atlas.png");
 const SPRING_ATLAS = require("../../assets/sketch/spring-sensei-atlas.png");
 const MOOD_INDEX: Record<Mood, number> = { happy: 0, cheer: 1, think: 2, sad: 3 };
 // Every shipped catalog skin has its own painted portrait, hair and skin palette.
@@ -20,19 +21,21 @@ export default function WatercolorSensei({
   mood: Mood;
   visual: SenseiVisual;
 }) {
-  const spring = visual.accessory === "sakura";
+  const { accessory } = visual;
+  const specialtySkin = accessory === "beard" || accessory === "scar";
+  const atlas = specialtySkin ? ATLAS : accessory === "sakura" ? SPRING_ATLAS : CLASSIC_ATLAS;
   const moodIndex = MOOD_INDEX[mood];
-  // Spring uses a flowerless 2 × 2 portrait sheet; the other skins retain their
-  // original 4 × 4 sheet. Its former flower portrait column is never selected.
-  const gridSize = spring ? 2 : 4;
-  const column = visual.accessory === "sakura" ? moodIndex % 2 : visual.accessory ? SKIN_COLUMN[visual.accessory] : 0;
-  const row = spring ? Math.floor(moodIndex / 2) : moodIndex;
+  // Classic and Spring have their own 2 × 2 sheets. Sage and Ronin use the
+  // middle two columns of the original 4 × 4 sheet.
+  const gridSize = specialtySkin ? 4 : 2;
+  const column = specialtySkin ? SKIN_COLUMN[accessory] : moodIndex % 2;
+  const row = specialtySkin ? moodIndex : Math.floor(moodIndex / 2);
 
   return (
     <View style={{ width: size, height: size }} pointerEvents="none" accessible={false}>
       <View style={{ width: size, height: size, overflow: "hidden" }}>
         <Image
-          source={spring ? SPRING_ATLAS : ATLAS}
+          source={atlas}
           accessible={false}
           fadeDuration={0}
           resizeMode="stretch"

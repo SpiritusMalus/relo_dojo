@@ -6,12 +6,11 @@ import type { Exercise } from "../../services/api";
 import type { Result } from "../../store/useExerciseCheck";
 
 jest.mock("../../store/i18n", () => ({ useI18n: () => ({ lang: "en", t: (key: string, args?: Record<string, unknown>) => key === "result.xp" ? `+${args?.n} XP` : key }) }));
-let mockBeltEarned = 0;
 jest.mock("../../store/progress", () => {
   const actual = jest.requireActual("../../store/progress");
   return {
     ...actual,
-    useProgress: () => ({ progress: { ...actual.DEFAULT_PROGRESS, beltEarned: mockBeltEarned, currentCorrectRun: 5 } }),
+    useProgress: () => ({ progress: { ...actual.DEFAULT_PROGRESS, currentCorrectRun: 5 } }),
   };
 });
 jest.mock("../ui/Sensei", () => ({ __esModule: true, default: jest.fn(() => null) }));
@@ -38,12 +37,8 @@ test("a missing receipt does not fabricate XP or an Almost message for a correct
   expect(text).not.toContain("result.almost");
 });
 
-test("the feedback mentor wears the learner’s earned belt", () => {
-  mockBeltEarned = 0;
-  render({ correct: true, correct_answer: "a" });
-  expect(jest.mocked(Sensei).mock.calls.at(-1)?.[0].belt?.id).toBe("white");
-  mockBeltEarned = 2;
-  render({ correct: false, correct_answer: "a" });
-  expect(jest.mocked(Sensei).mock.calls.at(-1)?.[0].belt?.idx).toBe(2);
-  mockBeltEarned = 0;
+test("routine feedback presents the outcome without a mentor thumbnail", () => {
+  expect(render({ correct: true, correct_answer: "a" })).toContain("result.streak");
+  expect(render({ correct: false, correct_answer: "Try again" })).toContain("Try again");
+  expect(Sensei).not.toHaveBeenCalled();
 });

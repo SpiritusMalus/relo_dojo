@@ -115,20 +115,26 @@ export default function CheckpointScreen() {
   const [answered, setAnswered] = useState(0);
   const [misses, setMisses] = useState(0);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const active = useRef(true);
+  const started = useRef(false);
+  const loadingRef = useRef(false);
   // Synchronous in-flight guard: `checking` flips one render late, so a fast double-tap could submit
   // twice before it takes effect. This ref bails immediately.
   const submittingRef = useRef(false);
 
   // The advance timer is otherwise only cleared inside finish(); mirror challenge.tsx and clear it on
   // unmount so a pending setTimeout can't fire (and load / mutate) after the screen is gone.
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    },
-    []
-  );
+    };
+  }, []);
 
   const loadExercise = useCallback(async () => {
+    if (!active.current || loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     setError(null);
     setLimited(false);
@@ -137,16 +143,20 @@ export default function CheckpointScreen() {
     setResponse(null);
     setExercise(null);
     try {
-      setExercise(await queueRef.current!.next());
+      const next = await queueRef.current!.next();
+      if (!active.current) return;
+      setExercise(next);
       setRound((r) => r + 1);
       setPhase("solving");
     } catch (e) {
+      if (!active.current) return;
       const gate = gateKind(e);
       if (gate === "limit") setLimited(true);
       else if (gate === "gated") setGated(true);
       else setError(e instanceof Error ? e.message : "Failed to load exercise");
     } finally {
-      setLoading(false);
+      loadingRef.current = false;
+      if (active.current) setLoading(false);
     }
   }, [reset]);
 
@@ -160,11 +170,16 @@ export default function CheckpointScreen() {
   }
 
   function start() {
-    setAnswered(0);
-    setMisses(0);
-    answeredRef.current = 0;
-    queueRef.current!.clear();
-    loadExercise();
+    if (!active.current || started.current) return;
+    started.current = true;
+    void loadExercise();
+  }
+
+  function close() {
+    if (!active.current) return;
+    active.current = false;
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)");
   }
 
   async function onCheck() {
@@ -172,7 +187,7 @@ export default function CheckpointScreen() {
     submittingRef.current = true;
     try {
       const res = await check(exercise, response);
-      if (!res) return;
+      if (!res || !active.current) return;
       const newAnswered = answered + 1;
       const newMisses = misses + (res.correct ? 0 : 1);
       setAnswered(newAnswered);
@@ -195,19 +210,29 @@ export default function CheckpointScreen() {
   // Not eligible (deep link / already passed / meter not full) — bounce gracefully.
   if (!eligibleRef.current && phase === "intro") {
     return (
-      <Centered insets={insets} onClose={() => router.back()}>
+      <Centered insets={insets} onClose={close}>
         <Sensei size={96} mood={alreadyMastered ? "cheer" : "think"} />
         <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
           {tr(alreadyMastered ? "cp.alreadyDone" : "cp.locked")}
         </Txt>
-        <Button label={tr("ch.backHome")} onPress={() => router.back()} />
+        <Button label={tr("ch.backHome")} onPress={close} />
       </Centered>
     );
   }
 
+  const loadFailure = limited ? <LimitSheet belt={beltProgress(progress).belt} onUnlocked={loadExercise} />
+    : gated ? <ActivationBanner />
+    : error ? (
+      <View style={{ alignSelf: "stretch", gap: 12 }}>
+        <Txt variant="bodyStrong" style={{ textAlign: "center" }}>{tr("err.exercise.title")}</Txt>
+        <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center" }}>{error}</Txt>
+        <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadExercise} />
+      </View>
+    ) : null;
+
   if (phase === "intro") {
     return (
-      <Centered insets={insets} onClose={() => router.back()}>
+      <Centered insets={insets} onClose={close}>
         <Sensei size={96} mood="think" />
         <Txt variant="hero" style={{ textAlign: "center" }}>
           {tr(recert ? "cp.recertTitle" : "cp.title", { topic: labelFor(topic) })}
@@ -215,7 +240,14 @@ export default function CheckpointScreen() {
         <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>
           {tr(recert ? "cp.recertRules" : "cp.rules", { items: quizItems, misses: quizMaxMisses })}
         </Txt>
-        <Button label={tr("cp.start")} onPress={start} style={{ alignSelf: "stretch" }} />
+        {loadFailure ?? (
+          <Button
+            label={tr(loading ? "cp.starting" : "cp.start")}
+            onPress={start}
+            disabled={loading}
+            left={loading ? <ActivityIndicator size="small" color={t.c.ink3} /> : undefined}
+          />
+        )}
       </Centered>
     );
   }
@@ -237,7 +269,7 @@ export default function CheckpointScreen() {
             ? tr("cp.passedNext", { topic: labelFor(next.topic) })
             : tr("cp.passedAll")}
         </Txt>
-        <Button label={tr("ch.backHome")} onPress={() => router.back()} style={{ alignSelf: "stretch" }} />
+        <Button label={tr("ch.backHome")} onPress={close} style={{ alignSelf: "stretch" }} />
         <Confetti />
       </Centered>
     );
@@ -249,7 +281,7 @@ export default function CheckpointScreen() {
         <Sensei size={112} mood="think" />
         <Txt variant="hero" style={{ textAlign: "center" }}>{tr("cp.failed")}</Txt>
         <Txt variant="body" color={t.c.ink2} style={{ textAlign: "center" }}>{tr("cp.failedSub")}</Txt>
-        <Button label={tr("ch.backHome")} onPress={() => router.back()} style={{ alignSelf: "stretch" }} />
+        <Button label={tr("ch.backHome")} onPress={close} style={{ alignSelf: "stretch" }} />
       </Centered>
     );
   }
@@ -273,18 +305,10 @@ export default function CheckpointScreen() {
         {loading && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
-            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round)}</Txt>
+            <Txt variant="secondary" color={t.c.ink2}>{loadingMessageFor(round, lang)}</Txt>
           </View>
         )}
-        {limited && !loading && <LimitSheet belt={beltProgress(progress).belt} onUnlocked={loadExercise} />}
-        {gated && !loading && <ActivationBanner />}
-        {error && !loading && (
-          <View style={{ gap: 12, marginTop: 20 }}>
-            <Txt variant="bodyStrong" style={{ textAlign: "center" }}>{tr("err.exercise.title")}</Txt>
-            <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center" }}>{error}</Txt>
-            <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadExercise} />
-          </View>
-        )}
+        {!loading && loadFailure}
         {checkError && !error && (
           <Txt variant="secondary" color={t.c.bad} style={{ textAlign: "center" }}>{checkError}</Txt>
         )}
@@ -294,14 +318,11 @@ export default function CheckpointScreen() {
         )}
 
         {phase === "feedback" && result && (
-          <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, borderColor: verdictColor, borderWidth: 2 }}>
-            <Sensei size={40} mood={result.correct ? "cheer" : "think"} />
-            <View style={{ flex: 1 }}>
-              <Txt variant="cardTitle" color={verdictColor}>
-                {result.correct ? tr("ch.strike") : tr("ch.miss")}
-              </Txt>
-              {!result.correct && <Txt variant="mono" color={t.c.ink2}>{result.correct_answer}</Txt>}
-            </View>
+          <Card style={{ gap: 4, borderColor: verdictColor, borderWidth: 2 }}>
+            <Txt variant="cardTitle" color={verdictColor}>
+              {result.correct ? tr("ch.strike") : tr("ch.miss")}
+            </Txt>
+            {!result.correct && <Txt variant="mono" color={t.c.ink2}>{result.correct_answer}</Txt>}
           </Card>
         )}
       </ScrollView>
@@ -325,12 +346,13 @@ function Centered({
   onClose?: () => void;
 }) {
   const t = useTheme();
+  const { t: tr } = useI18n();
   return (
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
       <StatusBar style={t.name === "dark" ? "light" : "dark"} />
       <View style={styles.header}>
         {onClose && (
-          <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn} accessibilityLabel="Close">
+          <Pressable onPress={onClose} hitSlop={10} style={styles.closeBtn} accessibilityLabel={tr("common.close")} accessibilityRole="button">
             <Icon name="x" size={24} color={t.c.ink2} />
           </Pressable>
         )}

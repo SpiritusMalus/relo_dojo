@@ -21,7 +21,7 @@ export default function TopicsBody() {
   const topicLabel = (id: string, fallback: string) => (lang === "ru" ? RU_TOPIC_LABELS[id] ?? fallback : fallback);
 
   const goPractice = (topic?: string) =>
-    router.push(topic ? { pathname: "/practice", params: { topic } } : "/practice");
+    router.navigate(topic ? { pathname: "/practice", params: { topic } } : "/practice");
 
   return (
     <>
