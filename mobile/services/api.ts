@@ -7,6 +7,7 @@
 // Fallback IP is used if the host can't be detected (e.g. tunnel mode or a production build) —
 // update it, or set EXPO_PUBLIC_API_URL, when needed.
 import Constants from "expo-constants";
+import { fetch as expoFetch } from "expo/fetch";
 import type { Progress } from "../store/progress";
 import { bindAccountUser, captureAccountScope, isCurrentAccountScope, setAccountToken, type AccountScope } from "../store/accountScope";
 import { anonymousInstallId } from "./anonymousInstallId";
