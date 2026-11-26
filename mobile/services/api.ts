@@ -7,11 +7,11 @@
 // Fallback IP is used if the host can't be detected (e.g. tunnel mode or a production build) —
 // update it, or set EXPO_PUBLIC_API_URL, when needed.
 import Constants from "expo-constants";
-import { fetch as expoFetch } from "expo/fetch";
 import type { Progress } from "../store/progress";
 import { bindAccountUser, captureAccountScope, isCurrentAccountScope, setAccountToken, type AccountScope } from "../store/accountScope";
 import { anonymousInstallId } from "./anonymousInstallId";
 import { withLearningConnection } from "./learningConnection";
+import { sendLearningRequest } from "./learningTransport";
 
 const FALLBACK_HOST = "192.168.1.9";
 const PORT = 8000;
@@ -97,7 +97,7 @@ export async function request<T>(
   method: Method = "POST",
   timeoutMs: number = REQUEST_TIMEOUT_MS,
   expectedAuthToken?: string | null,
-  options?: { signal?: AbortSignal; reviewIdentity?: boolean; transport?: "expo" },
+  options?: { signal?: AbortSignal; reviewIdentity?: boolean; transport?: "learning" },
 ): Promise<T> {
   assertProgressSession(expectedAuthToken);
   const requestScope = captureAccountScope();
@@ -127,13 +127,11 @@ export async function request<T>(
   try {
     let res: ApiResponse;
     try {
-      const fetcher = options?.transport === "expo" ? expoFetch : fetch;
-      res = await fetcher(`${BASE_URL}${path}`, {
-        method,
-        headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      });
+      const url = `${BASE_URL}${path}`;
+      const payload = body !== undefined ? JSON.stringify(body) : undefined;
+      res = options?.transport === "learning"
+        ? await sendLearningRequest(url, headers, payload ?? "", controller.signal, timeoutMs)
+        : await fetch(url, { method, headers, body: payload, signal: controller.signal });
     } catch (e) {
       assertRequestActive();
       if (e instanceof Error && e.name === "AbortError") {
@@ -395,11 +393,10 @@ function requestLearning<T>(
   const scope = captureAccountScope();
   return withLearningConnection((signal) => {
     if (!isCurrentAccountScope(scope)) throw new ApiError("The signed-in account changed.", 409, "session_changed");
-    // Expo's native HTTP client is independent of React Native's general-purpose fetch pool.
-    return request<T>(path, body, "POST", REQUEST_TIMEOUT_MS, token, {
+    return request<T>(path, body, "POST", timeoutMs, token, {
       signal,
       reviewIdentity: options.reviewIdentity,
-      transport: "expo",
+      transport: "learning",
     });
   }, timeoutMs, (reason) => {
     if (reason === "request_aborted") return new ApiError("Request cancelled.", 409, reason);
