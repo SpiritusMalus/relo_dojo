@@ -157,7 +157,7 @@ export default function PracticeScreen() {
   const [round, setRound] = useState(0); // bumps to remount ExerciseCard on each new exercise
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [responseDisplay, setResponseDisplay] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [gated, setGated] = useState(false); // 403: account not activated / starter limit reached
   const [limited, setLimited] = useState(false); // 403 "daily_limit": free-tier cap → upsell sheet
@@ -558,7 +558,7 @@ export default function PracticeScreen() {
                 </Txt>
                 <Button
                   label={tr("course.takeCheckpoint")}
-                  onPress={() => router.push({ pathname: "/checkpoint", params: { topic: exercise.topic } })}
+                  onPress={() => router.navigate({ pathname: "/checkpoint", params: { topic: exercise.topic } })}
                 />
               </View>
             </Card>

@@ -1,7 +1,7 @@
 # Relo Dojo mobile
 
-Expo SDK 54 / React Native / TypeScript. The current native app version is **1.1.0**,
-Android version code **2**. Package/bundle ID: `com.relodojo.app`; scheme `relodojo`.
+Expo SDK 54 / React Native / TypeScript. The native version and Android version
+code are in `app.json`. Package/bundle ID: `com.relodojo.app`; scheme `relodojo`.
 The Node package version is independent of the native app version in `app.json`.
 Generated `android/` and `ios/` projects are ignored; `expo prebuild` recreates them.
 

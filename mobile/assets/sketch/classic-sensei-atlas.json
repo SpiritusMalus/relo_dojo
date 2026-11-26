@@ -1,0 +1,27 @@
+{
+  "asset": "classic-sensei-atlas.png",
+  "generatedWith": "OpenAI built-in imagegen",
+  "reference": "sensei-atlas.png first column, Classic character and graphite-watercolor medium",
+  "change": "Older Classic mentor with silver temples and a calm, familiar expression",
+  "transparentBackground": true,
+  "dimensions": [
+    1254,
+    1254
+  ],
+  "grid": [
+    2,
+    2
+  ],
+  "moods": [
+    [
+      "happy",
+      "cheer"
+    ],
+    [
+      "think",
+      "sad"
+    ]
+  ],
+  "sha256": "d959941736be438892fe025e65d5918931a819424c68d3c8568b3f19c461463d",
+  "promptMetadata": "UTF-8 iTXt impeccable:prompt"
+}

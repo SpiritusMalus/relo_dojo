@@ -284,18 +284,17 @@ React Native components remain the authority for shipped interaction states.
   that slot's starter item. `DojoItemArtwork` crops equal cells of the transparent
   3 × 3 `items-atlas.png`; the final cell is unused. The three chapter scrolls use
   equal cells of the separate 3 × 1 `chapters-atlas.png`.
-- **Sensei:** `WatercolorSensei` uses the first three columns of the transparent
-  4 × 4 `sensei-atlas.png` for Classic, Sage and Ronin; rows are happy, cheer, think
-  and sad. Sakura uses the separate 2 × 2 `spring-sensei-atlas.png`, ordered
-  happy/cheer then think/sad. This spring portrait has ordinary hair and a light
-  linen overshirt, with no flower or substitute hair ornament. The historical
-  fourth column is unused. Equipped cosmetics and explicit Wardrobe previews
+- **Sensei:** Classic has a mature graphite-and-watercolor portrait with silver
+  temples, a short salt-and-pepper beard and restrained expressions. Classic and
+  Sakura use their own 2 × 2 atlases, ordered happy/cheer then think/sad. Sakura
+  wears a light linen overshirt. Sage and Ronin use the middle two columns of
+  the original 4 × 4 `sensei-atlas.png`. Equipped cosmetics and Wardrobe previews
   use the same `SenseiVisual` contract. The portrait carries no student belt ribbon. The learner's earned belt remains
   in the separate native belt controls; changing mentor cosmetics cannot claim a rank.
-- **Answer feedback:** standard Build/Transform instructions contain native text only,
-  leaving the mentor for meaningful feedback. The shared ResultPanel uses a 72-unit mentor, cheer for a
-  correct answer and think for an incorrect answer. The native heading, correct
-  answer, XP and explanation carry the meaning. The portrait never replaces them.
+- **Answer feedback:** standard Build/Transform instructions and routine answer
+  feedback use native text. In the shared ResultPanel the outcome and XP share
+  the first line when they fit. The mentor has room to appear at moments such as
+  the checkpoint introduction and completion.
 - **Earned item:** completion shows the exact item ID from a confirmed save receipt
   through `DojoItemArtwork`, its localized name and a direct My Dojo action. Saving,
   pending and expired states remain distinct; a preview is not an award.
@@ -307,9 +306,8 @@ React Native components remain the authority for shipped interaction states.
   default; explicit bobbing remains optional and stops with reduced motion.
 
 The shipping art lives in `mobile/assets/sketch/`: room, item atlas, chapter
-scroll atlas, mentor atlas and flowerless spring mentor atlas, with adjacent JSON manifests.
-The room, item, chapter and spring atlases have exact companion `.prompt.txt` files;
-all five PNGs retain an embedded `impeccable:prompt` entry. The mentor
+scroll atlas, original mentor atlas, Classic and Spring mentor atlases. Each has
+an adjacent JSON manifest and an embedded `impeccable:prompt` entry. The original mentor
 manifest records its exact generation prompt, reference role, cell mapping and
 alpha verification. These are generated assets made with OpenAI's built-in image
 generation; the graphite and watercolor descriptions specify their visual medium.

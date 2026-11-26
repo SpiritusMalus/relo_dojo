@@ -14,6 +14,7 @@ jest.mock("../../theme/theme", () => ({
 }));
 jest.mock("../../store/cosmeticsStore", () => ({ useEquippedSenseiVisual: () => mockEquipped }));
 jest.mock("../../assets/sketch/sensei-atlas.png", () => ({ uri: "sensei-atlas" }));
+jest.mock("../../assets/sketch/classic-sensei-atlas.png", () => ({ uri: "classic-sensei-atlas" }));
 jest.mock("../../assets/sketch/spring-sensei-atlas.png", () => ({ uri: "spring-sensei-atlas" }));
 
 // The local lightweight renderer declaration omits update; keep the extra method scoped here.
@@ -40,8 +41,9 @@ test("every catalog skin and feedback mood selects its own complete, equally siz
     for (const [row, mood] of moods.entries()) {
       const screen = render({ visual: CATALOG[id].visual, mood, size: 44 });
       const crop = cropStyle(screen);
-      if (id === "sensei_sakura") {
-        expect(portrait(screen).props.source).toEqual({ uri: "spring-sensei-atlas" });
+      if (id === "sensei_classic" || id === "sensei_sakura") {
+        const uri = id === "sensei_classic" ? "classic-sensei-atlas" : "spring-sensei-atlas";
+        expect(portrait(screen).props.source).toEqual({ uri });
         expect(crop).toMatchObject({ width: 88, height: 88, left: -(row % 2) * 44, top: -Math.floor(row / 2) * 44 });
       } else {
         expect(portrait(screen).props.source).toEqual({ uri: "sensei-atlas" });
@@ -59,7 +61,7 @@ test("every catalog skin and feedback mood selects its own complete, equally siz
 test("the mentor portrait has no learner progress overlay", () => {
   const screen = render();
   expect(screen.root.findAll(node => node.type === Svg)).toHaveLength(0);
-  expect(portrait(screen).props.source).toEqual({ uri: "sensei-atlas" });
+  expect(portrait(screen).props.source).toEqual({ uri: "classic-sensei-atlas" });
   act(() => screen.unmount());
 });
 
@@ -80,8 +82,8 @@ test("a Classic preview clears the equipped spring sheet and closing it restores
   expect(portrait(screen).props.source).toEqual({ uri: "spring-sensei-atlas" });
   expect(cropStyle(screen)).toMatchObject({ width: 264, height: 264, left: -0, top: -0 });
   act(() => screen.update(<Sensei size={132} visual={{}} mood="think" />));
-  expect(portrait(screen).props.source).toEqual({ uri: "sensei-atlas" });
-  expect(cropStyle(screen)).toMatchObject({ width: 528, height: 528, left: -0, top: -264 });
+  expect(portrait(screen).props.source).toEqual({ uri: "classic-sensei-atlas" });
+  expect(cropStyle(screen)).toMatchObject({ width: 264, height: 264, left: -0, top: -132 });
   act(() => screen.update(<Sensei size={132} mood="sad" />));
   expect(portrait(screen).props.source).toEqual({ uri: "spring-sensei-atlas" });
   expect(cropStyle(screen)).toMatchObject({ width: 264, height: 264, left: -132, top: -132 });
