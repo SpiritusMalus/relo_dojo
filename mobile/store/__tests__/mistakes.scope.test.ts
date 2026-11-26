@@ -3,7 +3,7 @@ import { setAuthToken, type Exercise } from "../../services/api";
 import { captureAccountScope } from "../accountScope";
 import {
   captureMistake, dueCount, dueMistakes, loadMistakes, mistakeHintsForTopic, mistakeId,
-  MISTAKES_LEGACY_ARCHIVE_KEY, nextDueAt, promoteMistakeStored, resolveMistake,
+  MISTAKES_LEGACY_ARCHIVE_KEY, nextDueAt, promoteMistakeStored, renewMistakeToken, resolveMistake,
 } from "../mistakes";
 
 const nativeGet = (AsyncStorage.getItem as jest.Mock).getMockImplementation()!;
@@ -169,4 +169,16 @@ it("does not borrow guest data while a signed-in opaque token has no resolved id
   await captureMistake(exercise("Unresolved account ___ item."));
   setAuthToken(null);
   expect((await loadMistakes()).map((item) => item.exercise.text)).toEqual(["Guest private ___ item."]);
+});
+
+
+it("updates only the signed replay capability, preserving the anonymous learner's review history", async () => {
+  const card = exercise("Guest ___ example.");
+  const scope = captureAccountScope();
+  await captureMistake({ ...card, review_token: "old" }, scope);
+  await promoteMistakeStored(mistakeId(card), scope);
+  const [before] = await loadMistakes(scope);
+  await renewMistakeToken(before.id, "new-scope-bound-token", scope);
+  const [saved] = await loadMistakes(scope);
+  expect(saved).toEqual({ ...before, exercise: { ...before.exercise, token: "new-scope-bound-token" } });
 });

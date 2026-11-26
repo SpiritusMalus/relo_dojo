@@ -15,6 +15,7 @@ from ._grammar_rules import rules_clause
 from ._lexical_bank import lexical_clause
 
 _practice_index: ContextVar[int | None] = ContextVar("practice_index", default=None)
+BUILD_CUE_INSTRUCTION = "Build the sentence that matches the cue."
 
 # These are learning objectives, not authored questions. The AI still writes the whole task.
 # Rotating the grammatical decision prevents endless noun-renames of one easy adverb pattern.

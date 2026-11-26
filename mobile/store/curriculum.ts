@@ -24,18 +24,28 @@ export const MASTERY_WINDOW = 10; // rolling evidence window per topic
 export const MASTERY_MIN_CORRECT = 8; // correct answers required inside the window
 export const MASTERY_MIN_HARD = 2; // of them, at least this many in non-guessable formats
 
-// Formats a learner can pass by tapping around: one pick out of 3-6 visible options. Constructive
-// formats (build/transform/order/match/blanks/tap-the-error) require producing or locating the
-// answer, so correct answers there are stronger evidence of mastery. The listening types also sit
-// here — not because retell is guessable (it isn't), but because both grade COMPREHENSION of a
-// topic-flavored passage, not production of the unit's grammar, so they never count as the "hard"
-// mastery evidence (they still count toward the correct total like any answer).
-export const GUESSABLE_FORMATS = new Set([
-  "multiple-choice",
-  "odd-one-out",
-  "listen-and-answer",
-  "listen-and-retell",
+// Recognition is useful practice, but cannot alone establish grammar mastery.
+const HARD_GRAMMAR_FORMATS = new Set([
+  "build-the-sentence",
+  "transform-the-sentence",
+  "multiple-blanks",
+  "match-pairs",
+  "tap-the-error",
+  "free-text",
 ]);
+
+export type EvidenceKind = "topic" | "dialogue" | "listening";
+
+export function evidenceKindFor(format: string | undefined, reported?: EvidenceKind): EvidenceKind {
+  // Historical cards and saved answer marks predate the explicit evidence label.
+  if (format === "order-the-dialog") return "dialogue";
+  if (format === "listen-and-answer" || format === "listen-and-retell") return "listening";
+  return reported ?? "topic";
+}
+
+function grammarWindow(history: AnswerMark[] | undefined): AnswerMark[] {
+  return (history ?? []).filter((mark) => evidenceKindFor(mark.f) === "topic").slice(-MASTERY_WINDOW);
+}
 
 export type Mastery = {
   correct: number; // correct answers in the window
@@ -88,7 +98,7 @@ export function recertFailedNow(misses: number): boolean {
 /** Has a MASTERED unit visibly decayed? Judged on the recent evidence window only — lifetime
  *  accuracy is too sticky for heavy users (hundreds of old answers drown a real current dip). */
 export function unitDecayed(history: AnswerMark[] | undefined): boolean {
-  const window = (history ?? []).slice(-MASTERY_WINDOW);
+  const window = grammarWindow(history);
   if (window.length < REVIEW_MIN_EVIDENCE) return false;
   return window.filter((m) => m.c).length / window.length < REVIEW_MAX_ACC;
 }
@@ -96,9 +106,9 @@ export function unitDecayed(history: AnswerMark[] | undefined): boolean {
 /** Mastery evidence over the last MASTERY_WINDOW answers of one topic. Pure; tolerant of missing
  *  history (a fresh topic reads as 0/0, not-met). */
 export function masteryOf(history: AnswerMark[] | undefined): Mastery {
-  const window = (history ?? []).slice(-MASTERY_WINDOW);
+  const window = grammarWindow(history);
   const correct = window.filter((m) => m.c).length;
-  const hard = window.filter((m) => m.c && !GUESSABLE_FORMATS.has(m.f)).length;
+  const hard = window.filter((m) => m.c && HARD_GRAMMAR_FORMATS.has(m.f)).length;
   const met = correct >= MASTERY_MIN_CORRECT && hard >= MASTERY_MIN_HARD;
   return { correct, hard, met, pct: Math.round((Math.min(correct, MASTERY_MIN_CORRECT) / MASTERY_MIN_CORRECT) * 100) };
 }

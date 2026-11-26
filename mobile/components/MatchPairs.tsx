@@ -4,12 +4,14 @@ import type { ResponseValue } from "../services/api";
 import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
+import { exerciseCopy } from "../i18n/exerciseCopy";
 import Txt from "./ui/Txt";
 
 // Two columns. Tap a left item, then a right item, to link them (one-to-one).
 export default function MatchPairs({ exercise, locked, onChange }: ExerciseProps) {
   const t = useTheme();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
+  const copy = exerciseCopy(lang);
   const left = exercise.left ?? [];
   const right = exercise.right ?? [];
   const [map, setMap] = useState<Record<number, number>>({});
@@ -68,6 +70,7 @@ export default function MatchPairs({ exercise, locked, onChange }: ExerciseProps
                 disabled={locked}
                 accessibilityRole="button"
                 accessibilityLabel={l.text}
+                accessibilityHint={linked ? copy.linked(rightText(map[l.id])) : undefined}
                 accessibilityState={{ selected: active, disabled: locked }}
               >
                 <Txt variant="bodyStrong">{l.text}</Txt>

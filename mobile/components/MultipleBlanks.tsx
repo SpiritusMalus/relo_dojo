@@ -2,12 +2,16 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
+import { useI18n } from "../store/i18n";
+import { exerciseCopy } from "../i18n/exerciseCopy";
 import Txt from "./ui/Txt";
 import { useTranslator } from "./ui/TranslationPopover";
 
 // Sentence with several '___' blanks; pick one option per blank. Response is the picks in order.
-export default function MultipleBlanks({ exercise, locked, onChange }: ExerciseProps) {
+export default function MultipleBlanks({ exercise, locked, onChange, feedback }: ExerciseProps) {
   const t = useTheme();
+  const { lang } = useI18n();
+  const copy = exerciseCopy(lang);
   const { translateAt } = useTranslator();
   const blanks = exercise.blankOptions ?? [];
   const sentence = exercise.text ?? "";
@@ -52,7 +56,7 @@ export default function MultipleBlanks({ exercise, locked, onChange }: ExerciseP
           <Txt key={i} variant="cardTitle" style={{ fontSize: 19, lineHeight: 27 }}>
             {words(seg)}
             {i < blanks.length ? (
-              <Txt variant="mono" color={picks[i] != null ? t.c.accent : t.c.ink3}>
+              <Txt variant="mono" color={feedback?.per_item?.[i] === false ? t.c.bad : picks[i] != null ? t.c.accent : t.c.ink3}>
                 {picks[i] != null ? blanks[i][picks[i]!] : " _____ "}
               </Txt>
             ) : null}
@@ -62,10 +66,12 @@ export default function MultipleBlanks({ exercise, locked, onChange }: ExerciseP
 
       {blanks.map((opts, bi) => (
         <View key={bi} style={{ gap: 8 }}>
-          <Txt variant="label">{`Blank ${bi + 1}`}</Txt>
+          <Txt variant="label">{copy.blank(bi + 1)}</Txt>
           <View style={styles.opts}>
             {opts.map((opt, oi) => {
               const on = picks[bi] === oi;
+              const mark = on ? feedback?.per_item?.[bi] : undefined;
+              const emphasis = mark === false ? t.c.bad : t.c.accent;
               return (
                 <Pressable
                   key={`${oi}-${opt}`}
@@ -75,12 +81,13 @@ export default function MultipleBlanks({ exercise, locked, onChange }: ExerciseP
                   }
                   disabled={locked}
                   accessibilityRole="button"
-                  accessibilityLabel={`Blank ${bi + 1}, option ${opt}`}
+                  accessibilityLabel={copy.option(bi + 1, opt)}
+                  accessibilityHint={mark === undefined ? undefined : mark ? copy.correct : copy.wrong}
                   accessibilityState={{ selected: on, disabled: locked }}
                   style={{
                     borderWidth: on ? 2 : 1,
-                    borderColor: on ? t.c.accent : t.c.line2,
-                    backgroundColor: on ? t.c.accentSoft : t.c.surface,
+                    borderColor: on ? emphasis : t.c.line2,
+                    backgroundColor: mark === false ? t.c.badSoft : on ? t.c.accentSoft : t.c.surface,
                     borderRadius: 10,
                     paddingVertical: 10,
                     paddingHorizontal: 14,
@@ -88,7 +95,7 @@ export default function MultipleBlanks({ exercise, locked, onChange }: ExerciseP
                     justifyContent: "center",
                   }}
                 >
-                  <Txt variant="mono" color={on ? t.c.accent : t.c.ink}>
+                  <Txt variant="mono" color={on ? emphasis : t.c.ink}>
                     {opt}
                   </Txt>
                 </Pressable>

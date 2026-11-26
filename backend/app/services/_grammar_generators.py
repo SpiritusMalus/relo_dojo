@@ -20,6 +20,8 @@ from ._grammar_feedback import _explain_lang
 from .llm import LLMError as OllamaError
 from .llm import LLMRefusedError, LLMTimeoutError, LLMConfigurationError, LLMOutputError, generate_json
 from ._grammar_prompts import (
+    BUILD_CUE_INSTRUCTION,
+    CEFR_GUIDE,
     EXERCISE_TYPES,
     MC_LEN_SLACK,
     TOPICS,
@@ -30,12 +32,33 @@ from ._grammar_prompts import (
     _resolve_odd,
     _strip_word,
     _tutor_intro,
+    _variation_clause,
     _weighted,
     _practice_index,
     pick_topic,
 )
 
 logger = logging.getLogger(__name__)
+_NON_TOPIC_EVIDENCE = {
+    "order-the-dialog": "dialogue",
+    "listen-and-answer": "listening",
+    "listen-and-retell": "listening",
+}
+
+
+class AssessmentUnavailable(OllamaError):
+    """The requested assessment item could not be delivered at its exact specification."""
+
+
+def _shuffled_tiles(values: list) -> list:
+    shuffled = values[:]
+    random.shuffle(shuffled)
+    if shuffled == values:
+        for index, value in enumerate(shuffled[1:], 1):
+            if value != shuffled[0]:
+                shuffled[0], shuffled[index] = shuffled[index], shuffled[0]
+                break
+    return shuffled
 
 # Feedback-retry channel: when a generator rejects the model's output, the reason lands here and
 # the dispatcher feeds it into the NEXT attempt's prompt — a targeted "fix exactly this" beats a
@@ -119,6 +142,8 @@ async def _review_exercise(item: dict[str, Any], level: str | None) -> dict[str,
         return item
     visible = {key: value for key, value in item.items() if key != "token"}
     key = tokens.unseal(item["token"]) if item.get("token") else {}
+    evidence = _NON_TOPIC_EVIDENCE.get(item["type"], "topic")
+    objective = _variation_clause(item.get("topic"), level) if evidence == "topic" else ""
     # A blueprint proves only its slot key. The surrounding sentence is still model-authored:
     # e.g. "I wait here for an hour now" has a right article and wrong English. Review that too.
     prompt = (
@@ -129,12 +154,18 @@ async def _review_exercise(item: dict[str, Any], level: str | None) -> dict[str,
         "a correct alternative unfairly graded wrong; broken English outside an "
         "explicit planted-error task; translation changing tense/negation/meaning; listening "
         "question not answerable from the passage; or vocabulary/grammar clearly too hard for "
-        "the target CEFR. Do not reject valid metaphors, humor or acceptable wording merely "
+        "the target CEFR. For topic evidence, solving must require the target skill and any stated "
+        "learning objective. Reject a card a learner can solve without making that decision. "
+        "For listening and dialogue evidence, test comprehension or conversational sequence. "
+        "For odd-one-out, the visible instruction must give the grouping criterion without naming "
+        "the answer. Verify the sealed reason against it. "
+        "Do not reject valid metaphors, humor or acceptable wording merely "
         "because you prefer a different style. For gap tasks substitute EVERY distractor, not "
         "only the keyed answer. "
         "For matching, check that the displayed tiles have a unique complete mapping. For word "
         "tiles, ordinary punctuation/case normalization is allowed but the keyed sentence must "
-        "convey the source meaning. For dialogs, anchor is the GIVEN first line, followed by the "
+        "express the source meaning. For English cues, verify that the cue describes the intended "
+        "action clearly without giving away the sentence. For dialogs, anchor is the GIVEN first line, followed by the "
         "reordered tiles; the key order includes BOTH anchor and tiles. Do not reject a dialog "
         "because the given anchor is absent from the tile bank. Require one defensible order. "
         "Reported-speech backshift is optional when a statement remains true: is/was and "
@@ -150,7 +181,10 @@ async def _review_exercise(item: dict[str, Any], level: str | None) -> dict[str,
         "a correct answer may naturally paraphrase the inferred meaning. "
         "If valid=false give one concise, concrete repair instruction in reason; otherwise reason "
         "is empty. Output only JSON.\n"
-        + json.dumps({"target_cefr": _cefr(level), "task": visible, "key": key}, ensure_ascii=False)
+        + json.dumps({
+            "target_cefr": _cefr(level), "evidence_kind": evidence,
+            "learning_objective": objective, "task": visible, "key": key,
+        }, ensure_ascii=False)
     )
     verdict = await generate_json(prompt, REVIEW_SCHEMA, temperature=0.0, tier="smart")
     if verdict.get("valid") is not True:
@@ -177,6 +211,15 @@ BUILD_SCHEMA: dict[str, Any] = {
         "distractors": {"type": "array", "items": {"type": "string"}},
     },
     "required": ["sentence_en", "sentence_ru"],
+}
+BUILD_CUE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "sentence_en": BUILD_SCHEMA["properties"]["sentence_en"],
+        "cue_en": {"type": "string"},
+        "distractors": BUILD_SCHEMA["properties"]["distractors"],
+    },
+    "required": ["sentence_en", "cue_en"],
 }
 MATCH_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -211,9 +254,10 @@ ODD_ONE_OUT_SCHEMA: dict[str, Any] = {
     "properties": {
         "items": {"type": "array", "items": {"type": "string"}},
         "odd": {"type": "string"},
+        "criterion": {"type": "string"},
         "reason": {"type": "string"},
     },
-    "required": ["items", "odd", "reason"],
+    "required": ["items", "odd", "criterion", "reason"],
 }
 MULTI_BLANK_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -421,13 +465,18 @@ async def _gen_multiple_choice(topic: str, level: str | None = None, context: st
 
 
 async def _gen_build_the_sentence(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None, retry_note: str = "") -> dict[str, Any] | None:
-    # Translation exercise: show the Russian source, learner builds the English from word tiles.
+    english_cue = (lang or "").strip().lower() == "en"
+    source_rule = (
+        "Write 'cue_en' as one short English situation or instruction. Use different words to "
+        "identify the intended action, person and time clearly. Include a constraint when the "
+        "target grammar needs one. The cue must never quote the sentence to be assembled."
+        if english_cue else "Give its natural Russian translation as 'sentence_ru'."
+    )
     prompt = _tutor_intro(
         _retry_clause(retry_note)
         + f"Write ONE correct English sentence (3 to {_max_words(level)} words, with grammar appropriate "
-        f"to the requested CEFR) that illustrates: {topic}, then give its natural Russian translation.\n"
+        f"to the requested CEFR) that illustrates: {topic}. {source_rule}\n"
         "'sentence_en' is the English sentence (plain words, at most one comma, appropriate final punctuation). "
-        "'sentence_ru' is its Russian translation. "
         "'distractors' is 1-2 extra WRONG word tiles: broken forms of words already in the sentence "
         "(wrong tense, wrong number, wrong article — e.g. 'goes' when the sentence uses 'go'). Each "
         "must NOT fit anywhere in the sentence and must never be a correct alternative. "
@@ -439,25 +488,36 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
         scenario=True,
         topic=topic,
     )
-    data = await _item_json(prompt, BUILD_SCHEMA)
+    data = await _item_json(prompt, BUILD_CUE_SCHEMA if english_cue else BUILD_SCHEMA)
     sentence = str(data.get("sentence_en") or "").strip()
-    sentence_ru = str(data.get("sentence_ru") or "").strip()
+    source = str(data.get("cue_en" if english_cue else "sentence_ru") or "").strip()
     words = sentence.split()
-    if not sentence_ru:
-        return _reject("build-the-sentence: missing the Russian translation")
+    if not source:
+        return _reject("build-the-sentence: missing the English cue" if english_cue else
+                       "build-the-sentence: missing the Russian translation")
+    if english_cue:
+        if len(source.split()) > min(35, 2 * _max_words(level)) or re.search(r"[\u0400-\u04ff]", source):
+            return _reject("build-the-sentence: write a short English cue")
+        target_words = re.findall(r"\w+", _norm(sentence))
+        cue_words = re.findall(r"\w+", _norm(source))
+        size = len(target_words)
+        # Changing one word in a long quoted answer still gives away the construction.
+        if size and any(
+            sum(left != right for left, right in zip(target_words, cue_words[start:start + size])) <= (size >= 5)
+            for start in range(len(cue_words) - size + 1)
+        ):
+            return _reject("build-the-sentence: the cue must describe the action without quoting the answer")
     if len(words) < 3 or len(words) > _max_words(level):
         return _reject(f"build-the-sentence: the English sentence must be 3 to {_max_words(level)} words")
-    tiles = words[:]
-    # Shuffle until the order actually changes (so it isn't already solved).
-    for _ in range(8):
-        random.shuffle(tiles)
-        if tiles != words:
-            break
+    tiles = _shuffled_tiles(words)
+    if tiles == words:
+        return _reject("build-the-sentence: need at least two distinct tiles")
     return {
         "type": "build-the-sentence",
         "topic": topic,
-        "text": "Translate into English:",
-        "prompt": sentence_ru,
+        "text": BUILD_CUE_INSTRUCTION if english_cue else "Translate into English:",
+        "prompt": source,
+        **({"instruction": BUILD_CUE_INSTRUCTION} if english_cue else {}),
         "tiles": tiles,
         # Trap tiles (client mixes them into the bank): without them the bank is exactly the
         # answer's words and assembling degenerates into using everything up.
@@ -515,8 +575,7 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
     # Right ids are the SHUFFLED positions — opaque. (They used to equal the matching left's id,
     # which put the full answer key in the client payload; the true mapping now lives only in the
     # sealed token, with the rights' texts so identical tiles could still grade as interchangeable.)
-    shuffled = pairs[:]
-    random.shuffle(shuffled)
+    shuffled = _shuffled_tiles(pairs)
     right_items = [{"id": j, "text": p["right"]} for j, p in enumerate(shuffled)]
     mapping = {str(i): shuffled.index(p) for i, p in enumerate(pairs)}
     # One pair per line: the reveal renders as a tidy list, not a "; "-glued blob.
@@ -540,17 +599,25 @@ async def _gen_match_pairs(topic: str, level: str | None = None, context: str | 
 
 
 async def _gen_tap_the_error(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None, retry_note: str = "") -> dict[str, Any] | None:
+    punctuation = topic == "punctuation"
+    if punctuation:
+        task = (
+            "Write one short English passage with exactly one incorrect punctuation mark or "
+            "capitalization. Fix it by changing the mark or capitalization of one token. "
+            "Keep its spelling and position unchanged. Use a convention that yields one defensible "
+            "answer. Include punctuation verbatim in 'wrong_word' and 'correction'."
+        )
+    else:
+        task = (
+            f"Write one short English sentence with exactly one grammatically wrong word related "
+            f"to {topic}. Fix it by swapping one word in the same position. The wrong word must "
+            "appear exactly once. Use an incorrect form, preposition or article. Avoid missing words "
+            "or errors that depend on moving a word."
+        )
     prompt = _tutor_intro(
-        _retry_clause(retry_note)
-        + f"Write ONE English sentence (6 to 12 words) containing exactly ONE grammatically wrong "
-        f"word, related to: {topic}.\n"
-        "The error must be a WRONG WORD that is fixed by swapping it for ONE different word in the "
-        "SAME position (wrong tense, wrong preposition, wrong article, wrong form). Never a misplaced "
-        "word that has to MOVE, and never a missing word — this exercise can only express a one-word "
-        "substitution, so 'walks always' → 'always walks' is NOT allowed. "
-        "'sentence' is that sentence. 'wrong_word' is the single incorrect word as it appears in the "
-        "sentence, and it must occur exactly ONCE in the sentence. 'correction' is the SINGLE word "
-        "that replaces it. Reply ONLY as JSON.",
+        _retry_clause(retry_note) + task
+        + " 'sentence' is the passage, 'wrong_word' is the incorrect token, and 'correction' is its "
+          "replacement. Return only JSON.",
         level,
         context,
         mistakes,
@@ -575,8 +642,9 @@ async def _gen_tap_the_error(topic: str, level: str | None = None, context: str 
         return _reject("tap-the-error: 'correction' must be exactly ONE word replacing the wrong word in place")
     # Locate the wrong word among the tokens (punctuation-insensitive). It must occur exactly once —
     # with a repeat there is no single right tile to tap, so any index we seal is a coin flip.
-    target = _strip_word(wrong_word)
-    hits = [i for i, w in enumerate(words) if _strip_word(w) == target]
+    normalize = (lambda value: value) if punctuation else _strip_word
+    target = normalize(wrong_word)
+    hits = [i for i, word in enumerate(words) if normalize(word) == target]
     if not hits:
         return _reject("tap-the-error: wrong_word does not appear verbatim in the sentence")
     if len(hits) > 1:
@@ -585,10 +653,12 @@ async def _gen_tap_the_error(topic: str, level: str | None = None, context: str 
     # The fix must be a real substitution: the correction has to differ from the wrong word, and it
     # must not already sit elsewhere in the sentence — otherwise "correcting" it produces a duplicate
     # (e.g. "...update frequently usually..." with wrong='frequently'→'usually'), which reads as broken.
-    corr_norm = _strip_word(correction)
+    corr_norm = normalize(correction)
     if corr_norm == target:
         return _reject("tap-the-error: correction must differ from the wrong word")
-    if any(i != error_index and _strip_word(w) == corr_norm for i, w in enumerate(words)):
+    if punctuation and re.sub(r"[^\w]", "", correction.casefold()) != re.sub(r"[^\w]", "", wrong_word.casefold()):
+        return _reject("tap-the-error: change only punctuation or capitalization")
+    if not punctuation and any(i != error_index and normalize(w) == corr_norm for i, w in enumerate(words)):
         return _reject("tap-the-error: correction already appears elsewhere in the sentence")
     return {
         "type": "tap-the-error",
@@ -633,7 +703,10 @@ async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | 
         + f"Create ONE 'odd one out' exercise to practice: {topic}.\n"
         "'items' is 4 short words or phrases; exactly ONE does not belong with the others (by grammar "
         "category, collocation, or meaning relevant to the topic). 'odd' is exactly that item (it MUST "
-        "appear verbatim in 'items'). 'reason' is a brief why. Keep items under 4 words each. "
+        f"appear verbatim in 'items'). Write 'criterion' and 'reason' in {_explain_lang(lang)}. "
+        "'criterion' is a short instruction naming the grouping rule, without identifying the odd "
+        "option or quoting any options. 'reason' briefly explains why the odd item breaks that "
+        "criterion, for display after checking the answer. Keep items under 4 words each. "
         "Flavor it with the learner's field when given, else everyday. Reply ONLY as JSON matching the schema.",
         level,
         context,
@@ -653,13 +726,18 @@ async def _gen_odd_one_out(topic: str, level: str | None = None, context: str | 
     if matched is None:
         return _reject("odd-one-out: 'odd' must be exactly one of the items, verbatim")
     odd = matched
+    criterion = " ".join(str(data.get("criterion") or "").split())
+    reason = " ".join(str(data.get("reason") or "").split())
+    if not criterion or len(criterion) > 140 or not reason or len(reason) > 300:
+        return _reject("odd-one-out: include a concise visible criterion and an explanation")
     random.shuffle(items)
     return {
         "type": "odd-one-out",
         "topic": topic,
         "text": "Tap the one that doesn't belong.",
+        "instruction": criterion,
         "options": items,
-        "token": tokens.seal({"t": "odd-one-out", "answer": odd, "topic": topic}),
+        "token": tokens.seal({"t": "odd-one-out", "answer": odd, "topic": topic, "reason": reason}),
     }
 
 
@@ -744,7 +822,7 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
         context,
         mistakes,
         scenario=True,
-        topic=topic,
+        topic=None,
     )
     data = await _item_json(prompt, ORDER_DIALOG_SCHEMA)
     lines = [str(line).strip() for line in (data.get("lines") or []) if str(line).strip()]
@@ -758,18 +836,14 @@ async def _gen_order_the_dialog(topic: str, level: str | None = None, context: s
     # sealed order still holds ALL lines (anchor at index 0), so grading is unchanged — the client
     # submits [anchor, ...their order].
     anchor, rest = lines[0], lines[1:]
-    tiles = rest[:]
-    for _ in range(8):
-        random.shuffle(tiles)
-        if tiles != rest:
-            break
+    tiles = _shuffled_tiles(rest)
     return {
         "type": "order-the-dialog",
         "topic": topic,
         "text": "Put the conversation in the right order.",
         "anchor": anchor,
         "tiles": tiles,
-        "token": tokens.seal({"t": "order-the-dialog", "order": lines, "topic": topic}),
+        "token": tokens.seal({"t": "order-the-dialog", "order": lines, "anchor": anchor, "topic": topic}),
     }
 
 
@@ -818,7 +892,9 @@ async def _gen_transform_the_sentence(topic: str, level: str | None = None, cont
         "instruction to the source — there must be exactly one natural answer, and it must differ from "
         "the source. The 'source' and 'target' sentences are ALWAYS in English regardless of the "
         "instruction's language. Draw the example from the learner's field when one is given; otherwise "
-        "a clear everyday situation. Reply ONLY as JSON.",
+        "a clear everyday situation. Reply ONLY as JSON."
+        + (" In Russian use the standard terms, e.g. «Перепишите как условное предложение "
+           "третьего типа», «Используйте пассивный залог»." if instr_lang == "Russian" else ""),
         level,
         context,
         mistakes,
@@ -827,6 +903,8 @@ async def _gen_transform_the_sentence(topic: str, level: str | None = None, cont
     )
     data = await _item_json(prompt, TRANSFORM_SCHEMA)
     instruction = str(data.get("instruction") or "").strip()
+    if instr_lang == "Russian" and re.search(r"условн\w*\s+наклонен", instruction, re.I):
+        return _reject("transform-the-sentence: use «условное предложение» and name its type")
     source = str(data.get("source") or "").strip()
     target = str(data.get("target") or "").strip()
     words = target.split()
@@ -848,12 +926,9 @@ async def _gen_transform_the_sentence(topic: str, level: str | None = None, cont
             "options": options,
             "token": tokens.seal({"t": "multiple-choice", "answer": answer, "topic": topic, "text": text}),
         }
-    tiles = words[:]
-    # Shuffle until the order changes (so it isn't already solved).
-    for _ in range(8):
-        random.shuffle(tiles)
-        if tiles != words:
-            break
+    tiles = _shuffled_tiles(words)
+    if tiles == words:
+        return _reject("transform-the-sentence: need at least two distinct tiles")
     return {
         "type": "transform-the-sentence",
         "topic": topic,
@@ -896,6 +971,9 @@ def _clean_listen_passage(raw: Any, level: str | None) -> str | None:
         return _reject("listening: passage too short — write 2-4 full sentences")
     if len(words) > _listen_max_words(level):
         return _reject(f"listening: passage over {_listen_max_words(level)} words — write a shorter one")
+    endings = re.findall(r"[.!?](?=[\"'”’]?(?:\s|$))", passage)
+    if not 2 <= len(endings) <= 4:
+        return _reject("listening: write 2-4 full sentences")
     if "___" in passage:
         return _reject("listening: the passage must not contain blanks ('___')")
     return passage
@@ -920,7 +998,7 @@ async def _gen_listen_answer(topic: str, level: str | None = None, context: str 
         context,
         mistakes,
         scenario=True,
-        topic=topic,
+        topic=None,
     )
     data = await _item_json(prompt, LISTEN_SCHEMA)
     passage = _clean_listen_passage(data.get("passage"), level)
@@ -955,7 +1033,7 @@ async def _gen_listen_retell(topic: str, level: str | None = None, context: str 
         context,
         mistakes,
         scenario=True,
-        topic=topic,
+        topic=None,
     )
     data = await _item_json(prompt, RETELL_SCHEMA)
     passage = _clean_listen_passage(data.get("passage"), level)
@@ -1056,13 +1134,17 @@ async def _gen_from_blueprint(topic: str, level: str | None = None, context: str
     }
 
 
+_FORMAT_REPLACEMENTS = {
+    ("word order", "tap-the-error"): "build-the-sentence",
+    ("word order", "odd-one-out"): "multiple-choice",
+    ("punctuation", "build-the-sentence"): "multiple-choice",
+    ("punctuation", "transform-the-sentence"): "multiple-choice",
+}
+
+
 def _generator_for(topic: str, ex_type: str, level: str | None = None):
     """The generator to use: key-first where our rule can decide the answer, model-authored elsewhere."""
-    if topic == "word order" and ex_type == "odd-one-out":
-        # Short clause starters hide the intended classification (e.g. negative inversion)
-        # behind the generic odd-one-out instruction. Use an explicit, complete gap instead;
-        # the generator returns its actual multiple-choice type and sealed grading contract.
-        ex_type = "multiple-choice"
+    ex_type = _FORMAT_REPLACEMENTS.get((topic, ex_type), ex_type)
     if (topic in blueprints.BLUEPRINT_TOPICS and ex_type in BLUEPRINT_TYPES
             and _cefr(level) not in {"B2", "C1"}):
         return partial(_gen_from_blueprint, ex_type=ex_type)
@@ -1090,6 +1172,37 @@ _ENABLED_TYPES = {t for t, w in EXERCISE_TYPES if w > 0}
 # from the weighted defaults (weight 0) — an older client can't render the audio card, so these
 # must never arrive unsolicited.
 _REQUESTABLE_TYPES = {"listen-and-answer", "listen-and-retell"}
+
+
+def valid_assessment_spec(topic: str | None, level: str | None, ex_type: str | None) -> bool:
+    return (
+        topic in _TOPIC_NAMES
+        and (level or "").strip().upper() in CEFR_GUIDE
+        and ex_type in _ENABLED_TYPES | _REQUESTABLE_TYPES
+        and (topic, ex_type) not in _FORMAT_REPLACEMENTS
+    )
+
+
+async def _generate_assessment(
+    topic: str, level: str, ex_type: str, context: str | None, lang: str | None,
+) -> dict[str, Any]:
+    note = ""
+    generate = _generator_for(topic, ex_type, level)
+    for _ in range(3):
+        try:
+            item = await generate(topic, level, context, None, lang, note)
+            if item is not None:
+                if (item["type"] != ex_type or item["topic"] != topic
+                        or item.get("level", level) != level):
+                    _reject(f"assessment requires {ex_type} on {topic} at {level}")
+                else:
+                    reviewed = await _review_exercise(item, level)
+                    if reviewed is not None:
+                        return reviewed
+        except LLMOutputError as exc:
+            _reject(str(exc))
+        note = _last_reject.get()
+    raise AssessmentUnavailable("An exercise in the required format and level is temporarily unavailable.")
 
 
 async def _generate_exercise(
@@ -1235,14 +1348,44 @@ async def _generate_exercise(
 async def generate_exercise(
     topic: str | None = None, level: str | None = None, ex_type: str | None = None,
     context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None,
-    practice_index: int | None = None,
+    practice_index: int | None = None, *, assessment: bool = False,
 ) -> dict[str, Any]:
-    """Bound the ENTIRE generation/review/retry ladder, not each individual provider call."""
+    """Run generation and review with a deadline and a local fallback of suitable scope."""
+    from .curated_fallback import build_fallback
+
+    if assessment and not valid_assessment_spec(topic, level, ex_type):
+        raise ValueError("Assessment requires a supported topic, format and level.")
+    selected_topic = topic if topic in _TOPIC_NAMES else pick_topic()
+    selected_level = _cefr(level)
     marker = _practice_index.set(practice_index if practice_index is not None else random.randrange(1_000_000))
     try:
-        async with asyncio.timeout(settings.EXERCISE_TIMEOUT_S):
-            return await _generate_exercise(topic, level, ex_type, context, mistakes, lang)
-    except TimeoutError as exc:
-        raise LLMTimeoutError("The exercise took too long to validate. Try again.") from exc
+        try:
+            async with asyncio.timeout(settings.EXERCISE_TIMEOUT_S):
+                if assessment:
+                    item = await _generate_assessment(selected_topic, selected_level, ex_type, context, lang)
+                else:
+                    item = await _generate_exercise(selected_topic, level, ex_type, context, mistakes, lang)
+        except (LLMConfigurationError, LLMRefusedError):
+            raise
+        except (OllamaError, TimeoutError) as exc:
+            item = None
+            if settings.EXERCISE_CURATED_FALLBACK_ENABLED:
+                if assessment:
+                    item = build_fallback(
+                        selected_topic, selected_level, _practice_index.get(), exact_type=ex_type, lang=lang,
+                    )
+                elif ex_type not in _NON_TOPIC_EVIDENCE:
+                    item = build_fallback(selected_topic, selected_level, _practice_index.get())
+            if item is None:
+                if assessment:
+                    raise AssessmentUnavailable("An exercise in the required format and level is temporarily unavailable.") from exc
+                if isinstance(exc, TimeoutError):
+                    raise LLMTimeoutError("The exercise took too long to validate. Try again.") from exc
+                raise
+            logger.info("generation safety net: source=curated topic=%s actual=%s", selected_topic, item["level"])
+        item.setdefault("level", selected_level)
+        item.setdefault("source", "generated")
+        item.setdefault("evidence_kind", _NON_TOPIC_EVIDENCE.get(item["type"], "topic"))
+        return item
     finally:
         _practice_index.reset(marker)

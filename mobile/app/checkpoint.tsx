@@ -15,6 +15,7 @@ import { createExerciseQueue, type ExerciseQueue } from "../services/exerciseQue
 import ActivationBanner from "../components/ui/ActivationBanner";
 import LimitSheet from "../components/ui/LimitSheet";
 import ExerciseCard from "../components/ExerciseCard";
+import ResultPanel from "../components/ResultPanel";
 import { beltProgress } from "../store/dojo";
 import {
   CHECKPOINT_FORMATS,
@@ -41,7 +42,6 @@ import { buildContext, TOPIC_LABELS } from "../store/onboarding";
 import { RU_TOPIC_LABELS } from "../i18n/strings";
 import { useTheme } from "../theme/theme";
 import Button from "../components/ui/Button";
-import Card from "../components/ui/Card";
 import Confetti from "../components/ui/Confetti";
 import Icon from "../components/ui/Icon";
 import ProgressBar from "../components/ui/ProgressBar";
@@ -49,7 +49,6 @@ import Sensei from "../components/ui/Sensei";
 import Txt from "../components/ui/Txt";
 
 type Phase = "intro" | "solving" | "feedback" | "passed" | "failed";
-const FEEDBACK_MS = 1200;
 
 export default function CheckpointScreen() {
   const t = useTheme();
@@ -57,7 +56,7 @@ export default function CheckpointScreen() {
   const insets = useSafeAreaInsets();
   const { progress, masterUnit } = useProgress();
   const { t: tr, lang } = useI18n();
-  const { result, checking, error: checkError, check, reset, beginAttempt } = useExerciseCheck();
+  const { result, checking, submissionLocked, error: checkError, check, reset, beginAttempt } = useExerciseCheck();
 
   const params = useLocalSearchParams<{ topic?: string }>();
   const topic = typeof params.topic === "string" ? params.topic : "";
@@ -83,21 +82,24 @@ export default function CheckpointScreen() {
 
   const progressRef = useRef(progress);
   progressRef.current = progress;
+  const assessmentLevel = useRef(levelToCefr(effectiveSkill(progress, topic))).current;
+  const formats = topic === "word order" ? ["build-the-sentence", "multiple-blanks"]
+    : topic === "punctuation" ? ["tap-the-error", "multiple-blanks"] : CHECKPOINT_FORMATS;
   const answeredRef = useRef(0);
   const queueRef = useRef<ExerciseQueue | null>(null);
   if (queueRef.current === null) {
     queueRef.current = createExerciseQueue({
       size: 1,
       prefetchOnServe: false,
-      revision: () => Object.values(progressRef.current.topics).reduce((sum, stat) => sum + stat.attempts, 0),
       selectParams: () => ({
         topic, // the unit under test — always forced
         practice_index: progressRef.current.topics[topic]?.attempts ?? 0,
-        level: levelToCefr(effectiveSkill(progressRef.current, topic)),
+        level: assessmentLevel,
         // Constructive formats only, rotated so one quiz spans several shapes. Closed book:
         // no miss hints — the зачёт must be fresh items, not replays.
-        type: CHECKPOINT_FORMATS[answeredRef.current % CHECKPOINT_FORMATS.length],
+        type: formats[answeredRef.current % formats.length],
         context: buildContext(progressRef.current.profile),
+        assessment: true,
       }),
     });
   }
@@ -114,7 +116,7 @@ export default function CheckpointScreen() {
   const [gated, setGated] = useState(false);
   const [answered, setAnswered] = useState(0);
   const [misses, setMisses] = useState(0);
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const advancedFrom = useRef(0);
   const active = useRef(true);
   const started = useRef(false);
   const loadingRef = useRef(false);
@@ -122,13 +124,10 @@ export default function CheckpointScreen() {
   // twice before it takes effect. This ref bails immediately.
   const submittingRef = useRef(false);
 
-  // The advance timer is otherwise only cleared inside finish(); mirror challenge.tsx and clear it on
-  // unmount so a pending setTimeout can't fire (and load / mutate) after the screen is gone.
   useEffect(() => {
     active.current = true;
     return () => {
       active.current = false;
-      if (advanceTimer.current) clearTimeout(advanceTimer.current);
     };
   }, []);
 
@@ -160,15 +159,6 @@ export default function CheckpointScreen() {
     }
   }, [reset]);
 
-  function finish(passed: boolean) {
-    if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    // The one place mastery is granted. A passed recert writes NOTHING: mastery already exists
-    // (one-way), and the quiz answers themselves refilled the evidence window — the decay flag
-    // clears derived, so there is no state to flip.
-    if (passed && !recert) masterUnit(topic);
-    setPhase(passed ? "passed" : "failed");
-  }
-
   function start() {
     if (!active.current || started.current) return;
     started.current = true;
@@ -183,7 +173,7 @@ export default function CheckpointScreen() {
   }
 
   async function onCheck() {
-    if (!exercise || response === null || checking || phase !== "solving" || submittingRef.current) return;
+    if (!active.current || !exercise || response === null || checking || phase !== "solving" || submittingRef.current) return;
     submittingRef.current = true;
     try {
       const res = await check(exercise, response);
@@ -195,16 +185,19 @@ export default function CheckpointScreen() {
       answeredRef.current = newAnswered;
       if (res.progressAfter) progressRef.current = res.progressAfter;
       queueRef.current!.clear();
-      if (!quizFailedNow(newMisses) && newAnswered < quizItems) queueRef.current!.prefetch();
+      if (newAnswered >= quizItems && quizPassed(newMisses) && !recert) masterUnit(topic);
       setPhase("feedback");
-      advanceTimer.current = setTimeout(() => {
-        if (quizFailedNow(newMisses)) finish(false);
-        else if (newAnswered >= quizItems) finish(quizPassed(newMisses));
-        else loadExercise();
-      }, FEEDBACK_MS);
     } finally {
       submittingRef.current = false;
     }
+  }
+
+  const quizFinished = quizFailedNow(misses) || answered >= quizItems;
+  function advance() {
+    if (!active.current || phase !== "feedback" || answered <= advancedFrom.current) return;
+    advancedFrom.current = answered;
+    if (quizFinished) setPhase(quizPassed(misses) ? "passed" : "failed");
+    else void loadExercise();
   }
 
   // Not eligible (deep link / already passed / meter not full) — bounce gracefully.
@@ -221,11 +214,12 @@ export default function CheckpointScreen() {
   }
 
   const loadFailure = limited ? <LimitSheet belt={beltProgress(progress).belt} onUnlocked={loadExercise} />
-    : gated ? <ActivationBanner />
-    : error ? (
+    : gated || error ? (
       <View style={{ alignSelf: "stretch", gap: 12 }}>
-        <Txt variant="bodyStrong" style={{ textAlign: "center" }}>{tr("err.exercise.title")}</Txt>
-        <Txt variant="caption" color={t.c.ink3} style={{ textAlign: "center" }}>{error}</Txt>
+        {gated && <ActivationBanner />}
+        <Txt variant="bodyStrong" accessibilityRole="alert" style={{ textAlign: "center" }}>
+          {tr(gated ? "activate.lockedMsg" : "err.exercise.title")}
+        </Txt>
         <Button label={tr("action.tryAgain")} variant="ghost" onPress={loadExercise} />
       </View>
     ) : null;
@@ -286,13 +280,14 @@ export default function CheckpointScreen() {
     );
   }
 
-  // --- solving / feedback ---
-  const verdictColor = result?.correct ? t.c.accent : t.c.bad;
   return (
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top }}>
       <StatusBar style={t.name === "dark" ? "light" : "dark"} />
       <View style={styles.header}>
-        <Txt variant="bodyStrong">{tr("exam.progress", { n: Math.min(answered + 1, quizItems), total: quizItems })}</Txt>
+        <Pressable onPress={close} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel={tr("common.close")}>
+          <Icon name="x" size={24} color={t.c.ink2} />
+        </Pressable>
+        <Txt variant="bodyStrong">{tr("exam.progress", { n: Math.min(phase === "feedback" && !loading ? answered : answered + 1, quizItems), total: quizItems })}</Txt>
         <View style={{ flex: 1, marginHorizontal: 14 }}>
           <ProgressBar pct={(answered / quizItems) * 100} height={10} color={t.c.gold} />
         </View>
@@ -301,7 +296,7 @@ export default function CheckpointScreen() {
         </Txt>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
         {loading && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
@@ -310,26 +305,27 @@ export default function CheckpointScreen() {
         )}
         {!loading && loadFailure}
         {checkError && !error && (
-          <Txt variant="secondary" color={t.c.bad} style={{ textAlign: "center" }}>{checkError}</Txt>
+          <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert" style={{ textAlign: "center" }}>{tr("err.check")}</Txt>
         )}
 
         {exercise && !loading && (
-          <ExerciseCard translationEnabled={false} key={round} exercise={exercise} locked={phase === "feedback"} onChange={(v) => setResponse(v)} />
+          <ExerciseCard translationEnabled={false} key={round} exercise={exercise} feedback={result ?? undefined} locked={checking || submissionLocked || phase === "feedback"} onChange={(v) => {
+            if (!submittingRef.current && !submissionLocked && !result) setResponse(v);
+          }} />
         )}
 
-        {phase === "feedback" && result && (
-          <Card style={{ gap: 4, borderColor: verdictColor, borderWidth: 2 }}>
-            <Txt variant="cardTitle" color={verdictColor}>
-              {result.correct ? tr("ch.strike") : tr("ch.miss")}
-            </Txt>
-            {!result.correct && <Txt variant="mono" color={t.c.ink2}>{result.correct_answer}</Txt>}
-          </Card>
+        {phase === "feedback" && result && exercise && (
+          <ResultPanel result={result} exercise={exercise} levelUp={null} explained={null} explainLoading={false} />
         )}
       </ScrollView>
 
-      {phase === "solving" && exercise && !loading && (
+      {exercise && !loading && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.c.screen, borderTopColor: t.c.line }]}>
-          <Button label={checking ? tr("action.checking") : tr("action.check")} onPress={onCheck} disabled={response === null || checking} />
+          {phase === "feedback" ? (
+            <Button label={tr(quizFinished ? "action.finish" : "action.continue")} onPress={advance} />
+          ) : (
+            <Button label={tr(checking ? "action.checking" : checkError ? "action.tryAgain" : "action.check")} onPress={onCheck} disabled={response === null || checking} />
+          )}
         </View>
       )}
     </View>

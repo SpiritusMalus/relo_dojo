@@ -21,11 +21,13 @@ import asyncio
 import hashlib
 import logging
 import os
+import random
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncIterator, Optional
+from secrets import compare_digest
+from typing import AsyncIterator, Coroutine, Optional, TypeVar
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,6 +64,8 @@ from .schemas import (
     TranslateIn,
     TranslateOut,
     ReviewIn,
+    ReviewExerciseTokenIn,
+    ReviewExerciseTokenOut,
     ContentBuyOut,
     ContentIn,
     ReviewOut,
@@ -70,12 +74,14 @@ from .schemas import (
     AdRewardOut,
     ScrollOut,
     StoryArcOut,
+    StoryBeatIn,
     StoryCatalogOut,
     StoryIn,
     StoryOut,
 )
 from .services import ads, analytics, chapters, content, dojo, gating, grammar, http_client, learner_profile, miss_log, rewards, stories, tokens
 from .services import wallet as wallet_service
+from .services._grammar_generators import AssessmentUnavailable, valid_assessment_spec
 from .services.llm import LLMError as OllamaError  # one exception across providers
 from .services.llm import generate_stream as llm_generate_stream
 
@@ -189,17 +195,83 @@ def health(response: Response) -> dict[str, str]:
     return {"status": "ok"}
 
 
+_Generated = TypeVar("_Generated")
+
+
+async def _verify_request_connected(request: Request | None) -> None:
+    if request is not None and await request.is_disconnected():
+        raise HTTPException(499, detail="The request was cancelled.")
+
+
+async def _generate_while_connected(
+    request: Request | None, generation: Coroutine[object, object, _Generated],
+) -> _Generated:
+    if request is None:  # Direct service tests do not pass an ASGI request.
+        return await generation
+
+    finished = asyncio.Event()
+
+    async def watch_disconnect() -> None:
+        while not finished.is_set():
+            await _verify_request_connected(request)
+            # Starlette polls inside an AnyIO cancellation scope. Signal shutdown
+            # explicitly instead of cancelling the poll task through that scope.
+            try:
+                await asyncio.wait_for(finished.wait(), timeout=0.15)
+            except TimeoutError:
+                continue
+
+    model = asyncio.create_task(generation)
+    monitor = asyncio.create_task(watch_disconnect())
+    try:
+        done, _ = await asyncio.wait((model, monitor), return_when=asyncio.FIRST_COMPLETED)
+        if monitor in done:
+            monitor.result()
+        return model.result()
+    finally:
+        finished.set()
+        model.cancel()
+        await asyncio.gather(model, monitor, return_exceptions=True)
+
+
+def _review_identity(user: User | None, request: Request | None) -> tuple[str | None, str | None]:
+    return (
+        str(user.id) if user is not None else None,
+        request.headers.get("X-Relo-Review-Guest") if request is not None else None,
+    )
+
+
+def _check_token(
+    token: str, user: User | None, request: Request | None,
+) -> tuple[dict, bool]:
+    try:
+        data = tokens.unseal(token)
+        if "story_resume" in data:
+            raise tokens.TokenError("This token can only retry a story beat.")
+        return data, tokens.validate_review(data, *_review_identity(user, request))
+    except tokens.ReviewScopeError as exc:
+        raise HTTPException(403, detail=str(exc)) from exc
+    except tokens.TokenError as exc:
+        raise HTTPException(400, detail={"code": "exercise_expired", "message": str(exc)}) from exc
+
+
 @app.post("/exercise", response_model=ExerciseOut, dependencies=[Depends(llm_rate_limit)])
 async def exercise(
     payload: ExerciseIn = ExerciseIn(),
     user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
+    request: Request = None,
 ) -> ExerciseOut:
     """Adaptive exercise. Daily quota is server-enforced per tier: unverified = starter,
     verified free = FREE_DAILY_LIMIT, premium/anonymous = unmetered."""
     # Reject a capped caller up front (cheap, read-only) so we never spend an LLM call on a request
     # that can't be served; meter only AFTER a successful generation, so a 503 / retried generation
     # never burns the user's daily quota.
+    if payload.assessment and not valid_assessment_spec(payload.topic, payload.level, payload.type):
+        raise HTTPException(422, detail={
+            "code": "invalid_assessment_spec", "message": "Choose a supported topic, format and level.",
+        })
+    await _verify_request_connected(request)
     await dojo.prepare_issue(user, db, payload.learning_session_id, payload.learning_item)
     gating.ensure_daily_quota(user)
     # "About my life": when the client didn't supply a context, compose one from the learner's OWN
@@ -209,7 +281,7 @@ async def exercise(
     # no-profile callers are unchanged. Gated on the recorded 152-ФЗ cross-border consent so profile
     # text only egresses to the LLM for users who provably accepted the transfer.
     context = payload.context
-    if not (context or "").strip() and user is not None and user.pd_consent_at is not None:
+    if not payload.assessment and not (context or "").strip() and user is not None and user.pd_consent_at is not None:
         prof = await learner_profile.get_data(user, db)
         context = learner_profile.context_for(prof)
     # Cross-device personalization: top up the per-topic miss hints from the server-side miss log
@@ -217,9 +289,10 @@ async def exercise(
     # Review deck is empty, but the server remembers). Client hints always lead; same 152-ФЗ egress
     # gate as the profile context above. Only for a canonical client-chosen topic — when generation
     # picks the topic itself, we can't know it here.
-    mistakes = payload.mistakes
+    mistakes = [] if payload.assessment else payload.mistakes
     if (
-        user is not None
+        not payload.assessment
+        and user is not None
         and user.pd_consent_at is not None
         and payload.topic in grammar._TOPIC_NAMES
         and len(mistakes) < grammar.MAX_MISTAKE_HINTS
@@ -230,7 +303,8 @@ async def exercise(
         if server_hints:
             mistakes = miss_log.merge_hints(mistakes, server_hints, cap=grammar.MAX_MISTAKE_HINTS)
     try:
-        data = await grammar.generate_exercise(
+        mode = {"assessment": True} if payload.assessment else {}
+        data = await _generate_while_connected(request, grammar.generate_exercise(
             topic=payload.topic,
             level=payload.level,
             ex_type=payload.type,
@@ -238,41 +312,113 @@ async def exercise(
             mistakes=mistakes,
             lang=payload.lang,
             practice_index=payload.practice_index,
-        )
+            **mode,
+        ))
+    except AssessmentUnavailable as exc:
+        raise HTTPException(503, detail={"code": "assessment_unavailable", "message": str(exc)}) from exc
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    if payload.learning_session_id is not None and settings.DOJO_ENABLED:
+    await _verify_request_connected(request)
+    bound = payload.learning_session_id is not None and settings.DOJO_ENABLED
+    if bound:
         data = await dojo.bind_exercise(user, db, payload.learning_session_id, payload.learning_item, data, payload.lang)
+    data["learning_bound"] = bound
+    exercise_out = ExerciseOut(**tokens.attach_review_token(data, *_review_identity(user, request)))
+    await _verify_request_connected(request)
     await gating.consume_daily_exercise(user, db)
-    # grammar guarantees keys; the answer stays sealed in `token`, never in plaintext here.
-    return ExerciseOut(**data)
+    return exercise_out
+
+
+_STORY_RESUME_SECONDS = 2 * 60 * 60
+
+
+def _require_available_story(scenario_id: str, owned: set[str]) -> None:
+    scenario = stories._BY_ID.get(scenario_id)
+    if scenario is None:
+        raise HTTPException(404, detail="Unknown story.")
+    if not stories.is_available(scenario, owned):
+        raise HTTPException(403, detail="This arc is locked. Unlock it with koku.")
 
 
 @app.post("/story", response_model=StoryOut, dependencies=[Depends(llm_rate_limit)])
 async def story(
     payload: StoryIn = StoryIn(),
     user: Optional[User] = Depends(get_current_user_optional),
+    request: Request = None,
 ) -> StoryOut:
-    """Themed mini-story (a sequence of linked exercises). Open to everyone, incl. anonymous users
-    (Duo-style generous taste — content gating lives in services/access.py, and stories are open).
-
-    Each beat's answer stays sealed in its own `token` and is graded by the existing /check.
-    A specific `id` selects an arc; premium arcs require the matching content unlock (403 otherwise).
-    """
+    """Open a story with optional independent retries for beats that cannot be delivered."""
     owned = set(content.owned_ids(user)) if user is not None else set()
-    if payload.id:
-        scenario = stories._BY_ID.get(payload.id)
-        if scenario is None:
-            raise HTTPException(status_code=404, detail="Unknown story.")
-        if not stories.is_available(scenario, owned):
-            raise HTTPException(status_code=403, detail="This arc is locked. Unlock it with koku.")
+    scenario_id = payload.id or random.choice(stories.available_ids(owned))
+    _require_available_story(scenario_id, owned)
+    identity = _review_identity(user, request)
+    scope = tokens._review_scope(*identity)
+    if payload.allow_partial and scope is None:
+        raise HTTPException(422, detail={
+            "code": "story_scope_required", "message": "A learner identity is required to retry story beats.",
+        })
+    await _verify_request_connected(request)
     try:
-        data = await stories.build_story(
-            level=payload.level, context_override=payload.context, scenario_id=payload.id, lang=payload.lang
-        )
+        options = {"allow_partial": True} if payload.allow_partial else {}
+        data = await _generate_while_connected(request, stories.build_story(
+            level=payload.level, context_override=payload.context, scenario_id=scenario_id, lang=payload.lang,
+            **options,
+        ))
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    retry_formats = data.pop("retry_formats", {})
+    if retry_formats:
+        data["resume_token"] = tokens.seal({"story_resume": {
+            "scope": scope, "scene": scenario_id, "level": data["level"], "context": payload.context,
+            "lang": payload.lang, "retry_formats": retry_formats,
+            "expires": int(datetime.now(timezone.utc).timestamp()) + _STORY_RESUME_SECONDS,
+        }})
+    for beat in data["beats"]:
+        if beat["exercise"] is not None:
+            beat["exercise"] = tokens.attach_review_token(beat["exercise"], *identity)
     return StoryOut(**data)
+
+
+@app.post("/story/beat", response_model=ExerciseOut, dependencies=[Depends(llm_rate_limit)])
+async def story_beat(
+    payload: StoryBeatIn,
+    user: Optional[User] = Depends(get_current_user_optional),
+    request: Request = None,
+) -> ExerciseOut:
+    """Regenerate only a missing beat within the original story and learner scope."""
+    try:
+        resume = tokens.unseal(payload.resume_token).get("story_resume")
+    except tokens.TokenError:
+        resume = None
+    if (not isinstance(resume, dict) or not isinstance(resume.get("expires"), int)
+            or resume["expires"] <= datetime.now(timezone.utc).timestamp()):
+        raise HTTPException(400, detail={
+            "code": "story_resume_expired", "message": "This story can no longer retry missing beats.",
+        })
+    identity = _review_identity(user, request)
+    scope = tokens._review_scope(*identity)
+    if scope is None or not compare_digest(scope, resume["scope"]):
+        raise HTTPException(403, detail="This story belongs to another learner.")
+    kind = resume["retry_formats"].get(str(payload.index))
+    if kind is None:
+        raise HTTPException(409, detail={
+            "code": "story_beat_already_available", "message": "This beat is already available in the story.",
+        })
+
+    owned = set(content.owned_ids(user)) if user is not None else set()
+    _require_available_story(resume["scene"], owned)
+    await _verify_request_connected(request)
+    try:
+        data = await _generate_while_connected(request, stories.generate_beat(
+            resume["scene"], payload.index, resume["level"], resume["context"], resume["lang"], kind,
+        ))
+        if data["level"] != resume["level"]:
+            raise OllamaError("The requested story level was unavailable.")
+    except OllamaError as exc:
+        raise HTTPException(503, detail={
+            "code": "story_beat_unavailable", "message": "This beat is temporarily unavailable. Try again.",
+        }) from exc
+    return ExerciseOut(**tokens.attach_review_token(data, *identity))
 
 
 @app.get("/story/catalog", response_model=StoryCatalogOut)
@@ -313,6 +459,23 @@ async def content_buy(
     return ContentBuyOut(owned=content.owned_ids(user), coins=user.coins)
 
 
+@app.post("/review/exercise-token", response_model=ReviewExerciseTokenOut, dependencies=[Depends(check_rate_limit)])
+async def renew_review_exercise(
+    payload: ReviewExerciseTokenIn,
+    user: Optional[User] = Depends(get_current_user_optional),
+    request: Request = None,
+) -> ReviewExerciseTokenOut:
+    try:
+        review_token = tokens.renew_review_token(payload.token, *_review_identity(user, request))
+    except tokens.ReviewScopeError as exc:
+        raise HTTPException(403, detail=str(exc)) from exc
+    except tokens.TokenError as exc:
+        raise HTTPException(400, detail={
+            "code": "review_unrecoverable", "message": "This review item cannot be renewed.",
+        }) from exc
+    return ReviewExerciseTokenOut(review_token=review_token)
+
+
 @app.post("/check", response_model=CheckOut, dependencies=[Depends(check_rate_limit)])
 async def check(
     payload: CheckIn,
@@ -324,18 +487,18 @@ async def check(
 
     Economy: a correct answer earns koku for authenticated callers (server-authoritative —
     the wallet can only grow here, never via the client). Anonymous callers grade as before."""
-    try:
-        sealed = tokens.unseal(payload.token)
-    except tokens.TokenError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    sealed, study_review = _check_token(payload.token, user, request)
     if "_chapter_review_owner" in sealed:
         return chapters.check_review(user, sealed, payload.response)
     if "_chapter" in sealed:
         return await chapters.check(user, db, sealed, payload.token, payload.response)
     evidence = await dojo.validate_grade(user, db, sealed, payload.token)
+    recorded = await dojo.get_recorded_grade(user, db, evidence)
     if sealed.get("t") == "listen-and-retell":
         raise HTTPException(400, detail="Use the retelling check for this exercise.")
     if sealed.get("t") == "dojo-free-text":
+        if recorded is not None:
+            return CheckOut(**recorded)
         if request is not None:
             await llm_rate_limit(request)
         if not isinstance(payload.response, str) or not payload.response.strip() or len(payload.response) > 1000:
@@ -346,10 +509,19 @@ async def check(
                 tone=prof.tone if prof else None, weak_spots=prof.weakSpots if prof else None)
         except OllamaError as exc:
             raise HTTPException(503, detail=str(exc)) from exc
-        await dojo.record_grade(user, db, evidence, result.get("correct", False))
-        return CheckOut(**result, score=1.0 if result.get("correct") else 0.0)
-    result = grammar.grade(sealed, payload.response)
-    await dojo.record_grade(user, db, evidence, result.get("correct", False))
+        result, _ = await dojo.record_grade(user, db, evidence, {
+            **result, "score": float(bool(result.get("correct"))),
+        }, persist_feedback=False)
+        return CheckOut(**result)
+    result = recorded if recorded is not None else grammar.grade(sealed, payload.response)
+    if study_review:
+        return CheckOut(**result)
+    first_result = False
+    if recorded is None:
+        result, first_result = await dojo.record_grade(
+            user, db, evidence, result, reset_combo=True,
+            miss=(sealed.get("topic"), sealed.get("text") or sealed.get("sentence")),
+        )
     coins_earned, coins, first_win_bonus, combo_bonus = 0, None, 0, 0
     if result.get("correct"):
         # One-time-use: key the koku award on the token's hash so resubmitting the same correct
@@ -359,7 +531,7 @@ async def check(
         coins_earned, coins, first_win_bonus, combo_bonus = await wallet_service.award_correct_check(
             user, db, jti=jti, **({"durable_item_id": uuid.UUID(source_item)} if source_item else {})
         )
-    else:
+    elif first_result and evidence is None:
         # A wrong answer breaks the consecutive-correct combo run (server-side).
         await wallet_service.reset_correct_run(user, db)
         # ...and lands in the server-side miss log (newer tokens carry topic + a drill sentence;
@@ -402,19 +574,20 @@ async def check_retell(
     payload: CheckRetellIn,
     user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
+    request: Request = None,
 ) -> CheckTextOut:
     """LLM grade of a listen-and-retell answer: content coverage, not grammar (the rubric lives in
     grammar.check_retell). The passage comes out of the exercise's sealed token, so this endpoint
     only ever grades passages our generator spoke — it can't be driven as a free-form LLM proxy.
     `correct_answer` is the original passage: the reveal after answering IS the learning payoff.
     No koku here (mirrors /check-answer): an LLM verdict must not mint coins."""
-    try:
-        sealed = tokens.unseal(payload.token)
-    except tokens.TokenError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    sealed, study_review = _check_token(payload.token, user, request)
     if sealed.get("t") != "listen-and-retell" or not sealed.get("passage"):
         raise HTTPException(status_code=400, detail="Not a listen-and-retell token.")
     evidence = await dojo.validate_grade(user, db, sealed, payload.token)
+    recorded = await dojo.get_recorded_grade(user, db, evidence)
+    if recorded is not None:
+        return CheckTextOut(**{**recorded, "correct_answer": sealed["passage"]})
     prof = await learner_profile.get_data(user, db)
     try:
         data = await grammar.check_retell(
@@ -426,11 +599,15 @@ async def check_retell(
         )
     except OllamaError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    await dojo.record_grade(user, db, evidence, data.get("correct", False))
-    if not data.get("correct"):
+    if study_review:
+        return CheckTextOut(**data)
+    result, first_result = await dojo.record_grade(
+        user, db, evidence, data, persist_feedback=False, miss=(sealed.get("topic"), sealed.get("passage")),
+    )
+    if first_result and evidence is None and not result.get("correct"):
         # Same weak-spot memory as /check: a missed retelling is a listening miss on this topic.
         await miss_log.record_miss(db, user, sealed.get("topic"), sealed.get("passage"))
-    return CheckTextOut(**data)
+    return CheckTextOut(**{**result, "correct_answer": sealed["passage"]})
 
 
 @app.post("/explain", response_model=ExplainOut, dependencies=[Depends(llm_rate_limit)])

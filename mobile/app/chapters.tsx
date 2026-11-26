@@ -69,7 +69,7 @@ export default function ChaptersScreen() {
         const rewardLabel = copy.rewardLabel(dojoItemName(itemId, lang));
         return <Pressable key={id} disabled={!available} accessibilityRole="button"
           accessibilityLabel={`${chapter.title}. ${chapter.goal} ${summary ? copy.progress(summary) : copy.path}. ${rewardLabel}`}
-          onPress={() => { if (isCurrentAccountScope(scope)) router.push({ pathname: "/chapter", params: { id } }); }}
+          onPress={() => { if (isCurrentAccountScope(scope)) router.navigate({ pathname: "/chapter", params: { id } }); }}
           style={({ pressed }) => [styles.row, { borderColor: t.c.line, backgroundColor: pressed ? t.c.surface2 : "transparent", opacity: available ? 1 : 0.5 }]}>
           <View style={styles.art}><DojoItemArtwork itemId={itemId} size={74} /></View>
           <View style={{ flex: 1, gap: 6 }}>

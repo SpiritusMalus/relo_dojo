@@ -20,8 +20,8 @@ import { useAuth } from "./auth";
 import { isCurrentAccountScope, type AccountScope } from "./accountScope";
 import { useAccountScope } from "./useAccountScope";
 import { useWallet } from "./wallet";
-import { effectiveSkill, LISTENING_FORMATS, RECENT_ANSWERS, updateListening, updateSkill, type AnswerEffort, type AnswerEvidence, type ListeningStat } from "./adaptive";
-import { MASTERY_WINDOW, type AnswerMark } from "./curriculum";
+import { effectiveSkill, RECENT_ANSWERS, updateListening, updateSkill, type AnswerEffort, type AnswerEvidence, type ListeningStat } from "./adaptive";
+import { evidenceKindFor, MASTERY_WINDOW, type AnswerMark, type EvidenceKind } from "./curriculum";
 import {
   MIN_REPAIRABLE_STREAK,
   repairOpen,
@@ -43,7 +43,13 @@ export const COMBO_BONUS_XP = 20;
 export const BOOST_MINUTES = 15;
 export const BOOST_MULTIPLIER = 2;
 
-export type TopicStat = { attempts: number; correct: number; lastSeen?: string; recent?: AnswerEvidence[] }; // lastSeen: local YYYY-MM-DD
+export type TopicStat = {
+  attempts: number;
+  correct: number;
+  lastSeen?: string;
+  lastAnsweredAt?: number;
+  recent?: AnswerEvidence[];
+};
 
 export type Profile = {
   goals: string[];
@@ -231,7 +237,12 @@ function isYesterday(prev: string, today: Date): boolean {
 /** Optional grading signal for a difficulty-aware skill update (store/adaptive.ts). `score` is the
  *  partial credit (0..1); `difficulty` is the served item's difficulty on the 0..5 scale; `format`
  *  is the exercise type — course mastery weighs constructive formats above guessable ones. */
-export type GradeSignal = AnswerEffort & { score?: number; difficulty?: number; format?: string };
+export type GradeSignal = AnswerEffort & {
+  score?: number;
+  difficulty?: number;
+  format?: string;
+  evidenceKind?: EvidenceKind;
+};
 
 /** Apply one answer to progress, returning a new immutable Progress. `now` is injectable for tests. */
 export function recordAnswer(
@@ -243,6 +254,7 @@ export function recordAnswer(
 ): Progress {
   const today = localDate(now);
 
+  const kind = evidenceKindFor(grade?.format, grade?.evidenceKind);
   const existing = prev.topics[topic] ?? { attempts: 0, correct: 0 };
   const score = Number.isFinite(grade?.score) ? Math.min(1, Math.max(0, grade!.score!)) : correct ? 1 : 0;
   const difficulty = Number.isFinite(grade?.difficulty)
@@ -251,12 +263,13 @@ export function recordAnswer(
   const evidence: AnswerEvidence = { score, difficulty, format: grade?.format ?? "" };
   if (Number.isFinite(grade?.elapsedMs)) evidence.elapsedMs = Math.min(600_000, Math.max(0, Math.round(grade!.elapsedMs!)));
   if (grade?.hintUsed) evidence.hintUsed = true;
-  const topics = {
+  const topics = kind !== "topic" ? prev.topics : {
     ...prev.topics,
     [topic]: {
       attempts: existing.attempts + 1,
       correct: existing.correct + (correct ? 1 : 0),
       lastSeen: today, // drives spaced-repetition review urgency (store/adaptive.ts)
+      lastAnsweredAt: now.getTime(),
       recent: [...(existing.recent ?? []), evidence].slice(-RECENT_ANSWERS),
     },
   };
@@ -268,11 +281,12 @@ export function recordAnswer(
   // the unit READY for its checkpoint (зачёт) — mastery itself is granted only by passing that quiz
   // (withUnitMastered, called from the checkpoint screen). Never granted here, never revoked.
   const prevCourse = prev.course ?? DEFAULT_COURSE;
-  const marks = [...(prevCourse.history[topic] ?? []), { c: correct && !grade?.hintUsed, f: grade?.format ?? "" }].slice(
-    -MASTERY_WINDOW
-  );
-  const course: CourseState = {
-    history: { ...prevCourse.history, [topic]: marks },
+  const course: CourseState = kind !== "topic" ? prevCourse : {
+    history: {
+      ...prevCourse.history,
+      [topic]: [...(prevCourse.history[topic] ?? []).filter((mark) => evidenceKindFor(mark.f) === "topic"),
+        { c: correct && !grade?.hintUsed, f: grade?.format ?? "" }].slice(-MASTERY_WINDOW),
+    },
     mastered: prevCourse.mastered,
   };
 
@@ -311,10 +325,10 @@ export function recordAnswer(
     // Adaptive level update uses prior attempts (prev), so compute before the increment is "seen".
     // Prefer the partial score + served difficulty when available (difficulty-aware update);
     // otherwise fall back to the boolean correctness.
-    skill: updateSkill(prev, topic, score, difficulty, grade),
-    // Listening exercises also feed the modality estimate (Level Test diagnosis between tests).
+    skill: kind === "topic" ? updateSkill(prev, topic, score, difficulty, grade) : prev.skill,
+    // Listening counts as learning activity and updates its own modality, not grammar skill.
     listening:
-      grade?.format && LISTENING_FORMATS.has(grade.format)
+      kind === "listening"
         ? updateListening(prev.listening, score, difficulty, grade)
         : prev.listening,
     // Daily-goal counter: reset on a new local day, otherwise increment.
@@ -353,7 +367,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     if (!ta) topics[key] = tb;
     else if (!tb) topics[key] = ta;
     else {
-      const chosen = tb.attempts > ta.attempts ? tb : ta;
+      const chosen = compareTopicEvidence(tb, ta) > 0 ? tb : ta;
       // Keep the most recent practice date so spaced-repetition timing isn't reset by a sync.
       const lastSeen = [ta.lastSeen, tb.lastSeen].filter(Boolean).sort().pop();
       topics[key] = lastSeen ? { ...chosen, lastSeen } : chosen;
@@ -368,7 +382,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     const sb = bSkill[key];
     if (sa === undefined) skill[key] = sb;
     else if (sb === undefined) skill[key] = sa;
-    else skill[key] = (b.topics[key]?.attempts ?? 0) > (a.topics[key]?.attempts ?? 0) ? sb : sa;
+    else skill[key] = compareTopicEvidence(b.topics[key], a.topics[key]) > 0 ? sb : sa;
   }
   return {
     xp: Math.max(a.xp, b.xp),
@@ -418,7 +432,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     levelHistory: mergeLevelHistory(a.levelHistory, b.levelHistory),
     // Learner steering: field-wise merge (server canonical wins where it carries intent).
     steering: mergeSteering(a.steering, b.steering),
-    course: mergeCourse(a.course ?? DEFAULT_COURSE, b.course ?? DEFAULT_COURSE),
+    course: mergeCourse(a, b),
     listening: mergeListening(a.listening, b.listening),
   };
 }
@@ -441,16 +455,28 @@ function mergeLevelHistory(a?: LevelSnapshot[], b?: LevelSnapshot[]): LevelSnaps
     .slice(-LEVEL_HISTORY_MAX);
 }
 
-/** Course merge: mastered units are a one-way set (union); per-topic history keeps the side with
- *  more evidence (longer window) — interleaving two devices' windows would fabricate an order. */
-function mergeCourse(a: CourseState, b: CourseState): CourseState {
+function compareTopicEvidence(a?: TopicStat, b?: TopicStat): number {
+  const attempts = (a?.attempts ?? 0) - (b?.attempts ?? 0);
+  if (attempts) return attempts;
+  if (a?.lastAnsweredAt != null && b?.lastAnsweredAt != null) {
+    return a.lastAnsweredAt - b.lastAnsweredAt;
+  }
+  return (a?.lastSeen ?? "").localeCompare(b?.lastSeen ?? "");
+}
+
+/** Course merge keeps one coherent history per topic, preferring the newer evidence. */
+function mergeCourse(left: Progress, right: Progress): CourseState {
+  const a = left.course ?? DEFAULT_COURSE;
+  const b = right.course ?? DEFAULT_COURSE;
   const history: Record<string, AnswerMark[]> = {};
   for (const key of new Set([...Object.keys(a.history), ...Object.keys(b.history)])) {
     const ha = a.history[key] ?? [];
     const hb = b.history[key] ?? [];
-    // Keep the side with more evidence, capped to the window so an oversized legacy/corrupt stored
-    // array can't win the merge and persist unbounded (masteryOf re-slices on read anyway).
-    history[key] = (hb.length > ha.length ? hb : ha).slice(-MASTERY_WINDOW);
+    const newer = compareTopicEvidence(right.topics[key], left.topics[key]);
+    // Some legacy snapshots lack topic statistics. In that case prefer the longer history,
+    // and do not replace a non-empty window with a missing legacy field.
+    const selected = !ha.length || (!!hb.length && (newer > 0 || (newer === 0 && hb.length > ha.length))) ? hb : ha;
+    history[key] = selected.slice(-MASTERY_WINDOW);
   }
   return { history, mastered: Array.from(new Set([...a.mastered, ...b.mastered])) };
 }

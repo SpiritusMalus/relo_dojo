@@ -7,6 +7,7 @@ import type { CalItem, CalSkill } from "../../store/calibrationBank";
 
 const mockSave = jest.fn();
 const mockBack = jest.fn();
+const mockAssess = jest.fn();
 const mockBank: CalItem[] = Array.from({ length: 16 }, (_, i) => {
   const skill = (["grammar", "vocab", "reading", "listening"] as CalSkill[])[i % 4];
   return { id: `q${i}`, topic: skill, skill, level: 2.5, text: `Question ${i}`, options: ["yes", "no"], answer: "yes",
@@ -16,6 +17,10 @@ const mockBank: CalItem[] = Array.from({ length: 16 }, (_, i) => {
 });
 
 jest.mock("expo-router", () => ({ useRouter: () => ({ back: mockBack }) }));
+jest.mock("../../services/api", () => ({
+  ...jest.requireActual("../../services/api"),
+  assessWriting: (...args: unknown[]) => mockAssess(...args),
+}));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock("../../store/i18n", () => ({ useI18n: () => ({ lang: "en", t: (key: string) => key }) }));
 jest.mock("../../store/progress", () => {
@@ -100,7 +105,8 @@ it("a synchronous TTS failure has an explicit skip path and saves only the actua
 });
 
 it("a TTS engine that never calls back times out into retry and skip, never a dead Check button", async () => {
-  jest.useFakeTimers();
+  // React's async act keeps a reference to the task scheduler. Leave it on real timers.
+  jest.useFakeTimers({ doNotFake: ["setImmediate", "clearImmediate", "nextTick", "queueMicrotask"] });
   let r: ReactTestRenderer | undefined;
   try {
     jest.mocked(Speech.speak).mockImplementation(() => {});
@@ -113,5 +119,41 @@ it("a TTS engine that never calls back times out into retry and skip, never a de
   } finally {
     if (r) act(() => r!.unmount());
     jest.useRealTimers();
+  }
+});
+
+it("keeps the draft on a writing outage, accepts one retry and shows assessor feedback", async () => {
+  jest.mocked(Speech.speak).mockImplementation(() => { throw new Error("missing TTS"); });
+  const r = await reachListening();
+  try {
+    await press(r, "lt.skipAudio");
+    for (let i = 0; !button(r, "lt.writingSkip") && i < 20; i++) {
+      await answer(r);
+      await press(r, "action.continue");
+    }
+    const draft = "I missed the meeting, so I wrote to the team.";
+    const input = () => r.root.findAll((node) => node.props.accessibilityLabel === "lt.writingTitle"
+      && typeof node.props.onChangeText === "function")[0];
+    expect(input().props.maxLength).toBe(2000);
+    act(() => input().props.onChangeText(draft));
+    let reject!: (error: Error) => void;
+    mockAssess.mockReturnValueOnce(new Promise((_resolve, fail) => { reject = fail; }));
+    const send = button(r, "lt.writingSubmit").props.onPress;
+    act(() => { send(); send(); });
+    expect(mockAssess).toHaveBeenCalledTimes(1);
+    await act(async () => { reject(new Error("offline")); });
+    expect(input().props.value).toBe(draft);
+    expect(JSON.stringify(r.toJSON())).toContain("lt.writingError");
+    expect(mockSave).not.toHaveBeenCalled();
+
+    mockAssess.mockResolvedValueOnce({ cefr: "B1", score: 2.5, note: "Clear explanation of what happened." });
+    await press(r, "action.tryAgain");
+    expect(mockAssess.mock.calls[1][0]).toBe(draft);
+    expect(mockAssess.mock.calls[1][1]).toBe(mockAssess.mock.calls[0][1]);
+    expect(JSON.stringify(r.toJSON())).toContain("Clear explanation of what happened.");
+    await press(r, "lt.save");
+    expect(mockSave.mock.calls[0][3].skills.writing).toBe(2.5);
+  } finally {
+    act(() => r.unmount());
   }
 });

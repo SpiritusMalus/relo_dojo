@@ -12,7 +12,8 @@ Bounded by design, like every per-user table here: one row per distinct (user, t
 repeat miss bumps the timestamp/counter — and at most MISS_CAP rows per (user, topic), oldest
 trimmed on write. `text` is server-generated exercise content, not learner-authored prose; egress
 into an LLM prompt is still gated by the caller on the same 152-ФЗ consent as profile context.
-Recording must never break grading: record_miss swallows (and logs) storage errors.
+Standalone recording swallows (and logs) storage errors. Bound practice commits the miss and its
+first verdict together so a failed write can be retried without duplicating either.
 """
 
 from __future__ import annotations
@@ -53,37 +54,41 @@ def merge_hints(client: list[str], server: list[str], cap: int) -> list[str]:
     return out
 
 
-async def record_miss(db: AsyncSession, user: User | None, topic: str | None, text: str | None) -> None:
-    """Record one missed item. No-op for anonymous callers and for tokens without topic/text.
-    Upsert on (user, topic, text) — a repeat miss bumps missed_at/misses — then trim the (user,
-    topic) bucket to MISS_CAP newest rows. Swallows storage errors: bookkeeping never breaks /check."""
+async def stage_miss(db: AsyncSession, user: User | None, topic: str | None, text: str | None) -> bool:
+    """Write a miss in the caller's transaction, returning whether a row was written."""
     t = _clean(topic, 60)
     s = _clean(text, _TEXT_MAX_LEN)
     if user is None or not t or not s:
-        return
+        return False
+    await db.execute(
+        pg_insert(MissLog)
+        .values(user_id=user.id, topic=t, text=s)
+        .on_conflict_do_update(
+            index_elements=["user_id", "topic", "text"],
+            set_={"misses": MissLog.misses + 1, "missed_at": func.now()},
+        )
+    )
+    # Trim the bucket to the newest MISS_CAP rows.
+    keep = (
+        select(MissLog.id)
+        .where(MissLog.user_id == user.id, MissLog.topic == t)
+        .order_by(MissLog.missed_at.desc())
+        .limit(MISS_CAP)
+    )
+    await db.execute(
+        delete(MissLog).where(
+            MissLog.user_id == user.id, MissLog.topic == t, MissLog.id.not_in(keep)
+        )
+    )
+    return True
+
+
+async def record_miss(db: AsyncSession, user: User | None, topic: str | None, text: str | None) -> None:
+    """Best-effort miss logging for standalone cards, independent of their verdict."""
     try:
-        await db.execute(
-            pg_insert(MissLog)
-            .values(user_id=user.id, topic=t, text=s)
-            .on_conflict_do_update(
-                constraint="uq_miss_log_user_topic_text",
-                set_={"misses": MissLog.misses + 1, "missed_at": func.now()},
-            )
-        )
-        # Trim the bucket to the newest MISS_CAP rows (the whole point: bounded, fresh memory).
-        keep = (
-            select(MissLog.id)
-            .where(MissLog.user_id == user.id, MissLog.topic == t)
-            .order_by(MissLog.missed_at.desc())
-            .limit(MISS_CAP)
-        )
-        await db.execute(
-            delete(MissLog).where(
-                MissLog.user_id == user.id, MissLog.topic == t, MissLog.id.not_in(keep)
-            )
-        )
-        await db.commit()
-    except Exception:  # never fail grading on bookkeeping
+        if await stage_miss(db, user, topic, text):
+            await db.commit()
+    except Exception:  # standalone bookkeeping never fails grading
         logger.exception("miss_log: record failed — skipping.")
         await db.rollback()
 

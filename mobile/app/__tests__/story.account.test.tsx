@@ -1,7 +1,8 @@
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import StoryScreen from "../story";
+import Button from "../../components/ui/Button";
 import { ThemeProvider } from "../../theme/theme";
-import { buyContent, getStory, getStoryCatalog, type StoryCatalog } from "../../services/api";
+import { buyContent, getStory, getStoryCatalog, retryStoryBeat, type Exercise, type StoryCatalog } from "../../services/api";
 import { setAccountToken } from "../../store/accountScope";
 
 const mockRefresh = jest.fn(async () => {});
@@ -19,7 +20,7 @@ jest.mock("../../store/useExerciseCheck", () => ({ useExerciseCheck: () => ({
   reset: mockReset, beginAttempt: jest.fn(), check: jest.fn(), doExplain: jest.fn(), markHintUsed: jest.fn(),
 }) }));
 jest.mock("../../services/api", () => ({
-  ...jest.requireActual("../../services/api"), buyContent: jest.fn(), getStory: jest.fn(), getStoryCatalog: jest.fn(),
+  ...jest.requireActual("../../services/api"), buyContent: jest.fn(), getStory: jest.fn(), getStoryCatalog: jest.fn(), retryStoryBeat: jest.fn(),
 }));
 jest.mock("../../components/ui/Sensei", () => () => null);
 jest.mock("../../components/ui/Confetti", () => () => null);
@@ -90,4 +91,31 @@ it("does not let an old A arc callback buy content with B's bearer", async () =>
   await act(async () => { await oldPress(); });
   expect(buyContent).not.toHaveBeenCalled();
   expect(getStory).not.toHaveBeenCalled();
+});
+
+it("retries only the unavailable story beat and preserves the rest of the run", async () => {
+  const exercise: Exercise = {
+    type: "multiple-choice", topic: "articles", level: "A1", text: "I bought ___ apple.",
+    prompt: "", options: ["a", "an"], tiles: [], tokens: [], left: [], right: [], blankOptions: [], token: "fixture",
+  };
+  jest.mocked(getStoryCatalog).mockResolvedValueOnce({ ...catalog, arcs: [{ ...catalog.arcs[0], owned: true }] });
+  jest.mocked(getStory).mockResolvedValueOnce({
+    id: "arc", level: "A1", title: "Shared flat", intro: "At the market", resume_token: "resume-for-fixture",
+    beats: [{ exercise: null, narration: "The first part needs a retry." }, { exercise, narration: "The next part is already here." }],
+  });
+  await mount();
+  await act(async () => { await arcPress()(); });
+  const action = (label: string) => renderer!.root.findAll((node) => node.type === Button && node.props.label === label)[0];
+  expect(JSON.stringify(renderer!.toJSON())).toContain("The first part needs a retry.");
+  const retry = deferred<Exercise>();
+  jest.mocked(retryStoryBeat).mockReturnValueOnce(retry.promise);
+  const press = action("action.tryAgain").props.onPress;
+  act(() => { press(); press(); });
+  expect(retryStoryBeat).toHaveBeenCalledTimes(1);
+  expect(retryStoryBeat).toHaveBeenCalledWith("resume-for-fixture", 0, expect.objectContaining({ aborted: false }));
+  expect(action("story.preparingBeat").props.disabled).toBe(true);
+  await act(async () => { retry.resolve(exercise); });
+  expect(action("action.check")).toBeDefined();
+  expect(JSON.stringify(renderer!.toJSON())).toContain("The first part needs a retry.");
+  expect(getStory).toHaveBeenCalledTimes(1);
 });

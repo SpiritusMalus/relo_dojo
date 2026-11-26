@@ -502,7 +502,7 @@ export default function OnboardingScreen() {
               // open the full test on top. Backing out of it lands on the onboarding route for a
               // frame — the root-layout redirect (`onboarded && onOnboarding`) swaps it to the tabs.
               finish(calibratedSkill);
-              router.push("/level-test");
+              router.navigate("/level-test");
             }}
           />
         )}

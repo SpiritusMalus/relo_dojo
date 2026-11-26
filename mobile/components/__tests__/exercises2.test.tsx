@@ -87,6 +87,10 @@ describe("BuildSentence", () => {
     press(r, "am.");
     // 5 placed = the full answer length → submittable while "on" stays in the bank.
     expect(onChange).toHaveBeenLastCalledWith("We meet at 10 am.", "We meet at 10 am.");
+    const count = onChange.mock.calls.length;
+    press(r, "on");
+    expect(onChange).toHaveBeenCalledTimes(count);
+    expect(r.root.findAll((n) => n.props.accessibilityLabel === "on" && n.props.disabled === true).length).toBeGreaterThan(0);
   });
 
   it("lets the learner place a trap — a submittable wrong answer, not a dead end", () => {
@@ -129,6 +133,19 @@ describe("MatchPairs", () => {
 });
 
 describe("OrderDialog", () => {
+  it("moves a placed line without removing and rebuilding the tail", () => {
+    const onChange = jest.fn();
+    const r = render(<OrderDialog
+      exercise={ex({ type: "order-the-dialog", anchor: "Question", tiles: ["Closing", "Answer"] })}
+      locked={false}
+      onChange={onChange}
+    />);
+    press(r, "Closing");
+    press(r, "Answer");
+    press(r, "Move this line up");
+    expect(onChange).toHaveBeenLastCalledWith(["Question", "Answer", "Closing"], "Question → Answer → Closing");
+  });
+
   it("appends lines in tap order and reports them only when all are placed", () => {
     const onChange = jest.fn();
     const r = render(

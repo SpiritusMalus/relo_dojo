@@ -11,7 +11,7 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } 
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { type ResponseValue } from "../services/api";
+import { ApiError, renewReviewToken, type ResponseValue } from "../services/api";
 import ExerciseCard from "../components/ExerciseCard";
 import ResultPanel from "../components/ResultPanel";
 import { useProgress } from "../store/progress";
@@ -19,7 +19,7 @@ import { useExerciseCheck } from "../store/useExerciseCheck";
 import { useI18n } from "../store/i18n";
 import { useAccountScope } from "../store/useAccountScope";
 import { isCurrentAccountScope } from "../store/accountScope";
-import { dueMistakes, loadMistakes, nextDueAt, promoteMistakeStored, resolveMistake, type Mistake } from "../store/mistakes";
+import { dueMistakes, loadMistakes, nextDueAt, promoteMistakeStored, renewMistakeToken, type Mistake } from "../store/mistakes";
 import { loadingMessageFor } from "../i18n/loading";
 import { learningLoopCopy } from "../i18n/learningLoopCopy";
 import { useTheme } from "../theme/theme";
@@ -38,7 +38,7 @@ export default function ReviewScreen() {
   const { progress } = useProgress();
   const { t: tr, lang } = useI18n();
   const copy = learningLoopCopy(lang);
-  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
+  const { result, checking, submissionLocked, error: checkError, errorCode, explainError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
 
   const [items, setItems] = useState<Mistake[] | null>(null); // null = still loading
@@ -50,6 +50,18 @@ export default function ReviewScreen() {
   const [sessionXp, setSessionXp] = useState(0);
   const [remainingDue, setRemainingDue] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [skipped, setSkipped] = useState(0);
+  const [renewal, setRenewal] = useState<"idle" | "pending" | "failed" | "unrecoverable">("idle");
+  const [submittingState, setSubmittingState] = useState(false);
+  const submitting = useRef(false);
+  const advancedIndex = useRef(-1);
+  const renewedIds = useRef(new Set<string>());
+  const hinted = useRef(false);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
 
   const shake = useRef(new Animated.Value(0)).current;
 
@@ -60,6 +72,12 @@ export default function ReviewScreen() {
     setItems(null);
     setIndex(0);
     setFixed(0);
+    setSkipped(0);
+    setRenewal("idle");
+    setSubmittingState(false);
+    advancedIndex.current = -1;
+    renewedIds.current.clear();
+    hinted.current = false;
     setSessionXp(0);
     setRemainingDue(0);
     setFinished(false);
@@ -75,6 +93,7 @@ export default function ReviewScreen() {
   }, [scope]);
 
   function onChange(value: ResponseValue | null, display: string) {
+    if (submitting.current || submissionLocked || result) return;
     setResponse(value);
     setResponseDisplay(display);
   }
@@ -96,46 +115,78 @@ export default function ReviewScreen() {
   const total = items?.length ?? 0;
   const isLast = index >= total - 1;
 
+  const expired = errorCode === "exercise_expired" || (!errorCode && /expired/i.test(checkError ?? ""));
+  const canRecover = expired && renewal !== "unrecoverable" && !!current?.exercise.token
+    && !renewedIds.current.has(current.id);
+  const unrecoverable = expired && !canRecover && renewal !== "pending";
+  const stillOpen = () => active.current && isCurrentAccountScope(scope);
+
   async function onCheck() {
-    if (!current || response === null || checking) return;
-    const res = await check(current.exercise, response, runShake);
-    if (!res || !isCurrentAccountScope(scope)) return;
-    setSessionXp((n) => n + (res.xpEarned ?? 0));
-    if (res.correct && !res.hintUsed) {
-      setFixed((n) => n + 1);
-      await promoteMistakeStored(current.id, scope);
+    if (!current || response === null || checking || result || submitting.current || unrecoverable || !stillOpen()) return;
+    submitting.current = true;
+    setSubmittingState(true);
+    try {
+      let exercise = current.exercise;
+      if (canRecover) {
+        setRenewal("pending");
+        try {
+          const renewed = await renewReviewToken(exercise.token!);
+          if (!stillOpen()) return;
+          exercise = { ...exercise, token: renewed.review_token, review_token: undefined };
+          renewedIds.current.add(current.id);
+          setItems((list) => list?.map((item) => item.id === current.id ? { ...item, exercise } : item) ?? null);
+          await renewMistakeToken(current.id, renewed.review_token, scope).catch(() => {});
+          if (!stillOpen()) return;
+          beginAttempt(exercise);
+          if (hinted.current) markHintUsed();
+        } catch (error) {
+          const noRenewal = error instanceof ApiError &&
+            (error.code === "review_unrecoverable" || error.status === 403 || error.status === 404);
+          if (stillOpen()) setRenewal(noRenewal ? "unrecoverable" : "failed");
+          return;
+        }
+      }
+      const res = await check(exercise, response, runShake, responseDisplay);
+      if (!res || !stillOpen()) return;
+      setSessionXp((n) => n + (res.xpEarned ?? 0));
+      if (res.correct && !res.hintUsed && !hinted.current) {
+        setFixed((n) => n + 1);
+        await promoteMistakeStored(current.id, scope);
+      }
+    } finally {
+      submitting.current = false;
+      if (stillOpen()) {
+        setSubmittingState(false);
+        setRenewal((state) => state === "pending" ? "idle" : state);
+      }
     }
-    // A miss needs no handling here: useExerciseCheck re-captures it → box 0, due immediately.
   }
 
   function onExplain() {
-    if (current) doExplain(current.exercise, responseDisplay);
+    if (current && stillOpen()) void doExplain(current.exercise, responseDisplay);
   }
 
-  function onAdvance() {
+  function onAdvance(skip = false) {
+    if (!stillOpen() || !current || submitting.current || index <= advancedIndex.current || (skip && submissionLocked && !unrecoverable)) return;
+    advancedIndex.current = index;
+    if (skip) setSkipped((n) => n + 1);
     reset();
     setResponse(null);
     setResponseDisplay("");
+    setRenewal("idle");
+    hinted.current = false;
     if (isLast) {
       setFinished(true);
       void loadMistakes(scope).then((list) => {
-        if (!isCurrentAccountScope(scope)) return;
+        if (!stillOpen()) return;
         const now = new Date().toISOString();
         setNextDue(nextDueAt(list, now));
         setRemainingDue(dueMistakes(list, now).length);
       });
-    }
-    else setIndex((i) => i + 1);
+    } else setIndex((i) => i + 1);
   }
 
-  async function onRemove() {
-    if (!current) return;
-    await resolveMistake(current.id, scope);
-    if (!isCurrentAccountScope(scope)) return;
-    onAdvance();
-  }
-
-  const canSubmit = response !== null && !checking;
+  const canSubmit = response !== null && !checking && !submittingState;
   const answered = finished ? total : index + (result ? 1 : 0);
 
   return (
@@ -156,7 +207,7 @@ export default function ReviewScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
         {items === null && (
           <View style={{ alignItems: "center", gap: 10, marginTop: 40 }}>
             <ActivityIndicator color={t.c.accent} />
@@ -180,8 +231,9 @@ export default function ReviewScreen() {
           <View style={{ alignItems: "center", gap: 14, marginTop: 24 }}>
             <Sensei size={108} mood="cheer" bob />
             <Txt variant="cardTitle" color={t.c.accent}>{tr("review.done")}</Txt>
-            <Txt variant="bodyStrong">{tr("review.fixedOfTotal", { c: fixed, t: total })}</Txt>
+            <Txt variant="bodyStrong">{tr("review.fixedOfTotal", { c: fixed, t: total - skipped })}</Txt>
             <Txt variant="bodyStrong" color={t.c.gold}>{tr("result.xp", { n: sessionXp })}</Txt>
+            {skipped > 0 && <Txt variant="secondary" color={t.c.ink2}>{tr("exercise.skipped", { n: skipped })}</Txt>}
             {remainingDue > 0 ? <Txt variant="secondary" color={t.c.ink2}>{copy.reviewReady(remainingDue)}</Txt> : nextDue && <Txt variant="secondary" color={t.c.ink2}>{copy.nextReview(new Date(nextDue).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US"))}</Txt>}
           </View>
         )}
@@ -191,7 +243,9 @@ export default function ReviewScreen() {
           <>
             <Txt variant="label">{tr("review.progress", { n: index + 1, total })}</Txt>
             <Animated.View style={{ transform: [{ translateX: shake }], gap: t.spacing.gap }}>
-              <ExerciseCard onHint={markHintUsed} key={current.id} exercise={current.exercise} locked={!!result} onChange={onChange} />
+              <ExerciseCard onHint={() => { hinted.current = true; markHintUsed(); }}
+                key={current.id} exercise={current.exercise} feedback={result ?? undefined}
+                locked={checking || submissionLocked || submittingState || !!result} onChange={onChange} onSkip={() => onAdvance(true)} />
             </Animated.View>
 
             {result && (
@@ -201,15 +255,21 @@ export default function ReviewScreen() {
                 levelUp={levelUp}
                 explained={explained}
                 explainLoading={explainLoading}
+                explainError={explainError}
                 onExplain={onExplain}
               />
             )}
             {result?.correct && result.hintUsed && <Txt variant="secondary" color={t.c.ink2}>{copy.reviewHint}</Txt>}
 
-            {!!checkError && (
+            {checkError && !result && (
               <View style={{ gap: 8 }}>
-                <Txt variant="secondary" color={t.c.bad} style={{ textAlign: "center" }}>{checkError}</Txt>
-                <Button label={tr("review.remove")} variant="ghost" onPress={onRemove} />
+                <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert" style={{ textAlign: "center" }}>
+                  {tr(unrecoverable ? "review.unrecoverable" : canRecover && renewal !== "failed" ? "review.expired" : "err.check")}
+                </Txt>
+                {unrecoverable && (
+                  <Button label={tr("review.practiceTopic")} variant="ghost"
+                    onPress={() => router.navigate({ pathname: "/practice", params: { topic: current.topic } })} />
+                )}
               </View>
             )}
           </>
@@ -224,9 +284,15 @@ export default function ReviewScreen() {
           {finished || total === 0 ? (
             <Button label={copy.back} onPress={() => router.replace("/(tabs)")} />
           ) : result ? (
-            <Button label={isLast ? tr("action.finish") : tr("action.continue")} onPress={onAdvance} />
+            <Button label={isLast ? tr("action.finish") : tr("action.continue")} disabled={submittingState} onPress={() => onAdvance()} />
           ) : (
-            <Button label={checking ? tr("action.checking") : tr("action.check")} onPress={onCheck} disabled={!canSubmit} />
+            unrecoverable ? <Button label={tr("action.continue")} onPress={() => onAdvance(true)} /> : (
+              <Button
+                label={tr(renewal === "pending" ? "review.renewing" : checking ? "action.checking"
+                  : canRecover ? "review.renew" : checkError ? "action.tryAgain" : "action.check")}
+                onPress={onCheck} disabled={!canSubmit}
+              />
+            )
           )}
         </View>
       )}

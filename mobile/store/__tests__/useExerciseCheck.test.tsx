@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import { useExerciseCheck, type Result } from "../useExerciseCheck";
 import { DEFAULT_PROGRESS, recordAnswer, type GradeSignal, type Progress } from "../progress";
-import { checkInteractive, explain, explainStream, setAuthToken, type Exercise } from "../../services/api";
+import { ApiError, checkInteractive, explain, explainStream, setAuthToken, type Exercise } from "../../services/api";
 import { captureMistake } from "../mistakes";
 
 let mockProgress: Progress = DEFAULT_PROGRESS;
@@ -192,5 +192,62 @@ it("explains the full four-option task with the same safe context on stream fail
   expect(context).not.toContain(card.token);
   expect(context).not.toContain(card.answer);
   expect(explain).toHaveBeenCalledWith(context, key, response);
+  act(() => renderer.unmount());
+});
+
+it("keeps an explanation outage separate from the grade and allows a fresh explanation retry", async () => {
+  jest.mocked(checkInteractive).mockResolvedValueOnce({ ...correct, correct: false });
+  jest.mocked(explainStream).mockRejectedValueOnce(new Error("stream failed"));
+  jest.mocked(explain).mockRejectedValueOnce(new Error("explanation unavailable"));
+  const renderer = mount();
+  await act(async () => { await hook.check(exercise, "an"); });
+  await act(async () => { await hook.doExplain(exercise, "an"); });
+  expect(hook.result?.correct).toBe(false);
+  expect(hook.error).toBeNull();
+  expect(hook.explainError).toBe("explanation unavailable");
+  expect(hook.explained).toBeNull();
+  jest.mocked(explainStream).mockResolvedValueOnce("Use 'a' before a consonant sound.");
+  await act(async () => { await hook.doExplain(exercise, "an"); });
+  expect(hook.explainError).toBeNull();
+  expect(hook.explained?.explanation).toMatch(/consonant/);
+  act(() => renderer.unmount());
+});
+
+it("explains the visible response that was actually submitted, even after the input changes", async () => {
+  jest.mocked(checkInteractive).mockResolvedValueOnce({ ...correct, correct: false });
+  jest.mocked(explainStream).mockResolvedValueOnce("Use 'a' before a consonant sound.");
+  const renderer = mount();
+  await act(async () => { await hook.check(exercise, "an", undefined, "She is an doctor."); });
+  await act(async () => { await hook.doExplain(exercise, "edited response"); });
+  expect(jest.mocked(explainStream).mock.calls[0][2]).toBe("She is an doctor.");
+  act(() => renderer.unmount());
+});
+
+
+it("sends the original answer on an ambiguous retry and retains the original feedback snapshot", async () => {
+  jest.mocked(checkInteractive).mockRejectedValueOnce(new Error("lost response"));
+  jest.mocked(checkInteractive).mockRejectedValueOnce(new ApiError("rate limited", 429));
+  jest.mocked(checkInteractive).mockResolvedValueOnce({ ...correct, correct: false });
+  const renderer = mount();
+  await act(async () => { expect(await hook.check(exercise, "an", undefined, "She is an doctor.")).toBeNull(); });
+  expect(hook.submissionLocked).toBe(true);
+  await act(async () => { expect(await hook.check(exercise, "a", undefined, "She is a doctor.")).toBeNull(); });
+  expect(hook.submissionLocked).toBe(true); // the rate limit does not settle the first request
+  await act(async () => { await hook.check(exercise, "a", undefined, "She is a doctor."); });
+  expect(jest.mocked(checkInteractive).mock.calls.map(([, answer]) => answer)).toEqual(["an", "an", "an"]);
+  expect(hook.result).toMatchObject({ correct: false, submittedResponse: "She is an doctor." });
+  expect(mockRecord).toHaveBeenCalledTimes(1);
+  act(() => renderer.unmount());
+});
+
+it("permits editing after the server explicitly rejects the input without grading", async () => {
+  jest.mocked(checkInteractive).mockRejectedValueOnce(new ApiError("empty answer", 422));
+  jest.mocked(checkInteractive).mockResolvedValueOnce(correct);
+  const renderer = mount();
+  await act(async () => { await hook.check(exercise, ""); });
+  expect(hook.submissionLocked).toBe(false);
+  await act(async () => { await hook.check(exercise, "a"); });
+  expect(jest.mocked(checkInteractive).mock.calls.map(([, answer]) => answer)).toEqual(["", "a"]);
+  expect(hook.result?.correct).toBe(true);
   act(() => renderer.unmount());
 });

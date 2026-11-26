@@ -287,3 +287,41 @@ it("normalizes missing/null earned belts on sync without downgrading a recorded 
   expect(mergeProgress({ ...legacy, beltEarned: 3 }, server).beltEarned).toBe(3);
   expect(mergeProgress(server, { ...legacy, beltEarned: 3 }).beltEarned).toBe(3);
 });
+
+it("records general rewards and modality without changing grammar statistics for listening or dialogue", () => {
+  const before = recordAnswer(DEFAULT_PROGRESS, "word order", true, at(DAY), { format: "build-the-sentence" });
+  const dialogue = recordAnswer(before, "word order", true, at(DAY), { format: "order-the-dialog", evidenceKind: "dialogue" });
+  const listening = recordAnswer(dialogue, "word order", true, at(DAY), { format: "listen-and-answer" });
+  expect(listening.topics).toBe(before.topics);
+  expect(listening.skill).toBe(before.skill);
+  expect(listening.course).toBe(before.course);
+  expect(listening.listening?.attempts).toBe(1);
+  expect(listening.todayCount).toBe(3);
+  expect(listening.xp).toBe(XP_PER_CORRECT * 3);
+});
+
+it("prefers the newer topic evidence even when both course windows are full", () => {
+  let old = DEFAULT_PROGRESS;
+  for (let i = 0; i < 10; i++) {
+    old = recordAnswer(old, "word order", true, at(DAY), { format: "build-the-sentence" });
+  }
+  const newer = recordAnswer(old, "word order", false, at(DAY), { format: "build-the-sentence" });
+  expect(old.course.history["word order"]).toHaveLength(10);
+  expect(newer.course.history["word order"]).toHaveLength(10);
+  expect(mergeProgress(old, newer).course.history["word order"]).toEqual(newer.course.history["word order"]);
+  expect(mergeProgress(newer, old).course.history["word order"]).toEqual(newer.course.history["word order"]);
+});
+
+it("keeps the later same-day topic snapshot when two devices have equal attempt counts", () => {
+  const before = recordAnswer(DEFAULT_PROGRESS, "articles", true, at(DAY));
+  const morning = recordAnswer(before, "articles", true, at(DAY));
+  const afternoon = recordAnswer(before, "articles", false, new Date(at(DAY).getTime() + 60_000));
+  expect(morning.topics.articles.attempts).toBe(afternoon.topics.articles.attempts);
+  expect(morning.topics.articles.lastSeen).toBe(afternoon.topics.articles.lastSeen);
+  for (const pair of [[morning, afternoon], [afternoon, morning]]) {
+    const merged = mergeProgress(pair[0], pair[1]);
+    expect(merged.course.history.articles).toEqual(afternoon.course.history.articles);
+    expect(merged.topics.articles).toEqual(afternoon.topics.articles);
+    expect(merged.skill.articles).toBe(afternoon.skill.articles);
+  }
+});

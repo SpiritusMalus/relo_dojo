@@ -1,8 +1,8 @@
 // Mistake capture — resurface the *exact* item the learner missed, not just the topic.
 //
-// Exercises are LLM-generated (not a fixed bank), so to replay a miss we keep the whole Exercise plus
-// its sealed grading token; /check regrades it deterministically later (tokens carry no TTL, so they
-// stay valid in prod where CHECK_SECRET is set). Stored locally in AsyncStorage, capped and FIFO.
+// Retain the visible exercise and its scoped replay token so the next review can grade the same
+// task. Old installations may have stored the original short-lived token. The deck is local to
+// the owning learner and capped.
 //
 // Spaced repetition (Leitner): each item carries a box (0..N) and a due date. A miss resets the item
 // to box 0, due immediately (learning phase). A correct answer in Review promotes it one box and
@@ -34,9 +34,15 @@ export type Mistake = {
   due?: string; // ISO timestamp when the item is next due; legacy (undefined) reads as due now
 };
 
-// Stable identity for an exercise: same prompt/text/type/topic == same item (dedupes repeat misses).
+// Include the public task content; several generators reuse the same instructional text.
 export function mistakeId(ex: Exercise): string {
-  return `${ex.type}|${ex.topic}|${ex.prompt}|${ex.text}`;
+  const bank = (values: string[] | undefined) => (values ?? []).slice().sort();
+  return JSON.stringify([
+    ex.type, ex.topic, ex.text, ex.prompt ?? "", ex.instruction ?? "", ex.anchor ?? "", ex.speak ?? "",
+    bank(ex.options), bank(ex.tiles), bank(ex.distractors), ex.tokens ?? [],
+    bank(ex.left?.map((item) => item.text)), bank(ex.right?.map((item) => item.text)),
+    (ex.blankOptions ?? []).map(bank),
+  ]);
 }
 
 // Pure: insert or update a miss at the front, dedup by id, cap the list. Newest-first.
@@ -44,9 +50,10 @@ export function mistakeId(ex: Exercise): string {
 // however far up the ladder it had climbed.
 export function upsertMistake(list: Mistake[], ex: Exercise, now: string): Mistake[] {
   const id = mistakeId(ex);
-  const prev = list.find((m) => m.id === id);
+  const sameTask = (mistake: Mistake) => mistake.id === id || mistakeId(mistake.exercise) === id;
+  const prev = list.find(sameTask);
   const entry: Mistake = {
-    id,
+    id: prev?.id ?? id,
     exercise: ex,
     topic: ex.topic,
     missedAt: now,
@@ -54,7 +61,7 @@ export function upsertMistake(list: Mistake[], ex: Exercise, now: string): Mista
     box: 0,
     due: now,
   };
-  const rest = list.filter((m) => m.id !== id);
+  const rest = list.filter((m) => !sameTask(m));
   return [entry, ...rest].slice(0, MISTAKES_CAP);
 }
 
@@ -206,6 +213,13 @@ export async function captureMistake(ex: Exercise, scope: AccountScope = capture
   // ordinary grading for the 1/3/7/21-day deck without minting another lesson receipt.
   const review = ex.review_token ? { ...ex, token: ex.review_token, review_token: undefined } : ex;
   await mutate(scope, (list) => upsertMistake(list, review, new Date().toISOString()));
+}
+
+/** Refresh the signed capability without changing the history or spacing of the saved item. */
+export async function renewMistakeToken(id: string, token: string, scope: AccountScope = captureAccountScope()): Promise<void> {
+  await mutate(scope, (list) => list.map((item) => item.id === id
+    ? { ...item, exercise: { ...item.exercise, token, review_token: undefined } }
+    : item));
 }
 
 // Remove an item outright (stale/unusable token — no SRS credit).

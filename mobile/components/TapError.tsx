@@ -3,13 +3,15 @@ import { Pressable, StyleSheet, View } from "react-native";
 import type { ExerciseProps } from "./types";
 import { useTheme } from "../theme/theme";
 import { useI18n } from "../store/i18n";
+import { exerciseCopy } from "../i18n/exerciseCopy";
 import Txt from "./ui/Txt";
 import { useTranslator } from "./ui/TranslationPopover";
 
 // Tap the single wrong word in the sentence. Response is the tapped token index.
-export default function TapError({ exercise, locked, onChange }: ExerciseProps) {
+export default function TapError({ exercise, locked, onChange, feedback }: ExerciseProps) {
   const t = useTheme();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
+  const copy = exerciseCopy(lang);
   const { translateAt } = useTranslator();
   const tokens = exercise.tokens ?? [];
   const sentence = tokens.join(" ");
@@ -24,11 +26,13 @@ export default function TapError({ exercise, locked, onChange }: ExerciseProps) 
   return (
     <View style={styles.wrap}>
       <Txt variant="body" color={t.c.ink2}>
-        {tr("ex.tapError")}
+        {exercise.instruction || tr("ex.tapError")}
       </Txt>
       <View style={styles.sentence}>
         {tokens.map((word, i) => {
           const on = selected === i;
+          const bad = on && feedback?.correct === false;
+          const emphasis = bad ? t.c.bad : t.c.accent;
           return (
             <Pressable
               key={`${i}-${word}`}
@@ -38,13 +42,13 @@ export default function TapError({ exercise, locked, onChange }: ExerciseProps) 
               }
               disabled={locked}
               accessibilityRole="button"
-              accessibilityLabel={`Word: ${word}`}
-              accessibilityHint="Tap if this word is the mistake; long-press to translate it"
+              accessibilityLabel={copy.word(word)}
+              accessibilityHint={copy.pickWord}
               accessibilityState={{ selected: on, disabled: locked }}
               style={{
                 borderWidth: on ? 2 : 1,
-                borderColor: on ? t.c.bad : t.c.line2,
-                backgroundColor: on ? t.c.badSoft : t.c.surface,
+                borderColor: on ? emphasis : t.c.line2,
+                backgroundColor: bad ? t.c.badSoft : on ? t.c.accentSoft : t.c.surface,
                 borderRadius: 8,
                 paddingVertical: 8,
                 paddingHorizontal: 11,
@@ -52,7 +56,7 @@ export default function TapError({ exercise, locked, onChange }: ExerciseProps) 
                 justifyContent: "center",
               }}
             >
-              <Txt variant="mono" color={on ? t.c.bad : t.c.ink}>
+              <Txt variant="mono" color={on ? emphasis : t.c.ink}>
                 {word}
               </Txt>
             </Pressable>

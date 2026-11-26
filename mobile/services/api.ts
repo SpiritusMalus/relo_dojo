@@ -10,6 +10,7 @@ import Constants from "expo-constants";
 import { fetch as expoFetch } from "expo/fetch";
 import type { Progress } from "../store/progress";
 import { bindAccountUser, captureAccountScope, isCurrentAccountScope, setAccountToken, type AccountScope } from "../store/accountScope";
+import { anonymousInstallId } from "./anonymousInstallId";
 
 const FALLBACK_HOST = "192.168.1.9";
 const PORT = 8000;
@@ -90,7 +91,8 @@ export async function request<T>(
   body?: unknown,
   method: Method = "POST",
   timeoutMs: number = REQUEST_TIMEOUT_MS,
-  expectedAuthToken?: string | null
+  expectedAuthToken?: string | null,
+  options?: { signal?: AbortSignal; reviewIdentity?: boolean },
 ): Promise<T> {
   assertProgressSession(expectedAuthToken);
   const requestScope = captureAccountScope();
@@ -102,8 +104,13 @@ export async function request<T>(
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const requestToken = expectedAuthToken === undefined ? authToken : expectedAuthToken;
   if (requestToken) headers["Authorization"] = `Bearer ${requestToken}`;
+  else if (options?.reviewIdentity) headers["X-Relo-Review-Guest"] = await anonymousInstallId();
+  assertRequestScope();
 
   const controller = new AbortController();
+  const cancel = () => controller.abort();
+  if (options?.signal?.aborted) throw new ApiError("Request cancelled.", 409, "request_aborted");
+  options?.signal?.addEventListener("abort", cancel, { once: true });
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
@@ -115,15 +122,18 @@ export async function request<T>(
     });
   } catch (e) {
     assertRequestScope();
+    if (options?.signal?.aborted) throw new ApiError("Request cancelled.", 409, "request_aborted");
     if (e instanceof Error && e.name === "AbortError") {
       throw new Error(apiLang === "ru" ? "Ответ задерживается. Попробуй ещё раз." : "The reply is taking longer. Try again.");
     }
     throw new Error(apiLang === "ru" ? "Не удалось подключиться. Попробуй ещё раз." : "Couldn't connect. Try again.");
   } finally {
     clearTimeout(timer);
+    options?.signal?.removeEventListener("abort", cancel);
   }
 
   assertRequestScope();
+  if (options?.signal?.aborted) throw new ApiError("Request cancelled.", 409, "request_aborted");
 
   if (!res.ok) {
     // Errors carry {detail: "..."} (string), {detail: {code, message, ...}} (structured gating),
@@ -183,6 +193,7 @@ export type Exercise = {
   type: ExerciseType;
   topic: string;
   level: string; // effective CEFR served (A1..C1); drives difficulty-aware scoring
+  evidence_kind?: "topic" | "dialogue" | "listening";
   text: string;
   prompt: string; // source line for translation exercises (e.g. the Russian sentence)
   instruction?: string; // transform-the-sentence: the grammar transform to apply to `prompt`
@@ -199,6 +210,7 @@ export type Exercise = {
   speak?: string;
   token: string | null; // sealed answer for interactive types; null for free-text
   review_token?: string;
+  learning_bound?: boolean | null;
 };
 
 // The user's answer, shape depends on the exercise type:
@@ -214,6 +226,8 @@ export type CheckResult = {
   score?: number; // fraction right (0..1); partial credit for multi-element types
   detail?: string; // e.g. "2/3" for multi-element answers; "" otherwise
   per_item?: boolean[]; // per-element marks in display order (match rows, blanks, dialog lines)
+  answer_items?: string[]; // correct label for each scored element, aligned with per_item
+  explanation?: string;
   coins_earned?: number; // koku earned for this answer (authenticated + correct only)
   coins?: number | null; // new server balance after the award; null/absent for anonymous
   first_win_bonus?: number; // portion of coins_earned that was the once-per-day first-win bonus
@@ -231,30 +245,33 @@ export function getExercise(params?: {
   context?: string;
   mistakes?: string[];
   practice_index?: number;
+  assessment?: boolean;
   learning_session_id?: string;
   learning_item?: number;
-}): Promise<Exercise> {
+}, signal?: AbortSignal): Promise<Exercise> {
   // `lang` lets the backend write the LLM-generated task instruction (transform-the-sentence) in the
   // learner's UI language; the exercise content itself stays English (it's an English course).
-  return request<Exercise>("/exercise", { ...(params ?? {}), lang: apiLang });
+  return request<Exercise>("/exercise", { ...(params ?? {}), lang: apiLang }, "POST", REQUEST_TIMEOUT_MS, undefined, { signal, reviewIdentity: true });
 }
 
 // A themed mini-story: a curated narrative wrapping a sequence of linked exercises.
-export type StoryBeat = { narration: string; exercise: Exercise };
+export type StoryBeat = { narration: string; exercise: Exercise | null };
 export type StorySet = {
   id: string;
   title: string;
   intro: string;
   level: string; // effective CEFR served across the set
   beats: StoryBeat[];
+  resume_token?: string | null;
 };
 
-// Generate a mini-story. `level` locks CEFR across the set; `context` overrides scenario flavor;
-// `id` selects a specific arc (premium arcs require an unlock → 403). Three exercises are generated
-// server-side in sequence, so this needs a longer timeout.
-export function getStory(params?: { level?: string; context?: string; id?: string }): Promise<StorySet> {
-  // `lang` localizes any LLM-generated task instruction in the story's beats (e.g. a transform beat).
-  return request<StorySet>("/story", { ...(params ?? {}), lang: apiLang }, "POST", STORY_TIMEOUT_MS);
+// Generate the beats in parallel. The learner can retry an unavailable beat on its own.
+export function getStory(params?: { level?: string; context?: string; id?: string }, signal?: AbortSignal): Promise<StorySet> {
+  return request<StorySet>("/story", { ...(params ?? {}), lang: apiLang, allow_partial: true }, "POST", STORY_TIMEOUT_MS, undefined, { signal, reviewIdentity: true });
+}
+
+export function retryStoryBeat(resumeToken: string, index: number, signal?: AbortSignal): Promise<Exercise> {
+  return request<Exercise>("/story/beat", { resume_token: resumeToken, index }, "POST", STORY_TIMEOUT_MS, undefined, { signal, reviewIdentity: true });
 }
 
 // --- story arcs / content unlocks (engagement v2 Phase 3) ---
@@ -281,8 +298,8 @@ export function buyContent(id: string): Promise<{ owned: string[]; coins: number
 // Level Test writing section: place a short written response on the CEFR scale (productive skill).
 // Open to everyone; the client folds `score` (0..5) into the overall level. Notes come back in apiLang.
 export type WritingAssessment = { cefr: string; score: number; note: string };
-export function assessWriting(text: string, prompt?: string): Promise<WritingAssessment> {
-  return request<WritingAssessment>("/assess-writing", { text, prompt, lang: apiLang });
+export function assessWriting(text: string, prompt?: string, signal?: AbortSignal): Promise<WritingAssessment> {
+  return request<WritingAssessment>("/assess-writing", { text, prompt, lang: apiLang }, "POST", REQUEST_TIMEOUT_MS, undefined, { signal });
 }
 
 // Goal intake: map a free-text goal / "what's hard for me" to canonical grammar topics.
@@ -298,8 +315,8 @@ export type ReviewResult = { summary: string; issues: ReviewIssue[]; topics: str
 
 // Open to everyone (anonymous included). Notes come back in the UI language; findings also update
 // the server-side weak-spot memory, but only when the caller is signed in.
-export function reviewText(text: string): Promise<ReviewResult> {
-  return request<ReviewResult>("/review-text", { text, lang: apiLang });
+export function reviewText(text: string, signal?: AbortSignal): Promise<ReviewResult> {
+  return request<ReviewResult>("/review-text", { text, lang: apiLang }, "POST", REQUEST_TIMEOUT_MS, undefined, { signal });
 }
 
 // --- Stage 2 agents: Progress Agent (post-session) + Planner (trigger-based) ---
@@ -355,7 +372,11 @@ export async function syncLearnerProfile(patch: Partial<LearnerProfileData>): Pr
 
 // Deterministic, instant grade for interactive exercises (no LLM).
 export function checkInteractive(token: string, response: ResponseValue): Promise<CheckResult> {
-  return request<CheckResult>("/check", { token, response });
+  return request<CheckResult>("/check", { token, response }, "POST", REQUEST_TIMEOUT_MS, undefined, { reviewIdentity: true });
+}
+
+export function renewReviewToken(token: string): Promise<{ review_token: string }> {
+  return request("/review/exercise-token", { token }, "POST", REQUEST_TIMEOUT_MS, undefined, { reviewIdentity: true });
 }
 
 // LLM grade for free-text answers (includes an explanation, in the learner's language).
@@ -366,7 +387,7 @@ export function checkFreeText(text: string, userAnswer: string): Promise<TextChe
 // listen-and-retell: LLM-graded content coverage of the typed retelling. The sealed token carries
 // the spoken passage; `correct_answer` comes back as that passage — the post-answer reveal.
 export function checkRetell(token: string, retell: string): Promise<TextCheckResult> {
-  return request<TextCheckResult>("/check-retell", { token, retell, lang: apiLang });
+  return request<TextCheckResult>("/check-retell", { token, retell, lang: apiLang }, "POST", REQUEST_TIMEOUT_MS, undefined, { reviewIdentity: true });
 }
 
 // On-demand teaching note for an interactive miss.

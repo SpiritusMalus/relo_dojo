@@ -66,22 +66,22 @@ export default function TrainScreen() {
       {/* Special modes — outside the verified-only gate above, so anonymous/unverified learners keep
           the same access to modes they had on Home. Each entry preserves its own gate exactly. */}
       <Txt variant="screenTitle" style={{ marginTop: 4 }}>{tr("train.intro")}</Txt>
-      <ChaptersButton onPress={() => router.push("/chapters")} />
+      <ChaptersButton onPress={() => router.navigate("/chapters")} />
       <LockGate locked={!access.review_text}>
-        <TextReviewButton onPress={() => router.push("/text-review")} />
+        <TextReviewButton onPress={() => router.navigate("/text-review")} />
       </LockGate>
       <LockGate locked={!access.story}>
         <StoryButton
-          onPress={() => router.push("/story")}
+          onPress={() => router.navigate("/story")}
           subtitle={featuredArc ? tr("home.featuredStory", { title: featuredArc }) : undefined}
         />
       </LockGate>
       <LockGate locked={!access.challenge}>
-        <ChallengeButton onPress={() => router.push("/challenge")} />
+        <ChallengeButton onPress={() => router.navigate("/challenge")} />
       </LockGate>
       {mistakes > 0 && (
         <LockGate locked={!access.review}>
-          <ReviewButton count={mistakes} onPress={() => router.push("/review")} />
+          <ReviewButton count={mistakes} onPress={() => router.navigate("/review")} />
         </LockGate>
       )}
       {/* Named entry to the Lavka. Account-only: koku is earned/spent server-side, so a guest's shop

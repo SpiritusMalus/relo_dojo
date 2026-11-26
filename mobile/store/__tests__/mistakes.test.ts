@@ -160,3 +160,23 @@ describe("SRS ladder (Leitner)", () => {
     expect(nextDueAt(list, now)).toBe(dayLater(now, 1));
   });
 });
+
+it("keeps distinct generated dialogues and deduplicates a shuffled copy of the same task", () => {
+  const now = "2026-06-08T10:00:00.000Z";
+  const first = ex({ type: "order-the-dialog", topic: "word order", text: "Order the conversation.",
+    anchor: "Is the train on time?", tiles: ["Yes.", "Good, let's go."] });
+  const second = { ...first, anchor: "Did you test the change?", tiles: ["Yes.", "Thanks.", "It works now."] };
+  const fresh = upsertMistake(upsertMistake([], first, now), second, now);
+  expect(fresh).toHaveLength(2);
+  const shuffled = { ...first, token: "another-token", tiles: [...first.tiles].reverse() };
+  const repeated = upsertMistake(fresh, shuffled, now);
+  expect(repeated).toHaveLength(2);
+  expect(repeated[0]).toMatchObject({ exercise: shuffled, misses: 2 });
+});
+
+it("keeps the identifier and miss count of an existing legacy row when the same task returns", () => {
+  const now = "2026-06-08T10:00:00.000Z";
+  const card = ex();
+  const old = { ...upsertMistake([], card, now)[0], id: "legacy-id" };
+  expect(upsertMistake([old], card, now)).toEqual([expect.objectContaining({ id: "legacy-id", misses: 2 })]);
+});

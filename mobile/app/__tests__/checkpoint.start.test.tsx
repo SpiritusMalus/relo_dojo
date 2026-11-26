@@ -3,8 +3,11 @@ import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import Button from "../../components/ui/Button";
 import type { Lang } from "../../i18n/strings";
 import type { Exercise } from "../../services/api";
-import { ThemeProvider } from "../../theme/theme";
+import type { ExerciseProps } from "../../components/types";
+import type { FetchParams, QueueDeps } from "../../services/exerciseQueue";
+import { beltByIndex, ThemeProvider } from "../../theme/theme";
 import CheckpointScreen from "../checkpoint";
+import BeltExamScreen from "../belt-exam";
 
 const mockNext = jest.fn<Promise<Exercise>, []>();
 const mockClear = jest.fn();
@@ -12,6 +15,9 @@ const mockDispose = jest.fn();
 const mockPrefetch = jest.fn();
 const mockBegin = jest.fn();
 const mockBack = jest.fn();
+const mockSelectParams = jest.fn<FetchParams, []>();
+let mockCard: ExerciseProps;
+let mockSelected: { topic: string; type: string };
 let mockLanguage: Lang;
 
 jest.mock("expo-router", () => ({
@@ -32,14 +38,35 @@ jest.mock("../../store/progress", () => {
   return { useProgress: () => ({ progress, masterUnit: jest.fn() }) };
 });
 jest.mock("../../store/useExerciseCheck", () => {
+  const React = require("react");
   const reset = jest.fn();
-  return { useExerciseCheck: () => ({ beginAttempt: mockBegin, checking: false, reset }) };
+  return { useExerciseCheck: () => {
+    const [result, setResult] = React.useState(null);
+    return { beginAttempt: mockBegin, checking: false, result, reset,
+      check: async () => {
+        const grade = { correct: true, correct_answer: "Do you check the logs?" };
+        setResult(grade);
+        return grade;
+      },
+    };
+  } };
 });
+jest.mock("../../store/exam", () => ({
+  ...jest.requireActual("../../store/exam"),
+  examOffer: () => ({ target: 1, confirm: false }),
+}));
+jest.mock("../../store/adaptive", () => ({
+  ...jest.requireActual("../../store/adaptive"),
+  selectNext: () => mockSelected,
+}));
 jest.mock("../../services/exerciseQueue", () => ({
-  createExerciseQueue: () => ({ next: mockNext, clear: mockClear, dispose: mockDispose, prefetch: mockPrefetch }),
+  createExerciseQueue: ({ selectParams }: QueueDeps) => {
+    mockSelectParams.mockImplementation(selectParams);
+    return { next: mockNext, clear: mockClear, dispose: mockDispose, prefetch: mockPrefetch };
+  },
 }));
 jest.mock("../../components/ui/Sensei", () => () => null);
-jest.mock("../../components/ExerciseCard", () => () => null);
+jest.mock("../../components/ExerciseCard", () => (props: ExerciseProps) => { mockCard = props; return null; });
 
 const firstExercise: Exercise = {
   type: "build-the-sentence", topic: "word order", level: "A1",
@@ -51,6 +78,7 @@ let screen: ReactTestRenderer;
 beforeEach(() => {
   jest.clearAllMocks();
   mockLanguage = "ru";
+  mockSelected = { topic: "word order", type: "listen-and-answer" };
 });
 afterEach(() => act(() => screen.unmount()));
 
@@ -58,9 +86,9 @@ function button(label: string) {
   return screen.root.findAll((node) => node.type === Button && node.props.label === label)[0];
 }
 
-async function renderScreen() {
+async function renderScreen(Screen = CheckpointScreen) {
   await act(async () => {
-    screen = TestRenderer.create(<ThemeProvider><CheckpointScreen /></ThemeProvider>);
+    screen = TestRenderer.create(<ThemeProvider><Screen /></ThemeProvider>);
   });
 }
 
@@ -124,4 +152,62 @@ it("ignores an exercise response delivered after closing the intro", async () =>
   expect(mockBack).toHaveBeenCalledTimes(1);
   await act(async () => { first.resolve(firstExercise); });
   expect(mockBegin).not.toHaveBeenCalled();
+});
+
+it("requests strict word-order formats and leaves feedback visible until Continue", async () => {
+  jest.useFakeTimers({ doNotFake: ["setImmediate", "clearImmediate", "nextTick", "queueMicrotask"] });
+  try {
+    const first = deferExercise();
+    await renderScreen();
+    const requested = mockSelectParams();
+    expect(requested).toMatchObject({ assessment: true, topic: "word order", type: "build-the-sentence" });
+    act(() => button("Начать зачёт").props.onPress());
+    await act(async () => { first.resolve(firstExercise); });
+    act(() => mockCard.onChange("Do you check the logs?", "Do you check the logs?"));
+    await act(async () => { await button("Проверить").props.onPress(); });
+    act(() => jest.advanceTimersByTime(10_000));
+    expect(mockNext).toHaveBeenCalledTimes(1);
+    expect(mockCard.locked).toBe(true);
+    expect(mockCard.feedback?.correct).toBe(true);
+    expect(mockSelectParams()).toMatchObject({ level: requested.level, type: "multiple-blanks" });
+
+    const second = deferExercise();
+    const advance = button("Дальше").props.onPress;
+    act(() => { advance(); advance(); });
+    expect(mockNext).toHaveBeenCalledTimes(2);
+    await act(async () => { second.resolve(firstExercise); });
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+it("guards belt exam start and retry, asking only for the target belt's exact format and level", async () => {
+  mockLanguage = "en";
+  const first = deferExercise();
+  await renderScreen(BeltExamScreen);
+  expect(mockSelectParams()).toMatchObject({ assessment: true, topic: "word order", type: "build-the-sentence" });
+  const start = button("Step onto the mat").props.onPress;
+  act(() => { for (let tap = 0; tap < 10; tap++) start(); });
+  expect(mockNext).toHaveBeenCalledTimes(1);
+  expect(button("Preparing the first exercise…").props.disabled).toBe(true);
+  await act(async () => { first.reject(new Error("Network unavailable")); });
+  const second = deferExercise();
+  act(() => { button("Try again").props.onPress(); });
+  await act(async () => { second.resolve(firstExercise); });
+  expect(mockBegin).toHaveBeenCalledWith(firstExercise);
+  expect(mockNext).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  ["word order", "tap-the-error", "build-the-sentence"],
+  ["word order", "odd-one-out", "build-the-sentence"],
+  ["punctuation", "build-the-sentence", "tap-the-error"],
+  ["punctuation", "transform-the-sentence", "tap-the-error"],
+])("keeps the strict belt request compatible for %s / %s", async (topic, type, compatible) => {
+  mockSelected = { topic, type };
+  await renderScreen(BeltExamScreen);
+  const requested = mockSelectParams();
+  expect(requested).toMatchObject({ assessment: true, topic, level: beltByIndex(1).cefr, type: compatible });
+  mockSelected = { topic: "articles", type: "multiple-choice" };
+  expect(mockSelectParams()).toEqual(requested);
 });

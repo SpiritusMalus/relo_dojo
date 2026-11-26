@@ -47,17 +47,20 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
   const presented = useRef(session);
   const active = useRef(true);
   const busyRef = useRef(false);
+  const loadingSession = useRef<typeof session>(null);
+  const advancedExercise = useRef<string | null>(null);
   const [run, setRun] = useState<ChapterRun | null>(null);
   const [text, setText] = useState("");
   const [pending, setPending] = useState(false);
   const [loading, setLoading] = useState(!!session);
   const [saving, setSaving] = useState(false);
+  const [checkingPrep, setCheckingPrep] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draftError, setDraftError] = useState(false);
   const [response, setResponse] = useState<ResponseValue | null>(null);
   const [responseDisplay, setResponseDisplay] = useState("");
   const scroll = useRef<ScrollView>(null);
-  const { result, checking, error: checkError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } = useExerciseCheck();
+  const { result, checking, submissionLocked, error: checkError, explainError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } = useExerciseCheck();
   const roomRef = useRef(room);
   roomRef.current = room;
   const current = useCallback(() => active.current && presented.current === session && isCurrentAccountScope(scope), [session, scope]);
@@ -68,7 +71,8 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
     if (state.run.completed) void roomRef.current.refresh();
   }, [current]);
   const load = useCallback(async () => {
-    if (!session || !current()) return;
+    if (!session || !current() || loadingSession.current === session) return;
+    loadingSession.current = session;
     setLoading(true); setError(null);
     try { adopt(await session.open()); }
     catch {
@@ -76,10 +80,14 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
         const draft = session.draftSnapshot();
         setText(draft?.text ?? ""); setPending(!!draft?.pending); setError(copy.offline);
       }
-    } finally { if (current()) setLoading(false); }
+    } finally {
+      if (loadingSession.current === session) loadingSession.current = null;
+      if (current()) setLoading(false);
+    }
   }, [session, current, adopt, copy.offline]);
   useEffect(() => {
     active.current = true; presented.current = session;
+    busyRef.current = false; advancedExercise.current = null; setCheckingPrep(false); setSaving(false);
     setRun(null); setText(""); setPending(false); setError(null); setDraftError(false);
     setResponse(null); setResponseDisplay(""); reset();
     if (session) void load(); else setLoading(false);
@@ -91,11 +99,13 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
   useEffect(() => { if (run?.exercise) beginAttempt(run.exercise); }, [run?.exercise, beginAttempt]);
 
   async function advance() {
-    if (!session || !current() || busyRef.current) return;
+    const exerciseToken = run?.exercise?.token;
+    if (!session || !current() || busyRef.current || !exerciseToken || advancedExercise.current === exerciseToken) return;
     busyRef.current = true; setSaving(true); setError(null);
     try {
       const next = await session.refresh();
       if (!current()) return;
+      advancedExercise.current = exerciseToken;
       adopt(next); reset(); setResponse(null); setResponseDisplay("");
       scroll.current?.scrollTo({ y: 0, animated: !t.reduceMotion });
     } catch { if (current()) setError(copy.offline); }
@@ -104,21 +114,27 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
   async function checkPreparation() {
     const exercise = run?.exercise;
     if (!exercise || response === null || checking || busyRef.current || !session || !current()) return;
-    const before = run!.graded_count;
-    const graded = await check(exercise, response);
-    if (!current() || graded) return;
-    // The grade may have committed before a response was lost. Resume from server evidence;
-    // do not fabricate XP or a replacement preparation card.
+    busyRef.current = true;
+    setCheckingPrep(true);
     try {
+      const before = run!.graded_count;
+      const graded = await check(exercise, response, undefined, responseDisplay);
+      if (!current() || graded) return;
+      // A timed-out grade may already be committed. Preserve the card unless its run advanced
+      // or the server explicitly renewed the same preparation step.
       const canonical = await session.refresh();
       if (!current()) return;
       const renewed = canonical.run.exercise?.token !== exercise.token;
       if (canonical.run.graded_count <= before && !renewed) return;
       adopt(canonical); reset(); setResponse(null); setResponseDisplay("");
-    } catch { /* The current card keeps its check error and retry action. */ }
+    } catch { /* Keep the response and allow another check of the same card. */ }
+    finally {
+      if (current()) { busyRef.current = false; setCheckingPrep(false); }
+    }
   }
+
   function changeText(value: string) {
-    if (!session || !current() || pending || saving) return;
+    if (!session || !current() || pending || saving || busyRef.current) return;
     setText(value); setDraftError(false);
     void session.saveText(value).catch(() => { if (current()) setDraftError(true); });
   }
@@ -153,7 +169,24 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
   const final = !!run && run.graded_count >= run.preparation_count && !completed;
   const itemId = chapterId ? `dojo_display_${chapterId}` : "";
   const feedback = run?.feedback;
-  const displayError = error === copy.pending ? null : error ?? (!result ? checkError : null);
+  const displayError = error === copy.pending ? null : error ?? (!result && checkError ? copy.sendFailed : null);
+  const criteria: Record<string, string> = chapter?.criteria ?? {};
+  const feedbackPanel = feedback && !pending ? (
+    <View style={[styles.feedback, { borderColor: t.c.line }]}>
+      <Txt variant="body" accessibilityLiveRegion="polite">{feedback.explanation}</Txt>
+      {feedback.requirements.map(({ id, met }) => criteria[id] ? (
+        <View key={id} style={{ gap: 2 }}>
+          <Txt variant="bodyStrong">{criteria[id]}</Txt>
+          <Txt variant="caption" color={met ? t.c.accent : t.c.bad}>{met ? copy.requirementMet : copy.requirementMissing}</Txt>
+        </View>
+      ) : null)}
+      {!!feedback.example && <View style={{ gap: 6 }}>
+        <Txt variant="secondary" color={t.c.ink2}>{copy.example}</Txt>
+        <Txt variant="body">{feedback.example}</Txt>
+      </View>}
+      {!!feedback.tip && <Txt variant="secondary" color={t.c.ink2}>{feedback.tip}</Txt>}
+    </View>
+  ) : null;
 
   return <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.c.screen }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
     <View style={{ flex: 1, paddingTop: insets.top + 8 }}>
@@ -183,6 +216,7 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
           </View>
           <Txt variant="cardTitle">{dojoItemName(itemId, lang)}</Txt>
           <Txt variant="body" color={t.c.ink2}>{copy.saved}</Txt>
+          {feedbackPanel}
           <Button label={copy.openDojo} onPress={() => {
             if (current()) router.push({ pathname: "/dojo", params: { reward: itemId, epoch: String(scope.epoch) } });
           }} />
@@ -194,11 +228,14 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
               <ProgressBar pct={run.graded_count / (run.preparation_count + 1) * 100} height={6} />
             </View>
             <ExerciseCard key={run.exercise.token ?? String(run.graded_count)} exercise={run.exercise}
-              onChange={(value, display) => { setResponse(value); setResponseDisplay(display); }} locked={!!result || checking || saving} onHint={markHintUsed} />
+              onChange={(value, display) => {
+                if (busyRef.current || submissionLocked || result) return;
+                setResponse(value); setResponseDisplay(display);
+              }} feedback={result ?? undefined} locked={!!result || checking || submissionLocked || checkingPrep || saving} onHint={markHintUsed} />
             {result && <ResultPanel result={result} exercise={run.exercise} levelUp={levelUp} explained={explained}
-              explainLoading={explainLoading} onExplain={() => { if (current()) void doExplain(run.exercise!, responseDisplay); }} />}
-            <Button label={saving ? copy.loading : result ? copy.next : checking ? copy.checking : copy.check}
-              disabled={saving || checking || !result && response === null} onPress={() => void (result ? advance() : checkPreparation())} />
+              explainLoading={explainLoading} explainError={explainError} onExplain={() => { if (current()) void doExplain(run.exercise!, responseDisplay); }} />}
+            <Button label={saving ? copy.loading : result ? copy.next : checking || checkingPrep ? copy.checking : checkError ? copy.tryAgain : copy.check}
+              disabled={saving || checking || checkingPrep || !result && response === null} onPress={() => void (result ? advance() : checkPreparation())} />
           </>}
           {(final || !run && !!text) && <>
             <View style={{ gap: 10 }}>
@@ -208,13 +245,7 @@ function ChapterExperience({ scope, lang, chapterId }: { scope: AccountScope; la
               </View>
               <Txt variant="body" color={t.c.ink2}>{chapter.final}</Txt>
             </View>
-            {!!feedback && !pending && <View style={[styles.feedback, { borderColor: t.c.line }]}>
-              <Txt variant="body">{feedback.explanation}</Txt>
-              {!!feedback.example && <View style={{ gap: 6 }}>
-                <Txt variant="secondary" color={t.c.ink2}>{copy.example}</Txt>
-                <Txt variant="body">{feedback.example}</Txt>
-              </View>}
-            </View>}
+            {feedbackPanel}
             <TextInput accessibilityLabel={copy.finalTask} value={text} onChangeText={changeText} placeholder={chapter.placeholder}
               placeholderTextColor={t.c.ink3} editable={!pending && !saving} multiline maxLength={CHAPTER_TEXT_LIMIT}
               textAlignVertical="top" autoCapitalize="sentences" selectionColor={t.c.accent}

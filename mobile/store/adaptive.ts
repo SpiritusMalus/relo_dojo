@@ -7,7 +7,7 @@
 // toward weak/underpracticed areas while staying varied (weighted-random).
 import type { Progress, Steering } from "./progress";
 import type { ExerciseType } from "../services/api";
-import { CURRICULUM } from "./curriculum";
+import { CURRICULUM, evidenceKindFor } from "./curriculum";
 
 export const START_LEVEL = 1.5; // ≈ A2/B1 boundary (Pre-Intermediate)
 export const TARGET_SUCCESS = 0.75;
@@ -288,7 +288,7 @@ export function reviewBoost(p: Progress, topic: string, today: string): number {
 export function topicWeight(p: Progress, topic: string, today: string = isoDay(new Date())): number {
   const st = p.topics[topic];
   const lifetime = st && st.attempts >= 3 ? st.correct / st.attempts : 0.5;
-  const recent = st?.recent?.slice(-RECENT_ANSWERS) ?? [];
+  const recent = (st?.recent ?? []).filter((a) => evidenceKindFor(a.format) === "topic").slice(-RECENT_ANSWERS);
   const recentAccuracy = recent.reduce((sum, a) => sum + a.score, 0) / recent.length;
   const acc = recent.length ? 0.4 * lifetime + 0.6 * recentAccuracy : lifetime;
   const focus = p.profile?.focusTopics?.includes(topic) ? FOCUS_BOOST : 1;
@@ -307,7 +307,7 @@ export function topicWeight(p: Progress, topic: string, today: string = isoDay(n
  *  move the continuous estimate, but cannot immediately switch the next card to a higher band. */
 export function servedSkill(p: Progress, topic: string): number {
   const level = effectiveSkill(p, topic);
-  const recent = p.topics[topic]?.recent?.slice(-RECENT_ANSWERS) ?? [];
+  const recent = (p.topics[topic]?.recent ?? []).filter((a) => evidenceKindFor(a.format) === "topic").slice(-RECENT_ANSWERS);
   if (!recent.length) return level; // legacy saves and placement seeds retain their starting band
   const previousBand = Math.min(4, Math.floor(recent[recent.length - 1].difficulty));
   if (Math.floor(level) === previousBand + 1 && level < previousBand + 1.35) {
@@ -382,7 +382,7 @@ export function selectNext(
   if (tw.length === 0) tw = base;
   // Recent struggle calls for recognition/scaffolding; repeated independent wins invite production.
   // This changes the mix, never defeats explicit format preferences or the level's allowed pool.
-  const recent = p.topics[topic]?.recent?.slice(-3) ?? [];
+  const recent = (p.topics[topic]?.recent ?? []).filter((a) => evidenceKindFor(a.format) === "topic").slice(-3);
   const formats = p.recentFormats?.length ? p.recentFormats.slice(-2) : recent.slice(-2).map((a) => a.format);
   if (formats.length === 2 && formats[0] === formats[1] && tw.some(([type]) => type !== formats[1])) {
     tw = tw.filter(([type]) => type !== formats[1]);

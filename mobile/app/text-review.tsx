@@ -15,7 +15,6 @@ import { trackReviewSubmitted } from "../services/analytics";
 import { useI18n } from "../store/i18n";
 import { useAccountScope } from "../store/useAccountScope";
 import { isCurrentAccountScope } from "../store/accountScope";
-import { loadingMessageFor } from "../i18n/loading";
 import { RU_TOPIC_LABELS } from "../i18n/strings";
 import { TOPIC_LABELS } from "../store/onboarding";
 import { useTheme } from "../theme/theme";
@@ -38,12 +37,12 @@ export default function TextReviewScreen() {
   const [text, setText] = useState("");
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(false);
   const mounted = useRef(true);
-  const inFlight = useRef(false);
+  const inFlight = useRef<AbortController | null>(null);
   useEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; };
+    return () => { mounted.current = false; inFlight.current?.abort(); };
   }, []);
 
   const topicLabel = (topic: string) =>
@@ -52,21 +51,22 @@ export default function TextReviewScreen() {
   const submit = useCallback(async () => {
     const trimmed = text.trim();
     if (!trimmed || inFlight.current || !mounted.current || !isCurrentAccountScope(scope) || scope.owner === null) return;
-    inFlight.current = true;
+    const controller = new AbortController();
+    inFlight.current = controller;
     setLoading(true);
-    setError(null);
+    setError(false);
     setResult(null);
     try {
-      const r = await reviewText(trimmed);
-      if (!mounted.current || !isCurrentAccountScope(scope)) return;
+      const r = await reviewText(trimmed, controller.signal);
+      if (!mounted.current || controller.signal.aborted || !isCurrentAccountScope(scope)) return;
       setResult(r);
       trackReviewSubmitted({ chars: trimmed.length, issues: r.issues?.length });
-    } catch (e) {
-      if (mounted.current && isCurrentAccountScope(scope)) setError(e instanceof Error ? e.message : "Failed to review the text");
+    } catch {
+      if (mounted.current && !controller.signal.aborted && isCurrentAccountScope(scope)) setError(true);
     } finally {
-      if (mounted.current && isCurrentAccountScope(scope)) {
-        inFlight.current = false;
-        setLoading(false);
+      if (inFlight.current === controller) {
+        inFlight.current = null;
+        if (mounted.current && isCurrentAccountScope(scope)) setLoading(false);
       }
     }
   }, [text, scope]);
@@ -74,22 +74,32 @@ export default function TextReviewScreen() {
   useEffect(() => {
     setText("");
     setResult(null);
-    setError(null);
+    setError(false);
     setLoading(false);
-    inFlight.current = false;
+    return () => {
+      inFlight.current?.abort();
+      inFlight.current = null;
+    };
   }, [scope]);
 
   const restart = () => {
     setResult(null);
     setText("");
-    setError(null);
+    setError(false);
   };
+
+  function close() {
+    if (!mounted.current) return;
+    mounted.current = false;
+    inFlight.current?.abort();
+    router.back();
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: t.c.screen, paddingTop: insets.top + 8 }}>
       <StatusBar style={t.name === "dark" ? "light" : "dark"} />
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.back} accessibilityLabel="Back">
+        <Pressable onPress={close} hitSlop={10} style={styles.back} accessibilityRole="button" accessibilityLabel={tr("common.close")}>
           <Icon name="back" size={24} color={t.c.ink2} />
         </Pressable>
         <Txt variant="screenTitle">{tr("trev.title")}</Txt>
@@ -110,7 +120,9 @@ export default function TextReviewScreen() {
             </Txt>
             <TextInput
               value={text}
-              onChangeText={setText}
+              onChangeText={(value) => { if (!inFlight.current) setText(value); }}
+              editable={!loading}
+              accessibilityLabel={tr("trev.title")}
               placeholder={tr("trev.placeholder")}
               placeholderTextColor={t.c.ink3}
               multiline
@@ -128,19 +140,19 @@ export default function TextReviewScreen() {
             />
             <DataGuard style={{ marginBottom: 10 }} />
             {!!error && (
-              <Txt variant="secondary" color={t.c.bad} style={{ marginBottom: 8 }}>
-                {error}
+              <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert" style={{ marginBottom: 8 }}>
+                {tr("trev.error")}
               </Txt>
             )}
             {loading ? (
               <View style={{ alignItems: "center", gap: 8, paddingVertical: 8 }}>
                 <ActivityIndicator color={t.c.accent} />
                 <Txt variant="secondary" color={t.c.ink3}>
-                  {loadingMessageFor(0)}
+                  {tr("trev.checking")}
                 </Txt>
               </View>
             ) : (
-              <Button label={tr("trev.submit")} onPress={submit} disabled={!text.trim()} />
+              <Button label={tr(error ? "action.tryAgain" : "trev.submit")} onPress={submit} disabled={!text.trim()} />
             )}
           </Card>
         )}
@@ -183,7 +195,8 @@ export default function TextReviewScreen() {
               </Card>
             ))}
 
-            <Button label={tr("trev.again")} onPress={restart} />
+            <Button label={tr("trev.edit")} onPress={() => { setResult(null); setError(false); }} />
+            <Button label={tr("trev.again")} variant="ghost" onPress={restart} />
           </>
         )}
       </ScrollView>

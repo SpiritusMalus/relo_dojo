@@ -173,7 +173,7 @@ export function createLearningSessionTracker(scope: AccountScope, signedIn: bool
   }
 
   return {
-    async fetch(params: FetchParams): Promise<Exercise> {
+    async fetch(params: FetchParams, signal?: AbortSignal): Promise<Exercise> {
       assertActive();
       const current = await start();
       assertActive();
@@ -181,7 +181,8 @@ export function createLearningSessionTracker(scope: AccountScope, signedIn: bool
       const bound = current && ordinal < current.item_count;
       let exercise: Exercise;
       try {
-        exercise = await getExercise(bound ? { ...params, learning_session_id: current.id, learning_item: ordinal } : params);
+        const payload = bound ? { ...params, learning_session_id: current.id, learning_item: ordinal } : params;
+        exercise = signal ? await getExercise(payload, signal) : await getExercise(payload);
       } catch (error) {
         if (!bound || !(error instanceof ApiError) || error.status !== 410 || error.code !== "learning_session_expired") throw error;
         // A long pause may outlive receipt eligibility. Keep the lesson usable with ordinary
@@ -189,12 +190,12 @@ export function createLearningSessionTracker(scope: AccountScope, signedIn: bool
         eligible = false;
         await forgetPending(scope, pending.clientId);
         assertActive();
-        exercise = await getExercise(params);
+        exercise = signal ? await getExercise(params, signal) : await getExercise(params);
       }
       assertActive();
       // Flag-off /exercise intentionally serves the ordinary card. A bound issuance always
       // includes the independent review token; never count a degraded ordinary card as proof.
-      if (bound && exercise.token && exercise.review_token) bindings.set(exercise.token, ordinal);
+      if (bound && exercise.token && (exercise.learning_bound ?? !!exercise.review_token)) bindings.set(exercise.token, ordinal);
       else if (bound) eligible = false;
       return exercise;
     },
