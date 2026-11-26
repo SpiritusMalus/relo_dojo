@@ -11,7 +11,8 @@ import { fetch as expoFetch } from "expo/fetch";
 import type { Progress } from "../store/progress";
 import { bindAccountUser, captureAccountScope, isCurrentAccountScope, setAccountToken, type AccountScope } from "../store/accountScope";
 import { anonymousInstallId } from "./anonymousInstallId";
-import { withAnswerConnection } from "./answerConnection";
+import { withLearningConnection } from "./learningConnection";
+import { sendLearningRequest } from "./learningTransport";
 
 const FALLBACK_HOST = "192.168.1.9";
 const PORT = 8000;
@@ -86,6 +87,8 @@ export function gateKind(e: unknown): GateKind {
 // LLM calls (/explain) can be slow on a cold model, but never hang forever — fail clearly instead.
 const REQUEST_TIMEOUT_MS = 90000;
 const INTERACTIVE_CHECK_TIMEOUT_MS = 8000;
+// Leave room for the API's 60-second exercise generation budget and the response.
+const EXERCISE_REQUEST_TIMEOUT_MS = 65000;
 // A mini-story generates 3 exercises in sequence (each may retry), so it needs more headroom.
 const STORY_TIMEOUT_MS = 180000;
 
@@ -95,7 +98,7 @@ export async function request<T>(
   method: Method = "POST",
   timeoutMs: number = REQUEST_TIMEOUT_MS,
   expectedAuthToken?: string | null,
-  options?: { signal?: AbortSignal; reviewIdentity?: boolean; transport?: "expo" },
+  options?: { signal?: AbortSignal; reviewIdentity?: boolean; transport?: "learning" },
 ): Promise<T> {
   assertProgressSession(expectedAuthToken);
   const requestScope = captureAccountScope();
@@ -125,13 +128,11 @@ export async function request<T>(
   try {
     let res: ApiResponse;
     try {
-      const fetcher = options?.transport === "expo" ? expoFetch : fetch;
-      res = await fetcher(`${BASE_URL}${path}`, {
-        method,
-        headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      });
+      const url = `${BASE_URL}${path}`;
+      const payload = body !== undefined ? JSON.stringify(body) : undefined;
+      res = options?.transport === "learning"
+        ? await sendLearningRequest(url, headers, payload ?? "", controller.signal, timeoutMs)
+        : await fetch(url, { method, headers, body: payload, signal: controller.signal });
     } catch (e) {
       assertRequestActive();
       if (e instanceof Error && e.name === "AbortError") {
@@ -264,7 +265,7 @@ export function getExercise(params?: {
 }, signal?: AbortSignal): Promise<Exercise> {
   // `lang` lets the backend write the LLM-generated task instruction (transform-the-sentence) in the
   // learner's UI language; the exercise content itself stays English (it's an English course).
-  return request<Exercise>("/exercise", { ...(params ?? {}), lang: apiLang }, "POST", REQUEST_TIMEOUT_MS, undefined, { signal, reviewIdentity: true });
+  return requestLearning<Exercise>("/exercise", { ...(params ?? {}), lang: apiLang }, EXERCISE_REQUEST_TIMEOUT_MS, { signal, reviewIdentity: true });
 }
 
 // A themed mini-story: a curated narrative wrapping a sequence of linked exercises.
@@ -383,25 +384,33 @@ export async function syncLearnerProfile(patch: Partial<LearnerProfileData>): Pr
   }
 }
 
-function requestAnswer<T>(path: string, body: unknown, timeoutMs: number, reviewIdentity?: boolean): Promise<T> {
+function requestLearning<T>(
+  path: string,
+  body: unknown,
+  timeoutMs: number,
+  options: { signal?: AbortSignal; reviewIdentity?: boolean } = {},
+): Promise<T> {
   const token = authToken;
   const scope = captureAccountScope();
-  return withAnswerConnection((signal) => {
+  return withLearningConnection((signal) => {
     if (!isCurrentAccountScope(scope)) throw new ApiError("The signed-in account changed.", 409, "session_changed");
-    // Expo's native HTTP client is independent of React Native's general-purpose fetch pool.
-    return request<T>(path, body, "POST", REQUEST_TIMEOUT_MS, token, { signal, reviewIdentity, transport: "expo" });
-  }, timeoutMs, (reason) => new ApiError(
-    reason === "answer_offline"
+    return request<T>(path, body, "POST", timeoutMs, token, {
+      signal,
+      reviewIdentity: options.reviewIdentity,
+      transport: "learning",
+    });
+  }, timeoutMs, (reason) => {
+    if (reason === "request_aborted") return new ApiError("Request cancelled.", 409, reason);
+    const message = reason === "learning_offline"
       ? (apiLang === "ru" ? "Нет подключения к интернету." : "No internet connection.")
-      : (apiLang === "ru" ? "Проверка не ответила вовремя." : "The answer check timed out."),
-    0,
-    reason,
-  ));
+      : (apiLang === "ru" ? "Ответ задерживается. Попробуй ещё раз." : "The reply is taking longer. Try again.");
+    return new ApiError(message, 0, reason);
+  }, options.signal);
 }
 
 // Interactive grading is deterministic. Legacy bound free-text cards may still use a model.
 export function checkInteractive(token: string, response: ResponseValue, modelGraded = false): Promise<CheckResult> {
-  return requestAnswer("/check", { token, response }, modelGraded ? REQUEST_TIMEOUT_MS : INTERACTIVE_CHECK_TIMEOUT_MS, true);
+  return requestLearning("/check", { token, response }, modelGraded ? REQUEST_TIMEOUT_MS : INTERACTIVE_CHECK_TIMEOUT_MS, { reviewIdentity: true });
 }
 
 export function renewReviewToken(token: string): Promise<{ review_token: string }> {
@@ -410,13 +419,13 @@ export function renewReviewToken(token: string): Promise<{ review_token: string 
 
 // LLM grade for free-text answers (includes an explanation, in the learner's language).
 export function checkFreeText(text: string, userAnswer: string): Promise<TextCheckResult> {
-  return requestAnswer("/check-answer", { text, user_answer: userAnswer, lang: apiLang }, REQUEST_TIMEOUT_MS);
+  return requestLearning("/check-answer", { text, user_answer: userAnswer, lang: apiLang }, REQUEST_TIMEOUT_MS);
 }
 
 // listen-and-retell: LLM-graded content coverage of the typed retelling. The sealed token carries
 // the spoken passage; `correct_answer` comes back as that passage — the post-answer reveal.
 export function checkRetell(token: string, retell: string): Promise<TextCheckResult> {
-  return requestAnswer("/check-retell", { token, retell, lang: apiLang }, REQUEST_TIMEOUT_MS, true);
+  return requestLearning("/check-retell", { token, retell, lang: apiLang }, REQUEST_TIMEOUT_MS, { reviewIdentity: true });
 }
 
 // On-demand teaching note for an interactive miss.
