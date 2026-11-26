@@ -1,8 +1,7 @@
 // getExercise / getStory must carry the UI language so the backend can write LLM-generated task
 // instructions (transform-the-sentence) in the learner's language. The other LLM endpoints already
 // send `lang`; these two were the gap (explanation-lang-ru).
-jest.mock("expo/fetch", () => ({ fetch: jest.fn() }));
-
+import { fetch as expoFetch } from "expo/fetch";
 import { assessWriting, getExercise, getStory, setApiLang } from "../api";
 
 describe("getExercise / getStory send the UI lang", () => {
@@ -10,10 +9,16 @@ describe("getExercise / getStory send the UI lang", () => {
 
   beforeEach(() => {
     lastBody = {};
-    global.fetch = jest.fn(async (_url: unknown, init: { body?: string }) => {
-      lastBody = JSON.parse(init.body ?? "{}");
-      return { ok: true, status: 200, json: async () => ({}) } as unknown as Response;
-    }) as unknown as typeof fetch;
+    const receive = (body: unknown) => {
+      lastBody = JSON.parse(typeof body === "string" ? body : "{}");
+      return { ok: true, status: 200, json: async () => ({}) };
+    };
+    jest.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => receive(init?.body) as Response);
+    jest.mocked(expoFetch).mockImplementation(async (_url, init) => receive(init?.body) as Awaited<ReturnType<typeof expoFetch>>);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it("getExercise puts lang in the request body alongside the steering params", async () => {

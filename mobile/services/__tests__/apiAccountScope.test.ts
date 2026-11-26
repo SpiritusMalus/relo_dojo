@@ -1,3 +1,5 @@
+import { fetch as expoFetch } from "expo/fetch";
+import { getNetworkStateAsync, NetworkStateType, type NetworkState } from "expo-network";
 import { captureAccountScope } from "../../store/accountScope";
 import { deleteAccount, getExercise, setAuthToken, syncLearnerProfile } from "../api";
 
@@ -8,16 +10,33 @@ beforeEach(() => { setAuthToken(token("A")); });
 afterEach(() => { setAuthToken(null); jest.restoreAllMocks(); });
 
 it("rejects A's response after a switch, including a delayed JSON body", async () => {
-  let resolveBody!: (value: unknown) => void;
-  global.fetch = jest.fn(async () => ({ ok: true, status: 200,
-    json: () => new Promise((resolve) => { resolveBody = resolve; }),
-  })) as unknown as typeof fetch;
+  const bodyStarted = new Promise<(value: unknown) => void>((started) => {
+    jest.mocked(expoFetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: () => new Promise((resolve) => { started(resolve); }),
+    } as Awaited<ReturnType<typeof expoFetch>>);
+  });
   const pending = getExercise();
   const outcome = expect(pending).rejects.toMatchObject({ code: "session_changed" });
-  await Promise.resolve();
+  const resolveBody = await bodyStarted;
   setAuthToken(token("B"));
   resolveBody({ text: "A private card" });
   await outcome;
+});
+
+it("does not send A's exercise under B's token when network preflight is still pending", async () => {
+  jest.mocked(expoFetch).mockClear();
+  const networkStarted = new Promise<(state: NetworkState) => void>((started) => {
+    jest.mocked(getNetworkStateAsync).mockImplementationOnce(() => new Promise((resolve) => { started(resolve); }));
+  });
+  const pending = getExercise();
+  const outcome = expect(pending).rejects.toMatchObject({ code: "session_changed" });
+  const resolveNetwork = await networkStarted;
+  setAuthToken(token("B"));
+  resolveNetwork({ type: NetworkStateType.WIFI });
+  await outcome;
+  expect(expoFetch).not.toHaveBeenCalled();
 });
 
 it("does not PUT A's delayed profile or patch with B's bearer token", async () => {

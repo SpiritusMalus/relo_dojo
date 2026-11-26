@@ -288,7 +288,7 @@ export function useExerciseCheck() {
   useEffect(() => { reset(); }, [scope, reset]);
 
   const submissionLocked = checking || !!result || (!!error && !!attemptRef.current.submission);
-  const checkErrorKey: "err.check" | "err.checkOffline" | "err.checkTimeout" = errorCode === "answer_offline" ? "err.checkOffline"
-    : errorCode === "answer_timeout" ? "err.checkTimeout" : "err.check";
+  const checkErrorKey: "err.check" | "err.checkOffline" | "err.checkTimeout" = errorCode === "learning_offline" ? "err.checkOffline"
+    : errorCode === "learning_timeout" ? "err.checkTimeout" : "err.check";
   return { result, checking, submissionLocked, error, errorCode, checkErrorKey, levelUp, explained, explainLoading, explainError, check, doExplain, reset, setError, beginAttempt, markHintUsed };
 }
