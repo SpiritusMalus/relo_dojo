@@ -20,6 +20,7 @@ from ._grammar_feedback import _explain_lang
 from .llm import LLMError as OllamaError
 from .llm import LLMRefusedError, LLMTimeoutError, LLMConfigurationError, LLMOutputError, generate_json
 from ._grammar_prompts import (
+    BUILD_CUE_INSTRUCTION,
     CEFR_GUIDE,
     EXERCISE_TYPES,
     MC_LEN_SLACK,
@@ -163,7 +164,8 @@ async def _review_exercise(item: dict[str, Any], level: str | None) -> dict[str,
         "only the keyed answer. "
         "For matching, check that the displayed tiles have a unique complete mapping. For word "
         "tiles, ordinary punctuation/case normalization is allowed but the keyed sentence must "
-        "convey the source meaning. For dialogs, anchor is the GIVEN first line, followed by the "
+        "express the source meaning. For English cues, verify that the cue describes the intended "
+        "action clearly without giving away the sentence. For dialogs, anchor is the GIVEN first line, followed by the "
         "reordered tiles; the key order includes BOTH anchor and tiles. Do not reject a dialog "
         "because the given anchor is absent from the tile bank. Require one defensible order. "
         "Reported-speech backshift is optional when a statement remains true: is/was and "
@@ -209,6 +211,15 @@ BUILD_SCHEMA: dict[str, Any] = {
         "distractors": {"type": "array", "items": {"type": "string"}},
     },
     "required": ["sentence_en", "sentence_ru"],
+}
+BUILD_CUE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "sentence_en": BUILD_SCHEMA["properties"]["sentence_en"],
+        "cue_en": {"type": "string"},
+        "distractors": BUILD_SCHEMA["properties"]["distractors"],
+    },
+    "required": ["sentence_en", "cue_en"],
 }
 MATCH_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -454,13 +465,18 @@ async def _gen_multiple_choice(topic: str, level: str | None = None, context: st
 
 
 async def _gen_build_the_sentence(topic: str, level: str | None = None, context: str | None = None, mistakes: list[str] | None = None, lang: str | None = None, retry_note: str = "") -> dict[str, Any] | None:
-    # Translation exercise: show the Russian source, learner builds the English from word tiles.
+    english_cue = (lang or "").strip().lower() == "en"
+    source_rule = (
+        "Write 'cue_en' as one short English situation or instruction. Use different words to "
+        "identify the intended action, person and time clearly. Include a constraint when the "
+        "target grammar needs one. The cue must never quote the sentence to be assembled."
+        if english_cue else "Give its natural Russian translation as 'sentence_ru'."
+    )
     prompt = _tutor_intro(
         _retry_clause(retry_note)
         + f"Write ONE correct English sentence (3 to {_max_words(level)} words, with grammar appropriate "
-        f"to the requested CEFR) that illustrates: {topic}, then give its natural Russian translation.\n"
+        f"to the requested CEFR) that illustrates: {topic}. {source_rule}\n"
         "'sentence_en' is the English sentence (plain words, at most one comma, appropriate final punctuation). "
-        "'sentence_ru' is its Russian translation. "
         "'distractors' is 1-2 extra WRONG word tiles: broken forms of words already in the sentence "
         "(wrong tense, wrong number, wrong article — e.g. 'goes' when the sentence uses 'go'). Each "
         "must NOT fit anywhere in the sentence and must never be a correct alternative. "
@@ -472,12 +488,25 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
         scenario=True,
         topic=topic,
     )
-    data = await _item_json(prompt, BUILD_SCHEMA)
+    data = await _item_json(prompt, BUILD_CUE_SCHEMA if english_cue else BUILD_SCHEMA)
     sentence = str(data.get("sentence_en") or "").strip()
-    sentence_ru = str(data.get("sentence_ru") or "").strip()
+    source = str(data.get("cue_en" if english_cue else "sentence_ru") or "").strip()
     words = sentence.split()
-    if not sentence_ru:
-        return _reject("build-the-sentence: missing the Russian translation")
+    if not source:
+        return _reject("build-the-sentence: missing the English cue" if english_cue else
+                       "build-the-sentence: missing the Russian translation")
+    if english_cue:
+        if len(source.split()) > min(35, 2 * _max_words(level)) or re.search(r"[\u0400-\u04ff]", source):
+            return _reject("build-the-sentence: write a short English cue")
+        target_words = re.findall(r"\w+", _norm(sentence))
+        cue_words = re.findall(r"\w+", _norm(source))
+        size = len(target_words)
+        # Changing one word in a long quoted answer still gives away the construction.
+        if size and any(
+            sum(left != right for left, right in zip(target_words, cue_words[start:start + size])) <= (size >= 5)
+            for start in range(len(cue_words) - size + 1)
+        ):
+            return _reject("build-the-sentence: the cue must describe the action without quoting the answer")
     if len(words) < 3 or len(words) > _max_words(level):
         return _reject(f"build-the-sentence: the English sentence must be 3 to {_max_words(level)} words")
     tiles = _shuffled_tiles(words)
@@ -486,8 +515,9 @@ async def _gen_build_the_sentence(topic: str, level: str | None = None, context:
     return {
         "type": "build-the-sentence",
         "topic": topic,
-        "text": "Translate into English:",
-        "prompt": sentence_ru,
+        "text": BUILD_CUE_INSTRUCTION if english_cue else "Translate into English:",
+        "prompt": source,
+        **({"instruction": BUILD_CUE_INSTRUCTION} if english_cue else {}),
         "tiles": tiles,
         # Trap tiles (client mixes them into the bank): without them the bank is exactly the
         # answer's words and assembling degenerates into using everything up.
@@ -1341,7 +1371,9 @@ async def generate_exercise(
             item = None
             if settings.EXERCISE_CURATED_FALLBACK_ENABLED:
                 if assessment:
-                    item = build_fallback(selected_topic, selected_level, _practice_index.get(), exact_type=ex_type)
+                    item = build_fallback(
+                        selected_topic, selected_level, _practice_index.get(), exact_type=ex_type, lang=lang,
+                    )
                 elif ex_type not in _NON_TOPIC_EVIDENCE:
                     item = build_fallback(selected_topic, selected_level, _practice_index.get())
             if item is None:

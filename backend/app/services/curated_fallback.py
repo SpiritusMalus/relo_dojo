@@ -12,6 +12,7 @@ from random import SystemRandom
 from typing import Any
 
 from . import tokens
+from ._grammar_prompts import BUILD_CUE_INSTRUCTION
 
 
 @dataclass(frozen=True)
@@ -80,25 +81,35 @@ _PRACTICE_VARIANTS = (
 
 _ASSESSMENT_BUILDS = {
     ("word order", "A1"): (
-        ("Я читаю книги дома.", "I read books at home."),
-        ("Ты живёшь здесь?", "Do you live here?"),
+        ("Я читаю книги дома.", "Say that you look at books where you live.", "I read books at home."),
+        ("Ты живёшь здесь?", "Ask if this is the other person's home.", "Do you live here?"),
     ),
     ("word order", "A2"): (
-        ("Ты всегда проверяешь журналы?", "Do you always check the logs?"),
-        ("Напишите нейтральный вопрос. Когда уходит поезд?", "When does the train leave?"),
+        ("Ты всегда проверяешь журналы?", "Ask whether someone looks at the system records every time.",
+         "Do you always check the logs?"),
+        ("Напишите нейтральный вопрос. Когда уходит поезд?", "Ask for the time of the train's departure.",
+         "When does the train leave?"),
     ),
     ("word order", "B1"): (
-        ("Вы можете сказать мне, где станция?", "Can you tell me where the station is?"),
-        ("Вы знаете, когда закрывается магазин?", "Do you know when the shop closes?"),
+        ("Вы можете сказать мне, где станция?", "Politely ask someone to tell you the location of the station.",
+         "Can you tell me where the station is?"),
+        ("Вы знаете, когда закрывается магазин?", "Ask if the other person knows what time the store shuts.",
+         "Do you know when the shop closes?"),
     ),
     ("word order", "B2"): (
-        ("Начните с Rarely. Я редко видел настолько шумный офис.", "Rarely have I seen such a noisy office."),
-        ("Начните с Seldom. Мы редко получаем настолько ясные инструкции.", "Seldom do we receive such clear instructions."),
+        ("Начните с Rarely. Я редко видел настолько шумный офис.",
+         "Begin with Rarely. Say that you have hardly ever come across a workplace that loud.",
+         "Rarely have I seen such a noisy office."),
+        ("Начните с Seldom. Мы редко получаем настолько ясные инструкции.",
+         "Begin with Seldom. Say that directions this clear are unusual for you and your team.",
+         "Seldom do we receive such clear instructions."),
     ),
     ("word order", "C1"): (
         ("Начните с Only after. Мы поняли, насколько ненадёжны оценки, лишь когда изучили данные.",
+         "Begin with Only after. Explain that your group saw the initial numbers could not be trusted once you analyzed the records.",
          "Only after examining the data did we realize how unreliable the estimates were."),
         ("Начните с Not until. Мы поняли последствия только после завершения переговоров.",
+         "Begin with Not until. Explain that your group grasped the implications after the talks had finished.",
          "Not until the negotiations ended did we understand the consequences."),
     ),
 }
@@ -127,18 +138,25 @@ def _card(kind: str, topic: str, level: str, key: dict[str, Any], **display: Any
     }
 
 
-def _assessment_card(topic: str, level: str, kind: str, index: int) -> dict[str, Any] | None:
+def _assessment_card(
+    topic: str, level: str, kind: str, index: int, lang: str | None,
+) -> dict[str, Any] | None:
     if kind == "build-the-sentence":
         variants = _ASSESSMENT_BUILDS.get((topic, level))
         if variants:
-            prompt, answer = variants[index % len(variants)]
+            translation, cue, answer = variants[index % len(variants)]
+            english_cue = (lang or "").strip().lower() == "en"
             words = answer.split()
             tiles = words[:]
             SystemRandom().shuffle(tiles)
             if tiles == words:
                 tiles.reverse()
-            return _card(kind, topic, level, {"sentence": answer}, text="Translate into English:",
-                         prompt=prompt, tiles=tiles)
+            return _card(
+                kind, topic, level, {"sentence": answer}, tiles=tiles,
+                text=BUILD_CUE_INSTRUCTION if english_cue else "Translate into English:",
+                prompt=cue if english_cue else translation,
+                **({"instruction": BUILD_CUE_INSTRUCTION} if english_cue else {}),
+            )
     elif kind == "multiple-blanks":
         item = _ASSESSMENT_BLANKS.get((topic, level))
         if item:
@@ -159,11 +177,12 @@ def _assessment_card(topic: str, level: str, kind: str, index: int) -> dict[str,
 
 
 def build_fallback(
-    topic: str, level: str | None, practice_index: int | None = None, *, exact_type: str | None = None,
+    topic: str, level: str | None, practice_index: int | None = None,
+    *, exact_type: str | None = None, lang: str | None = None,
 ) -> dict[str, Any] | None:
     index = max(0, practice_index or 0)
     if exact_type and exact_type != "multiple-choice":
-        return _assessment_card(topic, level, exact_type, index) if level in _BANDS else None
+        return _assessment_card(topic, level, exact_type, index, lang) if level in _BANDS else None
 
     candidates = [item for item in (*BANK, *_PRACTICE_VARIANTS) if item.topic == topic]
     if exact_type:

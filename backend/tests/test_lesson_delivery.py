@@ -276,3 +276,63 @@ async def test_story_resume_rechecks_locked_arc_before_provider(monkeypatch):
         await main.story_beat(StoryBeatIn(resume_token=story.resume_token, index=0), user=buyer, request=request)
     assert error.value.status_code == 403
     generator.assert_not_awaited()
+
+
+async def test_english_sentence_build_uses_a_cue_and_keeps_the_answer_sealed(monkeypatch):
+    cue = "Ask whether the other person looks at the records every time."
+    sentence = "Do you always check the logs?"
+    generate = AsyncMock(return_value={"sentence_en": sentence, "cue_en": cue})
+    monkeypatch.setattr(gen, "generate_json", generate)
+    card = await gen._gen_build_the_sentence("word order", "A2", lang="en")
+    assert generate.await_args.args[1] is gen.BUILD_CUE_SCHEMA
+    assert "different words" in generate.await_args.args[0]
+    assert card["prompt"] == cue and card["instruction"] == gen.BUILD_CUE_INSTRUCTION
+    assert all(sentence not in card[field] for field in ("text", "prompt", "instruction"))
+    assert tokens.unseal(card["token"])["sentence"] == sentence
+
+
+@pytest.mark.parametrize("cue", [
+    "", "Ты всегда проверяешь журналы?", 'Write: “DO YOU always check the logs!”',
+    "Ask: Do you always check the records?",
+])
+async def test_english_sentence_build_rejects_an_unusable_or_answer_revealing_cue(monkeypatch, cue):
+    monkeypatch.setattr(gen, "generate_json", AsyncMock(return_value={
+        "sentence_en": "Do you always check the logs?", "cue_en": cue,
+    }))
+    assert await gen._gen_build_the_sentence("word order", "A2", lang="en") is None
+
+
+@pytest.mark.parametrize("lang", ["ru", None])
+async def test_russian_sentence_build_keeps_the_legacy_source(monkeypatch, lang):
+    source = "Ты всегда проверяешь журналы?"
+    generate = AsyncMock(return_value={"sentence_en": "Do you always check the logs?", "sentence_ru": source})
+    monkeypatch.setattr(gen, "generate_json", generate)
+    card = await gen._gen_build_the_sentence("word order", "A2", lang=lang)
+    assert generate.await_args.args[1] is gen.BUILD_SCHEMA
+    assert card["prompt"] == source and card["text"] == "Translate into English:"
+    assert "instruction" not in card
+
+
+@pytest.mark.parametrize("level", ["A1", "A2", "B1", "B2", "C1"])
+@pytest.mark.parametrize("index", [0, 1])
+def test_authored_english_cues_keep_all_exact_assessment_keys(level, index):
+    english = build_fallback("word order", level, index, exact_type="build-the-sentence", lang="en")
+    russian = build_fallback("word order", level, index, exact_type="build-the-sentence")
+    assert english["level"] == russian["level"] == level
+    assert english["type"] == russian["type"] == "build-the-sentence"
+    key = tokens.unseal(english["token"])
+    assert key == tokens.unseal(russian["token"])
+    assert sorted(english["tiles"]) == sorted(russian["tiles"])
+    assert english["prompt"].isascii() and russian["prompt"] != english["prompt"]
+    assert key["sentence"].casefold() not in english["prompt"].casefold()
+    assert english["instruction"] == gen.BUILD_CUE_INSTRUCTION
+
+
+async def test_assessment_failure_falls_back_to_the_english_cue(monkeypatch):
+    monkeypatch.setattr(settings, "EXERCISE_CURATED_FALLBACK_ENABLED", True)
+    monkeypatch.setattr(gen, "generate_json", AsyncMock(side_effect=gen.OllamaError("Temporary provider error")))
+    card = await gen.generate_exercise(
+        "word order", "A2", "build-the-sentence", lang="en", assessment=True, practice_index=0,
+    )
+    assert (card["type"], card["level"], card["source"]) == ("build-the-sentence", "A2", "curated")
+    assert card["instruction"] == gen.BUILD_CUE_INSTRUCTION and card["prompt"].isascii()
