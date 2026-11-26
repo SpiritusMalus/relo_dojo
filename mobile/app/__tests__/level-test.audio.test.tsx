@@ -105,7 +105,8 @@ it("a synchronous TTS failure has an explicit skip path and saves only the actua
 });
 
 it("a TTS engine that never calls back times out into retry and skip, never a dead Check button", async () => {
-  jest.useFakeTimers();
+  // React's async act keeps a reference to the task scheduler. Leave it on real timers.
+  jest.useFakeTimers({ doNotFake: ["setImmediate", "clearImmediate", "nextTick", "queueMicrotask"] });
   let r: ReactTestRenderer | undefined;
   try {
     jest.mocked(Speech.speak).mockImplementation(() => {});

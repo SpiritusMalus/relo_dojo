@@ -155,7 +155,7 @@ it("ignores an exercise response delivered after closing the intro", async () =>
 });
 
 it("requests strict word-order formats and leaves feedback visible until Continue", async () => {
-  jest.useFakeTimers();
+  jest.useFakeTimers({ doNotFake: ["setImmediate", "clearImmediate", "nextTick", "queueMicrotask"] });
   try {
     const first = deferExercise();
     await renderScreen();

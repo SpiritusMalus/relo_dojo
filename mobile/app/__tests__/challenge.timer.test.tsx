@@ -52,7 +52,7 @@ jest.mock("../../components/ui/Sensei", () => () => null);
 jest.mock("../../components/ui/Confetti", () => () => null);
 
 it("does not charge the timer during grading and includes the accepted answer in the one final score", async () => {
-  jest.useFakeTimers();
+  jest.useFakeTimers({ doNotFake: ["setImmediate", "clearImmediate", "nextTick", "queueMicrotask"] });
   let screen: ReactTestRenderer | undefined;
   try {
     mockNext.mockResolvedValueOnce({ type: "multiple-blanks", topic: "articles", level: "A2", text: "Two blanks.", token: "fixture" });
