@@ -22,6 +22,7 @@ jest.mock("../../store/progress", () => {
 jest.mock("../../store/auth", () => ({ useAuth: () => ({ token: "fixture-token" }) }));
 jest.mock("../../store/challenge", () => ({
   ...jest.requireActual("../../store/challenge"),
+  CHALLENGE_SECONDS: 4,
   loadBestScore: async () => 0,
   recordBestScore: (...args: unknown[]) => mockBest(...args),
 }));

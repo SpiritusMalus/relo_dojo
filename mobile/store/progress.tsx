@@ -43,7 +43,13 @@ export const COMBO_BONUS_XP = 20;
 export const BOOST_MINUTES = 15;
 export const BOOST_MULTIPLIER = 2;
 
-export type TopicStat = { attempts: number; correct: number; lastSeen?: string; recent?: AnswerEvidence[] }; // lastSeen: local YYYY-MM-DD
+export type TopicStat = {
+  attempts: number;
+  correct: number;
+  lastSeen?: string;
+  lastAnsweredAt?: number;
+  recent?: AnswerEvidence[];
+};
 
 export type Profile = {
   goals: string[];
@@ -263,6 +269,7 @@ export function recordAnswer(
       attempts: existing.attempts + 1,
       correct: existing.correct + (correct ? 1 : 0),
       lastSeen: today, // drives spaced-repetition review urgency (store/adaptive.ts)
+      lastAnsweredAt: now.getTime(),
       recent: [...(existing.recent ?? []), evidence].slice(-RECENT_ANSWERS),
     },
   };
@@ -360,7 +367,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     if (!ta) topics[key] = tb;
     else if (!tb) topics[key] = ta;
     else {
-      const chosen = tb.attempts > ta.attempts ? tb : ta;
+      const chosen = compareTopicEvidence(tb, ta) > 0 ? tb : ta;
       // Keep the most recent practice date so spaced-repetition timing isn't reset by a sync.
       const lastSeen = [ta.lastSeen, tb.lastSeen].filter(Boolean).sort().pop();
       topics[key] = lastSeen ? { ...chosen, lastSeen } : chosen;
@@ -375,7 +382,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     const sb = bSkill[key];
     if (sa === undefined) skill[key] = sb;
     else if (sb === undefined) skill[key] = sa;
-    else skill[key] = (b.topics[key]?.attempts ?? 0) > (a.topics[key]?.attempts ?? 0) ? sb : sa;
+    else skill[key] = compareTopicEvidence(b.topics[key], a.topics[key]) > 0 ? sb : sa;
   }
   return {
     xp: Math.max(a.xp, b.xp),
@@ -448,6 +455,15 @@ function mergeLevelHistory(a?: LevelSnapshot[], b?: LevelSnapshot[]): LevelSnaps
     .slice(-LEVEL_HISTORY_MAX);
 }
 
+function compareTopicEvidence(a?: TopicStat, b?: TopicStat): number {
+  const attempts = (a?.attempts ?? 0) - (b?.attempts ?? 0);
+  if (attempts) return attempts;
+  if (a?.lastAnsweredAt != null && b?.lastAnsweredAt != null) {
+    return a.lastAnsweredAt - b.lastAnsweredAt;
+  }
+  return (a?.lastSeen ?? "").localeCompare(b?.lastSeen ?? "");
+}
+
 /** Course merge keeps one coherent history per topic, preferring the newer evidence. */
 function mergeCourse(left: Progress, right: Progress): CourseState {
   const a = left.course ?? DEFAULT_COURSE;
@@ -456,10 +472,7 @@ function mergeCourse(left: Progress, right: Progress): CourseState {
   for (const key of new Set([...Object.keys(a.history), ...Object.keys(b.history)])) {
     const ha = a.history[key] ?? [];
     const hb = b.history[key] ?? [];
-    const first = left.topics[key];
-    const second = right.topics[key];
-    const newer = ((second?.attempts ?? 0) - (first?.attempts ?? 0))
-      || (second?.lastSeen ?? "").localeCompare(first?.lastSeen ?? "");
+    const newer = compareTopicEvidence(right.topics[key], left.topics[key]);
     // Some legacy snapshots lack topic statistics. In that case prefer the longer history,
     // and do not replace a non-empty window with a missing legacy field.
     const selected = !ha.length || (!!hb.length && (newer > 0 || (newer === 0 && hb.length > ha.length))) ? hb : ha;

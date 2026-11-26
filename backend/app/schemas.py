@@ -519,6 +519,7 @@ class TopicStat(BaseModel):
     attempts: int = 0
     correct: int = 0
     lastSeen: str = ""  # local YYYY-MM-DD of last practice; drives spaced repetition (adaptive.ts)
+    lastAnsweredAt: Optional[int] = Field(default=None, ge=0, le=9_007_199_254_740_991)
     recent: list[AnswerEvidence] = Field(default_factory=list, max_length=6)
 
 
