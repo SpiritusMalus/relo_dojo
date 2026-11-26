@@ -56,7 +56,7 @@ export default function CheckpointScreen() {
   const insets = useSafeAreaInsets();
   const { progress, masterUnit } = useProgress();
   const { t: tr, lang } = useI18n();
-  const { result, checking, submissionLocked, error: checkError, check, reset, beginAttempt } = useExerciseCheck();
+  const { result, checking, submissionLocked, error: checkError, checkErrorKey, check, reset, beginAttempt } = useExerciseCheck();
 
   const params = useLocalSearchParams<{ topic?: string }>();
   const topic = typeof params.topic === "string" ? params.topic : "";
@@ -305,7 +305,7 @@ export default function CheckpointScreen() {
         )}
         {!loading && loadFailure}
         {checkError && !error && (
-          <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert" style={{ textAlign: "center" }}>{tr("err.check")}</Txt>
+          <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert" style={{ textAlign: "center" }}>{tr(checkErrorKey ?? "err.check")}</Txt>
         )}
 
         {exercise && !loading && (

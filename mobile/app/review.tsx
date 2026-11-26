@@ -38,7 +38,7 @@ export default function ReviewScreen() {
   const { progress } = useProgress();
   const { t: tr, lang } = useI18n();
   const copy = learningLoopCopy(lang);
-  const { result, checking, submissionLocked, error: checkError, errorCode, explainError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
+  const { result, checking, submissionLocked, error: checkError, errorCode, checkErrorKey, explainError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
 
   const [items, setItems] = useState<Mistake[] | null>(null); // null = still loading
@@ -264,7 +264,7 @@ export default function ReviewScreen() {
             {checkError && !result && (
               <View style={{ gap: 8 }}>
                 <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert" style={{ textAlign: "center" }}>
-                  {tr(unrecoverable ? "review.unrecoverable" : canRecover && renewal !== "failed" ? "review.expired" : "err.check")}
+                  {tr(unrecoverable ? "review.unrecoverable" : canRecover && renewal !== "failed" ? "review.expired" : (checkErrorKey ?? "err.check"))}
                 </Txt>
                 {unrecoverable && (
                   <Button label={tr("review.practiceTopic")} variant="ghost"

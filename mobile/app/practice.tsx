@@ -83,7 +83,7 @@ export default function PracticeScreen() {
   // Stage 2 Progress Agent: every answer of this session, pushed once at the summary screen.
   const sessionAnswersRef = useRef<SessionAnswer[]>([]);
   const summarySentRef = useRef(false);
-  const { result, checking, submissionLocked, error: checkError, explainError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
+  const { result, checking, submissionLocked, error: checkError, checkErrorKey, explainError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
   const params = useLocalSearchParams<{ topic?: string }>();
   const routeTopic = typeof params.topic === "string" ? params.topic : undefined;
@@ -561,7 +561,7 @@ export default function PracticeScreen() {
         )}
 
         {checkError && !result && (
-          <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert">{tr("err.check")}</Txt>
+          <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert">{tr(checkErrorKey ?? "err.check")}</Txt>
         )}
 
         {result && exercise && !showScroll && (

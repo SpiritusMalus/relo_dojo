@@ -57,7 +57,7 @@ export default function StoryScreen() {
     return () => { activeRef.current = false; storyRequest.current?.abort(); storyRequest.current = null; };
   }, []);
   const current = useCallback(() => activeRef.current && isCurrentAccountScope(ownerScope), [ownerScope]);
-  const { result, checking, submissionLocked, error: checkError, explainError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
+  const { result, checking, submissionLocked, error: checkError, checkErrorKey, explainError, levelUp, explained, explainLoading, check, doExplain, reset, beginAttempt, markHintUsed } =
     useExerciseCheck();
 
   const { coins, refresh: refreshWallet } = useWallet();
@@ -399,7 +399,7 @@ export default function StoryScreen() {
                     locked={checking || submissionLocked || !!result} onChange={onChange} onSkip={() => onAdvance(true)} />
                 </Animated.View>
                 {checkError && !result && (
-                  <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert">{tr("err.check")}</Txt>
+                  <Txt variant="secondary" color={t.c.bad} accessibilityRole="alert">{tr(checkErrorKey ?? "err.check")}</Txt>
                 )}
                 {result && (
                   <ResultPanel result={result} exercise={beat.exercise} levelUp={levelUp}
