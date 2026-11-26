@@ -122,10 +122,11 @@ export async function request<T>(
     controller.abort();
   };
   options?.signal?.addEventListener("abort", cancel, { once: true });
-  const fetchResponse = async (): Promise<ApiResponse> => {
+  try {
+    let res: ApiResponse;
     try {
       const fetcher = options?.transport === "expo" ? expoFetch : fetch;
-      return await fetcher(`${BASE_URL}${path}`, {
+      res = await fetcher(`${BASE_URL}${path}`, {
         method,
         headers,
         body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -138,9 +139,6 @@ export async function request<T>(
       }
       throw new Error(apiLang === "ru" ? "Не удалось подключиться. Попробуй ещё раз." : "Couldn't connect. Try again.");
     }
-  };
-  try {
-    const res = await fetchResponse();
     assertRequestActive();
     return await readApiResponse<T>(res, assertRequestActive);
   } finally {
