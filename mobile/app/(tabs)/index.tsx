@@ -24,6 +24,7 @@ import { loadMistakes, type Mistake } from "../../store/mistakes";
 import { nextLearningGoal, learningGoalRoute } from "../../store/nextLearningGoal";
 import { learningLoopCopy } from "../../i18n/learningLoopCopy";
 import { recoverLearningSessions } from "../../services/learningSession";
+import { conversationEnabled } from "../../services/conversation";
 import { track } from "../../services/analytics";
 import ContractsCard from "../../components/ui/ContractsCard";
 import JourneyPath from "../../components/ui/JourneyPath";
@@ -183,6 +184,15 @@ export default function HomeScreen() {
       )}
 
       <ChaptersButton onPress={() => router.navigate("/chapters")} />
+      {conversationEnabled() && (
+        <Button
+          label={lang === "ru" ? "Голосовая практика" : "Voice practice"}
+          variant="ghost"
+          left={<Icon name="sound" color={t.c.accent} size={20} />}
+          onPress={() => router.navigate("/conversation")}
+        />
+      )}
+
 
       <View style={styles.secondaryActions}>
         {goal.kind !== "mix" && <Pressable accessibilityRole="button" onPress={() => router.navigate("/practice")} style={({ pressed }) => [styles.textAction, { opacity: pressed ? 0.6 : 1 }]}>

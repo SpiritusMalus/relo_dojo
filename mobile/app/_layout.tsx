@@ -166,6 +166,7 @@ function RootNav() {
       <Stack.Screen name="consent" />
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="practice" options={{ headerShown: false }} />
+      <Stack.Screen name="conversation" options={{ headerShown: false }} />
       <Stack.Screen name="story" options={{ headerShown: false }} />
       <Stack.Screen name="chapters" options={{ headerShown: false }} />
       <Stack.Screen name="chapter" options={{ headerShown: false }} />
