@@ -7,6 +7,7 @@ import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -20,6 +21,8 @@ import kotlinx.coroutines.withContext
 class LiveAudioModule : Module() {
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private val sessionLock = Mutex()
+  // Session IDs increase in the JS runtime paired with this module instance.
+  private val cancelledThrough = AtomicInteger()
 
   @Volatile
   private var currentSession: LivePcmSession? = null
@@ -35,6 +38,7 @@ class LiveAudioModule : Module() {
       val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
       withContext(Dispatchers.IO) {
         sessionLock.withLock {
+          checkNotCancelled(id)
           check(canStart) { "Live audio requires the foreground" }
           check(currentSession == null) { "Another live audio session is active" }
           check(context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
@@ -44,7 +48,7 @@ class LiveAudioModule : Module() {
           val session = LivePcmSession(
             id,
             onChunk = { base64 ->
-              if (currentSession?.id == id && canStart) {
+              if (currentSession?.id == id && canStart && id > cancelledThrough.get()) {
                 sendEvent("microphoneChunk", mapOf("sessionId" to id, "base64Pcm" to base64))
               }
             },
@@ -54,8 +58,10 @@ class LiveAudioModule : Module() {
           )
           currentSession = session
           try {
+            checkNotCancelled(id)
             check(canStart) { "Live audio requires the foreground" }
             session.start()
+            checkNotCancelled(id)
           } catch (error: Exception) {
             currentSession = null
             withContext(NonCancellable) { session.close() }
@@ -112,7 +118,13 @@ class LiveAudioModule : Module() {
   private fun sessionFor(id: Int): LivePcmSession =
     checkNotNull(currentSession?.takeIf { it.id == id }) { "Live audio session has ended" }
 
+  private fun checkNotCancelled(id: Int) {
+    check(id > cancelledThrough.get()) { "Live audio was cancelled" }
+  }
+
   private suspend fun stopSession(id: Int? = null, message: String? = null) {
+    // Fence off late startup before waiting for Android's recorder calls to return.
+    if (id != null) cancelledThrough.updateAndGet { previous -> maxOf(previous, id) }
     sessionLock.withLock {
       val session = currentSession ?: return
       if (id != null && session.id != id) return
