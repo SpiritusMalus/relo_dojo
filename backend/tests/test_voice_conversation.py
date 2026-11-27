@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from app.core.config import settings
+from app.core.ratelimit import SlidingWindowLimiter
 from app.core.security import create_access_token, create_verify_token
 from app.main import app
 from app.routers import voice_conversation as route
@@ -124,6 +125,108 @@ def test_voice_requires_its_own_flag_access_token_and_consent(
     providers[0].assert_not_called()
 
 
+@pytest.mark.parametrize("startup_timeout, auth_timeout", [(1, 0.04), (0.04, 1)])
+def test_startup_and_auth_deadlines_cancel_account_lookup(
+    monkeypatch, socket_client, providers, startup_timeout, auth_timeout,
+):
+    client, headers, user = socket_client
+    cancelled = threading.Event()
+    real_get_user = route.get_current_user
+
+    async def stuck_lookup(*_):
+        try:
+            await asyncio.Future()
+        finally:
+            cancelled.set()
+
+    monkeypatch.setattr(route, "_START_TIMEOUT", startup_timeout)
+    monkeypatch.setattr(route, "_AUTH_TIMEOUT", auth_timeout)
+    monkeypatch.setattr(route, "get_current_user", stuck_lookup)
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        assert ws.receive_json() == {"type": "error", "code": "startup_timeout"}
+        with pytest.raises(WebSocketDisconnect) as exc:
+            ws.receive_json()
+        assert exc.value.code == 4408
+    assert cancelled.is_set() and str(user.id) not in route._active
+    providers[0].assert_not_called()
+
+    monkeypatch.setattr(route, "_START_TIMEOUT", 1)
+    monkeypatch.setattr(route, "_AUTH_TIMEOUT", 1)
+    monkeypatch.setattr(route, "get_current_user", real_get_user)
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        _start(ws)
+
+
+def test_consent_frame_timeout_releases_already_reserved_slot(monkeypatch, socket_client, providers):
+    client, headers, user = socket_client
+    seen_user = []
+    real_receive = route._receive
+
+    async def check_slot(socket, timeout=None):
+        if timeout is None:
+            seen_user.append(str(user.id) in route._active)
+        return await real_receive(socket, timeout)
+
+    monkeypatch.setattr(route, "_receive", check_slot)
+    monkeypatch.setattr(route, "_START_TIMEOUT", 0.1)
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        assert ws.receive_json() == {"type": "error", "code": "startup_timeout"}
+    assert seen_user == [True]
+    assert str(user.id) not in route._active
+    providers[0].assert_not_called()
+
+    monkeypatch.setattr(route, "_START_TIMEOUT", 1)
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        _start(ws)
+
+
+def test_global_capacity_remains_distinct_from_an_active_account(monkeypatch, socket_client, providers):
+    client, headers, _ = socket_client
+    monkeypatch.setattr(route, "_MAX_SESSIONS", 1)
+    monkeypatch.setattr(route, "_active", {"another-account"})
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        assert ws.receive_json() == {"type": "error", "code": "voice_busy"}
+    assert route._active == {"another-account"}
+    providers[0].assert_not_called()
+
+
+def test_connection_limit_includes_retry_seconds(monkeypatch, socket_client, providers):
+    client, headers, _ = socket_client
+    monkeypatch.setattr(route, "_connections", SlidingWindowLimiter(1, 60))
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        _start(ws)
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        error = ws.receive_json()
+        assert error["type"] == "error" and error["code"] == "connection_rate_limit"
+        assert type(error["retryAfterSeconds"]) is int and 0 < error["retryAfterSeconds"] <= 60
+    providers[0].assert_not_called()
+
+
+@pytest.mark.parametrize("session_limited", [True, False])
+def test_session_and_rolling_turn_limits_have_distinct_errors(
+    monkeypatch, socket_client, providers, session_limited,
+):
+    client, headers, _ = socket_client
+    if session_limited:
+        monkeypatch.setattr(route, "_MAX_TURNS", 1)
+    else:
+        monkeypatch.setattr(route, "_turns", SlidingWindowLimiter(1, 3600))
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        _start(ws)
+        _utterance(ws)
+        _finish(ws)
+        _audio(ws, SOUND * 20)
+        _audio(ws, SILENCE * 34)
+        assert ws.receive_json() == {"type": "speech_start"}
+        error = ws.receive_json()
+        if session_limited:
+            assert error == {"type": "error", "code": "session_limit"}
+        else:
+            assert error["type"] == "error" and error["code"] == "turn_rate_limit"
+            assert type(error["retryAfterSeconds"]) is int and 0 < error["retryAfterSeconds"] <= 3600
+    providers[0].assert_awaited_once()
+
+
 def test_continuous_microphone_turn_returns_feedback_and_streamed_reply(socket_client, providers):
     client, headers, _ = socket_client
     with client.websocket_connect("/voice/conversation", headers=headers) as ws:
@@ -203,7 +306,7 @@ def test_disconnect_cancels_provider_and_releases_duplicate_account_guard(
         _utterance(ws)
         assert started.wait(2)
         with client.websocket_connect("/voice/conversation", headers=headers) as duplicate:
-            assert duplicate.receive_json() == {"type": "error", "code": "voice_busy"}
+            assert duplicate.receive_json() == {"type": "error", "code": "voice_already_active"}
     assert stopped.wait(2)
     with client.websocket_connect("/voice/conversation", headers=headers) as ws:
         _start(ws)

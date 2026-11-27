@@ -7,6 +7,7 @@ import base64
 import binascii
 import json
 import logging
+import math
 import time
 from contextlib import aclosing, suppress
 from threading import Lock
@@ -29,6 +30,8 @@ CONSENT_VERSION = "voice-conversation-v1"
 _SESSION_SECONDS = 8 * 60
 _TURN_TIMEOUT = 32
 _START_TIMEOUT = 8
+_AUTH_TIMEOUT = 4
+_ERROR_CLOSE_TIMEOUT = 1
 _IDLE_TIMEOUT = 45
 _MAX_TURNS = 24
 _MAX_SESSIONS = 6
@@ -42,13 +45,20 @@ _active_lock = Lock()
 
 
 class SessionError(Exception):
-    def __init__(self, code: str, close_code: int = 1008) -> None:
+    def __init__(self, code: str, close_code: int = 1008, *, retry_after_seconds: int | None = None) -> None:
         super().__init__(code)
         self.code = code
         self.close_code = close_code
+        self.retry_after_seconds = retry_after_seconds
 
 
-async def _receive(socket: WebSocket, timeout: float) -> dict[str, Any]:
+def _enforce_rate(limiter: SlidingWindowLimiter, user_id: str, code: str) -> None:
+    if not limiter.allow(user_id):
+        retry_after = max(1, math.ceil(limiter.retry_after(user_id)))
+        raise SessionError(code, 4429, retry_after_seconds=retry_after)
+
+
+async def _receive(socket: WebSocket, timeout: float | None = None) -> dict[str, Any]:
     frame = await asyncio.wait_for(socket.receive(), timeout)
     if frame["type"] == "websocket.disconnect":
         raise WebSocketDisconnect(frame.get("code", 1000))
@@ -131,7 +141,6 @@ async def _serve(socket: WebSocket, user_id: str) -> None:
     turn_count = 0
     last_audio = time.monotonic()
     budget = float(_MAX_AUDIO_BURST)
-    await socket.send_json({"type": "ready"})
     try:
         async with asyncio.timeout(_SESSION_SECONDS):
             for _ in range(_MAX_MESSAGES):
@@ -167,8 +176,9 @@ async def _serve(socket: WebSocket, user_id: str) -> None:
                 if not completed:
                     await socket.send_json({"type": "done"})
                     continue
-                if turn_count >= _MAX_TURNS or not _turns.allow(user_id):
-                    raise SessionError("turn_limit", 1000)
+                if turn_count >= _MAX_TURNS:
+                    raise SessionError("session_limit", 1000)
+                _enforce_rate(_turns, user_id, "turn_rate_limit")
                 turn_count += 1
                 await socket.send_json({"type": "thinking"})
                 active_turn = asyncio.create_task(_process_turn(socket, completed, history))
@@ -182,32 +192,44 @@ async def _serve(socket: WebSocket, user_id: str) -> None:
 @router.websocket("/conversation")
 async def conversation(socket: WebSocket) -> None:
     await socket.accept()
+    active_user: str | None = None
     try:
-        if not settings.VOICE_CONVERSATION_ENABLED:
-            raise SessionError("voice_disabled", 4404)
-        user_id = await _authenticate(socket)
-        _connections.gc()
-        _turns.gc()
-        if not _connections.allow(user_id):
-            raise SessionError("connection_rate_limit", 4429)
-        with _active_lock:
-            if user_id in _active or len(_active) >= _MAX_SESSIONS:
-                raise SessionError("voice_busy", 4429)
-            _active.add(user_id)
         try:
             try:
-                start = await _receive(socket, _START_TIMEOUT)
+                # Keep account lookup, admission, and the consent frame under one deadline.
+                async with asyncio.timeout(_START_TIMEOUT):
+                    if not settings.VOICE_CONVERSATION_ENABLED:
+                        raise SessionError("voice_disabled", 4404)
+                    async with asyncio.timeout(_AUTH_TIMEOUT):
+                        user_id = await _authenticate(socket)
+                    _connections.gc()
+                    _turns.gc()
+                    _enforce_rate(_connections, user_id, "connection_rate_limit")
+                    with _active_lock:
+                        if user_id in _active:
+                            raise SessionError("voice_already_active", 4429)
+                        if len(_active) >= _MAX_SESSIONS:
+                            raise SessionError("voice_busy", 4429)
+                        _active.add(user_id)
+                        active_user = user_id
+                    start = await _receive(socket)
+                    if start.get("type") != "start" or start.get("consent") != CONSENT_VERSION:
+                        raise SessionError("consent_required", 4403)
+                    await socket.send_json({"type": "ready"})
             except TimeoutError as exc:
-                raise SessionError("consent_required", 4403) from exc
-            if start.get("type") != "start" or start.get("consent") != CONSENT_VERSION:
-                raise SessionError("consent_required", 4403)
+                raise SessionError("startup_timeout", 4408) from exc
             await _serve(socket, user_id)
         finally:
-            with _active_lock:
-                _active.remove(user_id)
+            if active_user is not None:
+                with _active_lock:
+                    _active.remove(active_user)
     except (WebSocketDisconnect, OSError):
         return
     except SessionError as exc:
-        with suppress(WebSocketDisconnect, OSError):
-            await socket.send_json({"type": "error", "code": exc.code})
-            await socket.close(code=exc.close_code)
+        error: dict[str, str | int] = {"type": "error", "code": exc.code}
+        if exc.retry_after_seconds is not None:
+            error["retryAfterSeconds"] = exc.retry_after_seconds
+        with suppress(TimeoutError, WebSocketDisconnect, OSError):
+            async with asyncio.timeout(_ERROR_CLOSE_TIMEOUT):
+                await socket.send_json(error)
+                await socket.close(code=exc.close_code)

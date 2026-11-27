@@ -8,7 +8,7 @@ export type ConversationEvent =
   | ({ type: "feedback" } & ConversationFeedback)
   | { type: "reply"; text: string }
   | { type: "audio"; data: string }
-  | { type: "error"; code: string };
+  | { type: "error"; code: string; retryAfterSeconds?: number };
 
 export function conversationEnabled(): boolean {
   return process.env.EXPO_PUBLIC_LIVE_CONVERSATION_ENABLED === "true" && liveAudioAvailable();
@@ -43,7 +43,9 @@ export function readConversationEvent(data: unknown): ConversationEvent | null {
       case "audio":
         return typeof event.data === "string" ? event : null;
       case "error":
-        return typeof event.code === "string" ? event : null;
+        if (typeof event.code !== "string") return null;
+        return typeof event.retryAfterSeconds === "number" && Number.isFinite(event.retryAfterSeconds)
+          ? event : { type: "error", code: event.code };
       case "feedback":
         return typeof event.transcript === "string"
           && typeof event.corrected === "string"

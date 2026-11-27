@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
-import { addNetworkStateListener, NetworkStateType } from "expo-network";
+import { addNetworkStateListener, getNetworkStateAsync, NetworkStateType } from "expo-network";
 import { conversationEnabled, openConversationSocket, readConversationEvent, type ConversationFeedback } from "../services/conversation";
 import { requestLiveMicPermission, startLiveAudio, type LiveAudioSession } from "../services/liveAudio";
 import { isCurrentAuthToken } from "../services/api";
 
-type Phase = "idle" | "connecting" | "listening" | "capturing" | "thinking" | "speaking" | "interrupting" | "ended" | "error";
+type Phase = "idle" | "permission" | "connecting" | "preparing" | "listening" | "capturing" | "thinking" | "speaking" | "interrupting" | "ended" | "error";
 type Turn = ConversationFeedback & { id: number; reply?: string };
 type Session = {
   token: string;
   socket?: WebSocket;
   audio?: LiveAudioSession;
-  audioOpening?: Promise<LiveAudioSession>;
+  abort: AbortController;
   cancelForegroundWait?: () => void;
   phase: Phase;
   timer?: ReturnType<typeof setTimeout>;
@@ -19,10 +19,35 @@ type Session = {
   playbackEpoch: number;
 };
 
-const CONNECT_MS = 12000;
+const CONNECT_MS = 8000;
+const PERMISSION_MS = 45000;
+const RELEASE_GRACE_MS = 750;
 const FOREGROUND_MS = 6000;
 const TURN_MS = 35000;
 const INTERRUPT_MS = 5000;
+
+// Native promises aren't guaranteed to settle after dismissal or platform failure.
+function untilAbort<T>(task: Promise<T>, signal: AbortSignal): Promise<T | undefined> {
+  if (signal.aborted) return Promise.resolve(undefined);
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      signal.removeEventListener("abort", abort);
+      resolve(undefined);
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    void task.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+  });
+}
+
+async function brieflyWaitForRelease(pending: Promise<void>, signal: AbortSignal): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const grace = new Promise<void>((resolve) => { timeout = setTimeout(resolve, RELEASE_GRACE_MS); });
+  try {
+    await untilAbort(Promise.race([pending, grace]), signal);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function waitForForeground(session: Session): Promise<boolean> {
   if (AppState.currentState === "active") return Promise.resolve(true);
@@ -45,6 +70,8 @@ function waitForForeground(session: Session): Promise<boolean> {
 export function useLiveConversation(token: string | null) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState("");
+  const [retryUntil, setRetryUntil] = useState(0);
+  const [retrySeconds, setRetrySeconds] = useState(0);
   const [turns, setTurns] = useState<Turn[]>([]);
   const active = useRef<Session | null>(null);
   const nextId = useRef(0);
@@ -57,10 +84,10 @@ export function useLiveConversation(token: string | null) {
     active.current = null;
     clearTimeout(session.timer);
     session.cancelForegroundWait?.();
+    session.abort.abort();
     session.playbackEpoch += 1;
     try { session.socket?.close(); } catch { /* The underlying socket may already be gone. */ }
-    const audio = session.audio ? Promise.resolve(session.audio) : session.audioOpening;
-    if (audio) release.current = audio.then((handle) => handle.stop()).catch(() => undefined);
+    if (session.audio) release.current = session.audio.stop().catch(() => undefined);
   }, []);
 
   const stop = useCallback(() => {
@@ -68,10 +95,13 @@ export function useLiveConversation(token: string | null) {
     if (mounted.current) setPhase("ended");
   }, [detach]);
 
-  const fail = useCallback((code: string) => {
+  const fail = useCallback((code: string, retryAfterSeconds = 0) => {
     detach();
     if (!mounted.current) return;
     setError(code);
+    const seconds = Number.isFinite(retryAfterSeconds) ? Math.max(0, Math.min(3600, Math.ceil(retryAfterSeconds))) : 0;
+    setRetryUntil(seconds ? Date.now() + seconds * 1000 : 0);
+    setRetrySeconds(seconds);
     setPhase("error");
   }, [detach]);
 
@@ -97,21 +127,34 @@ export function useLiveConversation(token: string | null) {
     if (active.current && active.current.token !== token) stop();
   }, [stop, token]);
 
+  useEffect(() => {
+    if (!retryUntil) return;
+    const update = () => {
+      const seconds = Math.max(0, Math.ceil((retryUntil - Date.now()) / 1000));
+      setRetrySeconds(seconds);
+      if (!seconds) setRetryUntil(0);
+    };
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [retryUntil]);
+
   const start = useCallback(async () => {
-    if (!token || active.current || !mounted.current) return;
-    const session: Session = { token, phase: "connecting", playback: Promise.resolve(), playbackEpoch: 0 };
+    if (!token || active.current || !mounted.current || retryUntil > Date.now()) return;
+    const session: Session = {
+      token, abort: new AbortController(), phase: "connecting", playback: Promise.resolve(), playbackEpoch: 0,
+    };
     active.current = session;
     setError("");
-    setTurns([]);
     setPhase("connecting");
     const current = () => mounted.current && active.current === session && isCurrentAuthToken(token);
     const change = (next: Phase) => {
       session.phase = next;
       setPhase(next);
     };
-    const deadline = (ms: number) => {
+    const deadline = (ms: number, code = "timeout") => {
       clearTimeout(session.timer);
-      session.timer = setTimeout(() => { if (current()) fail("timeout"); }, ms);
+      session.timer = setTimeout(() => { if (current()) fail(code); }, ms);
     };
     const resumeListening = (epoch: number) => {
       if (!current() || session.playbackEpoch !== epoch) return;
@@ -120,25 +163,42 @@ export function useLiveConversation(token: string | null) {
     };
 
     try {
-      await release.current;
+      const signal = session.abort.signal;
+      deadline(CONNECT_MS, "startup_timeout");
+      const network = await untilAbort(getNetworkStateAsync().catch(() => undefined), signal);
       if (!current()) return;
-      const permission = await requestLiveMicPermission();
+      if (network?.type === NetworkStateType.NONE) {
+        fail("offline");
+        return;
+      }
+
+      change("permission");
+      deadline(PERMISSION_MS, "permission_timeout");
+      const permission = await untilAbort(requestLiveMicPermission(), signal);
       if (!current()) return;
       if (!permission) {
         fail("microphone");
         return;
       }
-      const foreground = await waitForForeground(session);
+
+      change("connecting");
+      deadline(CONNECT_MS, "startup_timeout");
+      const [foreground] = await Promise.all([
+        waitForForeground(session),
+        brieflyWaitForRelease(release.current, signal),
+      ]);
       if (!current()) return;
       if (!foreground) {
-        fail("connection");
+        fail("startup_timeout");
         return;
       }
+
       const socket = openConversationSocket(token);
       session.socket = socket;
-      deadline(CONNECT_MS);
       socket.onopen = () => {
-        if (current()) socket.send(JSON.stringify({ type: "start", consent: "voice-conversation-v1" }));
+        if (!current()) return;
+        try { socket.send(JSON.stringify({ type: "start", consent: "voice-conversation-v1" })); }
+        catch { fail("connection"); }
       };
       socket.onmessage = (message) => {
         if (!current()) return;
@@ -147,9 +207,8 @@ export function useLiveConversation(token: string | null) {
         switch (event.type) {
           case "ready":
             if (session.phase !== "connecting") return;
-            // Change before startup so duplicated readiness cannot start a second recorder.
-            session.phase = "listening";
-            session.audioOpening = startLiveAudio((data) => {
+            change("preparing");
+            void startLiveAudio((data) => {
               if (current() && (session.phase === "listening" || session.phase === "capturing")
                 && socket.readyState === WebSocket.OPEN) {
                 if (socket.bufferedAmount > 96_000) {
@@ -159,12 +218,15 @@ export function useLiveConversation(token: string | null) {
                 try { socket.send(JSON.stringify({ type: "audio", data })); }
                 catch { fail("connection"); }
               }
-            }, () => { if (current()) fail("microphone"); });
-            void session.audioOpening.then((audio) => {
-              if (!current()) return;
+            }, () => { if (current()) fail("microphone"); }, session.abort.signal).then((audio) => {
+              if (!current()) {
+                void audio.stop().catch(() => undefined);
+                return;
+              }
               session.audio = audio;
               clearTimeout(session.timer);
-              setPhase((prev) => prev === "connecting" ? "listening" : prev);
+              setTurns([]);
+              change("listening");
             }).catch(() => { if (current()) fail("microphone"); });
             return;
           case "speech_start":
@@ -212,7 +274,7 @@ export function useLiveConversation(token: string | null) {
             }
             return;
           case "error":
-            fail(event.code);
+            fail(event.code, event.retryAfterSeconds);
             return;
         }
       };
@@ -220,12 +282,17 @@ export function useLiveConversation(token: string | null) {
       socket.onclose = (event) => {
         if (!current()) return;
         if (event.code === 1000) stop();
-        else fail(event.code === 4403 ? "consent" : "connection");
+        else {
+          const code = event.code === 4401 ? "auth_required"
+            : event.code === 4403 ? "consent_required"
+            : event.code === 4429 ? "voice_busy" : "connection";
+          fail(code);
+        }
       };
     } catch {
       if (current()) fail("connection");
     }
-  }, [fail, stop, token]);
+  }, [fail, retryUntil, stop, token]);
 
   const interrupt = useCallback(() => {
     const session = active.current;
@@ -245,5 +312,5 @@ export function useLiveConversation(token: string | null) {
     }
   }, [fail]);
 
-  return { phase, error, turns, start, stop, interrupt };
+  return { phase, error, turns, retrySeconds, start, stop, interrupt };
 }

@@ -44,32 +44,51 @@ export async function requestLiveMicPermission(): Promise<boolean> {
   return result === PermissionsAndroid.RESULTS.GRANTED;
 }
 
+function abortError(): Error {
+  return Object.assign(new Error("Live audio was cancelled"), { name: "AbortError" });
+}
+
 export async function startLiveAudio(
   onChunk: (base64Pcm: string) => void,
   onError?: (error: Error) => void,
+  signal?: AbortSignal,
 ): Promise<LiveAudioSession> {
+  if (signal?.aborted) throw abortError();
   const native = getNativeAudio();
   if (!native) throw new Error("Live audio is unavailable on this device");
 
   const id = ++nextSessionId;
   let active = true;
+  let startFailure: Error | undefined;
   let playbackGeneration = 0;
   let pendingWrites = Promise.resolve();
   let stopPromise: Promise<void> | undefined;
-
-  const microphone = native.addListener("microphoneChunk", (event) => {
-    if (active && event.sessionId === id) onChunk(event.base64Pcm);
-  });
-  const audioError = native.addListener("audioError", (event) => {
-    if (!active || event.sessionId !== id) return;
-    detach();
-    onError?.(new Error(event.message));
+  let microphone: EventSubscription | undefined;
+  let audioError: EventSubscription | undefined;
+  let rejectStartup: ((error: Error) => void) | undefined;
+  const interrupted = new Promise<never>((_, reject) => {
+    rejectStartup = reject;
   });
 
   function detach() {
+    if (!active) return;
     active = false;
-    microphone.remove();
-    audioError.remove();
+    signal?.removeEventListener("abort", onAbort);
+    microphone?.remove();
+    audioError?.remove();
+  }
+
+  const stopNativeSession = async () => { await native.stop(id); };
+
+  function stop() {
+    detach();
+    return stopPromise ??= stopNativeSession();
+  }
+
+  function onAbort() {
+    startFailure = abortError();
+    rejectStartup?.(startFailure);
+    void stop().catch(() => undefined);
   }
 
   function scheduleWrite(write: () => Promise<void>) {
@@ -79,10 +98,31 @@ export async function startLiveAudio(
   }
 
   try {
-    await native.start(id);
+    microphone = native.addListener("microphoneChunk", (event) => {
+      if (active && event.sessionId === id) onChunk(event.base64Pcm);
+    });
+    audioError = native.addListener("audioError", (event) => {
+      if (!active || event.sessionId !== id) return;
+      startFailure = new Error(event.message);
+      rejectStartup?.(startFailure);
+      detach();
+      onError?.(startFailure);
+    });
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    const opening = (async () => {
+      if (signal?.aborted) throw abortError();
+      await native.start(id);
+      // A late result can outlive both the caller and its first cleanup attempt.
+      if (!active) void stopNativeSession().catch(() => undefined);
+    })();
+    await Promise.race([opening, interrupted]);
+    if (startFailure) throw startFailure;
   } catch (error) {
-    if (active) detach();
+    detach();
     throw error;
+  } finally {
+    rejectStartup = undefined;
   }
 
   return {
@@ -103,11 +143,6 @@ export async function startLiveAudio(
       await pendingWrites;
       if (active && generation === playbackGeneration) await native.finishPlayback(id);
     },
-    stop() {
-      if (stopPromise) return stopPromise;
-      if (active) detach();
-      stopPromise = native.stop(id);
-      return stopPromise;
-    },
+    stop,
   };
 }

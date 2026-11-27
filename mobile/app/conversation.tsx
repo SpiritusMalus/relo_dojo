@@ -19,13 +19,16 @@ const ru = {
   start: "Разрешить и начать",
   restart: "Начать разговор",
   end: "Завершить",
+  cancel: "Отменить запуск",
   pauseReply: "Прервать и говорить",
   close: "Закрыть разговор",
   login: "Войти",
   loginHint: "Войди в аккаунт, чтобы открыть голосовую практику.",
   unavailable: "Голосовая практика пока недоступна в этой сборке.",
   idle: "Готов к разговору",
+  permission: "Проверяем доступ к микрофону…",
   connecting: "Подключаемся…",
+  preparing: "Включаем микрофон…",
   listening: "Слушаю. Говори по-английски",
   capturing: "Слышу тебя…",
   thinking: "Проверяю фразу…",
@@ -44,7 +47,16 @@ const ru = {
   microphone: "Разреши доступ к микрофону для Relo Dojo в настройках Android.",
   playback: "Не получилось воспроизвести ответ. Начни новый разговор.",
   consent: "Проверь, что в аккаунте принято согласие на обработку данных.",
-  limit: "Лимит голосовой практики исчерпан. Попробуй позже.",
+  startupTimeout: "Не успели запустить разговор. Можно попробовать ещё раз.",
+  permissionTimeout: "Подтверди доступ к микрофону и попробуй ещё раз.",
+  busy: "Сейчас все голосовые места заняты. Попробуй через несколько секунд.",
+  anotherSession: "Другой разговор ещё открыт. Закрой его или подожди несколько секунд.",
+  signedOut: "Вход в аккаунт истёк. Войди снова через настройки приложения.",
+  limit: "Достигнут лимит голосовой практики. Попробуй позже.",
+  connectionLimit: "Слишком много попыток подключения. Подожди немного.",
+  sessionLimit: "Этот разговор закончился. Можно начать новый.",
+  idleLimit: "Разговор завершился после паузы. Можно начать снова.",
+  retryAfter: "Повторить через",
 };
 
 const en: typeof ru = {
@@ -55,13 +67,16 @@ const en: typeof ru = {
   start: "Allow and start",
   restart: "Start a conversation",
   end: "End conversation",
+  cancel: "Cancel start",
   pauseReply: "Interrupt and speak",
   close: "Close conversation",
   login: "Sign in",
   loginHint: "Sign in to use voice practice.",
   unavailable: "Voice practice is unavailable in this build.",
   idle: "Ready to talk",
+  permission: "Checking microphone permission…",
   connecting: "Connecting…",
+  preparing: "Starting the microphone…",
   listening: "Listening. Speak English",
   capturing: "I can hear you…",
   thinking: "Checking your sentence…",
@@ -80,7 +95,16 @@ const en: typeof ru = {
   microphone: "Allow microphone access for Relo Dojo in Android settings.",
   playback: "The reply couldn't play. Start a new conversation.",
   consent: "Check that your account has accepted the data-processing consent.",
+  startupTimeout: "The conversation couldn't start in time. You can try again.",
+  permissionTimeout: "Allow microphone access and try again.",
+  busy: "Voice practice is busy. Try again in a few seconds.",
+  anotherSession: "Another conversation is still open. Close it or wait a few seconds.",
+  signedOut: "Your sign-in expired. Sign in again from app settings.",
   limit: "Voice practice limit reached. Try again later.",
+  connectionLimit: "Too many connection attempts. Wait a moment.",
+  sessionLimit: "This conversation ended. You can start a new one.",
+  idleLimit: "The conversation ended after a pause. You can start again.",
+  retryAfter: "Try again in",
 };
 
 function errorText(copy: typeof ru, code: string) {
@@ -88,9 +112,19 @@ function errorText(copy: typeof ru, code: string) {
     case "microphone": return copy.microphone;
     case "offline": return copy.offline;
     case "playback": return copy.playback;
-    case "consent": return copy.consent;
-    case "rate_limit":
-    case "session_limit": return copy.limit;
+    case "consent":
+    case "consent_required": return copy.consent;
+    case "auth_required": return copy.signedOut;
+    case "startup_timeout": return copy.startupTimeout;
+    case "permission_timeout": return copy.permissionTimeout;
+    case "voice_busy": return copy.busy;
+    case "voice_already_active": return copy.anotherSession;
+    case "connection_rate_limit": return copy.connectionLimit;
+    case "session_limit": return copy.sessionLimit;
+    case "idle_timeout": return copy.idleLimit;
+    case "turn_rate_limit":
+    case "turn_limit":
+    case "rate_limit": return copy.limit;
     default: return copy.networkError;
   }
 }
@@ -106,6 +140,11 @@ export default function ConversationScreen() {
   const transcript = useRef<ScrollView>(null);
   const active = !["idle", "ended", "error"].includes(voice.phase);
   const canInterrupt = voice.phase === "speaking" || voice.phase === "thinking";
+  const starting = voice.phase === "permission" || voice.phase === "connecting" || voice.phase === "preparing";
+  const wait = voice.retrySeconds;
+  const waitTime = `${Math.floor(wait / 60)}:${String(wait % 60).padStart(2, "0")}`;
+  const startLabel = wait > 0 ? `${copy.retryAfter} ${waitTime}`
+    : voice.phase === "idle" ? copy.start : voice.phase === "error" ? copy.retry : copy.restart;
 
   const close = () => {
     if (active) voice.stop();
@@ -137,7 +176,7 @@ export default function ConversationScreen() {
       ) : (
         <>
           <View style={[styles.status, { borderColor: t.c.line }]}>
-            {voice.phase === "connecting" || voice.phase === "thinking" || voice.phase === "interrupting"
+            {starting || voice.phase === "thinking" || voice.phase === "interrupting"
               ? <ActivityIndicator color={t.c.accent} size="small" />
               : <Icon name="sound" color={active ? t.c.accent : t.c.ink2} size={21} />}
             <Txt accessibilityLiveRegion="polite" variant="bodyStrong" color={active ? t.c.accent : t.c.ink}>
@@ -197,9 +236,8 @@ export default function ConversationScreen() {
             )}
             {canInterrupt && <Button label={copy.pauseReply} onPress={voice.interrupt} />}
             {active
-              ? <Button label={copy.end} variant="ghost" onPress={voice.stop} />
-              : <Button label={voice.phase === "idle" ? copy.start : voice.phase === "error" ? copy.retry : copy.restart}
-                  onPress={() => { void voice.start(); }} />}
+              ? <Button label={starting ? copy.cancel : copy.end} variant="ghost" onPress={voice.stop} />
+              : <Button label={startLabel} disabled={wait > 0} onPress={() => { void voice.start(); }} />}
           </View>
         </>
       )}
