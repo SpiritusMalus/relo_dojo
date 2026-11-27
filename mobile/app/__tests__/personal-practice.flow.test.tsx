@@ -169,7 +169,10 @@ it("both Next taps wait for one pending prefetched card and guests spend quota o
   expect(mockLoad).toHaveBeenCalledTimes(2);
   expect((await loadGuestLimit()).used).toBe(1);
 
-  await answer(true);
+  act(() => mockCard.onChange("of", "of"));
+  const submit = button("Проверить").props.onPress;
+  mockGrade.mockResolvedValueOnce({ correct: true, correct_answer: "of" });
+  await act(async () => { await submit(); });
   const advance = button("Следующее задание").props.onPress;
   await act(async () => { advance(); advance(); });
   expect(mockLoad).toHaveBeenCalledTimes(2);
@@ -181,6 +184,12 @@ it("both Next taps wait for one pending prefetched card and guests spend quota o
   expect(mockCard.exercise).toEqual(second);
   expect(mockLoad).toHaveBeenCalledTimes(3);
   expect(readyCards()[2].seen).toEqual([first.text, second.text]);
+  expect((await loadGuestLimit()).used).toBe(2);
+
+  await act(async () => { advance(); await submit(); });
+  expect(mockCard.exercise).toEqual(second);
+  expect(mockLoad).toHaveBeenCalledTimes(3);
+  expect(mockGrade).toHaveBeenCalledTimes(1);
   expect((await loadGuestLimit()).used).toBe(2);
 });
 

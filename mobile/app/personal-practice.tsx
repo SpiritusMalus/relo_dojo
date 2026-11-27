@@ -76,6 +76,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
   const sourceRequest = useRef(false);
   const pendingCard = useRef<CardRequest | null>(null);
   const delivering = useRef(false);
+  const visibleCard = useRef<Exercise | null>(null);
   const seen = useRef<Exercise[]>([]);
   const turning = useRef(false);
   const scroll = useRef<ScrollView>(null);
@@ -87,6 +88,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
     void readSources();
     return () => {
       opened.current = false;
+      visibleCard.current = null;
       discardPendingCard();
     };
     // Scope and requested topic are keyed by the route wrapper. Load a single snapshot per session.
@@ -127,12 +129,13 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
     if (number >= stageCount(stage)) return;
     if (scope.owner === "guest" && remaining(await loadGuestLimit(), localDate(new Date())) === 0) return;
     // The quota read may finish after Next, a replacement, or a return to the previous screen.
-    if (!open() || delivering.current || pendingCard.current || seen.current.at(-1) !== shown) return;
+    if (!open() || delivering.current || pendingCard.current || visibleCard.current !== shown) return;
     startCardRequest(selection, stage, number + 1);
   }
 
   function close() {
     opened.current = false;
+    visibleCard.current = null;
     discardPendingCard();
     if (router.canGoBack()) router.back();
     else router.replace("/(tabs)/train");
@@ -160,6 +163,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
   async function load(stage: Stage, number: number) {
     if (!target || !open() || delivering.current || turning.current) return;
     delivering.current = true;
+    visibleCard.current = null;
     let request = pendingCard.current;
     if (request && (request.target !== target || request.stage !== stage || request.round !== number)) {
       discardPendingCard();
@@ -192,6 +196,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
       if (!open()) return;
       if (!next) throw new ApiError("Daily exercise limit reached.", 403, "daily_limit");
       seen.current.push(next);
+      visibleCard.current = next;
       grade.beginAttempt(next);
       setExercise(next);
       shown = next;
@@ -206,7 +211,8 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
   }
 
   async function submit() {
-    if (!open() || turning.current || !exercise || response === null || grade.result || grade.checking) return;
+    if (!open() || turning.current || !exercise || visibleCard.current !== exercise ||
+      response === null || grade.result || grade.checking) return;
     turning.current = true;
     try {
       const result = await grade.check(exercise, response, undefined, responseDisplay);
@@ -218,10 +224,11 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
   }
 
   function advance(stage: Stage) {
-    if (!open() || !grade.result || turning.current || delivering.current) return;
+    if (!open() || !exercise || visibleCard.current !== exercise || !grade.result || turning.current || delivering.current) return;
     const count = stageCount(stage);
     if (round < count) void load(stage, round + 1);
     else {
+      visibleCard.current = null;
       setPhase(stage === "practice" ? "ready" : "finished");
       scroll.current?.scrollTo({ y: 0, animated: false });
     }
@@ -301,7 +308,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
             <ExerciseCard key={exercise.token ?? `${stage}-${round}`} exercise={exercise} translationEnabled={practice}
               onHint={practice ? grade.markHintUsed : undefined} locked={grade.submissionLocked}
               feedback={practice ? grade.result ?? undefined : undefined} onChange={(value, display) => {
-                if (turning.current || grade.submissionLocked) return;
+                if (visibleCard.current !== exercise || turning.current || grade.submissionLocked) return;
                 setResponse(value);
                 setResponseDisplay(display);
               }} />
@@ -348,7 +355,9 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
       {!!stage && !!exercise && (grade.result
         ? <Button label={ru ? (round === count ? (practice ? "К зачёту" : "Показать результат") : "Следующее задание")
           : (round === count ? (practice ? "Go to checkpoint" : "Show result") : "Next exercise")} onPress={() => advance(stage)} />
-        : expired ? <Button label={ru ? "Новый пример" : "Get a fresh example"} onPress={() => void load(stage, round)} />
+        : expired ? <Button label={ru ? "Новый пример" : "Get a fresh example"} onPress={() => {
+          if (visibleCard.current === exercise) void load(stage, round);
+        }} />
           : <Button label={grade.checking ? (ru ? "Проверяем…" : "Checking…") : grade.error ? t("action.tryAgain") : (ru ? "Проверить" : "Check")}
             disabled={grade.checking || response === null} onPress={submit} />)}
       {phase === "ready" && <Button label={ru ? "Начать зачёт" : "Start checkpoint"} onPress={() => void load("test", 1)} />}
