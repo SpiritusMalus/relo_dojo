@@ -1,6 +1,7 @@
 import TestRenderer, { act, type ReactTestRenderer } from "react-test-renderer";
 import type { ExerciseProps } from "../../components/types";
 import Button from "../../components/ui/Button";
+import { RU_TOPIC_LABELS } from "../../i18n/strings";
 import { ApiError, type Exercise } from "../../services/api";
 import type { PersonalPracticeTarget } from "../../services/personalPractice";
 import { loadGuestLimit, resetGuestLimit } from "../../store/guestLimit";
@@ -12,9 +13,10 @@ const mockBack = jest.fn();
 const mockTargets = jest.fn<PersonalPracticeTarget[], []>();
 const mockGrade = jest.fn<Promise<{ correct: boolean; correct_answer: string } | null>, []>();
 let mockCard: ExerciseProps & { translationEnabled: boolean };
+let mockTopic: string | undefined;
 
 jest.mock("expo-router", () => ({
-  useLocalSearchParams: () => ({ topic: "prepositions" }),
+  useLocalSearchParams: () => ({ topic: mockTopic }),
   useRouter: () => ({ back: mockBack, canGoBack: () => true }),
 }));
 jest.mock("react-native-safe-area-context", () => ({
@@ -51,6 +53,7 @@ jest.mock("../../store/useExerciseCheck", () => {
 });
 jest.mock("../../services/personalPracticeEnabled", () => ({ personalPracticeEnabled: () => true }));
 jest.mock("../../services/personalPractice", () => ({
+  ...jest.requireActual("../../services/personalPractice"),
   PERSONAL_PRACTICE_COUNT: 3, PERSONAL_TEST_COUNT: 3, PERSONAL_TEST_PASS: 2,
   personalPracticeTargets: () => mockTargets(), getPersonalPracticeExercise: (...args: Parameters<typeof mockLoad>) => mockLoad(...args),
 }));
@@ -70,9 +73,12 @@ beforeEach(async () => {
   mockLoad.mockReset();
   mockGrade.mockReset();
   mockTargets.mockReturnValue([target]);
+  mockTopic = undefined;
   await resetGuestLimit();
   let id = 0;
-  mockLoad.mockImplementation(async () => ({ ...card, token: `test-${++id}`, text: `Example ${id}` }));
+  mockLoad.mockImplementation(async (selection) => ({
+    ...card, topic: selection.topic, level: selection.level, token: `test-${++id}`, text: `Example ${id}`,
+  }));
 });
 
 afterEach(() => act(() => screen.unmount()));
@@ -91,6 +97,12 @@ async function tap(label: string) {
   await act(async () => { await button(label).props.onPress(); });
 }
 
+async function chooseTopic(topic: string) {
+  const radio = screen.root.findAll((node) => node.props.accessibilityRole === "radio"
+    && node.props.accessibilityLabel === RU_TOPIC_LABELS[topic] && typeof node.props.onPress === "function")[0];
+  await act(async () => { radio.props.onPress(); });
+}
+
 async function answer(correct: boolean) {
   mockGrade.mockResolvedValueOnce({ correct, correct_answer: "of" });
   act(() => mockCard.onChange("of", "of"));
@@ -107,8 +119,9 @@ function deferExercise() {
   return { promise, resolve };
 }
 
-it("prefetches one card per round within each stage and withholds checkpoint feedback until the result", async () => {
+it("warms the first checkpoint while the final practice example is open and withholds checkpoint feedback", async () => {
   await render();
+  expect(mockLoad).not.toHaveBeenCalled();
   await tap("Начать тренировку");
   expect(readyCards()).toEqual([
     { stage: "practice", seen: [] },
@@ -116,6 +129,13 @@ it("prefetches one card per round within each stage and withholds checkpoint fee
   ]);
   for (let index = 0; index < 3; index++) {
     expect(mockCard.translationEnabled).toBe(true);
+    if (index === 2) {
+      expect(mockGrade).toHaveBeenCalledTimes(2);
+      expect(mockCard.exercise.text).toBe("Example 3");
+      expect(readyCards()[3]).toEqual({ stage: "test", seen: ["Example 1", "Example 2", "Example 3"] });
+      expect(button("Начать зачёт")).toBeUndefined();
+      expect((await loadGuestLimit()).used).toBe(3);
+    }
     await answer(false);
     expect(mockCard.feedback?.correct).toBe(false);
     await tap(index < 2 ? "Следующее задание" : "К зачёту");
@@ -124,8 +144,11 @@ it("prefetches one card per round within each stage and withholds checkpoint fee
     { stage: "practice", seen: [] },
     { stage: "practice", seen: ["Example 1"] },
     { stage: "practice", seen: ["Example 1", "Example 2"] },
+    { stage: "test", seen: ["Example 1", "Example 2", "Example 3"] },
   ]);
+  expect((await loadGuestLimit()).used).toBe(3);
   await tap("Начать зачёт");
+  expect((await loadGuestLimit()).used).toBe(4);
   expect(readyCards().slice(3)).toEqual([
     { stage: "test", seen: ["Example 1", "Example 2", "Example 3"] },
     { stage: "test", seen: ["Example 1", "Example 2", "Example 3", "Example 4"] },
@@ -141,6 +164,50 @@ it("prefetches one card per round within each stage and withholds checkpoint fee
   expect(JSON.stringify(screen.toJSON())).toContain("Верно 2 из 3");
   expect(mockLoad).toHaveBeenCalledTimes(6);
   expect(readyCards()[5]).toEqual({ stage: "test", seen: ["Example 1", "Example 2", "Example 3", "Example 4", "Example 5"] });
+});
+
+it("aborts the old topic and uses the new in-flight slot when Start is pressed immediately", async () => {
+  const articles = { ...target, topic: "articles" };
+  const oldRequest = deferExercise();
+  const newRequest = deferExercise();
+  mockTargets.mockReturnValue([target, articles]);
+  mockLoad.mockReturnValueOnce(oldRequest.promise).mockReturnValueOnce(newRequest.promise);
+  await render();
+  expect(mockLoad).not.toHaveBeenCalled();
+
+  await chooseTopic("prepositions");
+  await chooseTopic("prepositions");
+  expect(mockLoad).toHaveBeenCalledTimes(1);
+  const oldSignal = mockLoad.mock.calls[0][3];
+  const oldStart = button("Начать тренировку").props.onPress;
+  await chooseTopic("articles");
+  expect(oldSignal.aborted).toBe(true);
+  expect(mockLoad.mock.calls.map(([selection]) => selection.topic)).toEqual(["prepositions", "articles"]);
+
+  await act(async () => { oldStart(); oldStart(); oldRequest.resolve({ ...card, token: "late" }); });
+  expect(JSON.stringify(screen.toJSON())).toContain("Задание 1 из 3");
+  expect(button("Проверить")).toBeUndefined();
+  expect(mockLoad).toHaveBeenCalledTimes(2);
+  expect((await loadGuestLimit()).used).toBe(0);
+
+  const selectedCard = { ...card, topic: "articles", token: "selected", text: "Please close ___ door." };
+  await act(async () => { newRequest.resolve(selectedCard); });
+  expect(mockCard.exercise).toEqual(selectedCard);
+  expect(mockLoad.mock.calls.map(([selection]) => selection.topic)).toEqual(["prepositions", "articles", "articles"]);
+  expect(readyCards()[2].seen).toEqual([selectedCard.text]);
+  expect((await loadGuestLimit()).used).toBe(1);
+});
+
+it("warms the valid topic received from a checked text and waits for Start to spend guest quota", async () => {
+  mockTopic = "prepositions";
+  await render();
+  expect(readyCards()).toEqual([{ stage: "practice", seen: [] }]);
+  expect(mockLoad.mock.calls[0][0]).toEqual(target);
+  expect((await loadGuestLimit()).used).toBe(0);
+  await tap("Начать тренировку");
+  expect(mockCard.exercise.text).toBe("Example 1");
+  expect(mockLoad).toHaveBeenCalledTimes(2);
+  expect((await loadGuestLimit()).used).toBe(1);
 });
 
 it("offers one retry for the same round after a load error", async () => {
@@ -262,6 +329,41 @@ it("replaces the prefetched card when the displayed exercise expires", async () 
   await answer(true);
   await tap("Следующее задание");
   expect(mockCard.exercise).toEqual(fresh);
+});
+
+it("rebuilds the first checkpoint request if the last practice example needs replacement", async () => {
+  const practiceCards = [1, 2, 3].map((index) => ({ ...card, token: `p${index}`, text: `Practice example ${index}` }));
+  const replacement = { ...card, token: "replacement", text: "Replacement example" };
+  const replacementQuiz = { ...card, token: "new-quiz", text: "New checkpoint example" };
+  const obsoleteQuiz = deferExercise();
+  for (const exercise of practiceCards) mockLoad.mockResolvedValueOnce(exercise);
+  mockLoad.mockReturnValueOnce(obsoleteQuiz.promise).mockResolvedValueOnce(replacement).mockResolvedValueOnce(replacementQuiz);
+
+  await render();
+  await tap("Начать тренировку");
+  for (let index = 0; index < 2; index++) {
+    await answer(true);
+    await tap("Следующее задание");
+  }
+  expect(readyCards()[3]).toEqual({ stage: "test", seen: practiceCards.map(({ text }) => text) });
+  const obsoleteSignal = mockLoad.mock.calls[3][3];
+  act(() => mockCard.onChange("of", "of"));
+  mockGrade.mockRejectedValueOnce(new ApiError("expired", 400, "exercise_expired"));
+  await tap("Проверить");
+  await tap("Новый пример");
+
+  expect(obsoleteSignal.aborted).toBe(true);
+  expect(mockCard.exercise).toEqual(replacement);
+  expect(readyCards()[5]).toEqual({ stage: "test", seen: [...practiceCards.map(({ text }) => text), replacement.text] });
+  expect((await loadGuestLimit()).used).toBe(4);
+  await act(async () => { obsoleteQuiz.resolve({ ...replacement, token: "discarded" }); });
+  await answer(true);
+  await tap("К зачёту");
+  expect(mockLoad).toHaveBeenCalledTimes(6);
+  await tap("Начать зачёт");
+  expect(mockCard.exercise).toEqual(replacementQuiz);
+  expect(mockLoad).toHaveBeenCalledTimes(7);
+  expect((await loadGuestLimit()).used).toBe(5);
 });
 
 it("requires an eligible saved mistake or a topic from text review before loading an exercise", async () => {

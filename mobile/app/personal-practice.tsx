@@ -74,9 +74,11 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
 
   const opened = useRef(true);
   const sourceRequest = useRef(false);
+  const choice = useRef<{ target?: PersonalPracticeTarget; open: boolean }>({ open: true });
   const pendingCard = useRef<CardRequest | null>(null);
   const delivering = useRef(false);
   const visibleCard = useRef<Exercise | null>(null);
+  const readyAfter = useRef<Exercise | null>(null);
   const seen = useRef<Exercise[]>([]);
   const turning = useRef(false);
   const scroll = useRef<ScrollView>(null);
@@ -89,6 +91,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
     return () => {
       opened.current = false;
       visibleCard.current = null;
+      readyAfter.current = null;
       discardPendingCard();
     };
     // Scope and requested topic are keyed by the route wrapper. Load a single snapshot per session.
@@ -96,13 +99,17 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
   }, []);
 
   async function readSources() {
-    if (sourceRequest.current || !open()) return;
+    if (sourceRequest.current || !open() || !choice.current.open) return;
     sourceRequest.current = true;
     setSourceLoading(true);
     setSourceError(false);
     try {
       const stored = await loadMistakes(scope);
-      if (open()) setTargets(personalPracticeTargets(stored, defaultLevel, requestedTopic));
+      if (!open() || !choice.current.open) return;
+      const available = personalPracticeTargets(stored, defaultLevel, requestedTopic);
+      choice.current.target = available[0];
+      setTargets(available);
+      if (available[0] && available[0].topic === requestedTopic) warmFirstPractice(available[0]);
     } catch {
       if (open()) setSourceError(true);
     } finally {
@@ -125,17 +132,40 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
     return request;
   }
 
-  async function warmNextCard(selection: PersonalPracticeTarget, stage: Stage, number: number, shown: Exercise) {
-    if (number >= stageCount(stage)) return;
+  async function warmCard(selection: PersonalPracticeTarget, stage: Stage, number: number, stillRelevant: () => boolean) {
     if (scope.owner === "guest" && remaining(await loadGuestLimit(), localDate(new Date())) === 0) return;
-    // The quota read may finish after Next, a replacement, or a return to the previous screen.
-    if (!open() || delivering.current || pendingCard.current || visibleCard.current !== shown) return;
-    startCardRequest(selection, stage, number + 1);
+    // The quota read may finish after a topic change, a replacement, or an exit.
+    if (!open() || delivering.current || pendingCard.current || !stillRelevant()) return;
+    startCardRequest(selection, stage, number);
+  }
+
+  function warmFirstPractice(selection: PersonalPracticeTarget) {
+    void warmCard(selection, "practice", 1, () => choice.current.open && choice.current.target === selection);
+  }
+
+  function selectTopic(index: number) {
+    const selection = targets?.[index];
+    if (!selection || !open() || !choice.current.open) return;
+    if (choice.current.target !== selection) discardPendingCard();
+    choice.current.target = selection;
+    setSelected(index);
+    warmFirstPractice(selection);
+  }
+
+  function warmNextCard(selection: PersonalPracticeTarget, stage: Stage, number: number, shown: Exercise) {
+    if (number < stageCount(stage)) {
+      void warmCard(selection, stage, number + 1, () => visibleCard.current === shown);
+    } else if (stage === "practice") {
+      // The first checkpoint card must also differ from the last visible practice example.
+      // Keep this request while the learner reads the checkpoint introduction.
+      void warmCard(selection, "test", 1, () => visibleCard.current === shown || readyAfter.current === shown);
+    }
   }
 
   function close() {
     opened.current = false;
     visibleCard.current = null;
+    readyAfter.current = null;
     discardPendingCard();
     if (router.canGoBack()) router.back();
     else router.replace("/(tabs)/train");
@@ -161,11 +191,14 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
   }
 
   async function load(stage: Stage, number: number) {
-    if (!target || !open() || delivering.current || turning.current) return;
+    const selection = choice.current.target;
+    if (!selection || !open() || delivering.current || turning.current) return;
+    choice.current.open = false;
     delivering.current = true;
     visibleCard.current = null;
+    readyAfter.current = null;
     let request = pendingCard.current;
-    if (request && (request.target !== target || request.stage !== stage || request.round !== number)) {
+    if (request && (request.target !== selection || request.stage !== stage || request.round !== number)) {
       discardPendingCard();
       request = null;
     }
@@ -180,7 +213,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
     scroll.current?.scrollTo({ y: 0, animated: false });
     const fetchForDelivery = async () => {
       if (!open()) throw new ApiError("Request cancelled.", 409, "request_aborted");
-      request ??= startCardRequest(target, stage, number);
+      request ??= startCardRequest(selection, stage, number);
       const result = await request.result;
       if (!open() || request.controller.signal.aborted) {
         throw new ApiError("Request cancelled.", 409, "request_aborted");
@@ -207,7 +240,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
       delivering.current = false;
       if (open()) setLoading(false);
     }
-    if (shown) void warmNextCard(target, stage, number, shown);
+    if (shown) warmNextCard(selection, stage, number, shown);
   }
 
   async function submit() {
@@ -229,6 +262,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
     if (round < count) void load(stage, round + 1);
     else {
       visibleCard.current = null;
+      readyAfter.current = stage === "practice" ? exercise : null;
       setPhase(stage === "practice" ? "ready" : "finished");
       scroll.current?.scrollTo({ y: 0, animated: false });
     }
@@ -284,7 +318,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
                     : `${PERSONAL_PRACTICE_COUNT} exercises with feedback, followed by ${PERSONAL_TEST_COUNT} fresh examples in a checkpoint.`}
                 </Txt>
                 {targets.map((item, index) => (
-                  <Pressable key={item.topic} onPress={() => setSelected(index)} accessibilityRole="radio"
+                  <Pressable key={item.topic} onPress={() => selectTopic(index)} accessibilityRole="radio"
                     accessibilityState={{ checked: selected === index }} accessibilityLabel={topicLabel(item.topic)}
                     style={[styles.topic, { borderColor: selected === index ? theme.c.accent : theme.c.line, backgroundColor: theme.c.surface }]}>
                     <Txt variant="bodyStrong">{topicLabel(item.topic)}</Txt>
@@ -349,7 +383,9 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
         )}
       </ScrollView>
       {phase === "intro" && (sourceError ? <Button label={t("action.tryAgain")} onPress={readSources} />
-        : !sourceLoading && target ? <Button label={ru ? "Начать тренировку" : "Start practice"} onPress={() => void load("practice", 1)} />
+        : !sourceLoading && target ? <Button label={ru ? "Начать тренировку" : "Start practice"} onPress={() => {
+          if (choice.current.open) void load("practice", 1);
+        }} />
         : !sourceLoading ? <Button label={ru ? "К упражнениям" : "Back to exercises"} onPress={close} /> : null)}
       {!!stage && !!loadError && <Button label={t("action.tryAgain")} onPress={() => void load(stage, round)} />}
       {!!stage && !!exercise && (grade.result
@@ -360,7 +396,9 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
         }} />
           : <Button label={grade.checking ? (ru ? "Проверяем…" : "Checking…") : grade.error ? t("action.tryAgain") : (ru ? "Проверить" : "Check")}
             disabled={grade.checking || response === null} onPress={submit} />)}
-      {phase === "ready" && <Button label={ru ? "Начать зачёт" : "Start checkpoint"} onPress={() => void load("test", 1)} />}
+      {phase === "ready" && <Button label={ru ? "Начать зачёт" : "Start checkpoint"} onPress={() => {
+        if (readyAfter.current) void load("test", 1);
+      }} />}
       {phase === "finished" && (
         <>
           {!passed && <Button label={ru ? "Потренироваться ещё" : "Practise again"} onPress={restart} />}
