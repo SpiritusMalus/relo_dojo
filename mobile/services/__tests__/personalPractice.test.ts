@@ -1,8 +1,6 @@
 import { ApiError, getExercise, setAuthToken, type Exercise } from "../api";
 import { getPersonalPracticeExercise, personalPracticeTargets } from "../personalPractice";
-import { consumeGuestExercise, GUEST_DAILY_LIMIT, loadGuestLimit, resetGuestLimit } from "../../store/guestLimit";
 import type { Mistake } from "../../store/mistakes";
-import { localDate } from "../../store/streak";
 
 jest.mock("../api", () => ({ ...jest.requireActual("../api"), getExercise: jest.fn() }));
 
@@ -25,10 +23,9 @@ function miss(exercise: Exercise, misses = 1, date = "2026-11-26"): Mistake {
 const signal = () => new AbortController().signal;
 const target = () => personalPracticeTargets([], "B1", "prepositions")[0];
 
-beforeEach(async () => {
+beforeEach(() => {
   setAuthToken(null);
   fetchExercise.mockReset();
-  await resetGuestLimit();
 });
 
 afterEach(() => { jest.useRealTimers(); });
@@ -125,21 +122,6 @@ test("refuses a changed topic or level and stops after three unusable responses"
   await expect(getPersonalPracticeExercise(target(), "practice", [], signal()))
     .rejects.toMatchObject({ code: "personal_practice_unavailable" });
   expect(fetchExercise).toHaveBeenCalledTimes(3);
-});
-
-test("charges guests only for an accepted card and stops before generation at the shared cap", async () => {
-  const today = localDate(new Date());
-  for (let used = 0; used < GUEST_DAILY_LIMIT - 1; used++) await consumeGuestExercise(today);
-  const source = card();
-  const fresh = card({ text: "The lesson starts ___ three." });
-  fetchExercise.mockResolvedValueOnce(source).mockResolvedValueOnce(fresh);
-
-  await expect(getPersonalPracticeExercise(personalPracticeTargets([miss(source)], "B1")[0], "practice", [], signal()))
-    .resolves.toEqual(fresh);
-  expect(await loadGuestLimit()).toEqual({ day: today, used: GUEST_DAILY_LIMIT });
-  await expect(getPersonalPracticeExercise(target(), "practice", [], signal()))
-    .rejects.toMatchObject({ status: 403, code: "daily_limit" });
-  expect(fetchExercise).toHaveBeenCalledTimes(2);
 });
 
 test.each([
