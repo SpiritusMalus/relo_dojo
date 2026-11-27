@@ -86,6 +86,37 @@ test("requires a fresh assessment even when an old filled choice is rearranged i
   }
 });
 
+test("refuses the same finished sentence when a practice gap becomes multiple assessment gaps", async () => {
+  const practiced = card({ text: "She was born ___ May.", options: ["in", "on", "at"] });
+  const repeated = card({
+    type: "multiple-blanks", text: "She ___ born ___ May!", blankOptions: [["is", "was"], ["at", "in"]],
+  });
+  const fresh = card({
+    type: "build-the-sentence", text: "Translate into English:",
+    prompt: "Мы встретились утром.", tiles: ["the", "met", "We", "morning", "in"],
+  });
+  fetchExercise.mockResolvedValueOnce(repeated).mockResolvedValueOnce(fresh);
+
+  await expect(getPersonalPracticeExercise(target(), "test", [practiced, card()], signal())).resolves.toEqual(fresh);
+  expect(fetchExercise.mock.calls.map(([params]) => params?.type)).toEqual(["multiple-blanks", "build-the-sentence"]);
+});
+
+test("refuses oversized blank sets instead of expanding unbounded combinations", async () => {
+  fetchExercise
+    .mockResolvedValueOnce(card({
+      type: "multiple-blanks", text: "___ ___ ___ ___ ___ ___",
+      blankOptions: Array.from({ length: 6 }, () => ["a", "the"]),
+    }))
+    .mockResolvedValueOnce(card({
+      type: "build-the-sentence", text: "Translate into English:",
+      prompt: "Мы встретились утром.", tiles: ["the", "met", "We", "morning", "in"],
+    }));
+
+  const result = await getPersonalPracticeExercise(target(), "test", [card(), card()], signal());
+  expect(result.type).toBe("build-the-sentence");
+  expect(fetchExercise).toHaveBeenCalledTimes(2);
+});
+
 test("refuses a changed topic or level and stops after three unusable responses", async () => {
   fetchExercise
     .mockResolvedValueOnce(card({ topic: "articles" }))

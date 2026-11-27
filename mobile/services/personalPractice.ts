@@ -61,6 +61,32 @@ function words(text: string | undefined): string[] {
   return String(text ?? "").normalize("NFKC").toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
 }
 
+function multipleBlankRows(exercise: Exercise): string[][] | null {
+  // Match the authoring limits of _gen_multiple_blanks: 2–5 gaps, 2–4 choices per gap.
+  const gaps = exercise.text?.match(/___/g)?.length ?? 0;
+  const rows = exercise.blankOptions;
+  if (gaps < 2 || gaps > 5 || !Array.isArray(rows) || rows.length !== gaps) return null;
+  return rows.every((row) => Array.isArray(row) && row.length >= 2 && row.length <= 4 &&
+    row.every((choice) => typeof choice === "string" && choice.trim().length > 0)) ? rows : null;
+}
+
+function multipleBlankKeys(exercise: Exercise): string[] {
+  const stem = words(exercise.text).sort();
+  const rows = multipleBlankRows(exercise);
+  let variants = [stem];
+  // The answer key is sealed. Compare all publicly possible completions (at most 4^5).
+  // Normalize each option once; word order is already treated as cosmetic for cross-format matching.
+  for (const row of rows ?? []) {
+    const choices = row.map(words);
+    variants = variants.flatMap((prefix) => choices.map((choice) => [...prefix, ...choice]));
+  }
+  const keys = new Set(stem.length ? [stem.join(" ")] : []);
+  for (const variant of variants) {
+    if (variant.length) keys.add(variant.sort().join(" "));
+  }
+  return [...keys];
+}
+
 function exampleKeys(exercise: Exercise): string[] {
   // Compare the actual prompts and sentences. Most build/tap cards share a generic instruction,
   // while display order for the tiles and choices is randomized by the server.
@@ -82,6 +108,7 @@ function exampleKeys(exercise: Exercise): string[] {
       break;
     }
     case "multiple-blanks":
+      return multipleBlankKeys(exercise);
     case "free-text":
       examples = [exercise.text, exercise.prompt];
       break;
@@ -108,10 +135,7 @@ function usable(exercise: Exercise, format: ExerciseType): boolean {
     case "multiple-choice": return !!exercise.text?.trim() && exercise.options?.length >= 2;
     case "build-the-sentence": return !!exercise.prompt?.trim() && exercise.tiles?.length >= 2;
     case "tap-the-error": return exercise.tokens?.length >= 2;
-    case "multiple-blanks": {
-      const gapCount = exercise.text?.match(/___/g)?.length ?? 0;
-      return gapCount > 0 && exercise.blankOptions?.length === gapCount && exercise.blankOptions.every((row) => row.length >= 2);
-    }
+    case "multiple-blanks": return multipleBlankRows(exercise) !== null;
     default: return false;
   }
 }
