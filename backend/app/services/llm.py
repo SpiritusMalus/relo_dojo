@@ -457,7 +457,8 @@ def _ms(started: float) -> int:
 
 
 async def _post(
-    url: str, headers: dict[str, str], payload: dict[str, Any], name: str, model: str = ""
+    url: str, headers: dict[str, str], payload: dict[str, Any], name: str, model: str = "",
+    *, log_error_body: bool = True,
 ) -> dict[str, Any]:
     """POST with transient-failure retry and one telemetry line per call (the only place cost and
     latency are visible in prod). `model` defaults from the payload; Gemini passes it explicitly
@@ -490,7 +491,8 @@ async def _post(
             # credit state) — without it a prod 403 is undebuggable from journald.
             logger.warning(
                 "llm error name=%s model=%s ms=%d status=%d body=%s",
-                name, model, _ms(started), resp.status_code, _error_reason(resp.text),
+                name, model, _ms(started), resp.status_code,
+                _error_reason(resp.text) if log_error_body else "[redacted]",
             )
             raise
         try:
@@ -510,7 +512,7 @@ async def _post(
     # Retries exhausted on a retryable status (the loop never got past the continue).
     logger.warning(
         "llm error name=%s model=%s ms=%d status=%d retries=exhausted body=%s",
-        name, model, _ms(started), last_status, _error_reason(last_text),
+        name, model, _ms(started), last_status, _error_reason(last_text) if log_error_body else "[redacted]",
     )
     _raise_for_status(last_status, name, last_text)
     raise LLMError(f"{name} API error {last_status}.")  # pragma: no cover — _raise_for_status raised

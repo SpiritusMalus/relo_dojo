@@ -235,6 +235,10 @@ class Settings(BaseSettings):
     # inert. Prod enable is owner-gated (RKN audio-category amendment + the client voice flag/consent).
     # Reuses the same GEMINI_API_KEY / GEMINI_MODEL as the text LLM path (services/llm.py).
     VOICE_ENABLED: bool = False
+    VOICE_CONVERSATION_ENABLED: bool = False
+    VOICE_CONVERSATION_STT_MODEL: str = "openai/whisper-1"
+    VOICE_CONVERSATION_TTS_MODEL: str = "elevenlabs/eleven-flash-v2.5"
+    VOICE_CONVERSATION_TTS_VOICE: str = "george"
     # Cost/abuse guards on the read-aloud upload (audio→Gemini). Bytes is enforced server-side (413);
     # seconds is the client-side cap mirrored here for the runbook.
     VOICE_MAX_AUDIO_SECONDS: int = 20
