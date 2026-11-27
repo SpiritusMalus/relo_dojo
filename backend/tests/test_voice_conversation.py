@@ -254,6 +254,79 @@ def test_inaudible_transcript_skips_feedback_and_resumes_listening(socket_client
     providers[1].assert_awaited_once()
 
 
+@pytest.mark.parametrize("sparse_frames", [False, True])
+def test_partial_capture_deadline_discards_onset_and_allows_another_turn(
+    monkeypatch, socket_client, providers, sparse_frames,
+):
+    client, headers, _ = socket_client
+    monkeypatch.setattr(route, "_CAPTURE_TIMEOUT" if sparse_frames else "_CAPTURE_FRAME_TIMEOUT", 0.15)
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        _start(ws)
+        _audio(ws, SOUND * 6)
+        assert ws.receive_json() == {"type": "speech_start"}
+        stopped = threading.Event()
+
+        def drip_pcm():
+            while not stopped.wait(0.02):
+                _audio(ws, bytes(2))
+
+        sender = threading.Thread(target=drip_pcm, daemon=True)
+        if sparse_frames:
+            sender.start()
+        try:
+            assert ws.receive_json() == {"type": "done"}
+        finally:
+            if sparse_frames:
+                stopped.set()
+                sender.join()
+        providers[0].assert_not_called()
+        _utterance(ws)
+        _finish(ws)
+    providers[0].assert_awaited_once()
+
+
+def test_continuous_silent_frames_cannot_keep_a_slot_open(monkeypatch, socket_client, providers):
+    client, headers, user = socket_client
+    monkeypatch.setattr(route, "_SPEECH_IDLE_TIMEOUT", 0.3)
+    stopped = threading.Event()
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        _start(ws)
+
+        def send_silence():
+            while not stopped.wait(0.02):
+                _audio(ws, SILENCE)
+
+        sender = threading.Thread(target=send_silence, daemon=True)
+        sender.start()
+        try:
+            assert ws.receive_json() == {"type": "error", "code": "idle_timeout"}
+        finally:
+            stopped.set()
+            sender.join()
+    assert str(user.id) not in route._active
+    providers[0].assert_not_called()
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        _start(ws)
+
+
+def test_listening_idle_deadline_does_not_interrupt_provider_work(monkeypatch, socket_client, providers):
+    client, headers, _ = socket_client
+    monkeypatch.setattr(route, "_SPEECH_IDLE_TIMEOUT", 0.2)
+
+    async def transcribe(_):
+        await asyncio.sleep(0.25)
+        return "I go to work."
+
+    monkeypatch.setattr(voice, "transcribe", transcribe)
+    with client.websocket_connect("/voice/conversation", headers=headers) as ws:
+        _start(ws)
+        _utterance(ws)
+        _finish(ws)
+        _utterance(ws)
+        _finish(ws)
+    assert providers[1].await_count == 2
+
+
 def test_interrupt_cancels_provider_work_and_the_same_socket_accepts_another_turn(
     monkeypatch, socket_client, providers,
 ):
