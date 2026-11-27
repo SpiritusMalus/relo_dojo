@@ -12,6 +12,8 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { reviewText, type ReviewResult } from "../services/api";
 import { trackReviewSubmitted } from "../services/analytics";
+import { isPersonalPracticeTopic } from "../services/personalPractice";
+import { personalPracticeEnabled } from "../services/personalPracticeEnabled";
 import { useI18n } from "../store/i18n";
 import { useAccountScope } from "../store/useAccountScope";
 import { isCurrentAccountScope } from "../store/accountScope";
@@ -93,6 +95,18 @@ export default function TextReviewScreen() {
     mounted.current = false;
     inFlight.current?.abort();
     router.back();
+  }
+
+  const practiceIssues = new Map<string, number>();
+  if (personalPracticeEnabled() && result) {
+    result.issues.forEach(({ topic }, index) => {
+      if (isPersonalPracticeTopic(topic) && !practiceIssues.has(topic)) practiceIssues.set(topic, index);
+    });
+  }
+
+  function practiseIssue(topic: string) {
+    if (!mounted.current || !isCurrentAccountScope(scope)) return;
+    router.navigate({ pathname: "/personal-practice", params: { topic } });
   }
 
   return (
@@ -191,6 +205,14 @@ export default function TextReviewScreen() {
                   <Txt variant="secondary" color={t.c.ink2}>
                     {issue.note}
                   </Txt>
+                )}
+                {practiceIssues.get(issue.topic) === i && (
+                  <Button
+                    label={lang === "ru" ? "Потренировать тему" : "Practise this topic"}
+                    onPress={() => practiseIssue(issue.topic)}
+                    variant="ghost"
+                    style={{ marginTop: 10 }}
+                  />
                 )}
               </Card>
             ))}

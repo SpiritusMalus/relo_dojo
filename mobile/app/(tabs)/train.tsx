@@ -10,10 +10,12 @@ import { dueCount } from "../../store/mistakes";
 import { useAccountScope } from "../../store/useAccountScope";
 import { isCurrentAccountScope } from "../../store/accountScope";
 import { getStoryCatalog } from "../../services/api";
+import { personalPracticeEnabled } from "../../services/personalPracticeEnabled";
 import Screen from "../../components/ui/Screen";
 import TopBar from "../../components/ui/TopBar";
 import ActivationBanner from "../../components/ui/ActivationBanner";
 import LockGate from "../../components/ui/LockGate";
+import ModeButton from "../../components/ui/ModeButton";
 import TopicsBody from "../../components/ui/TopicsBody";
 import StoryButton from "../../components/ui/StoryButton";
 import ChaptersButton from "../../components/ui/ChaptersButton";
@@ -32,7 +34,7 @@ export default function TrainScreen() {
   const { progress } = useProgress();
   const { user } = useAuth();
   const access = useAccess();
-  const { t: tr } = useI18n();
+  const { t: tr, lang } = useI18n();
   const bp = beltProgress(progress);
   const locked = !!user && !user.is_verified;
 
@@ -67,6 +69,14 @@ export default function TrainScreen() {
           the same access to modes they had on Home. Each entry preserves its own gate exactly. */}
       <Txt variant="screenTitle" style={{ marginTop: 4 }}>{tr("train.intro")}</Txt>
       <ChaptersButton onPress={() => router.navigate("/chapters")} />
+      {personalPracticeEnabled() && (
+        <ModeButton
+          title={lang === "ru" ? "Тренировка по моим ошибкам" : "Practise my mistakes"}
+          subtitle={lang === "ru" ? "Упражнения и зачёт на новых примерах" : "Practice and a quiz on fresh examples"}
+          icon="target"
+          onPress={() => router.navigate("/personal-practice")}
+        />
+      )}
       <LockGate locked={!access.review_text}>
         <TextReviewButton onPress={() => router.navigate("/text-review")} />
       </LockGate>
