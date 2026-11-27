@@ -12,6 +12,7 @@ type Session = {
   socket?: WebSocket;
   audio?: LiveAudioSession;
   audioOpening?: Promise<LiveAudioSession>;
+  cancelForegroundWait?: () => void;
   phase: Phase;
   timer?: ReturnType<typeof setTimeout>;
   playback: Promise<void>;
@@ -19,8 +20,27 @@ type Session = {
 };
 
 const CONNECT_MS = 12000;
+const FOREGROUND_MS = 6000;
 const TURN_MS = 35000;
 const INTERRUPT_MS = 5000;
+
+function waitForForeground(session: Session): Promise<boolean> {
+  if (AppState.currentState === "active") return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const finish = (available: boolean) => {
+      clearTimeout(timer);
+      subscription.remove();
+      session.cancelForegroundWait = undefined;
+      resolve(available);
+    };
+    const timer = setTimeout(() => finish(false), FOREGROUND_MS);
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") finish(true);
+    });
+    session.cancelForegroundWait = () => finish(false);
+    if (AppState.currentState === "active") finish(true);
+  });
+}
 
 export function useLiveConversation(token: string | null) {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -36,6 +56,7 @@ export function useLiveConversation(token: string | null) {
     if (!session) return;
     active.current = null;
     clearTimeout(session.timer);
+    session.cancelForegroundWait?.();
     session.playbackEpoch += 1;
     try { session.socket?.close(); } catch { /* The underlying socket may already be gone. */ }
     const audio = session.audio ? Promise.resolve(session.audio) : session.audioOpening;
@@ -57,7 +78,9 @@ export function useLiveConversation(token: string | null) {
   useEffect(() => {
     mounted.current = true;
     const appState = AppState.addEventListener("change", (value) => {
-      if (value === "background" && active.current) stop();
+      // Android pauses the activity for its microphone permission dialog.
+      // Before the socket exists there is no microphone or upstream session to stop.
+      if (value === "background" && active.current?.socket) stop();
     });
     const network = conversationEnabled() ? addNetworkStateListener((state) => {
       if (state.type === NetworkStateType.NONE && active.current) fail("offline");
@@ -103,6 +126,12 @@ export function useLiveConversation(token: string | null) {
       if (!current()) return;
       if (!permission) {
         fail("microphone");
+        return;
+      }
+      const foreground = await waitForForeground(session);
+      if (!current()) return;
+      if (!foreground) {
+        fail("connection");
         return;
       }
       const socket = openConversationSocket(token);
