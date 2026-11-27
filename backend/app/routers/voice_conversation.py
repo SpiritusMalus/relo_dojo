@@ -170,7 +170,11 @@ async def _serve(socket: WebSocket, user_id: str) -> None:
                     data = await _receive(socket, receive_until - now)
                 except TimeoutError:
                     continue
-                last_frame = time.monotonic()
+                received_at = time.monotonic()
+                if received_at >= receive_until:
+                    # A queued frame may win the receive race just after its deadline.
+                    continue
+                last_frame = received_at
                 if active_turn is not None and active_turn.done():
                     await active_turn
                     active_turn = None
