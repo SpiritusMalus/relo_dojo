@@ -33,6 +33,9 @@ _START_TIMEOUT = 8
 _AUTH_TIMEOUT = 4
 _ERROR_CLOSE_TIMEOUT = 1
 _IDLE_TIMEOUT = 45
+_SPEECH_IDLE_TIMEOUT = 50
+_CAPTURE_TIMEOUT = 23
+_CAPTURE_FRAME_TIMEOUT = 3
 _MAX_TURNS = 24
 _MAX_SESSIONS = 6
 _MAX_MESSAGES = 30_000
@@ -140,39 +143,68 @@ async def _serve(socket: WebSocket, user_id: str) -> None:
     active_turn: asyncio.Task[None] | None = None
     turn_count = 0
     last_audio = time.monotonic()
+    last_frame = last_audio
+    quiet_until = last_audio + _SPEECH_IDLE_TIMEOUT
+    capture_until: float | None = None
     budget = float(_MAX_AUDIO_BURST)
     try:
         async with asyncio.timeout(_SESSION_SECONDS):
             for _ in range(_MAX_MESSAGES):
+                now = time.monotonic()
+                receive_until = last_frame + _IDLE_TIMEOUT
+                if active_turn is None:
+                    if capture_until is not None:
+                        capture_deadline = min(capture_until, last_audio + _CAPTURE_FRAME_TIMEOUT)
+                        if now >= capture_deadline:
+                            # Missing or sparse frames can leave the detector short of its sample limit.
+                            detector = voice.SpeechTurnDetector()
+                            capture_until = None
+                            await socket.send_json({"type": "done"})
+                        else:
+                            receive_until = min(receive_until, capture_deadline)
+                    if capture_until is None:
+                        receive_until = min(receive_until, quiet_until)
+                if now >= receive_until:
+                    raise SessionError("idle_timeout", 1000)
                 try:
-                    data = await _receive(socket, _IDLE_TIMEOUT)
-                except TimeoutError as exc:
-                    raise SessionError("idle_timeout", 1000) from exc
+                    data = await _receive(socket, receive_until - now)
+                except TimeoutError:
+                    continue
+                received_at = time.monotonic()
+                if received_at >= receive_until:
+                    # A queued frame may win the receive race just after its deadline.
+                    continue
+                last_frame = received_at
                 if active_turn is not None and active_turn.done():
                     await active_turn
                     active_turn = None
+                    quiet_until = last_frame + _SPEECH_IDLE_TIMEOUT
                 if data.get("type") == "interrupt":
+                    if active_turn is not None:
+                        quiet_until = last_frame + _SPEECH_IDLE_TIMEOUT
                     await _cancel(active_turn)
                     active_turn = None
                     detector = voice.SpeechTurnDetector()
+                    capture_until = None
                     await socket.send_json({"type": "interrupted"})
                     continue
                 if data.get("type") != "audio":
                     raise SessionError("invalid_message")
                 pcm = _audio(data)
-                now = time.monotonic()
-                budget = min(_MAX_AUDIO_BURST, budget + (now - last_audio) * voice.MIC_BYTES_PER_SECOND)
+                budget = min(_MAX_AUDIO_BURST, budget + (last_frame - last_audio) * voice.MIC_BYTES_PER_SECOND)
                 budget -= len(pcm)
-                last_audio = now
+                last_audio = last_frame
                 if budget < 0:
                     raise SessionError("audio_rate_limit")
                 if active_turn is not None:
                     continue  # Echo and queued mic frames must not become a new paid turn.
                 started, completed = detector.feed(pcm)
                 if started:
+                    capture_until = last_frame + _CAPTURE_TIMEOUT
                     await socket.send_json({"type": "speech_start"})
                 if completed is None:
                     continue
+                capture_until = None
                 if not completed:
                     await socket.send_json({"type": "done"})
                     continue
