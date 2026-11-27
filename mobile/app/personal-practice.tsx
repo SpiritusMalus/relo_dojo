@@ -17,10 +17,12 @@ import {
 import { personalPracticeEnabled } from "../services/personalPracticeEnabled";
 import { isCurrentAccountScope, type AccountScope } from "../store/accountScope";
 import { effectiveSkill, levelToCefr } from "../store/adaptive";
+import { deliverGuestExercise, loadGuestLimit, remaining } from "../store/guestLimit";
 import { useI18n } from "../store/i18n";
 import { loadMistakes } from "../store/mistakes";
 import { TOPIC_LABELS } from "../store/onboarding";
 import { useProgress } from "../store/progress";
+import { localDate } from "../store/streak";
 import { useAccountScope } from "../store/useAccountScope";
 import { useExerciseCheck, type Result } from "../store/useExerciseCheck";
 import { useTheme } from "../theme/theme";
@@ -28,6 +30,16 @@ import { useTheme } from "../theme/theme";
 type Phase = "intro" | "practice" | "ready" | "test" | "finished";
 type Stage = "practice" | "test";
 type TestAnswer = { exercise: Exercise; result: Result };
+type CardResult = { exercise: Exercise } | { error: unknown };
+type CardRequest = {
+  target: PersonalPracticeTarget;
+  stage: Stage;
+  round: number;
+  controller: AbortController;
+  result: Promise<CardResult>;
+};
+
+const stageCount = (stage: Stage) => stage === "practice" ? PERSONAL_PRACTICE_COUNT : PERSONAL_TEST_COUNT;
 
 export default function PersonalPracticeScreen() {
   const scope = useAccountScope();
@@ -62,7 +74,8 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
 
   const opened = useRef(true);
   const sourceRequest = useRef(false);
-  const exerciseRequest = useRef<AbortController | null>(null);
+  const pendingCard = useRef<CardRequest | null>(null);
+  const delivering = useRef(false);
   const seen = useRef<Exercise[]>([]);
   const turning = useRef(false);
   const scroll = useRef<ScrollView>(null);
@@ -74,7 +87,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
     void readSources();
     return () => {
       opened.current = false;
-      exerciseRequest.current?.abort();
+      discardPendingCard();
     };
     // Scope and requested topic are keyed by the route wrapper. Load a single snapshot per session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -96,9 +109,31 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
     }
   }
 
+  function discardPendingCard() {
+    pendingCard.current?.controller.abort();
+    pendingCard.current = null;
+  }
+
+  function startCardRequest(selection: PersonalPracticeTarget, stage: Stage, number: number): CardRequest {
+    const controller = new AbortController();
+    const result = getPersonalPracticeExercise(selection, stage, seen.current.slice(), controller.signal)
+      .then<CardResult, CardResult>((exercise) => ({ exercise }), (error: unknown) => ({ error }));
+    const request = { target: selection, stage, round: number, controller, result };
+    pendingCard.current = request;
+    return request;
+  }
+
+  async function warmNextCard(selection: PersonalPracticeTarget, stage: Stage, number: number, shown: Exercise) {
+    if (number >= stageCount(stage)) return;
+    if (scope.owner === "guest" && remaining(await loadGuestLimit(), localDate(new Date())) === 0) return;
+    // The quota read may finish after Next, a replacement, or a return to the previous screen.
+    if (!open() || delivering.current || pendingCard.current || seen.current.at(-1) !== shown) return;
+    startCardRequest(selection, stage, number + 1);
+  }
+
   function close() {
     opened.current = false;
-    exerciseRequest.current?.abort();
+    discardPendingCard();
     if (router.canGoBack()) router.back();
     else router.replace("/(tabs)/train");
   }
@@ -123,9 +158,13 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
   }
 
   async function load(stage: Stage, number: number) {
-    if (!target || !open() || exerciseRequest.current || turning.current) return;
-    const request = new AbortController();
-    exerciseRequest.current = request;
+    if (!target || !open() || delivering.current || turning.current) return;
+    delivering.current = true;
+    let request = pendingCard.current;
+    if (request && (request.target !== target || request.stage !== stage || request.round !== number)) {
+      discardPendingCard();
+      request = null;
+    }
     setPhase(stage);
     setRound(number);
     setLoading(true);
@@ -135,18 +174,35 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
     setResponseDisplay("");
     grade.reset();
     scroll.current?.scrollTo({ y: 0, animated: false });
+    const fetchForDelivery = async () => {
+      if (!open()) throw new ApiError("Request cancelled.", 409, "request_aborted");
+      request ??= startCardRequest(target, stage, number);
+      const result = await request.result;
+      if (!open() || request.controller.signal.aborted) {
+        throw new ApiError("Request cancelled.", 409, "request_aborted");
+      }
+      if ("error" in result) throw result.error;
+      return result.exercise;
+    };
+    let shown: Exercise | null = null;
     try {
-      const next = await getPersonalPracticeExercise(target, stage, seen.current, request.signal);
-      if (!open() || request.signal.aborted) return;
+      const next = scope.owner === "guest"
+        ? await deliverGuestExercise(localDate(new Date()), fetchForDelivery)
+        : await fetchForDelivery();
+      if (!open()) return;
+      if (!next) throw new ApiError("Daily exercise limit reached.", 403, "daily_limit");
       seen.current.push(next);
       grade.beginAttempt(next);
       setExercise(next);
+      shown = next;
     } catch (error) {
-      if (open() && !request.signal.aborted) setLoadError(explainLoadError(error));
+      if (open()) setLoadError(explainLoadError(error));
     } finally {
-      if (exerciseRequest.current === request) exerciseRequest.current = null;
-      if (open() && !request.signal.aborted) setLoading(false);
+      if (pendingCard.current === request) discardPendingCard();
+      delivering.current = false;
+      if (open()) setLoading(false);
     }
+    if (shown) void warmNextCard(target, stage, number, shown);
   }
 
   async function submit() {
@@ -162,8 +218,8 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
   }
 
   function advance(stage: Stage) {
-    if (!open() || !grade.result || turning.current || exerciseRequest.current) return;
-    const count = stage === "practice" ? PERSONAL_PRACTICE_COUNT : PERSONAL_TEST_COUNT;
+    if (!open() || !grade.result || turning.current || delivering.current) return;
+    const count = stageCount(stage);
     if (round < count) void load(stage, round + 1);
     else {
       setPhase(stage === "practice" ? "ready" : "finished");
@@ -172,7 +228,7 @@ function PracticeSession({ scope, requestedTopic }: { scope: AccountScope; reque
   }
 
   function restart() {
-    if (exerciseRequest.current) return;
+    if (delivering.current) return;
     setTestAnswers([]);
     void load("practice", 1);
   }

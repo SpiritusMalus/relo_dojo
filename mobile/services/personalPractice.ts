@@ -1,9 +1,7 @@
 import { captureAccountScope, isCurrentAccountScope, subscribeAccountScope, type AccountScope } from "../store/accountScope";
 import { isCefr, TOPIC_PRIORS } from "../store/adaptive";
 import { CHECKPOINT_FORMATS } from "../store/curriculum";
-import { deliverGuestExercise } from "../store/guestLimit";
 import { mistakeHintsForTopic, type Mistake } from "../store/mistakes";
-import { localDate } from "../store/streak";
 import { ApiError, getExercise, type Exercise, type ExerciseType } from "./api";
 
 export const PERSONAL_PRACTICE_COUNT = 3;
@@ -196,12 +194,7 @@ export async function getPersonalPracticeExercise(
     throw new ApiError("A fresh exercise is temporarily unavailable.", 503, "personal_practice_unavailable");
   };
   try {
-    const exercise = await Promise.race([
-      interrupted,
-      scope.owner === "guest" ? deliverGuestExercise(localDate(new Date()), fetchFreshCard) : fetchFreshCard(),
-    ]);
-    if (!exercise) throw new ApiError("Daily exercise limit reached.", 403, "daily_limit");
-    return exercise;
+    return await Promise.race([interrupted, fetchFreshCard()]);
   } finally {
     clearTimeout(timer);
     unsubscribe();
